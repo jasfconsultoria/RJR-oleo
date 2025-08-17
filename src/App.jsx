@@ -1,0 +1,174 @@
+import React, { useEffect, useCallback } from 'react';
+    import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
+    import { Toaster } from '@/components/ui/toaster';
+    import LandingPage from '@/pages/LandingPage';
+    import AppLayout from '@/components/AppLayout';
+    import LoginScreen from '@/pages/LoginScreen';
+    import DashboardPage from '@/pages/DashboardPage';
+    import ListaColetas from '@/pages/ListaColetas';
+    import ColetaForm from '@/pages/ColetaForm';
+    import ListaClientes from '@/pages/ListaClientes';
+    import ClienteForm from '@/pages/ClienteForm';
+    import CertificadoPage from '@/pages/CertificadoPage';
+    import ListaCertificados from '@/pages/ListaCertificados';
+    import CertificadoViewPage from '@/pages/CertificadoViewPage';
+    import AssinaturaPage from '@/pages/AssinaturaPage';
+    import ContratoAssinadoPage from '@/pages/ContratoAssinadoPage';
+    import RelatoriosPage from '@/pages/RelatoriosPage';
+    import UserManagementPage from '@/pages/UserManagementPage';
+    import UserFormPage from '@/pages/UserFormPage';
+    import EmpresaPage from '@/pages/EmpresaPage';
+    import { useAuth } from '@/contexts/SupabaseAuthContext';
+    import { useProfile } from '@/contexts/ProfileContext';
+    import { useToast } from '@/components/ui/use-toast';
+    import { supabase } from '@/lib/customSupabaseClient';
+    import ListaContratos from '@/pages/ListaContratos';
+    import ContratoForm from '@/pages/ContratoForm';
+    import AjudaPage from '@/pages/AjudaPage';
+    import FaqPage from '@/pages/FaqPage';
+    import SobreSistemaPage from '@/pages/SobreSistemaPage';
+    import LogsPage from '@/pages/LogsPage';
+    import VersoesPage from '@/pages/VersoesPage';
+    import ListaFinanceiro from '@/pages/ListaFinanceiro';
+    import FinanceiroForm from '@/pages/FinanceiroForm';
+    import AssinaturaReciboPage from '@/pages/AssinaturaReciboPage';
+    import ReciboPublicoPage from '@/pages/ReciboPublicoPage';
+
+    const ProtectedRoute = ({ children, requiredRole }) => {
+      const { session, loading: authLoading } = useAuth();
+      const { profile, loading: profileLoading } = useProfile();
+      const location = useLocation();
+
+      if (authLoading || profileLoading) {
+        return <div className="flex justify-center items-center h-screen bg-gradient-to-br from-emerald-900 via-teal-900 to-cyan-900 text-white"><p>Carregando...</p></div>;
+      }
+      
+      if (!session) {
+        return <Navigate to="/app/login" state={{ from: location }} replace />;
+      }
+
+      if (requiredRole && profile?.role !== requiredRole) {
+        return <Navigate to="/app/dashboard" replace />;
+      }
+
+      return children;
+    };
+
+    function App() {
+      const { session, signOut } = useAuth();
+      const { toast } = useToast();
+      const navigate = useNavigate();
+
+      const handleSignOutAndRedirect = useCallback(async (isError = false) => {
+        await signOut();
+        navigate('/app/login');
+        if (isError) {
+          toast({
+            variant: "destructive",
+            title: "Sessão Expirada",
+            description: "Por favor, faça o login novamente.",
+          });
+        }
+      }, [signOut, navigate, toast]);
+
+      useEffect(() => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+          (event, session) => {
+            if (event === 'SIGNED_OUT') {
+               // This will be handled by the redirect in ProtectedRoute
+            } else if (event === 'TOKEN_REFRESHED' && session === null) {
+              // This case indicates a problem with the refresh token.
+              handleSignOutAndRedirect(true);
+            } else if (event === 'USER_DELETED') {
+               handleSignOutAndRedirect(true);
+            }
+          }
+        );
+        
+        return () => {
+          subscription.unsubscribe();
+        };
+      }, [handleSignOutAndRedirect]);
+
+      return (
+        <>
+          <Routes>
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/ajuda" element={<AjudaPage />} />
+            <Route path="/faq" element={<FaqPage />} />
+            <Route path="/sobre" element={<SobreSistemaPage />} />
+            <Route path="/certificado-view" element={<CertificadoViewPage />} />
+            <Route path="/assinatura/recibo/:id" element={<AssinaturaReciboPage />} />
+            <Route path="/recibo/publico/:id" element={<ReciboPublicoPage />} />
+            <Route path="/assinatura/:id" element={<AssinaturaPage />} />
+            <Route path="/contrato-assinado/:id" element={<ContratoAssinadoPage />} />
+            <Route path="/app/login" element={!session ? <LoginScreen /> : <Navigate to="/app/dashboard" />} />
+            <Route 
+              path="/app/*"
+              element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <Routes>
+                      <Route path="dashboard" element={<DashboardPage />} />
+                      <Route path="coletas" element={<ListaColetas />} />
+                      <Route path="coletas/nova" element={<ColetaForm />} />
+                      <Route path="coletas/editar/:id" element={<ColetaForm />} />
+                      <Route path="clientes" element={<ListaClientes />} />
+                      <Route path="clientes/novo" element={<ClienteForm />} />
+                      <Route path="clientes/editar/:id" element={<ClienteForm />} />
+                      <Route path="sobre" element={<SobreSistemaPage />} />
+                      <Route path="versoes" element={<VersoesPage />} />
+                      
+                      <Route path="certificados" element={<ProtectedRoute requiredRole="administrador"><ListaCertificados /></ProtectedRoute>} />
+                      <Route path="certificados/novo" element={<ProtectedRoute requiredRole="administrador"><CertificadoPage /></ProtectedRoute>} />
+                      <Route path="relatorios" element={<ProtectedRoute requiredRole="administrador"><RelatoriosPage /></ProtectedRoute>} />
+                      <Route path="contratos" element={<ListaContratos />} />
+                      <Route path="contratos/novo" element={<ContratoForm />} />
+                      <Route path="contratos/editar/:id" element={<ContratoForm />} />
+                      
+                      {/* New Financeiro Routes */}
+                      <Route path="financeiro/credito" element={<ProtectedRoute requiredRole="administrador"><ListaFinanceiro type="credito" /></ProtectedRoute>} />
+                      <Route path="financeiro/credito/novo" element={<ProtectedRoute requiredRole="administrador"><FinanceiroForm type="credito" /></ProtectedRoute>} />
+                      <Route path="financeiro/credito/editar/:id" element={<ProtectedRoute requiredRole="administrador"><FinanceiroForm type="credito" /></ProtectedRoute>} />
+                      <Route path="financeiro/debito" element={<ProtectedRoute requiredRole="administrador"><ListaFinanceiro type="debito" /></ProtectedRoute>} />
+                      <Route path="financeiro/debito/novo" element={<ProtectedRoute requiredRole="administrador"><FinanceiroForm type="debito" /></ProtectedRoute>} />
+                      <Route path="financeiro/debito/editar/:id" element={<ProtectedRoute requiredRole="administrador"><FinanceiroForm type="debito" /></ProtectedRoute>} />
+
+                      <Route path="usuarios" element={
+                        <ProtectedRoute requiredRole="administrador">
+                          <UserManagementPage />
+                        </ProtectedRoute>
+                      } />
+                       <Route path="usuarios/novo" element={
+                        <ProtectedRoute requiredRole="administrador">
+                          <UserFormPage />
+                        </ProtectedRoute>
+                      } />
+                      <Route path="usuarios/editar/:id" element={
+                        <ProtectedRoute requiredRole="administrador">
+                          <UserFormPage />
+                        </ProtectedRoute>
+                      } />
+                      <Route path="empresa" element={
+                        <ProtectedRoute requiredRole="administrador">
+                          <EmpresaPage />
+                        </ProtectedRoute>
+                      } />
+                      <Route path="logs" element={
+                        <ProtectedRoute requiredRole="administrador">
+                          <LogsPage />
+                        </ProtectedRoute>
+                      } />
+                      <Route path="*" element={<Navigate to="/app/dashboard" />} />
+                    </Routes>
+                  </AppLayout>
+                </ProtectedRoute>
+              } 
+            />
+          </Routes>
+          <Toaster />
+        </>
+      );
+    }
+
+    export default App;

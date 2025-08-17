@@ -1,0 +1,2 @@
+INSERT INTO public.versoes (versao, hash, descricao)
+VALUES ('1.70.2', 'c222319', '- **Refinamento Visual:** Redução do tamanho da fonte base e aumento do arredondamento dos cantos em toda a aplicação para um design mais elegante e moderno.');
