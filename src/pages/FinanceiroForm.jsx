@@ -93,7 +93,13 @@ const FinanceiroForm = ({ type }) => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData((prev) => {
+      const newState = { ...prev, [name]: value };
+      if (name === 'total_value') {
+        newState.down_payment = value;
+      }
+      return newState;
+    });
   };
 
   const handleSelectChange = (name, value) => {
@@ -122,7 +128,13 @@ const FinanceiroForm = ({ type }) => {
 
   const parsedTotalValue = parseCurrency(formData.total_value);
   const parsedDownPayment = parseCurrency(formData.down_payment);
-  const showInstallments = parsedTotalValue > parsedDownPayment;
+  const showInstallments = parsedTotalValue > 0 && parsedTotalValue > parsedDownPayment;
+
+  useEffect(() => {
+    if (!showInstallments) {
+      handleInstallmentsChange([]);
+    }
+  }, [showInstallments, handleInstallmentsChange]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -150,11 +162,11 @@ const FinanceiroForm = ({ type }) => {
         date: format(formData.issue_date, 'yyyy-MM-dd')
     } : null;
 
-    const installmentsPayload = formData.installments.map(inst => ({
+    const installmentsPayload = showInstallments ? formData.installments.map(inst => ({
         amount: inst.expected_amount,
         date: format(inst.issue_date, 'yyyy-MM-dd'),
         number: inst.installment_number
-    }));
+    })) : [];
 
     const rpcParams = {
         p_lancamento_id: lancamentoId,
@@ -169,7 +181,7 @@ const FinanceiroForm = ({ type }) => {
         p_cost_center: formData.cost_center,
         p_notes: formData.notes,
         p_user_id: user.id,
-        p_total_installments: formData.installments.length + (parsedDownPayment > 0 ? 1 : 0),
+        p_total_installments: installmentsPayload.length + (parsedDownPayment > 0 ? 1 : 0),
         p_down_payment: downPaymentPayload,
         p_installments: installmentsPayload
     };
