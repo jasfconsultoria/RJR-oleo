@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Helmet } from 'react-helmet';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -46,6 +46,7 @@ const FinanceiroForm = ({ type }) => {
   const { toast } = useToast();
   const { user } = useAuth();
   const isEditing = Boolean(id);
+  const downPaymentInputRef = useRef(null);
 
   const [formData, setFormData] = useState({
     document_number: '',
@@ -140,6 +141,17 @@ const FinanceiroForm = ({ type }) => {
 
     if (!formData.document_number.trim() || !formData.cliente_fornecedor_name.trim() || !unmask(formData.cnpj_cpf).trim() || !formData.issue_date || !formData.description.trim() || parsedTotalValue <= 0) {
       toast({ title: 'Campos obrigatórios', description: 'Preencha todos os campos obrigatórios (Nº Doc, Cliente/Fornecedor, CNPJ/CPF, Descrição, Valor Total).', variant: 'destructive' });
+      setSaving(false);
+      return;
+    }
+
+    if (parsedDownPayment > parsedTotalValue) {
+      toast({
+        title: 'Valor Inválido',
+        description: 'O valor da entrada não pode ser maior que o valor total.',
+        variant: 'destructive'
+      });
+      downPaymentInputRef.current?.element.focus();
       setSaving(false);
       return;
     }
@@ -357,6 +369,7 @@ const FinanceiroForm = ({ type }) => {
                 <div>
                   <Label htmlFor="down_payment" className="text-lg">Valor de Entrada (R$)</Label>
                   <IMaskInput
+                    ref={downPaymentInputRef}
                     mask="num"
                     blocks={{
                       num: {
