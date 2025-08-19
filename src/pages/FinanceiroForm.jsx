@@ -120,6 +120,10 @@ const FinanceiroForm = ({ type }) => {
     setFormData((prev) => ({ ...prev, installments: installmentsData }));
   }, []);
 
+  const parsedTotalValue = parseCurrency(formData.total_value);
+  const parsedDownPayment = parseCurrency(formData.down_payment);
+  const showInstallments = parsedTotalValue > parsedDownPayment;
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
@@ -127,8 +131,8 @@ const FinanceiroForm = ({ type }) => {
     const parsedTotalValue = parseCurrency(formData.total_value);
     const parsedDownPayment = parseCurrency(formData.down_payment);
 
-    if (!formData.cliente_fornecedor_name.trim() || !formData.issue_date || !formData.description.trim() || parsedTotalValue <= 0) {
-      toast({ title: 'Campos obrigatórios', description: 'Preencha todos os campos obrigatórios.', variant: 'destructive' });
+    if (!formData.document_number.trim() || !formData.cliente_fornecedor_name.trim() || !unmask(formData.cnpj_cpf).trim() || !formData.issue_date || !formData.description.trim() || parsedTotalValue <= 0) {
+      toast({ title: 'Campos obrigatórios', description: 'Preencha todos os campos obrigatórios (Nº Doc, Cliente/Fornecedor, CNPJ/CPF, Descrição, Valor Total).', variant: 'destructive' });
       setSaving(false);
       return;
     }
@@ -214,8 +218,8 @@ const FinanceiroForm = ({ type }) => {
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <Label htmlFor="document_number" className="text-lg">Nº Doc.</Label>
-                  <Input id="document_number" name="document_number" value={formData.document_number} onChange={handleInputChange} placeholder="Ex: 001/2025" className="bg-white/5 border-white/20 rounded-xl" />
+                  <Label htmlFor="document_number" className="text-lg">Nº Doc. <span className="text-red-500">*</span></Label>
+                  <Input id="document_number" name="document_number" value={formData.document_number} onChange={handleInputChange} placeholder="Ex: 001/2025" className="bg-white/5 border-white/20 rounded-xl" required />
                 </div>
                 <div>
                   <Label htmlFor="issue_date" className="text-lg">Emissão <span className="text-red-500">*</span></Label>
@@ -236,8 +240,22 @@ const FinanceiroForm = ({ type }) => {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="cnpj_cpf_display" className="text-lg">CNPJ/CPF</Label>
-                  <Input id="cnpj_cpf_display" name="cnpj_cpf_display" value={formatCnpjCpf(formData.cnpj_cpf)} readOnly className="bg-white/5 border-white/20 rounded-xl disabled:opacity-70 disabled:cursor-not-allowed" />
+                  <Label htmlFor="cnpj_cpf" className="text-lg">CNPJ/CPF <span className="text-red-500">*</span></Label>
+                  <IMaskInput
+                    mask={[
+                      { mask: '000.000.000-00', maxLength: 11 },
+                      { mask: '00.000.000/0000-00' }
+                    ]}
+                    as={Input}
+                    id="cnpj_cpf"
+                    name="cnpj_cpf"
+                    value={formData.cnpj_cpf}
+                    onAccept={(value) => handleCnpjCpfChange(String(value))}
+                    placeholder="Digite o CNPJ ou CPF"
+                    className="w-full flex h-10 rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-sm"
+                    disabled={!!formData.pessoa_id}
+                    required
+                  />
                 </div>
                 <div>
                   <Label htmlFor="model" className="text-lg">Modelo</Label>
@@ -331,21 +349,23 @@ const FinanceiroForm = ({ type }) => {
                     className="w-full flex h-10 rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   />
                 </div>
-                <div>
-                  <Label htmlFor="installments_number" className="text-lg">Número de Parcelas</Label>
-                  <Input
-                    id="installments_number"
-                    name="installments_number"
-                    type="number"
-                    min="1"
-                    value={formData.installments_number}
-                    onChange={(e) => handleInputChange({ target: { name: 'installments_number', value: parseInt(e.target.value, 10) || 1 } })}
-                    className="bg-white/5 border-white/20 rounded-xl"
-                  />
-                </div>
+                {showInstallments && (
+                  <div>
+                    <Label htmlFor="installments_number" className="text-lg">Número de Parcelas</Label>
+                    <Input
+                      id="installments_number"
+                      name="installments_number"
+                      type="number"
+                      min="1"
+                      value={formData.installments_number}
+                      onChange={(e) => handleInputChange({ target: { name: 'installments_number', value: parseInt(e.target.value, 10) || 1 } })}
+                      className="bg-white/5 border-white/20 rounded-xl"
+                    />
+                  </div>
+                )}
               </div>
 
-              {formData.installments_number > 0 && (
+              {showInstallments && formData.installments_number > 0 && (
                 <InstallmentTable
                   totalValue={parseCurrency(formData.total_value)}
                   downPayment={parseCurrency(formData.down_payment)}
