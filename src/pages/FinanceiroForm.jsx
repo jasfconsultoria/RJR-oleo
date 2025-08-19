@@ -383,7 +383,7 @@ const FinanceiroForm = ({ type }) => {
                       <DateInput date={singleDueDate} setDate={setSingleDueDate} />
                     </>
                   )}
-                  {parsedDownPayment > 0 && parsedDownPayment === parsedTotalValue && (
+                  {parsedDownPayment > 0 && (
                     <>
                       <Label htmlFor="down_payment_due_date" className="text-lg">Vencimento da Entrada</Label>
                       <Input 
@@ -395,7 +395,7 @@ const FinanceiroForm = ({ type }) => {
                     </>
                   )}
                   {showInstallments && (
-                    <>
+                    <div className="mt-6">
                       <Label htmlFor="installments_number" className="text-lg">Número de Parcelas</Label>
                       <Input
                         id="installments_number"
@@ -406,7 +406,7 @@ const FinanceiroForm = ({ type }) => {
                         onChange={(e) => handleInputChange({ target: { name: 'installments_number', value: parseInt(e.target.value, 10) || 1 } })}
                         className="bg-white/5 border-white/20 rounded-xl"
                       />
-                    </>
+                    </div>
                   )}
                 </div>
               </div>
