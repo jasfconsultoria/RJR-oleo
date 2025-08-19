@@ -378,21 +378,19 @@ export function ColetaStep1({ data, onNext, onUpdate }) {
             )}
         </div>
 
-        <div className="flex gap-4 mt-6">
+        <div className="flex justify-between items-center pt-6">
             <Button
             type="button"
             onClick={() => navigate('/app/coletas')}
             variant="outline"
-            size="default"
-            className="w-full"
+            className="rounded-xl"
             >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Voltar
             </Button>
             <Button
             type="submit"
-            size="default"
-            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold transition-all duration-200 transform hover:scale-105"
+            className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl"
             >
             Próximo →
             </Button>

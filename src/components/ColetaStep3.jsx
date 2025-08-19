@@ -164,11 +164,11 @@ export function ColetaStep3({ data, onBack, onSave, onUpdate }) {
             </div>
           </div>
 
-          <div className="flex gap-4 mt-6">
-            <Button type="button" onClick={onBack} variant="outline" size="sm" className="w-full">
+          <div className="flex justify-between items-center pt-6">
+            <Button type="button" onClick={onBack} variant="outline" className="rounded-xl">
               <ArrowLeft className="mr-2 h-4 w-4" /> Anterior
             </Button>
-            <Button onClick={handleLancar} size="sm" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold transition-all duration-200 transform hover:scale-105">
+            <Button onClick={handleLancar} className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl">
               <CheckCircle className="w-5 h-5 mr-2" /> Lançar
             </Button>
           </div>
