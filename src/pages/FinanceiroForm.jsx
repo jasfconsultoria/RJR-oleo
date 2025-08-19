@@ -69,9 +69,21 @@ const FinanceiroForm = ({ type }) => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [existingInstallments, setExistingInstallments] = useState([]);
+  const [downPaymentError, setDownPaymentError] = useState('');
 
   const title = type === 'credito' ? 'Crédito' : 'Débito';
   const entityLabel = type === 'credito' ? 'Cliente' : 'Fornecedor';
+
+  const parsedTotalValue = parseCurrency(formData.total_value);
+  const parsedDownPayment = parseCurrency(formData.down_payment);
+
+  useEffect(() => {
+    if (parsedDownPayment > parsedTotalValue) {
+      setDownPaymentError('O valor da entrada não pode ser maior que o valor total.');
+    } else {
+      setDownPaymentError('');
+    }
+  }, [parsedDownPayment, parsedTotalValue]);
 
   const fetchEntry = useCallback(async () => {
     if (!isEditing) {
@@ -122,8 +134,6 @@ const FinanceiroForm = ({ type }) => {
     setFormData((prev) => ({ ...prev, installments: installmentsData }));
   }, []);
 
-  const parsedTotalValue = parseCurrency(formData.total_value);
-  const parsedDownPayment = parseCurrency(formData.down_payment);
   const showInstallments = parsedTotalValue > 0 && parsedDownPayment >= 0 && parsedTotalValue > parsedDownPayment;
 
   useEffect(() => {
@@ -134,27 +144,23 @@ const FinanceiroForm = ({ type }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setSaving(true);
-
-    const parsedTotalValue = parseCurrency(formData.total_value);
-    const parsedDownPayment = parseCurrency(formData.down_payment);
 
     if (!formData.document_number.trim() || !formData.cliente_fornecedor_name.trim() || !unmask(formData.cnpj_cpf).trim() || !formData.issue_date || !formData.description.trim() || parsedTotalValue <= 0) {
       toast({ title: 'Campos obrigatórios', description: 'Preencha todos os campos obrigatórios (Nº Doc, Cliente/Fornecedor, CNPJ/CPF, Descrição, Valor Total).', variant: 'destructive' });
-      setSaving(false);
       return;
     }
 
-    if (parsedDownPayment > parsedTotalValue) {
+    if (downPaymentError) {
       toast({
         title: 'Valor Inválido',
-        description: 'O valor da entrada não pode ser maior que o valor total.',
+        description: downPaymentError,
         variant: 'destructive'
       });
       downPaymentInputRef.current?.element.focus();
-      setSaving(false);
       return;
     }
+
+    setSaving(true);
 
     if (isEditing) {
         toast({ title: 'Função em desenvolvimento', description: 'A edição de lançamentos parcelados está sendo ajustada.', variant: 'destructive' });
@@ -169,7 +175,6 @@ const FinanceiroForm = ({ type }) => {
     let totalInstallmentsCount = 0;
 
     if (parsedDownPayment === 0 && parsedTotalValue > 0) {
-        // Cenário 1: Pagamento único com vencimento futuro
         installmentsPayload.push({
             amount: parsedTotalValue,
             date: format(singleDueDate, 'yyyy-MM-dd'),
@@ -177,7 +182,6 @@ const FinanceiroForm = ({ type }) => {
         });
         totalInstallmentsCount = 1;
     } else if (parsedDownPayment > 0) {
-        // Cenário 2: Pagamento com entrada
         downPaymentPayload = {
             amount: parsedDownPayment,
             date: format(formData.issue_date, 'yyyy-MM-dd')
@@ -185,7 +189,6 @@ const FinanceiroForm = ({ type }) => {
         totalInstallmentsCount = 1;
         
         if (showInstallments) {
-            // Se houver parcelas além da entrada
             installmentsPayload = formData.installments.map(inst => ({
                 amount: inst.expected_amount,
                 date: format(inst.issue_date, 'yyyy-MM-dd'),
@@ -386,8 +389,9 @@ const FinanceiroForm = ({ type }) => {
                     value={formData.down_payment}
                     onAccept={(value) => handleInputChange({ target: { name: 'down_payment', value: value } })}
                     placeholder="0,00"
-                    className="w-full flex h-10 rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    className={`w-full flex h-10 rounded-xl border ${downPaymentError ? 'border-red-500' : 'border-white/20'} bg-white/5 px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50`}
                   />
+                  {downPaymentError && <p className="text-red-500 text-xs mt-1">{downPaymentError}</p>}
                 </div>
                 <div>
                   {parsedDownPayment === 0 && parsedTotalValue > 0 && (
