@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { logAction } from '@/lib/logger';
 import ClientOrManualInput from '@/components/financeiro/ClientOrManualInput';
-import { formatCnpjCpf, unmask, parseCurrency } from '@/lib/utils';
+import { formatCnpjCpf, unmask, parseCurrency, formatCurrency } from '@/lib/utils';
 import { DateInput } from '@/components/ui/date-input';
 import { isValid, parseISO, addDays } from 'date-fns';
 import InstallmentTable from '@/components/financeiro/InstallmentTable';
@@ -124,7 +124,7 @@ const FinanceiroForm = ({ type }) => {
 
   const parsedTotalValue = parseCurrency(formData.total_value);
   const parsedDownPayment = parseCurrency(formData.down_payment);
-  const showInstallments = parsedTotalValue > 0 && parsedDownPayment > 0 && parsedTotalValue > parsedDownPayment;
+  const showInstallments = parsedTotalValue > 0 && parsedDownPayment >= 0 && parsedTotalValue > parsedDownPayment;
 
   useEffect(() => {
     if (!showInstallments) {
@@ -407,21 +407,37 @@ const FinanceiroForm = ({ type }) => {
                       />
                     </>
                   )}
-                  {showInstallments && (
-                    <div className="mt-6">
-                      <Label htmlFor="installments_number" className="text-lg">Número de Parcelas</Label>
+                </div>
+                
+                {parsedTotalValue > 0 && (
+                  <>
+                    <div>
+                      <Label htmlFor="saldo" className="text-lg">Saldo (R$)</Label>
                       <Input
-                        id="installments_number"
-                        name="installments_number"
-                        type="number"
-                        min="1"
-                        value={formData.installments_number}
-                        onChange={(e) => handleInputChange({ target: { name: 'installments_number', value: parseInt(e.target.value, 10) || 1 } })}
-                        className="bg-white/5 border-white/20 rounded-xl"
+                        id="saldo"
+                        value={formatCurrency(parsedTotalValue - parsedDownPayment)}
+                        disabled
+                        className="bg-white/5 border-white/20 rounded-xl font-bold"
                       />
                     </div>
-                  )}
-                </div>
+                    <div>
+                      {showInstallments && (
+                        <>
+                          <Label htmlFor="installments_number" className="text-lg">Número de Parcelas</Label>
+                          <Input
+                            id="installments_number"
+                            name="installments_number"
+                            type="number"
+                            min="1"
+                            value={formData.installments_number}
+                            onChange={(e) => handleInputChange({ target: { name: 'installments_number', value: parseInt(e.target.value, 10) || 1 } })}
+                            className="bg-white/5 border-white/20 rounded-xl"
+                          />
+                        </>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
 
               {showInstallments && formData.installments_number > 0 && (
