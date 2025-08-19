@@ -16,7 +16,7 @@ import { logAction } from '@/lib/logger';
 import ClientOrManualInput from '@/components/financeiro/ClientOrManualInput';
 import { formatCnpjCpf, unmask, parseCurrency } from '@/lib/utils';
 import { DateInput } from '@/components/ui/date-input';
-import { isValid, parseISO } from 'date-fns';
+import { isValid, parseISO, addDays } from 'date-fns';
 import InstallmentTable from '@/components/financeiro/InstallmentTable';
 import { Textarea } from '@/components/ui/textarea';
 import { v4 as uuidv4 } from 'uuid';
@@ -63,7 +63,8 @@ const FinanceiroForm = ({ type }) => {
     installments_number: 1,
     installments: [],
   });
-
+  
+  const [singleDueDate, setSingleDueDate] = useState(addDays(new Date(), 30));
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [existingInstallments, setExistingInstallments] = useState([]);
@@ -93,13 +94,7 @@ const FinanceiroForm = ({ type }) => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => {
-      const newState = { ...prev, [name]: value };
-      if (name === 'total_value') {
-        newState.down_payment = value;
-      }
-      return newState;
-    });
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSelectChange = (name, value) => {
@@ -128,13 +123,7 @@ const FinanceiroForm = ({ type }) => {
 
   const parsedTotalValue = parseCurrency(formData.total_value);
   const parsedDownPayment = parseCurrency(formData.down_payment);
-  const showInstallments = parsedTotalValue > 0 && parsedTotalValue > parsedDownPayment;
-
-  useEffect(() => {
-    if (!showInstallments) {
-      handleInstallmentsChange([]);
-    }
-  }, [showInstallments, handleInstallmentsChange]);
+  const showInstallments = parsedTotalValue > 0 && parsedDownPayment > 0 && parsedTotalValue > parsedDownPayment;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -157,16 +146,36 @@ const FinanceiroForm = ({ type }) => {
 
     const lancamentoId = uuidv4();
     
-    const downPaymentPayload = parsedDownPayment > 0 ? {
-        amount: parsedDownPayment,
-        date: format(formData.issue_date, 'yyyy-MM-dd')
-    } : null;
+    let downPaymentPayload = null;
+    let installmentsPayload = [];
+    let totalInstallmentsCount = 0;
 
-    const installmentsPayload = showInstallments ? formData.installments.map(inst => ({
-        amount: inst.expected_amount,
-        date: format(inst.issue_date, 'yyyy-MM-dd'),
-        number: inst.installment_number
-    })) : [];
+    if (parsedDownPayment === 0 && parsedTotalValue > 0) {
+        // Cenário 1: Pagamento único com vencimento futuro
+        installmentsPayload.push({
+            amount: parsedTotalValue,
+            date: format(singleDueDate, 'yyyy-MM-dd'),
+            number: 1
+        });
+        totalInstallmentsCount = 1;
+    } else if (parsedDownPayment > 0) {
+        // Cenário 2: Pagamento com entrada
+        downPaymentPayload = {
+            amount: parsedDownPayment,
+            date: format(formData.issue_date, 'yyyy-MM-dd')
+        };
+        totalInstallmentsCount = 1;
+        
+        if (showInstallments) {
+            // Se houver parcelas além da entrada
+            installmentsPayload = formData.installments.map(inst => ({
+                amount: inst.expected_amount,
+                date: format(inst.issue_date, 'yyyy-MM-dd'),
+                number: inst.installment_number
+            }));
+            totalInstallmentsCount += installmentsPayload.length;
+        }
+    }
 
     const rpcParams = {
         p_lancamento_id: lancamentoId,
@@ -181,7 +190,7 @@ const FinanceiroForm = ({ type }) => {
         p_cost_center: formData.cost_center,
         p_notes: formData.notes,
         p_user_id: user.id,
-        p_total_installments: installmentsPayload.length + (parsedDownPayment > 0 ? 1 : 0),
+        p_total_installments: totalInstallmentsCount,
         p_down_payment: downPaymentPayload,
         p_installments: installmentsPayload
     };
@@ -361,6 +370,12 @@ const FinanceiroForm = ({ type }) => {
                     className="w-full flex h-10 rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   />
                 </div>
+                {parsedDownPayment === 0 && parsedTotalValue > 0 && (
+                  <div>
+                    <Label htmlFor="single_due_date" className="text-lg">Vencimento</Label>
+                    <DateInput date={singleDueDate} setDate={setSingleDueDate} />
+                  </div>
+                )}
                 {showInstallments && (
                   <div>
                     <Label htmlFor="installments_number" className="text-lg">Número de Parcelas</Label>
