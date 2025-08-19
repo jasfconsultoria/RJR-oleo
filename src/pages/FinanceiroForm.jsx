@@ -125,6 +125,12 @@ const FinanceiroForm = ({ type }) => {
   const parsedDownPayment = parseCurrency(formData.down_payment);
   const showInstallments = parsedTotalValue > 0 && parsedDownPayment > 0 && parsedTotalValue > parsedDownPayment;
 
+  useEffect(() => {
+    if (!showInstallments) {
+      handleInstallmentsChange([]);
+    }
+  }, [showInstallments, handleInstallmentsChange]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
@@ -370,26 +376,39 @@ const FinanceiroForm = ({ type }) => {
                     className="w-full flex h-10 rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   />
                 </div>
-                {parsedDownPayment === 0 && parsedTotalValue > 0 && (
-                  <div>
-                    <Label htmlFor="single_due_date" className="text-lg">Vencimento</Label>
-                    <DateInput date={singleDueDate} setDate={setSingleDueDate} />
-                  </div>
-                )}
-                {showInstallments && (
-                  <div>
-                    <Label htmlFor="installments_number" className="text-lg">Número de Parcelas</Label>
-                    <Input
-                      id="installments_number"
-                      name="installments_number"
-                      type="number"
-                      min="1"
-                      value={formData.installments_number}
-                      onChange={(e) => handleInputChange({ target: { name: 'installments_number', value: parseInt(e.target.value, 10) || 1 } })}
-                      className="bg-white/5 border-white/20 rounded-xl"
-                    />
-                  </div>
-                )}
+                <div>
+                  {parsedDownPayment === 0 && parsedTotalValue > 0 && (
+                    <>
+                      <Label htmlFor="single_due_date" className="text-lg">Vencimento</Label>
+                      <DateInput date={singleDueDate} setDate={setSingleDueDate} />
+                    </>
+                  )}
+                  {parsedDownPayment > 0 && parsedDownPayment === parsedTotalValue && (
+                    <>
+                      <Label htmlFor="down_payment_due_date" className="text-lg">Vencimento da Entrada</Label>
+                      <Input 
+                        id="down_payment_due_date"
+                        value={format(formData.issue_date, 'dd/MM/yyyy')}
+                        disabled
+                        className="bg-white/5 border-white/20 rounded-xl"
+                      />
+                    </>
+                  )}
+                  {showInstallments && (
+                    <>
+                      <Label htmlFor="installments_number" className="text-lg">Número de Parcelas</Label>
+                      <Input
+                        id="installments_number"
+                        name="installments_number"
+                        type="number"
+                        min="1"
+                        value={formData.installments_number}
+                        onChange={(e) => handleInputChange({ target: { name: 'installments_number', value: parseInt(e.target.value, 10) || 1 } })}
+                        className="bg-white/5 border-white/20 rounded-xl"
+                      />
+                    </>
+                  )}
+                </div>
               </div>
 
               {showInstallments && formData.installments_number > 0 && (
