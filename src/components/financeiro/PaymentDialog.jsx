@@ -49,7 +49,8 @@ const PaymentDialog = ({ isOpen, onClose, entry, onSuccess }) => {
   };
   
   const handleAmountChange = (value) => {
-    setPaymentData(prev => ({ ...prev, paid_amount: value === null ? 0 : Number(value) })); // Garante que seja número
+    // Ensure value is a valid number, converting null/undefined/NaN to 0
+    setPaymentData(prev => ({ ...prev, paid_amount: isNaN(Number(value)) ? 0 : Number(value) })); 
   };
 
   const handleSubmit = async (e) => {
@@ -134,7 +135,7 @@ const PaymentDialog = ({ isOpen, onClose, entry, onSuccess }) => {
                     signed: false,
                     },
                 }}
-                value={paymentData.paid_amount === 0 ? null : Number(paymentData.paid_amount)} // Passa null se 0, senão o número
+                value={paymentData.paid_amount === 0 ? null : paymentData.paid_amount} // Passa null se 0, senão o número
                 onAccept={handleAmountChange}
                 placeholder="0,00"
                 className="w-full flex h-10 rounded-xl border border-white/30 bg-white/10 px-3 py-2 text-sm"

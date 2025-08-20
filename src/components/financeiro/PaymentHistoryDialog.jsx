@@ -57,7 +57,9 @@ const PaymentHistoryDialog = ({ isOpen, onClose, entry, onSuccess }) => {
   };
 
   const handleSaveEdit = async (paymentId) => {
-    const newPaidAmount = parseCurrency(editFormData.paid_amount);
+    // Ensure newPaidAmount is a valid number, converting null/undefined/NaN to 0
+    const newPaidAmount = isNaN(Number(editFormData.paid_amount)) ? 0 : Number(editFormData.paid_amount);
+    
     const originalPayment = payments.find(p => p.id === paymentId);
     const otherPaymentsTotal = payments
       .filter(p => p.id !== paymentId)
@@ -132,7 +134,7 @@ const PaymentHistoryDialog = ({ isOpen, onClose, entry, onSuccess }) => {
                         <IMaskInput
                           mask="num"
                           blocks={{ num: { mask: Number, scale: 2, thousandsSeparator: '.', padFractionalZeros: true, radix: ',', mapToRadix: ['.'] } }}
-                          value={String(editFormData.paid_amount).replace('.', ',')}
+                          value={editFormData.paid_amount === 0 ? null : editFormData.paid_amount} // Passa null se 0, senão o número
                           onAccept={(value) => setEditFormData({...editFormData, paid_amount: value})}
                           className="w-32 text-right bg-white/20 border-white/30 h-10 px-3 py-2 rounded-md text-sm"
                         />

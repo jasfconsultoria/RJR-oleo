@@ -63,9 +63,8 @@ const InstallmentTable = ({
 
 
   const handleInstallmentValueChange = (index, value) => {
-    let newAmount = value; // value from onAccept is already a Number (or null)
-
-    if (isNaN(newAmount) || newAmount === null) newAmount = 0;
+    // Ensure newAmount is a valid number, converting null/undefined/NaN to 0
+    let newAmount = isNaN(Number(value)) ? 0 : Number(value); 
 
     const updatedInstallments = [...installments];
     const remainingValueForInstallments = totalValue - downPayment;
@@ -203,7 +202,7 @@ const InstallmentTable = ({
                             },
                         }}
                         as={Input}
-                        value={installment.expected_amount === 0 ? null : Number(installment.expected_amount)} // Passa null se 0, senão o número
+                        value={installment.expected_amount === 0 ? null : installment.expected_amount} // Passa null se 0, senão o número
                         onAccept={(value) => handleInstallmentValueChange(index, value)}
                         placeholder="0,00"
                         className={`w-24 bg-white/5 border-white/20 text-white text-right h-10 px-3 py-2 rounded-md text-sm ${installmentErrors[index] ? 'border-yellow-500' : ''}`}
