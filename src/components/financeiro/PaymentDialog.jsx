@@ -39,7 +39,7 @@ const PaymentDialog = ({ isOpen, onClose, entry, onSuccess }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const balance = entry ? entry.amount_balance : 0;
-  const currentPaidAmount = parseCurrency(paymentData.paid_amount);
+  const currentPaidAmount = Number(paymentData.paid_amount); // Garante que seja número
   const newTotalPaid = (entry?.paid_amount || 0) + currentPaidAmount;
   const newBalance = balance - currentPaidAmount;
 
@@ -49,12 +49,12 @@ const PaymentDialog = ({ isOpen, onClose, entry, onSuccess }) => {
   };
   
   const handleAmountChange = (value) => {
-    setPaymentData(prev => ({ ...prev, paid_amount: value || 0 })); // Garante que seja número
+    setPaymentData(prev => ({ ...prev, paid_amount: value === null ? 0 : Number(value) })); // Garante que seja número
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const parsedPaidAmount = parseCurrency(paymentData.paid_amount);
+    const parsedPaidAmount = Number(paymentData.paid_amount); // Garante que seja número
 
     if (parsedPaidAmount <= 0) {
       toast({ title: 'Valor inválido', description: 'O valor do pagamento deve ser maior que zero.', variant: 'destructive' });
