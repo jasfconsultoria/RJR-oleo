@@ -132,7 +132,7 @@ const FinanceiroForm = ({ type }) => {
   };
 
   const handleCnpjCpfChange = (cnpjCpfValue) => {
-    setFormData((prev) => ({ ...prev, cnpj_cpf: cnpjCnpjCpfValue }));
+    setFormData((prev) => ({ ...prev, cnpj_cpf: cnpjCpfValue }));
   };
 
   const handleInstallmentsChange = useCallback((installmentsData) => {
@@ -360,7 +360,7 @@ const FinanceiroForm = ({ type }) => {
                         signed: false,
                       },
                     }}
-                    value={typeof formData.total_value === 'number' ? formData.total_value : null}
+                    value={formData.total_value === 0 ? null : formData.total_value} // Passa null se 0, senão o número
                     onAccept={(value) => handleNumericInputChange('total_value', value)}
                     placeholder="0,00"
                     className="w-full flex h-10 rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
@@ -391,7 +391,7 @@ const FinanceiroForm = ({ type }) => {
                         signed: false,
                       },
                     }}
-                    value={typeof formData.down_payment === 'number' ? formData.down_payment : null}
+                    value={formData.down_payment === 0 ? null : formData.down_payment} // Passa null se 0, senão o número
                     onAccept={(value) => handleNumericInputChange('down_payment', value)}
                     placeholder="0,00"
                     className={`w-full flex h-10 rounded-xl border ${downPaymentError ? 'border-yellow-500' : 'border-white/20'} bg-white/5 px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50`}
