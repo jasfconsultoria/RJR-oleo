@@ -202,7 +202,7 @@ const InstallmentTable = ({
                             },
                         }}
                         as={Input}
-                        value={typeof installment.expected_amount === 'number' ? installment.expected_amount : null}
+                        value={installment.expected_amount === 0 ? null : String(installment.expected_amount)} // Passa null se 0, senão o número como string
                         onAccept={(value) => handleInstallmentValueChange(index, value)}
                         placeholder="0,00"
                         className={`w-24 bg-white/5 border-white/20 text-white text-right h-10 px-3 py-2 rounded-md text-sm ${installmentErrors[index] ? 'border-yellow-500' : ''}`}
