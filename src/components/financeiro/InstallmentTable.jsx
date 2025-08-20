@@ -1,15 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { PlusCircle, MinusCircle } from 'lucide-react';
 import { format, addMonths, parseISO, isValid } from 'date-fns';
 import { DateInput } from '@/components/ui/date-input';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, parseCurrency } from '@/lib/utils';
 import { IMaskInput } from 'react-imask';
 import { useToast } from '@/components/ui/use-toast';
-
-function deepEqual(a, b) {
-  return JSON.stringify(a) === JSON.stringify(b);
-}
 
 const InstallmentTable = ({
   totalValue,
@@ -17,24 +16,19 @@ const InstallmentTable = ({
   installmentsNumber,
   issueDate,
   onInstallmentsChange,
-  existingInstallments = [],
+  existingInstallments = [], // For editing existing entries
   isEditing = false,
   isViewMode = false,
-  onInstallmentsNumberChange,
+  onInstallmentsNumberChange, // New prop to update parent's installments_number
 }) => {
   const [installments, setInstallments] = useState([]);
   const [installmentErrors, setInstallmentErrors] = useState([]);
   const { toast } = useToast();
 
-  // Calcula as parcelas sempre que as props relevantes mudam
-  useEffect(() => {
+  const calculateInstallments = useCallback(() => {
     const remainingValue = totalValue - downPayment;
     if (installmentsNumber <= 0 || remainingValue < 0 || !isValid(issueDate)) {
-      if (installments.length > 0) {
-        setInstallments([]);
-        onInstallmentsChange([]);
-      }
-      return;
+      return [];
     }
 
     const baseInstallmentValue = Math.floor((remainingValue / installmentsNumber) * 100) / 100;
@@ -57,24 +51,30 @@ const InstallmentTable = ({
         status: existing?.status || 'pending',
       };
     });
+    return newInstallments;
+  }, [totalValue, downPayment, installmentsNumber, issueDate, isEditing, existingInstallments]);
 
-    if (!deepEqual(newInstallments, installments)) {
+  useEffect(() => {
+    const newInstallments = calculateInstallments();
+    // Perform a deep comparison before updating state to prevent infinite loops
+    if (JSON.stringify(newInstallments) !== JSON.stringify(installments)) {
       setInstallments(newInstallments);
       onInstallmentsChange(newInstallments);
-      setInstallmentErrors(Array(newInstallments.length).fill(''));
     }
-    // eslint-disable-next-line
-  }, [totalValue, downPayment, installmentsNumber, issueDate, existingInstallments, isEditing, onInstallmentsChange]);
+    setInstallmentErrors(Array(newInstallments.length).fill('')); // Initialize errors
+  }, [calculateInstallments, onInstallmentsChange, installments]); // Added 'installments' to dependencies
 
   const handleInstallmentValueChange = (index, value) => {
-    let newAmount = isNaN(Number(value)) ? 0 : Number(value);
+    // Ensure newAmount is a valid number, converting null/undefined/NaN to 0
+    let newAmount = isNaN(Number(value)) ? 0 : Number(value); 
 
     const updatedInstallments = [...installments];
     const remainingValueForInstallments = totalValue - downPayment;
     const lastInstallmentIndex = updatedInstallments.length - 1;
 
-    const newErrors = Array(installments.length).fill('');
+    const newErrors = Array(installments.length).fill(''); // Reset all errors for simplicity on each change
 
+    // 1. Validate for zero amount
     if (newAmount === 0) {
       newErrors[index] = 'O valor da parcela não pode ser zero.';
       updatedInstallments[index].expected_amount = 0;
@@ -84,6 +84,7 @@ const InstallmentTable = ({
       return;
     }
 
+    // 2. Handle case where first installment equals remaining balance (and there are multiple installments)
     if (installmentsNumber > 1 && index === 0 && Math.abs(newAmount - remainingValueForInstallments) < 0.01) {
       const singleInstallment = [{
         ...updatedInstallments[0],
@@ -91,7 +92,7 @@ const InstallmentTable = ({
       }];
       setInstallments(singleInstallment);
       onInstallmentsChange(singleInstallment);
-      onInstallmentsNumberChange(1);
+      onInstallmentsNumberChange(1); // Inform parent to update installments_number
       toast({
         title: 'Parcela única ajustada',
         description: 'A primeira parcela cobre o saldo restante. O número de parcelas foi ajustado para 1.',
@@ -100,35 +101,45 @@ const InstallmentTable = ({
       return;
     }
 
+    // Calculate sum of other installments (excluding the one being edited)
     const sumOfOtherInstallments = updatedInstallments.reduce((sum, inst, i) => {
       if (i === index) return sum;
       return sum + inst.expected_amount;
     }, 0);
 
+    // Determine the maximum allowed amount for the current installment
     const maxAllowedAmountForCurrent = parseFloat((remainingValueForInstallments - sumOfOtherInstallments).toFixed(2));
 
-    if (newAmount > maxAllowedAmountForCurrent + 0.01 && index !== lastInstallmentIndex) {
+    // If the user tries to set a value that makes the last installment negative
+    if (newAmount > maxAllowedAmountForCurrent + 0.01 && index !== lastInstallmentIndex) { // +0.01 for float tolerance
       newErrors[index] = `Valor muito alto. Máximo permitido: ${formatCurrency(maxAllowedAmountForCurrent)}.`;
-      newAmount = maxAllowedAmountForCurrent;
+      newAmount = maxAllowedAmountForCurrent; // Cap the value
     }
 
+    // Apply the (potentially capped) new amount to the current installment
     updatedInstallments[index].expected_amount = newAmount;
 
+    // Redistribute the remaining balance to the last installment
     if (lastInstallmentIndex >= 0) {
       const sumOfAllButLast = updatedInstallments.slice(0, -1).reduce((sum, inst) => sum + inst.expected_amount, 0);
       const expectedLastInstallment = parseFloat((remainingValueForInstallments - sumOfAllButLast).toFixed(2));
 
+      // If the user is editing the last installment, validate its value
       if (index === lastInstallmentIndex) {
         if (Math.abs(newAmount - expectedLastInstallment) > 0.01) {
           newErrors[index] = `O valor da parcela deve ser ${formatCurrency(expectedLastInstallment)} para fechar corretamente o total.`;
-          updatedInstallments[index].expected_amount = expectedLastInstallment;
+          updatedInstallments[index].expected_amount = expectedLastInstallment; // Auto-correct
         }
       } else {
+        // If editing a non-last installment, auto-adjust the last one
         updatedInstallments[lastInstallmentIndex].expected_amount = expectedLastInstallment;
       }
 
+      // Ensure the last installment is not negative after adjustment
       if (updatedInstallments[lastInstallmentIndex].expected_amount < 0) {
         updatedInstallments[lastInstallmentIndex].expected_amount = 0;
+        // This case should ideally be prevented by the capping logic above, but as a fallback
+        // it ensures no negative display. The overall sum validation will still catch it.
       }
     }
 
@@ -152,6 +163,7 @@ const InstallmentTable = ({
     return null;
   }
 
+  // Calculate current total sum of installments for overall validation
   const currentTotalInstallmentsSum = installments.reduce((sum, inst) => sum + inst.expected_amount, 0);
   const overallSum = downPayment + currentTotalInstallmentsSum;
   const differenceFromTotal = parseFloat((totalValue - overallSum).toFixed(2));
@@ -192,7 +204,7 @@ const InstallmentTable = ({
                             },
                         }}
                         as={Input}
-                        value={String(installment.expected_amount)}
+                        value={String(installment.expected_amount)} // Sempre passa como string
                         onAccept={(value) => handleInstallmentValueChange(index, value)}
                         placeholder="0,00"
                         className={`w-24 bg-white/5 border-white/20 text-white text-right h-10 px-3 py-2 rounded-md text-sm ${installmentErrors[index] ? 'border-yellow-500' : ''}`}
