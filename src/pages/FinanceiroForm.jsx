@@ -56,11 +56,11 @@ const FinanceiroForm = ({ type }) => {
     cliente_fornecedor_name: '',
     cnpj_cpf: '',
     description: '',
-    total_value: '',
+    total_value: 0, // Alterado para número
     payment_method: 'pix',
     cost_center: 'ADMINISTRAÇÃO',
     notes: '',
-    down_payment: '0,00',
+    down_payment: 0, // Alterado para número
     installments_number: 1,
     installments: [],
   });
@@ -74,8 +74,8 @@ const FinanceiroForm = ({ type }) => {
   const title = type === 'credito' ? 'Crédito' : 'Débito';
   const entityLabel = type === 'credito' ? 'Cliente' : 'Fornecedor';
 
-  const parsedTotalValue = parseCurrency(formData.total_value);
-  const parsedDownPayment = parseCurrency(formData.down_payment);
+  const parsedTotalValue = formData.total_value; // Já é um número
+  const parsedDownPayment = formData.down_payment; // Já é um número
 
   useEffect(() => {
     if (parsedDownPayment > parsedTotalValue) {
@@ -110,6 +110,11 @@ const FinanceiroForm = ({ type }) => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  const handleNumericInputChange = (name, value) => {
+    // value from IMaskInput's onAccept is already a Number (or null if empty)
+    setFormData((prev) => ({ ...prev, [name]: value || 0 })); // Ensure it's always a number, default to 0 if null
+  };
+
   const handleSelectChange = (name, value) => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
@@ -127,7 +132,7 @@ const FinanceiroForm = ({ type }) => {
   };
 
   const handleCnpjCpfChange = (cnpjCpfValue) => {
-    setFormData((prev) => ({ ...prev, cnpj_cpf: cnpjCpfValue }));
+    setFormData((prev) => ({ ...prev, cnpj_cpf: cnpjCnpjCpfValue }));
   };
 
   const handleInstallmentsChange = useCallback((installmentsData) => {
@@ -355,8 +360,8 @@ const FinanceiroForm = ({ type }) => {
                         signed: false,
                       },
                     }}
-                    value={formData.total_value}
-                    onAccept={(value) => handleInputChange({ target: { name: 'total_value', value: value } })}
+                    value={formData.total_value} // Passa o número diretamente
+                    onAccept={(value) => handleNumericInputChange('total_value', value)}
                     placeholder="0,00"
                     className="w-full flex h-10 rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                     required
@@ -386,8 +391,8 @@ const FinanceiroForm = ({ type }) => {
                         signed: false,
                       },
                     }}
-                    value={formData.down_payment}
-                    onAccept={(value) => handleInputChange({ target: { name: 'down_payment', value: value } })}
+                    value={formData.down_payment} // Passa o número diretamente
+                    onAccept={(value) => handleNumericInputChange('down_payment', value)}
                     placeholder="0,00"
                     className={`w-full flex h-10 rounded-xl border ${downPaymentError ? 'border-yellow-500' : 'border-white/20'} bg-white/5 px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50`}
                   />
@@ -446,8 +451,8 @@ const FinanceiroForm = ({ type }) => {
 
               {showInstallments && formData.installments_number > 0 && (
                 <InstallmentTable
-                  totalValue={parseCurrency(formData.total_value)}
-                  downPayment={parseCurrency(formData.down_payment)}
+                  totalValue={parsedTotalValue} // Passa o número
+                  downPayment={parsedDownPayment} // Passa o número
                   installmentsNumber={formData.installments_number}
                   issueDate={formData.issue_date}
                   onInstallmentsChange={handleInstallmentsChange}
