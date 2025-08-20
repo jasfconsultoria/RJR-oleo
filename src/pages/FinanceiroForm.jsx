@@ -143,10 +143,12 @@ const FinanceiroForm = ({ type }) => {
   const showInstallments = parsedTotalValue > 0 && parsedDownPayment >= 0 && parsedTotalValue > parsedDownPayment;
 
   useEffect(() => {
-    if (!showInstallments) {
+    // Only clear installments if they are currently shown and should no longer be,
+    // AND if the installments array is not already empty.
+    if (!showInstallments && formData.installments.length > 0) {
       handleInstallmentsChange([]);
     }
-  }, [showInstallments, handleInstallmentsChange]);
+  }, [showInstallments, handleInstallmentsChange, formData.installments]); // Added formData.installments to dependencies
 
   const handleSubmit = async (e) => {
     e.preventDefault();

@@ -56,11 +56,13 @@ const InstallmentTable = ({
 
   useEffect(() => {
     const newInstallments = calculateInstallments();
-    setInstallments(newInstallments);
-    onInstallmentsChange(newInstallments);
+    // Perform a deep comparison before updating state to prevent infinite loops
+    if (JSON.stringify(newInstallments) !== JSON.stringify(installments)) {
+      setInstallments(newInstallments);
+      onInstallmentsChange(newInstallments);
+    }
     setInstallmentErrors(Array(newInstallments.length).fill('')); // Initialize errors
-  }, [calculateInstallments, onInstallmentsChange]);
-
+  }, [calculateInstallments, onInstallmentsChange, installments]); // Added 'installments' to dependencies
 
   const handleInstallmentValueChange = (index, value) => {
     // Ensure newAmount is a valid number, converting null/undefined/NaN to 0
