@@ -63,7 +63,9 @@ const InstallmentTable = ({
 
 
   const handleInstallmentValueChange = (index, value) => {
-    let newAmount = parseCurrency(value);
+    let newAmount = parseFloat(value); // 'value' from onAccept is already the unmasked number
+    if (isNaN(newAmount)) newAmount = 0;
+
     const updatedInstallments = [...installments];
     const remainingValueForInstallments = totalValue - downPayment;
     const lastInstallmentIndex = updatedInstallments.length - 1;
@@ -200,7 +202,7 @@ const InstallmentTable = ({
                             },
                         }}
                         as={Input} // Adicionado o prop 'as={Input}' aqui
-                        value={String(installment.expected_amount).replace('.', ',')}
+                        value={installment.expected_amount} // Passa o número diretamente
                         onAccept={(value) => handleInstallmentValueChange(index, value)}
                         placeholder="0,00"
                         className={`w-24 bg-white/5 border-white/20 text-white text-right h-10 px-3 py-2 rounded-md text-sm ${installmentErrors[index] ? 'border-yellow-500' : ''}`}
