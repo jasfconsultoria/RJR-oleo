@@ -56,11 +56,11 @@ const FinanceiroForm = ({ type }) => {
     cliente_fornecedor_name: '',
     cnpj_cpf: '',
     description: '',
-    total_value: 0, // Alterado para número
+    total_value: 0, 
     payment_method: 'pix',
     cost_center: 'ADMINISTRAÇÃO',
     notes: '',
-    down_payment: 0, // Alterado para número
+    down_payment: 0, 
     installments_number: 1,
     installments: [],
   });
@@ -361,7 +361,7 @@ const FinanceiroForm = ({ type }) => {
                         signed: false,
                       },
                     }}
-                    value={formData.total_value === 0 ? null : formData.total_value} // Passa null se 0, senão o número
+                    value={formData.total_value === 0 ? null : Number(formData.total_value)} // Passa null se 0, senão o número
                     onAccept={(value) => handleNumericInputChange('total_value', value)}
                     placeholder="0,00"
                     className="w-full flex h-10 rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
@@ -392,7 +392,7 @@ const FinanceiroForm = ({ type }) => {
                         signed: false,
                       },
                     }}
-                    value={formData.down_payment === 0 ? null : formData.down_payment} // Passa null se 0, senão o número
+                    value={formData.down_payment === 0 ? null : Number(formData.down_payment)} // Passa null se 0, senão o número
                     onAccept={(value) => handleNumericInputChange('down_payment', value)}
                     placeholder="0,00"
                     className={`w-full flex h-10 rounded-xl border ${downPaymentError ? 'border-yellow-500' : 'border-white/20'} bg-white/5 px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50`}
