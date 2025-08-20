@@ -63,7 +63,8 @@ const InstallmentTable = ({
 
 
   const handleInstallmentValueChange = (index, value) => {
-    let newAmount = parseCurrency(value); // 'value' from onAccept is already the unmasked number
+    // 'value' from onAccept with mask: Number is already a number (or null/undefined if empty)
+    let newAmount = typeof value === 'number' ? value : parseFloat(value);
     if (isNaN(newAmount)) newAmount = 0;
 
     const updatedInstallments = [...installments];
@@ -201,8 +202,8 @@ const InstallmentTable = ({
                             signed: false,
                             },
                         }}
-                        as={Input} // Adicionado o prop 'as={Input}' aqui
-                        value={String(installment.expected_amount).replace('.', ',')} // Passa o número como string formatada
+                        as={Input}
+                        value={installment.expected_amount} // Passa o número diretamente
                         onAccept={(value) => handleInstallmentValueChange(index, value)}
                         placeholder="0,00"
                         className={`w-24 bg-white/5 border-white/20 text-white text-right h-10 px-3 py-2 rounded-md text-sm ${installmentErrors[index] ? 'border-yellow-500' : ''}`}
