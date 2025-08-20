@@ -74,8 +74,9 @@ const FinanceiroForm = ({ type }) => {
   const title = type === 'credito' ? 'Crédito' : 'Débito';
   const entityLabel = type === 'credito' ? 'Cliente' : 'Fornecedor';
 
-  const parsedTotalValue = formData.total_value; // Já é um número
-  const parsedDownPayment = formData.down_payment; // Já é um número
+  // Use parseCurrency para garantir que os valores sejam numéricos para a comparação
+  const parsedTotalValue = parseCurrency(formData.total_value);
+  const parsedDownPayment = parseCurrency(formData.down_payment);
 
   useEffect(() => {
     if (parsedDownPayment > parsedTotalValue) {
@@ -111,8 +112,9 @@ const FinanceiroForm = ({ type }) => {
   };
 
   const handleNumericInputChange = (name, value) => {
-    // value from IMaskInput's onAccept is already a Number (or null if empty)
-    setFormData((prev) => ({ ...prev, [name]: value || 0 })); // Ensure it's always a number, default to 0 if null
+    // O valor de 'value' vindo do onAccept do IMaskInput já é um Number (ou null se vazio).
+    // Convertemos para string para armazenar no formData, mantendo a consistência com a exibição.
+    setFormData((prev) => ({ ...prev, [name]: String(value || 0) })); 
   };
 
   const handleSelectChange = (name, value) => {
