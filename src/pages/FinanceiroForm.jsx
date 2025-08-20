@@ -361,7 +361,7 @@ const FinanceiroForm = ({ type }) => {
                         signed: false,
                       },
                     }}
-                    value={formData.total_value === 0 ? null : String(formData.total_value)} // Passa null se 0, senão a string do número
+                    value={String(formData.total_value)} // Sempre passa como string
                     onAccept={(value) => handleNumericInputChange('total_value', value)}
                     placeholder="0,00"
                     className="w-full flex h-10 rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
@@ -392,7 +392,7 @@ const FinanceiroForm = ({ type }) => {
                         signed: false,
                       },
                     }}
-                    value={formData.down_payment === 0 ? null : String(formData.down_payment)} // Passa null se 0, senão a string do número
+                    value={String(formData.down_payment)} // Sempre passa como string
                     onAccept={(value) => handleNumericInputChange('down_payment', value)}
                     placeholder="0,00"
                     className={`w-full flex h-10 rounded-xl border ${downPaymentError ? 'border-yellow-500' : 'border-white/20'} bg-white/5 px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50`}

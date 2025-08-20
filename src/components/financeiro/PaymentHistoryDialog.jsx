@@ -134,7 +134,7 @@ const PaymentHistoryDialog = ({ isOpen, onClose, entry, onSuccess }) => {
                         <IMaskInput
                           mask="num"
                           blocks={{ num: { mask: Number, scale: 2, thousandsSeparator: '.', padFractionalZeros: true, radix: ',', mapToRadix: ['.'] } }}
-                          value={editFormData.paid_amount === 0 ? null : String(editFormData.paid_amount)} // Passa null se 0, senão a string do número
+                          value={String(editFormData.paid_amount)} // Sempre passa como string
                           onAccept={(value) => setEditFormData({...editFormData, paid_amount: value})}
                           className="w-32 text-right bg-white/20 border-white/30 h-10 px-3 py-2 rounded-md text-sm"
                         />

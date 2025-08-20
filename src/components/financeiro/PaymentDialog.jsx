@@ -135,7 +135,7 @@ const PaymentDialog = ({ isOpen, onClose, entry, onSuccess }) => {
                     signed: false,
                     },
                 }}
-                value={paymentData.paid_amount === 0 ? null : String(paymentData.paid_amount)} // Passa null se 0, senão a string do número
+                value={String(paymentData.paid_amount)} // Sempre passa como string
                 onAccept={handleAmountChange}
                 placeholder="0,00"
                 className="w-full flex h-10 rounded-xl border border-white/30 bg-white/10 px-3 py-2 text-sm"
