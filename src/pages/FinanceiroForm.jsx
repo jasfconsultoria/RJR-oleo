@@ -120,7 +120,7 @@ const FinanceiroForm = ({ type }) => {
   };
 
   const handleDateChange = (date) => {
-    setFormData((prev) => ({ ...prev, issue_date: date }));
+    setFormData((prev) => ({ ...prev, issue_date: date || new Date() })); // Ensure it's always a Date object
   };
 
   const handleClientSelectId = (clientId) => {
@@ -360,7 +360,7 @@ const FinanceiroForm = ({ type }) => {
                         signed: false,
                       },
                     }}
-                    value={formData.total_value} // Passa o número diretamente
+                    value={typeof formData.total_value === 'number' ? formData.total_value : null}
                     onAccept={(value) => handleNumericInputChange('total_value', value)}
                     placeholder="0,00"
                     className="w-full flex h-10 rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
@@ -391,7 +391,7 @@ const FinanceiroForm = ({ type }) => {
                         signed: false,
                       },
                     }}
-                    value={formData.down_payment} // Passa o número diretamente
+                    value={typeof formData.down_payment === 'number' ? formData.down_payment : null}
                     onAccept={(value) => handleNumericInputChange('down_payment', value)}
                     placeholder="0,00"
                     className={`w-full flex h-10 rounded-xl border ${downPaymentError ? 'border-yellow-500' : 'border-white/20'} bg-white/5 px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50`}
