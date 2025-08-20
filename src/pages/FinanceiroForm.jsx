@@ -389,9 +389,9 @@ const FinanceiroForm = ({ type }) => {
                     value={formData.down_payment}
                     onAccept={(value) => handleInputChange({ target: { name: 'down_payment', value: value } })}
                     placeholder="0,00"
-                    className={`w-full flex h-10 rounded-xl border ${downPaymentError ? 'border-red-500' : 'border-white/20'} bg-white/5 px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50`}
+                    className={`w-full flex h-10 rounded-xl border ${downPaymentError ? 'border-yellow-500' : 'border-white/20'} bg-white/5 px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50`}
                   />
-                  {downPaymentError && <p className="text-red-500 text-xs mt-1">{downPaymentError}</p>}
+                  {downPaymentError && <p className="text-yellow-400 text-xs mt-1">{downPaymentError}</p>}
                 </div>
                 <div>
                   {parsedDownPayment === 0 && parsedTotalValue > 0 && (
@@ -453,6 +453,7 @@ const FinanceiroForm = ({ type }) => {
                   onInstallmentsChange={handleInstallmentsChange}
                   existingInstallments={existingInstallments}
                   isEditing={isEditing}
+                  onInstallmentsNumberChange={(newNumber) => setFormData(prev => ({ ...prev, installments_number: newNumber }))}
                 />
               )}
 
