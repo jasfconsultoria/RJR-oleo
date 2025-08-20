@@ -74,9 +74,8 @@ const FinanceiroForm = ({ type }) => {
   const title = type === 'credito' ? 'Crédito' : 'Débito';
   const entityLabel = type === 'credito' ? 'Cliente' : 'Fornecedor';
 
-  // Use parseCurrency para garantir que os valores sejam numéricos para a comparação
-  const parsedTotalValue = Number(formData.total_value); // Garante que seja número
-  const parsedDownPayment = Number(formData.down_payment); // Garante que seja número
+  const parsedTotalValue = Number(formData.total_value);
+  const parsedDownPayment = Number(formData.down_payment);
 
   useEffect(() => {
     if (parsedDownPayment > parsedTotalValue) {
@@ -86,11 +85,13 @@ const FinanceiroForm = ({ type }) => {
     }
   }, [parsedDownPayment, parsedTotalValue]);
 
-  const fetchEntry = useCallback(async () => {
+  // Corrigido: só busca dados se for edição, senão já libera o formulário
+  useEffect(() => {
     if (!isEditing) {
       setLoading(false);
       return;
     }
+    // Edição de lançamento: função ainda não implementada
     setLoading(true);
     toast({
         title: 'Função em Desenvolvimento',
@@ -102,18 +103,13 @@ const FinanceiroForm = ({ type }) => {
     setLoading(false);
   }, [id, isEditing, navigate, toast, type]);
 
-  useEffect(() => {
-    fetchEntry();
-  }, [fetchEntry]);
-
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleNumericInputChange = (name, value) => {
-    // value from IMaskInput's onAccept is already a Number (or null if empty)
-    setFormData((prev) => ({ ...prev, [name]: value === null ? 0 : Number(value) })); // Ensure it's always a number, default to 0 if null
+    setFormData((prev) => ({ ...prev, [name]: value === null ? 0 : Number(value) }));
   };
 
   const handleSelectChange = (name, value) => {
@@ -121,7 +117,7 @@ const FinanceiroForm = ({ type }) => {
   };
 
   const handleDateChange = (date) => {
-    setFormData((prev) => ({ ...prev, issue_date: date || new Date() })); // Ensure it's always a Date object
+    setFormData((prev) => ({ ...prev, issue_date: date || new Date() }));
   };
 
   const handleClientSelectId = (clientId) => {
@@ -143,12 +139,10 @@ const FinanceiroForm = ({ type }) => {
   const showInstallments = parsedTotalValue > 0 && parsedDownPayment >= 0 && parsedTotalValue > parsedDownPayment;
 
   useEffect(() => {
-    // Only clear installments if they are currently shown and should no longer be,
-    // AND if the installments array is not already empty.
     if (!showInstallments && formData.installments.length > 0) {
       handleInstallmentsChange([]);
     }
-  }, [showInstallments, handleInstallmentsChange, formData.installments]); // Added formData.installments to dependencies
+  }, [showInstallments, handleInstallmentsChange, formData.installments]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -363,7 +357,7 @@ const FinanceiroForm = ({ type }) => {
                         signed: false,
                       },
                     }}
-                    value={String(formData.total_value)} // Sempre passa como string
+                    value={String(formData.total_value)}
                     onAccept={(value) => handleNumericInputChange('total_value', value)}
                     placeholder="0,00"
                     className="w-full flex h-10 rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
@@ -394,7 +388,7 @@ const FinanceiroForm = ({ type }) => {
                         signed: false,
                       },
                     }}
-                    value={String(formData.down_payment)} // Sempre passa como string
+                    value={String(formData.down_payment)}
                     onAccept={(value) => handleNumericInputChange('down_payment', value)}
                     placeholder="0,00"
                     className={`w-full flex h-10 rounded-xl border ${downPaymentError ? 'border-yellow-500' : 'border-white/20'} bg-white/5 px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50`}
@@ -454,8 +448,8 @@ const FinanceiroForm = ({ type }) => {
 
               {showInstallments && formData.installments_number > 0 && (
                 <InstallmentTable
-                  totalValue={parsedTotalValue} // Passa o número
-                  downPayment={parsedDownPayment} // Passa o número
+                  totalValue={parsedTotalValue}
+                  downPayment={parsedDownPayment}
                   installmentsNumber={formData.installments_number}
                   issueDate={formData.issue_date}
                   onInstallmentsChange={handleInstallmentsChange}
