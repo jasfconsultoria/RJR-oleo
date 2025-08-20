@@ -63,8 +63,9 @@ const InstallmentTable = ({
 
 
   const handleInstallmentValueChange = (index, value) => {
-    let newAmount = typeof value === 'number' ? value : parseFloat(value);
-    if (isNaN(newAmount)) newAmount = 0;
+    let newAmount = value; // value from onAccept is already a Number (or null)
+
+    if (isNaN(newAmount) || newAmount === null) newAmount = 0;
 
     const updatedInstallments = [...installments];
     const remainingValueForInstallments = totalValue - downPayment;
@@ -202,7 +203,7 @@ const InstallmentTable = ({
                             },
                         }}
                         as={Input}
-                        value={installment.expected_amount === 0 ? null : String(installment.expected_amount)} // Passa null se 0, senão o número como string
+                        value={installment.expected_amount === 0 ? null : installment.expected_amount} // Passa null se 0, senão o número
                         onAccept={(value) => handleInstallmentValueChange(index, value)}
                         placeholder="0,00"
                         className={`w-24 bg-white/5 border-white/20 text-white text-right h-10 px-3 py-2 rounded-md text-sm ${installmentErrors[index] ? 'border-yellow-500' : ''}`}
