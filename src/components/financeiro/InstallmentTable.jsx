@@ -199,6 +199,7 @@ const InstallmentTable = ({
                             signed: false,
                             },
                         }}
+                        as={Input} // Adicionado o prop 'as={Input}' aqui
                         value={String(installment.expected_amount).replace('.', ',')}
                         onAccept={(value) => handleInstallmentValueChange(index, value)}
                         placeholder="0,00"
