@@ -117,6 +117,10 @@ const FinanceiroForm = ({ type }) => {
   };
 
   const handleDateChange = (date) => {
+    // Verifica se a data realmente mudou antes de atualizar o estado
+    if (date && formData.issue_date && date.toISOString() === formData.issue_date.toISOString()) {
+      return;
+    }
     setFormData((prev) => ({ ...prev, issue_date: date || new Date() }));
   };
 
