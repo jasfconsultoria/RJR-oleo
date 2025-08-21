@@ -17,7 +17,7 @@ import ClientOrManualInput from '@/components/financeiro/ClientOrManualInput';
 import { formatCnpjCpf, unmask, parseCurrency, formatCurrency } from '@/lib/utils';
 import { DateInput } from '@/components/ui/date-input';
 import { isValid, parseISO, addDays } from 'date-fns';
-import InstallmentTable from '@/components/financeiro/InstallmentTable';
+// Removido import de InstallmentTable
 import { Textarea } from '@/components/ui/textarea';
 import { v4 as uuidv4 } from 'uuid';
 import { format } from 'date-fns';
@@ -46,7 +46,7 @@ const FinanceiroForm = ({ type }) => {
   const { toast } = useToast();
   const { user } = useAuth();
   const isEditing = Boolean(id);
-  // Removido downPaymentInputRef pois não será mais usado
+  // Removido downPaymentInputRef
 
   const [formData, setFormData] = useState({
     document_number: '',
@@ -72,9 +72,7 @@ const FinanceiroForm = ({ type }) => {
   const entityLabel = type === 'credito' ? 'Cliente' : 'Fornecedor';
 
   const parsedTotalValue = Number(formData.total_value);
-  // Removido parsedDownPayment
-
-  // Removido useEffect de downPaymentError
+  // Removido parsedDownPayment e useEffect de downPaymentError
 
   useEffect(() => {
     if (!isEditing) {
@@ -107,11 +105,13 @@ const FinanceiroForm = ({ type }) => {
   };
 
   const handleIssueDateChange = (date) => {
-    // Verifica se a data realmente mudou antes de atualizar o estado
-    if (date && formData.issue_date && date.toISOString() === formData.issue_date.toISOString()) {
-      return;
+    // Compara o valor da data para evitar atualizações desnecessárias
+    const newDateISO = date ? format(date, 'yyyy-MM-dd') : null;
+    const currentIssueDateISO = formData.issue_date ? format(formData.issue_date, 'yyyy-MM-dd') : null;
+
+    if (newDateISO !== currentIssueDateISO) {
+      setFormData((prev) => ({ ...prev, issue_date: date || new Date() }));
     }
-    setFormData((prev) => ({ ...prev, issue_date: date || new Date() }));
   };
 
   const handleDueDateChange = (date) => {
@@ -143,7 +143,7 @@ const FinanceiroForm = ({ type }) => {
     setSaving(true);
 
     if (isEditing) {
-        toast({ title: 'Função em desenvolvimento', description: 'A edição de lançamentos financeiros está sendo ajustada.', variant: 'destructive' });
+        toast({ title: 'Função em Desenvolvimento', description: 'A edição de lançamentos financeiros está sendo ajustada.', variant: 'destructive' });
         setSaving(false);
         return;
     }
