@@ -56,13 +56,24 @@ const InstallmentTable = ({
 
   useEffect(() => {
     const newInstallments = calculateInstallments();
-    // Perform a deep comparison before updating state to prevent infinite loops
-    if (JSON.stringify(newInstallments) !== JSON.stringify(installments)) {
+    // Perform a deep comparison of array contents to prevent infinite loops
+    const areEqual = installments.length === newInstallments.length &&
+      installments.every((oldInst, i) => {
+        const newInst = newInstallments[i];
+        // Compare relevant properties for equality
+        return oldInst.installment_number === newInst.installment_number &&
+               oldInst.expected_amount === newInst.expected_amount &&
+               (oldInst.issue_date instanceof Date && newInst.issue_date instanceof Date 
+                 ? oldInst.issue_date.toISOString() === newInst.issue_date.toISOString()
+                 : oldInst.issue_date === newInst.issue_date); // Handle non-Date objects or nulls
+      });
+
+    if (!areEqual) {
       setInstallments(newInstallments);
       onInstallmentsChange(newInstallments);
     }
     setInstallmentErrors(Array(newInstallments.length).fill('')); // Initialize errors
-  }, [calculateInstallments, onInstallmentsChange, installments]); // Added 'installments' to dependencies
+  }, [calculateInstallments, onInstallmentsChange]); // Removed 'installments' from dependencies
 
   const handleInstallmentValueChange = (index, value) => {
     // Ensure newAmount is a valid number, converting null/undefined/NaN to 0
