@@ -4,7 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
-import { Button } from '@/components/ui/button'; // Corrigido: de '=>' para 'from'
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -56,15 +56,16 @@ const FinanceiroForm = ({ type }) => {
     cliente_fornecedor_name: '',
     cnpj_cpf: '',
     description: '',
-    total_value: 0, 
+    total_value: '',
     payment_method: 'pix',
     cost_center: 'ADMINISTRAÇÃO',
     notes: '',
-    down_payment: 0, 
+    down_payment: '0,00',
     installments_number: 1,
     installments: [],
   });
   
+  const [singleDueDate, setSingleDueDate] = useState(addDays(new Date(), 30));
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [existingInstallments, setExistingInstallments] = useState([]);
@@ -73,8 +74,8 @@ const FinanceiroForm = ({ type }) => {
   const title = type === 'credito' ? 'Crédito' : 'Débito';
   const entityLabel = type === 'credito' ? 'Cliente' : 'Fornecedor';
 
-  const parsedTotalValue = Number(formData.total_value);
-  const parsedDownPayment = Number(formData.down_payment);
+  const parsedTotalValue = parseCurrency(formData.total_value);
+  const parsedDownPayment = parseCurrency(formData.down_payment);
 
   useEffect(() => {
     if (parsedDownPayment > parsedTotalValue) {
@@ -84,16 +85,15 @@ const FinanceiroForm = ({ type }) => {
     }
   }, [parsedDownPayment, parsedTotalValue]);
 
-  useEffect(() => {
+  const fetchEntry = useCallback(async () => {
     if (!isEditing) {
       setLoading(false);
       return;
     }
-    // Edição de lançamento: função ainda não implementada
     setLoading(true);
     toast({
         title: 'Função em Desenvolvimento',
-        description: 'A edição de lançamentos financeiros está sendo ajustada. Por favor, exclua o lançamento e crie-o novamente.',
+        description: 'A edição de lançamentos parcelados está sendo ajustada. Por favor, exclua o lançamento e crie-o novamente.',
         variant: 'destructive',
         duration: 10000,
     });
@@ -101,28 +101,22 @@ const FinanceiroForm = ({ type }) => {
     setLoading(false);
   }, [id, isEditing, navigate, toast, type]);
 
+  useEffect(() => {
+    fetchEntry();
+  }, [fetchEntry]);
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleNumericInputChange = (name, value) => {
-    setFormData((prev) => ({ ...prev, [name]: value === null ? 0 : Number(value) }));
   };
 
   const handleSelectChange = (name, value) => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleIssueDateChange = useCallback((date) => {
-    // Compara o valor da data para evitar atualizações desnecessárias
-    const newDateISO = date ? format(date, 'yyyy-MM-dd') : null;
-    const currentIssueDateISO = formData.issue_date ? format(formData.issue_date, 'yyyy-MM-dd') : null;
-
-    if (newDateISO !== currentIssueDateISO) {
-      setFormData((prev) => ({ ...prev, issue_date: date || new Date() }));
-    }
-  }, [formData.issue_date]);
+  const handleDateChange = (date) => {
+    setFormData((prev) => ({ ...prev, issue_date: date }));
+  };
 
   const handleClientSelectId = (clientId) => {
     setFormData((prev) => ({ ...prev, pessoa_id: clientId }));
@@ -143,10 +137,10 @@ const FinanceiroForm = ({ type }) => {
   const showInstallments = parsedTotalValue > 0 && parsedDownPayment >= 0 && parsedTotalValue > parsedDownPayment;
 
   useEffect(() => {
-    if (!showInstallments && formData.installments.length > 0) {
+    if (!showInstallments) {
       handleInstallmentsChange([]);
     }
-  }, [showInstallments, handleInstallmentsChange, formData.installments]);
+  }, [showInstallments, handleInstallmentsChange]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -166,21 +160,6 @@ const FinanceiroForm = ({ type }) => {
       return;
     }
 
-    // Validação da soma total das parcelas
-    const sumOfInstallments = formData.installments.reduce((sum, inst) => sum + inst.expected_amount, 0);
-    const calculatedTotal = parsedDownPayment + sumOfInstallments;
-    
-    // Usar uma pequena tolerância para problemas de ponto flutuante
-    if (Math.abs(calculatedTotal - parsedTotalValue) > 0.01) {
-      toast({
-        title: 'Erro de Soma das Parcelas',
-        description: `A soma da entrada (${formatCurrency(parsedDownPayment)}) e das parcelas (${formatCurrency(sumOfInstallments)}) não corresponde ao Valor Total (${formatCurrency(parsedTotalValue)}). Diferença: ${formatCurrency(parsedTotalValue - calculatedTotal)}. Por favor, ajuste os valores.`,
-        variant: 'destructive',
-        duration: 8000,
-      });
-      return;
-    }
-
     setSaving(true);
 
     if (isEditing) {
@@ -195,31 +174,29 @@ const FinanceiroForm = ({ type }) => {
     let installmentsPayload = [];
     let totalInstallmentsCount = 0;
 
-    if (parsedDownPayment > 0) {
+    if (parsedDownPayment === 0 && parsedTotalValue > 0) {
+        installmentsPayload.push({
+            amount: parsedTotalValue,
+            date: format(singleDueDate, 'yyyy-MM-dd'),
+            number: 1
+        });
+        totalInstallmentsCount = 1;
+    } else if (parsedDownPayment > 0) {
         downPaymentPayload = {
             amount: parsedDownPayment,
             date: format(formData.issue_date, 'yyyy-MM-dd')
         };
-        totalInstallmentsCount = 1; // A entrada conta como uma 'parcela' para o total
-    }
-    
-    if (showInstallments) {
-        installmentsPayload = formData.installments.map(inst => ({
-            amount: inst.expected_amount,
-            date: format(inst.issue_date, 'yyyy-MM-dd'),
-            number: inst.installment_number
-        }));
-        totalInstallmentsCount += installmentsPayload.length;
-    } else if (parsedDownPayment === 0 && parsedTotalValue > 0) {
-        // Caso de pagamento único sem entrada
-        installmentsPayload.push({
-            amount: parsedTotalValue,
-            date: format(formData.issue_date, 'yyyy-MM-dd'), // Usa a data de emissão como vencimento para pagamento único
-            number: 1
-        });
         totalInstallmentsCount = 1;
+        
+        if (showInstallments) {
+            installmentsPayload = formData.installments.map(inst => ({
+                amount: inst.expected_amount,
+                date: format(inst.issue_date, 'yyyy-MM-dd'),
+                number: inst.installment_number
+            }));
+            totalInstallmentsCount += installmentsPayload.length;
+        }
     }
-
 
     const rpcParams = {
         p_lancamento_id: lancamentoId,
@@ -290,7 +267,7 @@ const FinanceiroForm = ({ type }) => {
                   <Label htmlFor="issue_date" className="text-lg">Emissão <span className="text-red-500">*</span></Label>
                   <DateInput
                     date={formData.issue_date}
-                    setDate={handleIssueDateChange}
+                    setDate={handleDateChange}
                   />
                 </div>
                 <div className="md:col-span-2 relative z-10">
@@ -378,8 +355,8 @@ const FinanceiroForm = ({ type }) => {
                         signed: false,
                       },
                     }}
-                    value={String(formData.total_value)}
-                    onAccept={(value) => handleNumericInputChange('total_value', value)}
+                    value={formData.total_value}
+                    onAccept={(value) => handleInputChange({ target: { name: 'total_value', value: value } })}
                     placeholder="0,00"
                     className="w-full flex h-10 rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                     required
@@ -409,14 +386,20 @@ const FinanceiroForm = ({ type }) => {
                         signed: false,
                       },
                     }}
-                    value={String(formData.down_payment)}
-                    onAccept={(value) => handleNumericInputChange('down_payment', value)}
+                    value={formData.down_payment}
+                    onAccept={(value) => handleInputChange({ target: { name: 'down_payment', value: value } })}
                     placeholder="0,00"
-                    className={`w-full flex h-10 rounded-xl border ${downPaymentError ? 'border-yellow-500' : 'border-white/20'} bg-white/5 px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50`}
+                    className={`w-full flex h-10 rounded-xl border ${downPaymentError ? 'border-red-500' : 'border-white/20'} bg-white/5 px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50`}
                   />
-                  {downPaymentError && <p className="text-yellow-400 text-xs mt-1">{downPaymentError}</p>}
+                  {downPaymentError && <p className="text-red-500 text-xs mt-1">{downPaymentError}</p>}
                 </div>
                 <div>
+                  {parsedDownPayment === 0 && parsedTotalValue > 0 && (
+                    <>
+                      <Label htmlFor="single_due_date" className="text-lg">Vencimento</Label>
+                      <DateInput date={singleDueDate} setDate={setSingleDueDate} />
+                    </>
+                  )}
                   {parsedDownPayment > 0 && (
                     <>
                       <Label htmlFor="down_payment_due_date" className="text-lg">Vencimento da Entrada</Label>
@@ -463,14 +446,13 @@ const FinanceiroForm = ({ type }) => {
 
               {showInstallments && formData.installments_number > 0 && (
                 <InstallmentTable
-                  totalValue={parsedTotalValue}
-                  downPayment={parsedDownPayment}
+                  totalValue={parseCurrency(formData.total_value)}
+                  downPayment={parseCurrency(formData.down_payment)}
                   installmentsNumber={formData.installments_number}
                   issueDate={formData.issue_date}
                   onInstallmentsChange={handleInstallmentsChange}
                   existingInstallments={existingInstallments}
                   isEditing={isEditing}
-                  onInstallmentsNumberChange={(newNumber) => setFormData(prev => ({ ...prev, installments_number: newNumber }))}
                 />
               )}
 

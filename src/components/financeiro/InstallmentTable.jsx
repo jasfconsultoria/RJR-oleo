@@ -19,10 +19,8 @@ const InstallmentTable = ({
   existingInstallments = [], // For editing existing entries
   isEditing = false,
   isViewMode = false,
-  onInstallmentsNumberChange, // New prop to update parent's installments_number
 }) => {
   const [installments, setInstallments] = useState([]);
-  const [installmentErrors, setInstallmentErrors] = useState([]);
   const { toast } = useToast();
 
   const calculateInstallments = useCallback(() => {
@@ -35,7 +33,7 @@ const InstallmentTable = ({
     const totalOfBaseInstallments = baseInstallmentValue * installmentsNumber;
     const roundingDifference = parseFloat((remainingValue - totalOfBaseInstallments).toFixed(2));
 
-    const newInstallments = Array.from({ length: installmentsNumber }, (_, i) => {
+    return Array.from({ length: installmentsNumber }, (_, i) => {
       const existing = existingInstallments.find(inst => inst.installment_number === i + 1);
       let finalInstallmentValue = baseInstallmentValue;
       if (i === installmentsNumber - 1) {
@@ -51,110 +49,62 @@ const InstallmentTable = ({
         status: existing?.status || 'pending',
       };
     });
-    return newInstallments;
   }, [totalValue, downPayment, installmentsNumber, issueDate, isEditing, existingInstallments]);
 
   useEffect(() => {
     const newInstallments = calculateInstallments();
-    // Perform a deep comparison of array contents to prevent infinite loops
-    const areEqual = installments.length === newInstallments.length &&
-      installments.every((oldInst, i) => {
-        const newInst = newInstallments[i];
-        // Compare relevant properties for equality
-        return oldInst.installment_number === newInst.installment_number &&
-               oldInst.expected_amount === newInst.expected_amount &&
-               (oldInst.issue_date instanceof Date && newInst.issue_date instanceof Date 
-                 ? oldInst.issue_date.toISOString() === newInst.issue_date.toISOString()
-                 : oldInst.issue_date === newInst.issue_date); // Handle non-Date objects or nulls
-      });
+    setInstallments(newInstallments);
+    onInstallmentsChange(newInstallments);
+  }, [calculateInstallments, onInstallmentsChange]);
 
-    if (!areEqual) {
-      setInstallments(newInstallments);
-      onInstallmentsChange(newInstallments);
-    }
-    setInstallmentErrors(Array(newInstallments.length).fill('')); // Initialize errors
-  }, [calculateInstallments, onInstallmentsChange]); // Removed 'installments' from dependencies
 
   const handleInstallmentValueChange = (index, value) => {
-    // Ensure newAmount is a valid number, converting null/undefined/NaN to 0
-    let newAmount = isNaN(Number(value)) ? 0 : Number(value); 
-
+    const newAmount = parseCurrency(value);
     const updatedInstallments = [...installments];
-    const remainingValueForInstallments = totalValue - downPayment;
-    const lastInstallmentIndex = updatedInstallments.length - 1;
-
-    const newErrors = Array(installments.length).fill(''); // Reset all errors for simplicity on each change
-
-    // 1. Validate for zero amount
-    if (newAmount === 0) {
-      newErrors[index] = 'O valor da parcela não pode ser zero.';
-      updatedInstallments[index].expected_amount = 0;
-      setInstallmentErrors(newErrors);
-      setInstallments(updatedInstallments);
-      onInstallmentsChange(updatedInstallments);
-      return;
-    }
-
-    // 2. Handle case where first installment equals remaining balance (and there are multiple installments)
-    if (installmentsNumber > 1 && index === 0 && Math.abs(newAmount - remainingValueForInstallments) < 0.01) {
-      const singleInstallment = [{
-        ...updatedInstallments[0],
-        expected_amount: remainingValueForInstallments,
-      }];
-      setInstallments(singleInstallment);
-      onInstallmentsChange(singleInstallment);
-      onInstallmentsNumberChange(1); // Inform parent to update installments_number
-      toast({
-        title: 'Parcela única ajustada',
-        description: 'A primeira parcela cobre o saldo restante. O número de parcelas foi ajustado para 1.',
-        variant: 'default',
-      });
-      return;
-    }
-
+    
+    const totalExpectedSum = totalValue - downPayment;
+    
     // Calculate sum of other installments (excluding the one being edited)
     const sumOfOtherInstallments = updatedInstallments.reduce((sum, inst, i) => {
       if (i === index) return sum;
       return sum + inst.expected_amount;
     }, 0);
 
-    // Determine the maximum allowed amount for the current installment
-    const maxAllowedAmountForCurrent = parseFloat((remainingValueForInstallments - sumOfOtherInstallments).toFixed(2));
+    // Calculate the correct value for the current installment to make the total sum match
+    const correctValueForCurrentInstallment = parseFloat((totalExpectedSum - sumOfOtherInstallments).toFixed(2));
 
-    // If the user tries to set a value that makes the last installment negative
-    if (newAmount > maxAllowedAmountForCurrent + 0.01 && index !== lastInstallmentIndex) { // +0.01 for float tolerance
-      newErrors[index] = `Valor muito alto. Máximo permitido: ${formatCurrency(maxAllowedAmountForCurrent)}.`;
-      newAmount = maxAllowedAmountForCurrent; // Cap the value
-    }
-
-    // Apply the (potentially capped) new amount to the current installment
-    updatedInstallments[index].expected_amount = newAmount;
-
-    // Redistribute the remaining balance to the last installment
-    if (lastInstallmentIndex >= 0) {
-      const sumOfAllButLast = updatedInstallments.slice(0, -1).reduce((sum, inst) => sum + inst.expected_amount, 0);
-      const expectedLastInstallment = parseFloat((remainingValueForInstallments - sumOfAllButLast).toFixed(2));
-
-      // If the user is editing the last installment, validate its value
-      if (index === lastInstallmentIndex) {
-        if (Math.abs(newAmount - expectedLastInstallment) > 0.01) {
-          newErrors[index] = `O valor da parcela deve ser ${formatCurrency(expectedLastInstallment)} para fechar corretamente o total.`;
-          updatedInstallments[index].expected_amount = expectedLastInstallment; // Auto-correct
-        }
+    // If editing the last installment, its value must be exactly what's needed to balance
+    if (index === updatedInstallments.length - 1) {
+      if (Math.abs(newAmount - correctValueForCurrentInstallment) > 0.01) { // Allow small floating point tolerance
+        toast({
+          title: 'Valor incorreto',
+          description: `O valor da parcela deve ser ${formatCurrency(correctValueForCurrentInstallment)} para fechar corretamente o total.`,
+          variant: 'destructive',
+        });
+        updatedInstallments[index].expected_amount = correctValueForCurrentInstallment;
       } else {
-        // If editing a non-last installment, auto-adjust the last one
-        updatedInstallments[lastInstallmentIndex].expected_amount = expectedLastInstallment;
+        updatedInstallments[index].expected_amount = newAmount;
       }
+    } else {
+      // If editing a non-last installment, update its value and adjust the last one
+      updatedInstallments[index].expected_amount = newAmount;
+      
+      const currentSumAfterEdit = updatedInstallments.reduce((sum, inst) => sum + inst.expected_amount, 0);
+      const difference = parseFloat((totalExpectedSum - currentSumAfterEdit).toFixed(2));
 
-      // Ensure the last installment is not negative after adjustment
-      if (updatedInstallments[lastInstallmentIndex].expected_amount < 0) {
-        updatedInstallments[lastInstallmentIndex].expected_amount = 0;
-        // This case should ideally be prevented by the capping logic above, but as a fallback
-        // it ensures no negative display. The overall sum validation will still catch it.
+      if (updatedInstallments.length > 1) {
+        updatedInstallments[updatedInstallments.length - 1].expected_amount = parseFloat((updatedInstallments[updatedInstallments.length - 1].expected_amount + difference).toFixed(2));
+        
+        // Prevent last installment from going negative
+        if (updatedInstallments[updatedInstallments.length - 1].expected_amount < 0) {
+            updatedInstallments[updatedInstallments.length - 1].expected_amount = 0;
+            // If it still doesn't balance, it means the user entered a value too high for a previous installment
+            // This scenario should ideally be prevented by the "correctValueForCurrentInstallment" check
+            // or by a more complex redistribution. For now, we cap at 0.
+        }
       }
     }
 
-    setInstallmentErrors(newErrors);
     setInstallments(updatedInstallments);
     onInstallmentsChange(updatedInstallments);
   };
@@ -199,29 +149,25 @@ const InstallmentTable = ({
                 <TableCell data-label="Parcela" className="font-medium">{installment.installment_number}</TableCell>
                 <TableCell data-label="Valor (R$)" className="text-right">
                   {isViewMode ? formatCurrency(installment.expected_amount) : (
-                    <>
-                      <IMaskInput
-                        mask="num"
-                        blocks={{
-                            num: {
-                            mask: Number,
-                            thousandsSeparator: '.',
-                            radix: ',',
-                            mapToRadix: ['.'],
-                            scale: 2,
-                            padFractionalZeros: true,
-                            normalizeZeros: true,
-                            signed: false,
-                            },
-                        }}
-                        as={Input}
-                        value={String(installment.expected_amount)} // Sempre passa como string
-                        onAccept={(value) => handleInstallmentValueChange(index, value)}
-                        placeholder="0,00"
-                        className={`w-24 bg-white/5 border-white/20 text-white text-right h-10 px-3 py-2 rounded-md text-sm ${installmentErrors[index] ? 'border-yellow-500' : ''}`}
-                      />
-                      {installmentErrors[index] && <p className="text-yellow-400 text-xs mt-1">{installmentErrors[index]}</p>}
-                    </>
+                    <IMaskInput
+                      mask="num"
+                      blocks={{
+                          num: {
+                          mask: Number,
+                          thousandsSeparator: '.',
+                          radix: ',',
+                          mapToRadix: ['.'],
+                          scale: 2,
+                          padFractionalZeros: true,
+                          normalizeZeros: true,
+                          signed: false,
+                          },
+                      }}
+                      value={String(installment.expected_amount).replace('.', ',')}
+                      onAccept={(value) => handleInstallmentValueChange(index, value)}
+                      placeholder="0,00"
+                      className="w-24 bg-white/5 border-white/20 text-white text-right h-10 px-3 py-2 rounded-md text-sm"
+                    />
                   )}
                 </TableCell>
                 <TableCell data-label="Vencimento">
@@ -257,7 +203,7 @@ const InstallmentTable = ({
         </Table>
       </div>
       {overallSum !== totalValue && (
-        <div className={`mt-4 p-3 rounded-md text-sm font-medium bg-yellow-500/20 text-yellow-300`}>
+        <div className={`mt-4 p-3 rounded-md text-sm font-medium ${differenceFromTotal > 0 ? 'bg-red-500/20 text-red-300' : 'bg-yellow-500/20 text-yellow-300'}`}>
           {differenceFromTotal > 0
             ? `A soma das parcelas é menor que o valor total. Diferença: ${formatCurrency(differenceFromTotal)}`
             : `A soma das parcelas excede o valor total. Diferença: ${formatCurrency(Math.abs(differenceFromTotal))}`

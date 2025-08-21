@@ -31,7 +31,7 @@ const PaymentDialog = ({ isOpen, onClose, entry, onSuccess }) => {
   const { toast } = useToast();
   const { user } = useAuth();
   const [paymentData, setPaymentData] = useState({
-    paid_amount: 0, // Inicializado como número
+    paid_amount: '',
     payment_date: new Date(),
     payment_method: entry?.payment_method || 'pix',
     notes: '',
@@ -39,7 +39,7 @@ const PaymentDialog = ({ isOpen, onClose, entry, onSuccess }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const balance = entry ? entry.amount_balance : 0;
-  const currentPaidAmount = Number(paymentData.paid_amount); // Garante que seja número
+  const currentPaidAmount = parseCurrency(paymentData.paid_amount);
   const newTotalPaid = (entry?.paid_amount || 0) + currentPaidAmount;
   const newBalance = balance - currentPaidAmount;
 
@@ -49,13 +49,12 @@ const PaymentDialog = ({ isOpen, onClose, entry, onSuccess }) => {
   };
   
   const handleAmountChange = (value) => {
-    // Ensure value is a valid number, converting null/undefined/NaN to 0
-    setPaymentData(prev => ({ ...prev, paid_amount: isNaN(Number(value)) ? 0 : Number(value) })); 
+    setPaymentData(prev => ({ ...prev, paid_amount: value }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const parsedPaidAmount = Number(paymentData.paid_amount); // Garante que seja número
+    const parsedPaidAmount = parseCurrency(paymentData.paid_amount);
 
     if (parsedPaidAmount <= 0) {
       toast({ title: 'Valor inválido', description: 'O valor do pagamento deve ser maior que zero.', variant: 'destructive' });
@@ -135,7 +134,7 @@ const PaymentDialog = ({ isOpen, onClose, entry, onSuccess }) => {
                     signed: false,
                     },
                 }}
-                value={String(paymentData.paid_amount)} // Sempre passa como string
+                value={paymentData.paid_amount}
                 onAccept={handleAmountChange}
                 placeholder="0,00"
                 className="w-full flex h-10 rounded-xl border border-white/30 bg-white/10 px-3 py-2 text-sm"
