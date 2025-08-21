@@ -138,13 +138,11 @@ const FinanceiroForm = ({ type }) => {
 
   const showInstallments = parsedTotalValue > 0 && parsedDownPayment >= 0 && parsedTotalValue > parsedDownPayment;
 
-  // Corrigido: Removido formData.installments das dependências para evitar loop infinito
   useEffect(() => {
-    if (!showInstallments && formData.installments && formData.installments.length > 0) {
+    if (!showInstallments && formData.installments.length > 0) {
       handleInstallmentsChange([]);
     }
-    // eslint-disable-next-line
-  }, [showInstallments, handleInstallmentsChange]);
+  }, [showInstallments, handleInstallmentsChange, formData.installments]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
