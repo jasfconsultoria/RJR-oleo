@@ -38,8 +38,10 @@ import React, { useEffect, useCallback } from 'react';
     import SaidaFormPage from '@/pages/estoque/SaidaFormPage';
     import ListaMovimentacoesPage from '@/pages/estoque/ListaMovimentacoesPage';
     import SaldoEstoquePage from '@/pages/estoque/SaldoEstoquePage';
-    import ListaProdutosPage from '@/pages/estoque/ListaProdutosPage'; // New import
-    import ProdutoFormPage from '@/pages/estoque/ProdutoFormPage'; // New import
+    import ListaProdutosPage from '@/pages/estoque/ListaProdutosPage';
+    import ProdutoFormPage from '@/pages/estoque/ProdutoFormPage';
+    import ListaEntradasPage from '@/pages/estoque/ListaEntradasPage'; // New import
+    import ListaSaidasPage from '@/pages/estoque/ListaSaidasPage'; // New import
 
     const ProtectedRoute = ({ children, requiredRole }) => {
       const { session, loading: authLoading } = useAuth();
@@ -142,13 +144,15 @@ import React, { useEffect, useCallback } from 'react';
                       <Route path="financeiro/debito/editar/:id" element={<ProtectedRoute requiredRole="administrador"><FinanceiroForm type="debito" /></ProtectedRoute>} />
 
                       {/* New Estoque Routes */}
-                      <Route path="estoque/produtos" element={<ProtectedRoute requiredRole="administrador"><ListaProdutosPage /></ProtectedRoute>} /> {/* New route */}
-                      <Route path="estoque/produtos/novo" element={<ProtectedRoute requiredRole="administrador"><ProdutoFormPage /></ProtectedRoute>} /> {/* New route */}
-                      <Route path="estoque/produtos/editar/:id" element={<ProtectedRoute requiredRole="administrador"><ProdutoFormPage /></ProtectedRoute>} /> {/* New route */}
-                      <Route path="estoque/entradas" element={<ProtectedRoute requiredRole="administrador"><EntradaFormPage /></ProtectedRoute>} />
-                      <Route path="estoque/entradas/editar/:id" element={<ProtectedRoute requiredRole="administrador"><EntradaFormPage /></ProtectedRoute>} />
-                      <Route path="estoque/saidas" element={<ProtectedRoute requiredRole="administrador"><SaidaFormPage /></ProtectedRoute>} />
-                      <Route path="estoque/saidas/editar/:id" element={<ProtectedRoute requiredRole="administrador"><SaidaFormPage /></ProtectedRoute>} />
+                      <Route path="estoque/produtos" element={<ProtectedRoute requiredRole="administrador"><ListaProdutosPage /></ProtectedRoute>} />
+                      <Route path="estoque/produtos/novo" element={<ProtectedRoute requiredRole="administrador"><ProdutoFormPage /></ProtectedRoute>} />
+                      <Route path="estoque/produtos/editar/:id" element={<ProtectedRoute requiredRole="administrador"><ProdutoFormPage /></ProtectedRoute>} />
+                      <Route path="estoque/entradas" element={<ProtectedRoute requiredRole="administrador"><ListaEntradasPage /></ProtectedRoute>} /> {/* New list page */}
+                      <Route path="estoque/entradas/novo" element={<ProtectedRoute requiredRole="administrador"><EntradaFormPage /></ProtectedRoute>} /> {/* Form for new entry */}
+                      <Route path="estoque/entradas/editar/:id" element={<ProtectedRoute requiredRole="administrador"><EntradaFormPage /></ProtectedRoute>} /> {/* Form for editing entry */}
+                      <Route path="estoque/saidas" element={<ProtectedRoute requiredRole="administrador"><ListaSaidasPage /></ProtectedRoute>} /> {/* New list page */}
+                      <Route path="estoque/saidas/novo" element={<ProtectedRoute requiredRole="administrador"><SaidaFormPage /></ProtectedRoute>} /> {/* Form for new exit */}
+                      <Route path="estoque/saidas/editar/:id" element={<ProtectedRoute requiredRole="administrador"><SaidaFormPage /></ProtectedRoute>} /> {/* Form for editing exit */}
                       <Route path="estoque/movimentacoes" element={<ProtectedRoute requiredRole="administrador"><ListaMovimentacoesPage /></ProtectedRoute>} />
                       <Route path="estoque/saldo" element={<ProtectedRoute requiredRole="administrador"><SaldoEstoquePage /></ProtectedRoute>} />
 
