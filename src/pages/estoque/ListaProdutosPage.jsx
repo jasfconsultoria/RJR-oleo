@@ -221,9 +221,11 @@ const ListaProdutosPage = () => {
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
                                   <AlertDialogCancel className="border-gray-500 text-gray-300 rounded-xl">Cancelar</AlertDialogCancel>
-                                  <AlertDialogAction onClick={() => handleDelete(produto.id, produto.nome)} className="bg-red-500 hover:bg-red-600 rounded-xl">Deletar</AlertDialogAction>
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
+                                  <AlertDialogAction asChild> {/* Corrected: Added asChild here */}
+                                    <Button onClick={() => handleDelete(produto.id, produto.nome)} className="bg-red-500 hover:bg-red-600 rounded-xl">Deletar</Button>
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
                             </AlertDialog>
                            </div>
                         </TableCell>
