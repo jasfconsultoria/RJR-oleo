@@ -89,6 +89,10 @@ const SaidaFormPage = () => {
       toast({ title: 'Campos obrigatórios', description: 'Data, Tipo e Origem são obrigatórios.', variant: 'destructive' });
       return false;
     }
+    if (!formData.cliente_id) { // New validation for cliente_id
+      toast({ title: 'Campo obrigatório', description: 'O campo Cliente é obrigatório.', variant: 'destructive' });
+      return false;
+    }
     if (formData.itens.length === 0) {
       toast({ title: 'Itens da movimentação', description: 'Adicione pelo menos um item à movimentação.', variant: 'destructive' });
       return false;

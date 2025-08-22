@@ -48,11 +48,12 @@ const MovimentacaoFormFields = ({ formData, handleChange, handleSelectChange, is
 
       <div className="md:col-span-2">
         <ClienteSearchableSelect
-          labelText="Cliente (Opcional)"
+          labelText="Cliente *"
           value={formData.cliente_id}
           onChange={(value) => handleSelectChange('cliente_id', value)}
           loading={loadingClients}
           disabled={isEditing}
+          required // Making it required
         />
       </div>
 
