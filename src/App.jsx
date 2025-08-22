@@ -38,6 +38,8 @@ import React, { useEffect, useCallback } from 'react';
     import SaidaFormPage from '@/pages/estoque/SaidaFormPage';
     import ListaMovimentacoesPage from '@/pages/estoque/ListaMovimentacoesPage';
     import SaldoEstoquePage from '@/pages/estoque/SaldoEstoquePage';
+    import ListaProdutosPage from '@/pages/estoque/ListaProdutosPage'; // New import
+    import ProdutoFormPage from '@/pages/estoque/ProdutoFormPage'; // New import
 
     const ProtectedRoute = ({ children, requiredRole }) => {
       const { session, loading: authLoading } = useAuth();
@@ -140,6 +142,9 @@ import React, { useEffect, useCallback } from 'react';
                       <Route path="financeiro/debito/editar/:id" element={<ProtectedRoute requiredRole="administrador"><FinanceiroForm type="debito" /></ProtectedRoute>} />
 
                       {/* New Estoque Routes */}
+                      <Route path="estoque/produtos" element={<ProtectedRoute requiredRole="administrador"><ListaProdutosPage /></ProtectedRoute>} /> {/* New route */}
+                      <Route path="estoque/produtos/novo" element={<ProtectedRoute requiredRole="administrador"><ProdutoFormPage /></ProtectedRoute>} /> {/* New route */}
+                      <Route path="estoque/produtos/editar/:id" element={<ProtectedRoute requiredRole="administrador"><ProdutoFormPage /></ProtectedRoute>} /> {/* New route */}
                       <Route path="estoque/entradas" element={<ProtectedRoute requiredRole="administrador"><EntradaFormPage /></ProtectedRoute>} />
                       <Route path="estoque/entradas/editar/:id" element={<ProtectedRoute requiredRole="administrador"><EntradaFormPage /></ProtectedRoute>} />
                       <Route path="estoque/saidas" element={<ProtectedRoute requiredRole="administrador"><SaidaFormPage /></ProtectedRoute>} />

@@ -24,6 +24,7 @@ import {
   ArrowUpSquare, // New icon for Saídas
   ListChecks, // New icon for Movimentações
   Scale, // New icon for Saldo Atual
+  Package, // New icon for Produtos
 } from 'lucide-react';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useProfile } from '@/contexts/ProfileContext';
@@ -97,6 +98,7 @@ const AppLayout = ({ children }) => {
       icon: Warehouse, 
       adminOnly: true,
       subItems: [
+        { to: '/app/estoque/produtos', label: 'Produtos', icon: Package }, // New sub-item
         { to: '/app/estoque/entradas', label: 'Entradas', icon: ArrowDownSquare },
         { to: '/app/estoque/saidas', label: 'Saídas', icon: ArrowUpSquare },
         { to: '/app/estoque/movimentacoes', label: 'Movimentações', icon: ListChecks },
