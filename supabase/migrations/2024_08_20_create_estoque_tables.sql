@@ -1,3 +1,6 @@
+-- Enable uuid-ossp extension if not already enabled
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
 -- Create 'produtos' table
 CREATE TABLE public.produtos (
     id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -9,21 +12,31 @@ CREATE TABLE public.produtos (
     updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
+-- Ensure unique constraint for product name (moved before INSERT)
+ALTER TABLE public.produtos ADD CONSTRAINT produtos_nome_key UNIQUE (nome);
+
 -- Insert initial products
 INSERT INTO public.produtos (nome, unidade, tipo, ativo) VALUES
 ('Óleo de fritura', 'kg', 'coletado', true),
 ('Óleo novo', 'litro', 'novo', true)
-ON CONFLICT (nome) DO NOTHING; -- Prevents re-insertion if already exists
+ON CONFLICT (nome) DO NOTHING; -- Now this will work as the unique constraint exists
+
+-- Create 'movement_type' and 'movement_origin' enums
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'movement_type') THEN
+        CREATE TYPE public.movement_type AS ENUM ('entrada', 'saida');
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'movement_origin') THEN
+        CREATE TYPE public.movement_origin AS ENUM ('manual', 'coleta');
+    END IF;
+END $$;
 
 -- Create 'entrada_saida' table for stock movements
-CREATE TYPE public.movement_type AS ENUM ('entrada', 'saida');
-CREATE TYPE public.movement_origin AS ENUM ('manual', 'coleta');
-
 CREATE TABLE public.entrada_saida (
     id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
     data timestamp with time zone DEFAULT now() NOT NULL,
-    tipo movement_type NOT NULL,
-    origem movement_origin NOT NULL,
+    tipo public.movement_type NOT NULL,
+    origem public.movement_origin NOT NULL,
     cliente_id uuid REFERENCES public.clientes(id) ON DELETE SET NULL, -- Optional FK to clients
     observacao text,
     user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL, -- User who performed the movement
@@ -41,8 +54,16 @@ CREATE TABLE public.itens_entrada_saida (
     updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
--- Ensure unique constraint for product name
-ALTER TABLE public.produtos ADD CONSTRAINT produtos_nome_key UNIQUE (nome);
+-- Create or replace the 'is_admin' function
+CREATE OR REPLACE FUNCTION public.is_admin(user_id uuid)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  RETURN EXISTS (SELECT 1 FROM public.profiles WHERE id = user_id AND role = 'administrador');
+END;
+$$;
 
 -- Create a view to calculate the current stock balance for each product
 CREATE OR REPLACE VIEW public.v_saldo_produtos AS
@@ -65,7 +86,7 @@ GROUP BY
 ORDER BY
     p.nome;
 
--- Add RLS policies for new tables (assuming admin access for now)
+-- Add RLS policies for new tables
 ALTER TABLE public.produtos ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Enable all for admins" ON public.produtos USING (is_admin(auth.uid()));
 CREATE POLICY "Enable read access for all users" ON public.produtos FOR SELECT USING (true);
@@ -77,19 +98,6 @@ CREATE POLICY "Enable read access for all users" ON public.entrada_saida FOR SEL
 ALTER TABLE public.itens_entrada_saida ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Enable all for admins" ON public.itens_entrada_saida USING (is_admin(auth.uid()));
 CREATE POLICY "Enable read access for all users" ON public.itens_entrada_saida FOR SELECT USING (true);
-
--- Update the 'is_admin' function if it doesn't exist or needs adjustment
--- This is a placeholder, ensure your actual is_admin function is correctly defined
--- For example:
--- CREATE OR REPLACE FUNCTION public.is_admin(user_id uuid)
--- RETURNS boolean
--- LANGUAGE plpgsql
--- SECURITY DEFINER
--- AS $$
--- BEGIN
---   RETURN EXISTS (SELECT 1 FROM public.profiles WHERE id = user_id AND role = 'administrador');
--- END;
--- $$;
 
 -- Add a new version entry
 INSERT INTO public.versoes (versao, data_implantacao, descricao)
