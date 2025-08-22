@@ -18,7 +18,12 @@ import {
   Info,
   BookText,
   GitBranch,
-  DollarSign, // New icon for Financeiro
+  DollarSign,
+  Warehouse, // New icon for Estoque
+  ArrowDownSquare, // New icon for Entradas
+  ArrowUpSquare, // New icon for Saídas
+  ListChecks, // New icon for Movimentações
+  Scale, // New icon for Saldo Atual
 } from 'lucide-react';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useProfile } from '@/contexts/ProfileContext';
@@ -32,7 +37,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'; // Import DropdownMenu components
+} from '@/components/ui/dropdown-menu';
 
 const AppLayout = ({ children }) => {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
@@ -78,7 +83,7 @@ const AppLayout = ({ children }) => {
     { 
       label: 'Financeiro', 
       icon: DollarSign, 
-      adminOnly: true, // Assuming financeiro is admin only for now
+      adminOnly: true,
       subItems: [
         { to: '/app/financeiro/credito', label: 'Crédito' },
         { to: '/app/financeiro/debito', label: 'Débito' },
@@ -87,6 +92,17 @@ const AppLayout = ({ children }) => {
     { to: '/app/coletas', icon: Truck, label: 'Coletas' },
     { to: '/app/certificados', icon: FileText, label: 'Certificados', adminOnly: true },
     { to: '/app/relatorios', icon: BarChart2, label: 'Relatórios', adminOnly: true },
+    { 
+      label: 'Estoque', 
+      icon: Warehouse, 
+      adminOnly: true,
+      subItems: [
+        { to: '/app/estoque/entradas', label: 'Entradas', icon: ArrowDownSquare },
+        { to: '/app/estoque/saidas', label: 'Saídas', icon: ArrowUpSquare },
+        { to: '/app/estoque/movimentacoes', label: 'Movimentações', icon: ListChecks },
+        { to: '/app/estoque/saldo', label: 'Saldo Atual', icon: Scale },
+      ]
+    },
     { to: '/app/usuarios', icon: UserCog, label: 'Usuários', adminOnly: true },
     { to: '/app/empresa', icon: Building, label: 'Empresa', adminOnly: true },
     { to: '/app/logs', icon: BookText, label: 'Logs', adminOnly: true },
@@ -107,13 +123,14 @@ const AppLayout = ({ children }) => {
         }
         
         if (item.subItems) {
+          const isActiveParent = item.subItems.some(sub => location.pathname.startsWith(sub.to));
           return (
             <DropdownMenu key={item.label}>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
                   className={`flex items-center gap-3 rounded-xl px-3 py-2 w-full justify-start transition-all hover:bg-emerald-700 ${
-                    item.subItems.some(sub => location.pathname.startsWith(sub.to)) ? 'bg-emerald-600 text-white' : 'text-emerald-100'
+                    isActiveParent ? 'bg-emerald-600 text-white' : 'text-emerald-100'
                   }`}
                 >
                   <item.icon className="h-5 w-5" />
@@ -123,20 +140,24 @@ const AppLayout = ({ children }) => {
               <DropdownMenuContent className="w-56 bg-gray-800 text-white border-gray-700">
                 <DropdownMenuLabel>{item.label}</DropdownMenuLabel>
                 <DropdownMenuSeparator className="bg-gray-700" />
-                {item.subItems.map(subItem => (
-                  <DropdownMenuItem key={subItem.to} asChild>
-                    <NavLink
-                      to={subItem.to}
-                      className={({ isActive }) =>
-                        `flex items-center gap-3 rounded-md px-3 py-2 transition-all hover:bg-emerald-700 ${
-                          isActive ? 'bg-emerald-600 text-white' : 'text-emerald-100'
-                        }`
-                      }
-                    >
-                      {subItem.label}
-                    </NavLink>
-                  </DropdownMenuItem>
-                ))}
+                {item.subItems.map(subItem => {
+                  const SubIcon = subItem.icon;
+                  return (
+                    <DropdownMenuItem key={subItem.to} asChild>
+                      <NavLink
+                        to={subItem.to}
+                        className={({ isActive }) =>
+                          `flex items-center gap-3 rounded-md px-3 py-2 transition-all hover:bg-emerald-700 ${
+                            isActive ? 'bg-emerald-600 text-white' : 'text-emerald-100'
+                          }`
+                        }
+                      >
+                        {SubIcon && <SubIcon className="h-4 w-4" />}
+                        {subItem.label}
+                      </NavLink>
+                    </DropdownMenuItem>
+                  );
+                })}
               </DropdownMenuContent>
             </DropdownMenu>
           );

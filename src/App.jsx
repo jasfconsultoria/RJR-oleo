@@ -33,6 +33,11 @@ import React, { useEffect, useCallback } from 'react';
     import FinanceiroForm from '@/pages/FinanceiroForm';
     import AssinaturaReciboPage from '@/pages/AssinaturaReciboPage';
     import ReciboPublicoPage from '@/pages/ReciboPublicoPage';
+    // Estoque Pages
+    import EntradaFormPage from '@/pages/estoque/EntradaFormPage';
+    import SaidaFormPage from '@/pages/estoque/SaidaFormPage';
+    import ListaMovimentacoesPage from '@/pages/estoque/ListaMovimentacoesPage';
+    import SaldoEstoquePage from '@/pages/estoque/SaldoEstoquePage';
 
     const ProtectedRoute = ({ children, requiredRole }) => {
       const { session, loading: authLoading } = useAuth();
@@ -133,6 +138,14 @@ import React, { useEffect, useCallback } from 'react';
                       <Route path="financeiro/debito" element={<ProtectedRoute requiredRole="administrador"><ListaFinanceiro type="debito" /></ProtectedRoute>} />
                       <Route path="financeiro/debito/novo" element={<ProtectedRoute requiredRole="administrador"><FinanceiroForm type="debito" /></ProtectedRoute>} />
                       <Route path="financeiro/debito/editar/:id" element={<ProtectedRoute requiredRole="administrador"><FinanceiroForm type="debito" /></ProtectedRoute>} />
+
+                      {/* New Estoque Routes */}
+                      <Route path="estoque/entradas" element={<ProtectedRoute requiredRole="administrador"><EntradaFormPage /></ProtectedRoute>} />
+                      <Route path="estoque/entradas/editar/:id" element={<ProtectedRoute requiredRole="administrador"><EntradaFormPage /></ProtectedRoute>} />
+                      <Route path="estoque/saidas" element={<ProtectedRoute requiredRole="administrador"><SaidaFormPage /></ProtectedRoute>} />
+                      <Route path="estoque/saidas/editar/:id" element={<ProtectedRoute requiredRole="administrador"><SaidaFormPage /></ProtectedRoute>} />
+                      <Route path="estoque/movimentacoes" element={<ProtectedRoute requiredRole="administrador"><ListaMovimentacoesPage /></ProtectedRoute>} />
+                      <Route path="estoque/saldo" element={<ProtectedRoute requiredRole="administrador"><SaldoEstoquePage /></ProtectedRoute>} />
 
                       <Route path="usuarios" element={
                         <ProtectedRoute requiredRole="administrador">
