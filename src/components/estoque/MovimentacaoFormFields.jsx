@@ -56,20 +56,6 @@ const MovimentacaoFormFields = ({ formData, handleChange, handleSelectChange, is
           required // Making it required
         />
       </div>
-
-      <div className="md:col-span-2">
-        <Label htmlFor="observacao" className="text-lg flex items-center gap-2">
-          <Info className="w-4 h-4" /> Observação
-        </Label>
-        <Textarea
-          id="observacao"
-          name="observacao"
-          value={formData.observacao}
-          onChange={(e) => handleChange('observacao', e.target.value)}
-          placeholder="Detalhes adicionais sobre a movimentação..."
-          className="bg-white/5 border-white/20 rounded-xl"
-        />
-      </div>
     </div>
   );
 };

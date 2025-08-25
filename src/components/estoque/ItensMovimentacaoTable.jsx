@@ -91,7 +91,7 @@ const ItensMovimentacaoTable = ({ items, onItemsChange, type, isEditing }) => {
   return (
     <div className="space-y-4">
       <h3 className="text-lg font-semibold text-white">Itens da Movimentação *</h3>
-      <div className="overflow-x-auto rounded-xl border border-white/20">
+      <div className="overflow-x-auto overflow-y-auto max-h-[300px] rounded-xl border border-white/20"> {/* Added max-h and overflow-y */}
         <Table className="responsive-table">
           <TableHeader>
             <TableRow className="hover:bg-transparent border-b border-white/20 text-xs">
@@ -119,6 +119,7 @@ const ItensMovimentacaoTable = ({ items, onItemsChange, type, isEditing }) => {
                       onChange={(product) => handleProductSelect(index, product)}
                       filterType={type === 'entrada' ? null : null} // Can filter by 'coletado' or 'novo' if needed
                       disabled={isEditing}
+                      hideLabel={true} {/* Hide the label here */}
                     />
                     {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
                   </TableCell>

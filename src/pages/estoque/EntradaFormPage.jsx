@@ -6,12 +6,14 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Save, ArrowDownSquare, Loader2 } from 'lucide-react';
+import { ArrowLeft, Save, ArrowDownSquare, Loader2, Info } from 'lucide-react'; // Added Info icon
 import { logAction } from '@/lib/logger';
 import MovimentacaoFormFields from '@/components/estoque/MovimentacaoFormFields';
 import ItensMovimentacaoTable from '@/components/estoque/ItensMovimentacaoTable';
 import { parseCurrency } from '@/lib/utils';
 import { useAuth } from '@/contexts/SupabaseAuthContext'; // Import useAuth
+import { Label } from '@/components/ui/label'; // Import Label
+import { Textarea } from '@/components/ui/textarea'; // Import Textarea
 
 const EntradaFormPage = () => {
   const { id } = useParams();
@@ -216,6 +218,21 @@ const EntradaFormPage = () => {
                 type="entrada"
                 isEditing={isEditing}
               />
+              
+              {/* Moved Observação field here */}
+              <div className="md:col-span-2">
+                <Label htmlFor="observacao" className="text-lg flex items-center gap-2">
+                  <Info className="w-4 h-4" /> Observação
+                </Label>
+                <Textarea
+                  id="observacao"
+                  name="observacao"
+                  value={formData.observacao}
+                  onChange={(e) => handleFormChange('observacao', e.target.value)}
+                  placeholder="Detalhes adicionais sobre a movimentação..."
+                  className="bg-white/5 border-white/20 rounded-xl"
+                />
+              </div>
 
               <div className="flex justify-between items-center pt-6">
                 <Button type="button" onClick={() => navigate('/app/estoque/movimentacoes')} variant="outline" className="rounded-xl">

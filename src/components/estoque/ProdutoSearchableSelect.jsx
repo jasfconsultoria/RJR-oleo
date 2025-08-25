@@ -14,6 +14,7 @@ const ProdutoSearchableSelect = ({
   loading: parentLoading = false,
   disabled = false,
   filterType = null, // 'coletado' or 'novo' to filter products
+  hideLabel = false, // New prop to hide the label
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [products, setProducts] = useState([]);
@@ -107,7 +108,7 @@ const ProdutoSearchableSelect = ({
 
   return (
     <div className="relative" ref={containerRef}>
-      <Label htmlFor="product-search-select" className="block text-white mb-1 text-sm">{labelText}</Label>
+      {!hideLabel && <Label htmlFor="product-search-select" className="block text-white mb-1 text-sm">{labelText}</Label>}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/70" />
         <Input
