@@ -11,12 +11,14 @@ import { logAction } from '@/lib/logger';
 import MovimentacaoFormFields from '@/components/estoque/MovimentacaoFormFields';
 import ItensMovimentacaoTable from '@/components/estoque/ItensMovimentacaoTable';
 import { parseCurrency } from '@/lib/utils';
+import { useAuth } from '@/contexts/SupabaseAuthContext'; // Import useAuth
 
 const EntradaFormPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
   const isEditing = Boolean(id);
+  const { user } = useAuth(); // Get user from useAuth
 
   const [formData, setFormData] = useState({
     data: new Date(),
@@ -113,7 +115,7 @@ const EntradaFormPage = () => {
     setSaving(true);
     try {
       const { itens, ...movimentacaoHeader } = formData;
-      movimentacaoHeader.user_id = supabase.auth.user()?.id; // Ensure user_id is set
+      movimentacaoHeader.user_id = user?.id; // Use user.id from useAuth
 
       let savedMovimentacao;
       if (isEditing) {
