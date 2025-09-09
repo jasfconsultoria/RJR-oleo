@@ -8,6 +8,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { parseCurrency, formatCurrency } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { formatDate } from '@/lib/utils'; // Import formatDate from utils
 
 export function ColetaStep2({ data, onBack, onNext, onUpdate }) {
   const [quantidadeColetada, setQuantidadeColetada] = useState(data.quantidade_coletada || '');
@@ -26,17 +27,6 @@ export function ColetaStep2({ data, onBack, onNext, onUpdate }) {
     }
     onUpdate({ quantidade_coletada: quantidadeColetada });
     onNext();
-  };
-
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    try {
-      const date = new Date(dateString);
-      // Adjust for timezone offset if necessary, but format should handle it
-      return format(date, 'dd/MM/yyyy', { locale: ptBR });
-    } catch (error) {
-      return 'Data inválida';
-    }
   };
 
   const calcularResultado = () => {

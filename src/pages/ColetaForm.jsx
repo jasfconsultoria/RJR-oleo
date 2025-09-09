@@ -12,6 +12,7 @@ import { parseCurrency } from '@/lib/utils';
 import { format } from 'date-fns';
 import { logAction } from '@/lib/logger';
 import { useAutoSave } from '@/hooks/useAutoSave';
+import { useProfile } from '@/contexts/ProfileContext';
 
 const ColetaForm = () => {
   const [currentStep, setCurrentStep] = useState(1);
@@ -19,6 +20,7 @@ const ColetaForm = () => {
   const { id } = useParams();
   const { user } = useAuth();
   const isEditing = !!id;
+  const { profile } = useProfile();
 
   const autoSaveKey = id ? `autoSave_coletaForm_${id}` : 'autoSave_coletaForm_new';
 
@@ -231,6 +233,7 @@ const ColetaForm = () => {
               onNext={nextStep}
               onUpdate={updateColetaData}
               isEditing={isEditing}
+              profile={profile}
             />
           )}
           {currentStep === 2 && (

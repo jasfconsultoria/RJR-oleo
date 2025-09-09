@@ -10,6 +10,7 @@ import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/customSupabaseClient';
 import { ReciboViewDialog } from '@/components/coletas/ReciboViewDialog';
+import { formatDate } from '@/lib/utils';
 
 export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData }) {
   const [resultadoFinal, setResultadoFinal] = useState('0,00');
@@ -92,17 +93,6 @@ export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData }) 
     setShowReciboDialog(false);
     clearSavedData(); // Clear auto-saved data when the process is finished
     navigate('/app/coletas');
-  };
-
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    try {
-      const [year, month, day] = dateString.split('-').map(Number);
-      const date = new Date(year, month - 1, day);
-      return format(date, 'dd/MM/yyyy');
-    } catch (error) {
-      return 'Data inválida';
-    }
   };
 
   return (

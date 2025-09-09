@@ -11,14 +11,15 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { estados, getMunicipios } from '@/lib/location';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { useIMask } from 'react-imask';
-import { formatCnpjCpf, unmask } from '@/lib/utils';
+import { formatCnpjCpf, unmask, formatToISODate } from '@/lib/utils';
+import { DatePicker } from '@/components/ui/date-picker';
 
 const tiposColeta = [
   { id: 'Troca', nome: 'Troca' },
   { id: 'Compra', nome: 'Compra' },
 ];
 
-export function ColetaStep1({ data, onNext, onUpdate }) {
+export function ColetaStep1({ data, onNext, onUpdate, profile }) {
   const navigate = useNavigate();
   const [formData, setFormData] = useState(data);
   const [clientes, setClientes] = useState([]);
@@ -194,14 +195,11 @@ export function ColetaStep1({ data, onNext, onUpdate }) {
             <Calendar className="w-4 h-4" />
             Data da Coleta *
           </Label>
-          <Input
-            id="data_coleta"
-            type="date"
-            value={formData.data_coleta}
-            onChange={(e) => handleInputChange('data_coleta', e.target.value)}
-            className="bg-white/20 border-white/30 text-white disabled:opacity-70 disabled:cursor-not-allowed"
-            required
-            disabled
+          <DatePicker
+            date={formData.data_coleta ? new Date(formData.data_coleta + 'T00:00:00') : null}
+            setDate={(date) => handleInputChange('data_coleta', formatToISODate(date))}
+            className="w-full"
+            disabled={profile?.role !== 'admin'}
           />
         </div>
 
