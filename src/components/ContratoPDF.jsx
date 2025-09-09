@@ -1,7 +1,7 @@
 import React from 'react';
 import { format, parseISO, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { formatCnpjCpf } from '@/lib/utils';
+import { formatCnpjCpf, formatCurrency, valorPorExtenso } from '@/lib/utils';
 
 const ContratoPDF = React.forwardRef(({ contrato, empresa, showSignature }, ref) => {
   const cliente = contrato?.pessoa;
@@ -34,11 +34,15 @@ const ContratoPDF = React.forwardRef(({ contrato, empresa, showSignature }, ref)
 
   const renderClausulaValor = () => {
     if (contrato.tipo_coleta === 'Compra') {
+      const valorColeta = parseFloat(contrato.valor_coleta);
+      const valorFormatado = formatCurrency(valorColeta);
+      const valorExtenso = valorPorExtenso(valorColeta);
+
       return (
         <p className="mb-4">
           <strong>CLÁUSULA SEGUNDA - DO PREÇO E CONDIÇÕES DE PAGAMENTO</strong>
           <br />
-          A <strong>CONTRATADA</strong> pagará à <strong>CONTRATANTE</strong> o valor de R$ {contrato.valor_coleta || '____'} por quilograma de resíduo coletado. O pagamento será realizado no ato da coleta.
+          A <strong>CONTRATADA</strong> pagará à <strong>CONTRATANTE</strong> o valor de {valorFormatado} ({valorExtenso}) por quilograma de resíduo coletado. O pagamento será realizado no ato da coleta.
         </p>
       );
     }
@@ -47,7 +51,7 @@ const ContratoPDF = React.forwardRef(({ contrato, empresa, showSignature }, ref)
         <p className="mb-4">
           <strong>CLÁUSULA SEGUNDA - DA TROCA</strong>
           <br />
-          A cada {contrato.fator_troca || '____'} kg de óleo coletado, a <strong>CONTRATANTE</strong> receberá 1 (um) litro de produto de limpeza (saneante). A entrega do produto será realizada no ato da coleta.
+          A cada {contrato.fator_troca || '____'} kg de óleo coletado, a <strong>CONTRATANTE</strong> receberá 1 (um) litro de óleo de soja novo. A entrega do produto será realizada no ato da coleta.
         </p>
       );
     }
@@ -82,7 +86,7 @@ const ContratoPDF = React.forwardRef(({ contrato, empresa, showSignature }, ref)
       <p className="mb-4">
         <strong>CLÁUSULA PRIMEIRA - DO OBJETO</strong>
         <br />
-        Fica estabelecido que a contratada prestará serviço de coleta dos resíduos óleo/gordura de origem animal e vegetal utilizados em fritura alimentar e fará a troca por produtos de limpeza (saneantes) ou o pagamento em espécie, conforme acordado entre as partes.
+        Fica estabelecido que a contratada prestará serviço de coleta dos resíduos óleo/gordura de origem animal e vegetal utilizados em fritura alimentar e fará a troca por óleo de soja novo ou o pagamento em espécie, conforme acordado entre as partes.
       </p>
 
       {renderClausulaValor()}

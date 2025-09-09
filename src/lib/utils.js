@@ -83,6 +83,93 @@ export function formatNumber(value, options = {}) {
   }).format(Number(value));
 }
 
+const unidades = ['zero', 'um', 'dois', 'três', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove'];
+const dezenas = ['', 'dez', 'vinte', 'trinta', 'quarenta', 'cinquenta', 'sessenta', 'setenta', 'oitenta', 'noventa'];
+const dezenasEspeciais = ['dez', 'onze', 'doze', 'treze', 'quatorze', 'quinze', 'dezesseis', 'dezessete', 'dezoito', 'dezenove'];
+const centenas = ['', 'cento', 'duzentos', 'trezentos', 'quatrocentos', 'quinhentos', 'seiscentos', 'setecentos', 'oitocentos', 'novecentos'];
+
+function converterNumeroParaPalavras(num) {
+    if (num === 0) return 'zero';
+    if (num < 0) return 'menos ' + converterNumeroParaPalavras(Math.abs(num));
+
+    let s = num.toString();
+    let result = [];
+
+    function processChunk(chunk) {
+        let c = parseInt(chunk);
+        if (c === 0) return '';
+        if (c < 10) return unidades[c];
+        if (c < 20) return dezenasEspeciais[c - 10];
+        if (c < 100) {
+            let dez = Math.floor(c / 10);
+            let uni = c % 10;
+            return dezenas[dez] + (uni > 0 ? ' e ' + unidades[uni] : '');
+        }
+        if (c < 1000) {
+            let cent = Math.floor(c / 100);
+            let rest = c % 100;
+            return (cent === 1 && rest === 0 ? 'cem' : centenas[cent]) + (rest > 0 ? ' e ' + converterNumeroParaPalavras(rest) : '');
+        }
+        return ''; // Should not happen for chunks of 3 digits
+    }
+
+    let chunks = [];
+    for (let i = s.length; i > 0; i -= 3) {
+        chunks.unshift(s.substring(Math.max(0, i - 3), i));
+    }
+
+    const grandezas = ['', 'mil', 'milhões', 'bilhões', 'trilhões']; // Extend as needed
+
+    for (let i = 0; i < chunks.length; i++) {
+        let chunk = parseInt(chunks[i]);
+        if (chunk === 0) continue;
+
+        let chunkWords = processChunk(chunks[i]);
+        let grandeza = grandezas[chunks.length - 1 - i];
+
+        if (grandeza === 'mil' && chunk === 1) {
+            // "um mil" is usually just "mil"
+            result.push('mil');
+        } else if (grandeza) {
+            result.push(chunkWords + ' ' + grandeza + (chunk > 1 && grandeza !== 'mil' ? 'ões' : ''));
+        } else {
+            result.push(chunkWords);
+        }
+    }
+
+    return result.join(' ').trim();
+}
+
+export function valorPorExtenso(valor) {
+    if (typeof valor !== 'number' || isNaN(valor)) {
+        return '';
+    }
+
+    let partes = valor.toFixed(2).split('.');
+    let reais = parseInt(partes[0]);
+    let centavos = parseInt(partes[1]);
+
+    let extenso = '';
+
+    if (reais > 0) {
+        extenso += converterNumeroParaPalavras(reais);
+        extenso += (reais === 1) ? ' real' : ' reais';
+    }
+
+    if (centavos > 0) {
+        if (reais > 0) {
+            extenso += ' e ';
+        }
+        extenso += converterNumeroParaPalavras(centavos);
+        extenso += (centavos === 1) ? ' centavo' : ' centavos';
+    }
+
+    if (reais === 0 && centavos === 0) {
+        return 'zero reais';
+    }
+
+    return extenso;
+}
 
 function validateCpf(cpf) {
   const strCPF = unmask(cpf);
