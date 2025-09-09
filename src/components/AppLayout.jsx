@@ -80,7 +80,7 @@ const AppLayout = ({ children }) => {
 
   const navItems = [
     { to: '/app/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    { to: '/app/clientes', icon: Users, label: 'Clientes' },
+    { to: '/app/pessoas', icon: Users, label: 'Pessoas' },
     { to: '/app/contratos', icon: FileSignature, label: 'Contratos', adminOnly: true },
     { 
       label: 'Financeiro', 
@@ -106,7 +106,7 @@ const AppLayout = ({ children }) => {
         { to: '/app/estoque/saldo', label: 'Saldo Atual', icon: Scale },
       ]
     },
-    { to: '/app/centros-custo', icon: Tag, label: 'Centros de Custo', adminOnly: true }, // New menu item
+    { to: '/app/custos', icon: Tag, label: 'Custos', adminOnly: true },
     { to: '/app/usuarios', icon: UserCog, label: 'Usuários', adminOnly: true },
     { to: '/app/empresa', icon: Building, label: 'Empresa', adminOnly: true },
     { to: '/app/logs', icon: BookText, label: 'Logs', adminOnly: true },

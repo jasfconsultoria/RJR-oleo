@@ -329,9 +329,9 @@ const FinanceiroForm = ({ type }) => {
                     </DialogTrigger>
                     <DialogContent className="sm:max-w-[800px] bg-gray-800 text-white border-gray-700 rounded-xl">
                       <DialogHeader>
-                        <DialogTitle className="text-emerald-300">Novo Cliente</DialogTitle>
+                        <DialogTitle className="text-emerald-300">Nova Pessoa</DialogTitle>
                       </DialogHeader>
-                      <ClienteForm isModal onSaveSuccess={handleNewClientSuccess} />
+                      <PessoaForm isModal onSaveSuccess={handleNewClientSuccess} />
                     </DialogContent>
                   </Dialog>
                 </div>
@@ -402,9 +402,9 @@ const FinanceiroForm = ({ type }) => {
                     </DialogTrigger>
                     <DialogContent className="sm:max-w-[600px] bg-gray-800 text-white border-gray-700 rounded-xl">
                       <DialogHeader>
-                        <DialogTitle className="text-emerald-300">Novo Centro de Custo</DialogTitle>
+                        <DialogTitle className="text-emerald-300">Novo Custo</DialogTitle>
                       </DialogHeader>
-                      <CentroCustoForm isModal onSaveSuccess={handleNewCostCenterSuccess} />
+                      <CustoForm isModal onSaveSuccess={handleNewCostCenterSuccess} />
                     </DialogContent>
                   </Dialog>
                 </div>
