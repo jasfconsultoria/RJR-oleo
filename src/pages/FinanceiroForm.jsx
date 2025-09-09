@@ -24,6 +24,8 @@ import { format } from 'date-fns';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import ClienteForm from './ClienteForm';
 import CentroCustoForm from './CentroCustoForm';
+import PessoaForm from './PessoaForm';
+import CustoForm from './CustoForm';
 import { PlusCircle } from 'lucide-react';
 
 const paymentMethods = [
