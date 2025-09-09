@@ -17,6 +17,7 @@ import { logAction } from '@/lib/logger';
 import { validateCnpjCpf as validateCnpjCpfFormat } from '@/lib/validators';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { unmask } from '@/lib/utils';
+import { useAutoSave } from '@/hooks/useAutoSave';
 
 const ClienteForm = () => {
   const { id } = useParams();
@@ -26,7 +27,9 @@ const ClienteForm = () => {
   const isEditing = Boolean(id);
   const cnpjCpfInputRef = useRef(null);
 
-  const [formData, setFormData] = useState({
+  const autoSaveKey = id ? `autoSave_clienteForm_${id}` : 'autoSave_clienteForm_new';
+
+  const [formData, setFormData, clearSavedData] = useAutoSave(autoSaveKey, {
     nome: '',
     cnpj_cpf: '',
     telefone: '',
@@ -114,7 +117,8 @@ const ClienteForm = () => {
       toast({ title: 'Erro ao buscar cliente', description: error.message, variant: 'destructive' });
       navigate('/app/clientes');
     } else if (data) {
-      setFormData({
+      setFormData((prev) => ({
+        ...prev,
         nome: data.nome || '',
         cnpj_cpf: data.cnpj_cpf || '',
         telefone: data.telefone || '',
@@ -123,10 +127,10 @@ const ClienteForm = () => {
         municipio: data.municipio || '',
         endereco: data.endereco || '',
         referencia: data.referencia || '',
-      });
+      }));
     }
     setLoading(false);
-  }, [id, navigate, toast]);
+  }, [id, navigate, toast, setFormData]);
 
   useEffect(() => {
     fetchCliente();
@@ -211,6 +215,7 @@ const ClienteForm = () => {
     } else {
       toast({ title: `Cliente ${isEditing ? 'atualizado' : 'cadastrado'} com sucesso!`, description: `${formData.nome} foi salvo.` });
       await logAction(isEditing ? 'update_client_success' : 'create_client_success', { client_id: data.id, client_name: data.nome });
+      clearSavedData(); // Clear auto-saved data on successful submission
       navigate('/app/clientes');
     }
 

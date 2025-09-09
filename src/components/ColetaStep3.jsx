@@ -11,7 +11,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/customSupabaseClient';
 import { ReciboViewDialog } from '@/components/coletas/ReciboViewDialog';
 
-export function ColetaStep3({ data, onBack, onSave, onUpdate }) {
+export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData }) {
   const [resultadoFinal, setResultadoFinal] = useState('0,00');
   const [showReciboDialog, setShowReciboDialog] = useState(false);
   const [savedColeta, setSavedColeta] = useState(null);
@@ -90,6 +90,7 @@ export function ColetaStep3({ data, onBack, onSave, onUpdate }) {
 
   const finishProcess = () => {
     setShowReciboDialog(false);
+    clearSavedData(); // Clear auto-saved data when the process is finished
     navigate('/app/coletas');
   };
 

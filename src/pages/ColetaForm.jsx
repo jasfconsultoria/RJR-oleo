@@ -11,6 +11,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { parseCurrency } from '@/lib/utils';
 import { format } from 'date-fns';
 import { logAction } from '@/lib/logger';
+import { useAutoSave } from '@/hooks/useAutoSave';
 
 const ColetaForm = () => {
   const [currentStep, setCurrentStep] = useState(1);
@@ -19,7 +20,9 @@ const ColetaForm = () => {
   const { user } = useAuth();
   const isEditing = !!id;
 
-  const [coletaData, setColetaData] = useState({
+  const autoSaveKey = id ? `autoSave_coletaForm_${id}` : 'autoSave_coletaForm_new';
+
+  const [coletaData, setColetaData, clearSavedData] = useAutoSave(autoSaveKey, {
     cliente: '',
     cliente_id: null,
     cnpj_cpf: '',
@@ -39,6 +42,11 @@ const ColetaForm = () => {
     user_id: user?.id,
   });
 
+  useEffect(() => {
+    if (user?.id && coletaData.user_id !== user.id) {
+      setColetaData(prev => ({ ...prev, user_id: user.id }));
+    }
+  }, [user, coletaData.user_id, setColetaData]);
 
   useEffect(() => {
     const fetchColeta = async () => {
@@ -53,7 +61,8 @@ const ColetaForm = () => {
           toast({ title: "Erro", description: "Coleta não encontrada.", variant: "destructive" });
           navigate('/app/coletas');
         } else {
-          setColetaData({
+          setColetaData((prev) => ({
+            ...prev,
             ...data,
             cliente: data.pessoa?.nome || data.cliente_nome,
             cliente_id: data.cliente_id,
@@ -67,12 +76,12 @@ const ColetaForm = () => {
             data_coleta: data.data_coleta,
             valor_compra: String(data.valor_compra || '0').replace('.', ','),
             quantidade_coletada: String(data.quantidade_coletada || '').replace('.', ','),
-          });
+          }));
         }
       }
     };
     fetchColeta();
-  }, [id, isEditing, navigate]);
+  }, [id, isEditing, navigate, setColetaData, toast]);
 
   const nextStep = () => {
     setCurrentStep(prev => prev < 3 ? prev + 1 : prev);
@@ -240,6 +249,7 @@ const ColetaForm = () => {
               onBack={prevStep}
               onSave={handleSave}
               onUpdate={updateColetaData}
+              clearSavedData={clearSavedData}
             />
           )}
         </AnimatePresence>

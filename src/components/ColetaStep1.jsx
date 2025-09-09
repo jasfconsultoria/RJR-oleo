@@ -253,7 +253,7 @@ export function ColetaStep1({ data, onNext, onUpdate }) {
             <Input
               id="cnpj_cpf"
               ref={cnpjCpfRef}
-              defaultValue={formData.cnpj_cpf}
+              value={formData.cnpj_cpf}
               placeholder="Digite o CNPJ ou CPF"
               className="bg-white/5 border-white/20 text-white placeholder:text-white/60 disabled:opacity-70 disabled:cursor-not-allowed rounded-xl"
               required
@@ -268,7 +268,7 @@ export function ColetaStep1({ data, onNext, onUpdate }) {
               <Input
                 id="telefone"
                 ref={telefoneRef}
-                defaultValue={formData.telefone}
+                value={formData.telefone}
                 placeholder="(99) 99999-9999"
                 className="bg-white/5 border-white/20 text-white placeholder:text-white/60 rounded-xl"
                 required

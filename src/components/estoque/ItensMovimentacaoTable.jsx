@@ -114,13 +114,13 @@ const ItensMovimentacaoTable = ({ items, onItemsChange, type, isEditing }) => {
               return (
                 <TableRow key={index} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
                   <TableCell data-label="Produto">
-                    <ProdutoSearchableSelect
-                      value={item.produto_id}
-                      onChange={(product) => handleProductSelect(index, product)}
-                      filterType={type === 'entrada' ? null : null} // Can filter by 'coletado' or 'novo' if needed
-                      disabled={isEditing}
-                      hideLabel={true} {/* Hide the label here */}
-                    />
+                  <ProdutoSearchableSelect
+                    value={item.produto_id}
+                    onChange={(product) => handleProductSelect(index, product)}
+                    filterType={type === 'entrada' ? null : null}
+                    disabled={isEditing}
+                    hideLabel={true}
+                  />
                     {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
                   </TableCell>
                   <TableCell data-label="Quantidade" className="text-right">
