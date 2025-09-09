@@ -329,9 +329,9 @@ const FinanceiroForm = ({ type }) => {
                     </DialogTrigger>
                     <DialogContent className="sm:max-w-[800px] bg-gray-800 text-white border-gray-700 rounded-xl">
                       <DialogHeader>
-                        <DialogTitle className="text-emerald-300">Novo Cliente</DialogTitle>
+                        <DialogTitle className="text-emerald-300">Novo {entityLabel}</DialogTitle>
                       </DialogHeader>
-                      <ClienteForm isModal onSaveSuccess={handleNewClientSuccess} />
+                      <ClienteForm isModal onSaveSuccess={handleNewClientSuccess} personType={type === 'credito' ? 'cliente' : 'fornecedor'} />
                     </DialogContent>
                   </Dialog>
                 </div>

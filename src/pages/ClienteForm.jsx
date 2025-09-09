@@ -19,13 +19,17 @@ import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { unmask } from '@/lib/utils';
 import { useAutoSave } from '@/hooks/useAutoSave';
 
-const ClienteForm = ({ onSaveSuccess, isModal = false }) => {
+const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'cliente' }) => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
   const isEditing = Boolean(id) && !isModal;
   const cnpjCpfInputRef = useRef(null);
+
+  const titleLabel = personType === 'cliente' ? 'Cliente' : 'Fornecedor';
+  const pageTitle = isEditing ? `Editar ${titleLabel}` : `Novo ${titleLabel}`;
+  const nameFieldLabel = `Nome do ${titleLabel}`;
 
   const autoSaveKey = id ? `autoSave_clienteForm_${id}` : 'autoSave_clienteForm_new';
 
@@ -236,7 +240,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false }) => {
   return (
     <>
       <Helmet>
-        <title>{isEditing ? 'Editar Cliente' : 'Novo Cliente'} - RJR Óleo</title>
+        <title>{pageTitle} - RJR Óleo</title>
       </Helmet>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -248,14 +252,14 @@ const ClienteForm = ({ onSaveSuccess, isModal = false }) => {
           <CardHeader>
             <CardTitle className="text-2xl md:text-3xl font-bold flex items-center gap-3 text-emerald-300">
               <UserPlus className="w-8 h-8" />
-              {isEditing ? 'Editar Cliente' : 'Novo Cliente'}
+              {pageTitle}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="md:col-span-2">
-                  <Label htmlFor="nome" className="text-lg">Nome do Cliente <span className="text-red-500">*</span></Label>
+                  <Label htmlFor="nome" className="text-lg">{nameFieldLabel} <span className="text-red-500">*</span></Label>
                   <Input id="nome" name="nome" value={formData.nome} onChange={handleChange} placeholder="Nome completo ou Razão Social" required className="bg-white/5 border-white/20 rounded-xl" />
                 </div>
                 <div>

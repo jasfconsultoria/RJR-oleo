@@ -80,7 +80,7 @@ const AppLayout = ({ children }) => {
 
   const navItems = [
     { to: '/app/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    { to: '/app/clientes', icon: Users, label: 'Clientes' },
+    { to: '/app/clientes', icon: Users, label: 'Pessoas' },
     { to: '/app/contratos', icon: FileSignature, label: 'Contratos', adminOnly: true },
     { 
       label: 'Financeiro', 
