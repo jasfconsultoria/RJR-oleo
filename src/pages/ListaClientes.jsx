@@ -177,20 +177,20 @@ const ListaClientes = () => {
   return (
     <>
       <Helmet>
-        <title>Lista de Clientes - Sistema RJR Óleo</title>
+        <title>Lista de Pessoas - Sistema RJR Óleo</title>
       </Helmet>
       <div className="space-y-6">
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold text-white flex items-center gap-2">
-                <Users className="w-8 h-8 text-emerald-400" /> Lista de Clientes
+                <Users className="w-8 h-8 text-emerald-400" /> Lista de Pessoas
             </h1>
-            <p className="text-emerald-200/80 mt-1">Visualize e gerencie os clientes cadastrados.</p>
+            <p className="text-emerald-200/80 mt-1">Visualize e gerencie as pessoas cadastradas.</p>
           </div>
           <Link to="/app/clientes/novo" className='w-full sm:w-auto'>
             <Button className="bg-emerald-600 hover:bg-emerald-700 text-white w-full rounded-xl">
               <PlusCircle className="mr-2 h-4 w-4" />
-              Novo Cliente
+              Nova Pessoa
             </Button>
           </Link>
         </motion.div>
@@ -277,7 +277,7 @@ const ListaClientes = () => {
                     )) : (
                       <TableRow>
                         <TableCell colSpan={5} className="h-24 text-center text-white/70">
-                          Nenhum cliente encontrado.
+                          Nenhuma pessoa encontrada.
                         </TableCell>
                       </TableRow>
                     )}
