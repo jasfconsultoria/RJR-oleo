@@ -24,8 +24,6 @@ import { format } from 'date-fns';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import ClienteForm from './ClienteForm';
 import CentroCustoForm from './CentroCustoForm';
-import PessoaForm from './PessoaForm';
-import CustoForm from './CustoForm';
 import { PlusCircle } from 'lucide-react';
 
 const paymentMethods = [
@@ -331,9 +329,9 @@ const FinanceiroForm = ({ type }) => {
                     </DialogTrigger>
                     <DialogContent className="sm:max-w-[800px] bg-gray-800 text-white border-gray-700 rounded-xl">
                       <DialogHeader>
-                        <DialogTitle className="text-emerald-300">Nova Pessoa</DialogTitle>
+                        <DialogTitle className="text-emerald-300">Novo Cliente</DialogTitle>
                       </DialogHeader>
-                      <PessoaForm isModal onSaveSuccess={handleNewClientSuccess} />
+                      <ClienteForm isModal onSaveSuccess={handleNewClientSuccess} />
                     </DialogContent>
                   </Dialog>
                 </div>
@@ -404,9 +402,9 @@ const FinanceiroForm = ({ type }) => {
                     </DialogTrigger>
                     <DialogContent className="sm:max-w-[600px] bg-gray-800 text-white border-gray-700 rounded-xl">
                       <DialogHeader>
-                        <DialogTitle className="text-emerald-300">Novo Custo</DialogTitle>
+                        <DialogTitle className="text-emerald-300">Novo Centro de Custo</DialogTitle>
                       </DialogHeader>
-                      <CustoForm isModal onSaveSuccess={handleNewCostCenterSuccess} />
+                      <CentroCustoForm isModal onSaveSuccess={handleNewCostCenterSuccess} />
                     </DialogContent>
                   </Dialog>
                 </div>

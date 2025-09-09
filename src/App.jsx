@@ -40,12 +40,10 @@ import ListaMovimentacoesPage from '@/pages/estoque/ListaMovimentacoesPage';
 import SaldoEstoquePage from '@/pages/estoque/SaldoEstoquePage';
 import ListaProdutosPage from '@/pages/estoque/ListaProdutosPage';
 import ProdutoFormPage from '@/pages/estoque/ProdutoFormPage';
-import ListaEntradasPage from '@/pages/estoque/ListaEntradasPage';
-import ListaSaidasPage from '@/pages/estoque/ListaSaidasPage';
-import ListaCustos from '@/pages/ListaCustos';
-import CustoForm from '@/pages/CustoForm';
-import ListaPessoas from '@/pages/ListaPessoas';
-import PessoaForm from '@/pages/PessoaForm';
+import ListaEntradasPage from '@/pages/estoque/ListaEntradasPage'; // New import
+import ListaSaidasPage from '@/pages/estoque/ListaSaidasPage'; // New import
+import ListaCentrosCusto from '@/pages/ListaCentrosCusto'; // New import
+import CentroCustoForm from '@/pages/CentroCustoForm'; // New import
 
 const ProtectedRoute = ({ children, requiredRole }) => {
   const { session, loading: authLoading } = useAuth();
@@ -129,9 +127,6 @@ function App() {
                   <Route path="clientes" element={<ListaClientes />} />
                   <Route path="clientes/novo" element={<ClienteForm />} />
                   <Route path="clientes/editar/:id" element={<ClienteForm />} />
-                  <Route path="pessoas" element={<ListaPessoas />} />
-                  <Route path="pessoas/novo" element={<PessoaForm />} />
-                  <Route path="pessoas/editar/:id" element={<PessoaForm />} />
                   <Route path="sobre" element={<SobreSistemaPage />} />
                   <Route path="versoes" element={<VersoesPage />} />
                   
@@ -154,19 +149,19 @@ function App() {
                   <Route path="estoque/produtos" element={<ProtectedRoute requiredRole="administrador"><ListaProdutosPage /></ProtectedRoute>} />
                   <Route path="estoque/produtos/novo" element={<ProtectedRoute requiredRole="administrador"><ProdutoFormPage /></ProtectedRoute>} />
                   <Route path="estoque/produtos/editar/:id" element={<ProtectedRoute requiredRole="administrador"><ProdutoFormPage /></ProtectedRoute>} />
-                  <Route path="estoque/entradas" element={<ProtectedRoute requiredRole="administrador"><ListaEntradasPage /></ProtectedRoute>} />
-                  <Route path="estoque/entradas/novo" element={<ProtectedRoute requiredRole="administrador"><EntradaFormPage /></ProtectedRoute>} />
-                  <Route path="estoque/entradas/editar/:id" element={<ProtectedRoute requiredRole="administrador"><EntradaFormPage /></ProtectedRoute>} />
-                  <Route path="estoque/saidas" element={<ProtectedRoute requiredRole="administrador"><ListaSaidasPage /></ProtectedRoute>} />
-                  <Route path="estoque/saidas/novo" element={<ProtectedRoute requiredRole="administrador"><SaidaFormPage /></ProtectedRoute>} />
-                  <Route path="estoque/saidas/editar/:id" element={<ProtectedRoute requiredRole="administrador"><SaidaFormPage /></ProtectedRoute>} />
+                  <Route path="estoque/entradas" element={<ProtectedRoute requiredRole="administrador"><ListaEntradasPage /></ProtectedRoute>} /> {/* New list page */}
+                  <Route path="estoque/entradas/novo" element={<ProtectedRoute requiredRole="administrador"><EntradaFormPage /></ProtectedRoute>} /> {/* Form for new entry */}
+                  <Route path="estoque/entradas/editar/:id" element={<ProtectedRoute requiredRole="administrador"><EntradaFormPage /></ProtectedRoute>} /> {/* Form for editing entry */}
+                  <Route path="estoque/saidas" element={<ProtectedRoute requiredRole="administrador"><ListaSaidasPage /></ProtectedRoute>} /> {/* New list page */}
+                  <Route path="estoque/saidas/novo" element={<ProtectedRoute requiredRole="administrador"><SaidaFormPage /></ProtectedRoute>} /> {/* Form for new exit */}
+                  <Route path="estoque/saidas/editar/:id" element={<ProtectedRoute requiredRole="administrador"><SaidaFormPage /></ProtectedRoute>} /> {/* Form for editing exit */}
                   <Route path="estoque/movimentacoes" element={<ProtectedRoute requiredRole="administrador"><ListaMovimentacoesPage /></ProtectedRoute>} />
                   <Route path="estoque/saldo" element={<ProtectedRoute requiredRole="administrador"><SaldoEstoquePage /></ProtectedRoute>} />
 
                   {/* New Cost Center Routes */}
-                  <Route path="custos" element={<ProtectedRoute requiredRole="administrador"><ListaCustos /></ProtectedRoute>} />
-                  <Route path="custos/novo" element={<ProtectedRoute requiredRole="administrador"><CustoForm /></ProtectedRoute>} />
-                  <Route path="custos/editar/:id" element={<ProtectedRoute requiredRole="administrador"><CustoForm /></ProtectedRoute>} />
+                  <Route path="centros-custo" element={<ProtectedRoute requiredRole="administrador"><ListaCentrosCusto /></ProtectedRoute>} />
+                  <Route path="centros-custo/novo" element={<ProtectedRoute requiredRole="administrador"><CentroCustoForm /></ProtectedRoute>} />
+                  <Route path="centros-custo/editar/:id" element={<ProtectedRoute requiredRole="administrador"><CentroCustoForm /></ProtectedRoute>} />
 
                   <Route path="usuarios" element={
                     <ProtectedRoute requiredRole="administrador">
