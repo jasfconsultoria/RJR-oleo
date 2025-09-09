@@ -51,12 +51,18 @@ const CentroCustoForm = ({ onSaveSuccess, isModal = false }) => {
       setNameError('O nome do centro de custo é obrigatório.');
       return false;
     }
-    // Check for uniqueness
-    const { count, error } = await supabase
+    
+    // Build the query conditionally to avoid errors on new entries
+    let query = supabase
       .from('centro_custos')
       .select('id', { count: 'exact' })
-      .eq('nome', name.trim())
-      .not('id', 'eq', id || null); // Exclude current item if editing
+      .eq('nome', name.trim());
+
+    if (id) {
+      query = query.not('id', 'eq', id);
+    }
+
+    const { count, error } = await query;
 
     if (error) {
       console.error("Erro ao verificar unicidade do nome:", error);
