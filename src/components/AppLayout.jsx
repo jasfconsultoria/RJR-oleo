@@ -25,6 +25,7 @@ import {
   ListChecks, // New icon for Movimentações
   Scale, // New icon for Saldo Atual
   Package, // New icon for Produtos
+  Tag, // New icon for Centros de Custo
 } from 'lucide-react';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useProfile } from '@/contexts/ProfileContext';
@@ -105,6 +106,7 @@ const AppLayout = ({ children }) => {
         { to: '/app/estoque/saldo', label: 'Saldo Atual', icon: Scale },
       ]
     },
+    { to: '/app/centros-custo', icon: Tag, label: 'Centros de Custo', adminOnly: true }, // New menu item
     { to: '/app/usuarios', icon: UserCog, label: 'Usuários', adminOnly: true },
     { to: '/app/empresa', icon: Building, label: 'Empresa', adminOnly: true },
     { to: '/app/logs', icon: BookText, label: 'Logs', adminOnly: true },

@@ -19,12 +19,12 @@ import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { unmask } from '@/lib/utils';
 import { useAutoSave } from '@/hooks/useAutoSave';
 
-const ClienteForm = () => {
+const ClienteForm = ({ onSaveSuccess, isModal = false }) => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
-  const isEditing = Boolean(id);
+  const isEditing = Boolean(id) && !isModal;
   const cnpjCpfInputRef = useRef(null);
 
   const autoSaveKey = id ? `autoSave_clienteForm_${id}` : 'autoSave_clienteForm_new';
@@ -96,7 +96,6 @@ const ClienteForm = () => {
     return true;
   }, [id, isEditing]);
 
-
   const handleCnpjCpfBlur = async (e) => {
     const { value } = e.target;
     const isValid = await validateAndCheckCnpjCpf(value);
@@ -106,7 +105,7 @@ const ClienteForm = () => {
   };
 
   const fetchCliente = useCallback(async () => {
-    if (!id) return;
+    if (!isEditing) return;
     setLoading(true);
     const { data, error } = await supabase
       .from('clientes')
@@ -115,7 +114,7 @@ const ClienteForm = () => {
       .single();
     if (error) {
       toast({ title: 'Erro ao buscar cliente', description: error.message, variant: 'destructive' });
-      navigate('/app/clientes');
+      if (!isModal) navigate('/app/clientes');
     } else if (data) {
       setFormData((prev) => ({
         ...prev,
@@ -130,7 +129,7 @@ const ClienteForm = () => {
       }));
     }
     setLoading(false);
-  }, [id, navigate, toast, setFormData]);
+  }, [id, isEditing, navigate, toast, setFormData, isModal]);
 
   useEffect(() => {
     fetchCliente();
@@ -216,7 +215,11 @@ const ClienteForm = () => {
       toast({ title: `Cliente ${isEditing ? 'atualizado' : 'cadastrado'} com sucesso!`, description: `${formData.nome} foi salvo.` });
       await logAction(isEditing ? 'update_client_success' : 'create_client_success', { client_id: data.id, client_name: data.nome });
       clearSavedData(); // Clear auto-saved data on successful submission
-      navigate('/app/clientes');
+      if (onSaveSuccess) {
+        onSaveSuccess(data);
+      } else {
+        navigate('/app/clientes');
+      }
     }
 
     setSaving(false);
@@ -239,7 +242,7 @@ const ClienteForm = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="max-w-4xl mx-auto p-4"
+        className={isModal ? "" : "max-w-4xl mx-auto p-4"}
       >
         <Card className="bg-white/10 backdrop-blur-sm border-white/20 text-white rounded-xl shadow-lg">
           <CardHeader>
@@ -327,10 +330,12 @@ const ClienteForm = () => {
               </div>
 
               <div className="flex justify-between items-center pt-6">
-                <Button type="button" onClick={() => navigate('/app/clientes')} variant="outline" className="rounded-xl">
-                  <ArrowLeft className="w-5 h-5 mr-2" />
-                  Voltar
-                </Button>
+                {!isModal && (
+                  <Button type="button" onClick={() => navigate('/app/clientes')} variant="outline" className="rounded-xl">
+                    <ArrowLeft className="w-5 h-5 mr-2" />
+                    Voltar
+                  </Button>
+                )}
                 <Button type="submit" disabled={saving || isCnpjCpfChecking} className="bg-emerald-600 hover:bg-emerald-700 rounded-xl">
                   {saving ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Save className="w-5 h-5 mr-2" />}
                   {saving ? 'Salvando...' : 'Salvar'}

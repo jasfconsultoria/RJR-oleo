@@ -21,6 +21,10 @@ import InstallmentTable from '@/components/financeiro/InstallmentTable';
 import { Textarea } from '@/components/ui/textarea';
 import { v4 as uuidv4 } from 'uuid';
 import { format } from 'date-fns';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import ClienteForm from './ClienteForm';
+import CentroCustoForm from './CentroCustoForm';
+import { PlusCircle } from 'lucide-react';
 
 const paymentMethods = [
   { value: 'boleto', label: 'Boleto' },
@@ -30,14 +34,6 @@ const paymentMethods = [
   { value: 'pix', label: 'Pix' },
   { value: 'bank_transfer', label: 'Transferência Bancária' },
   { value: 'other', label: 'Outro' },
-];
-
-const costCenters = [
-  { value: 'ADMINISTRAÇÃO', label: 'ADMINISTRAÇÃO' },
-  { value: 'VENDAS', label: 'VENDAS' },
-  { value: 'OPERACIONAL', label: 'OPERACIONAL' },
-  { value: 'MARKETING', label: 'MARKETING' },
-  { value: 'OUTROS', label: 'OUTROS' },
 ];
 
 const FinanceiroForm = ({ type }) => {
@@ -58,7 +54,7 @@ const FinanceiroForm = ({ type }) => {
     description: '',
     total_value: '',
     payment_method: 'pix',
-    cost_center: 'ADMINISTRAÇÃO',
+    cost_center: 'ADMINISTRAÇÃO', // Default, will be updated by fetched data
     notes: '',
     down_payment: '0,00',
     installments_number: 1,
@@ -70,12 +66,37 @@ const FinanceiroForm = ({ type }) => {
   const [saving, setSaving] = useState(false);
   const [existingInstallments, setExistingInstallments] = useState([]);
   const [downPaymentError, setDownPaymentError] = useState('');
+  const [costCenters, setCostCenters] = useState([]); // State for dynamic cost centers
+  const [isNewClientModalOpen, setIsNewClientModalOpen] = useState(false);
+  const [isNewCostCenterModalOpen, setIsNewCostCenterModalOpen] = useState(false);
 
   const title = type === 'credito' ? 'Crédito' : 'Débito';
   const entityLabel = type === 'credito' ? 'Cliente' : 'Fornecedor';
 
   const parsedTotalValue = parseCurrency(formData.total_value);
   const parsedDownPayment = parseCurrency(formData.down_payment);
+
+  const fetchCostCenters = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('centros_custo')
+      .select('nome')
+      .order('nome', { ascending: true });
+    if (error) {
+      console.error('Erro ao buscar centros de custo:', error);
+      toast({ title: 'Erro', description: 'Não foi possível carregar os centros de custo.', variant: 'destructive' });
+      setCostCenters([]);
+    } else {
+      setCostCenters(data.map(cc => ({ value: cc.nome, label: cc.nome })));
+      // Set default cost center if not already set and data exists
+      if (!formData.cost_center && data.length > 0) {
+        setFormData(prev => ({ ...prev, cost_center: data[0].nome }));
+      }
+    }
+  }, [toast, formData.cost_center]);
+
+  useEffect(() => {
+    fetchCostCenters();
+  }, [fetchCostCenters]);
 
   useEffect(() => {
     if (parsedDownPayment > parsedTotalValue) {
@@ -141,6 +162,24 @@ const FinanceiroForm = ({ type }) => {
       handleInstallmentsChange([]);
     }
   }, [showInstallments, handleInstallmentsChange]);
+
+  const handleNewClientSuccess = (newClient) => {
+    setIsNewClientModalOpen(false);
+    // Automatically select the new client
+    setFormData(prev => ({
+      ...prev,
+      pessoa_id: newClient.id,
+      cliente_fornecedor_name: newClient.nome,
+      cnpj_cpf: newClient.cnpj_cpf,
+    }));
+    // ClientOrManualInput will update its internal state based on these props
+  };
+
+  const handleNewCostCenterSuccess = (newCostCenter) => {
+    setIsNewCostCenterModalOpen(false);
+    fetchCostCenters(); // Refresh the list of cost centers
+    setFormData(prev => ({ ...prev, cost_center: newCostCenter.nome })); // Select the new cost center
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -270,16 +309,31 @@ const FinanceiroForm = ({ type }) => {
                     setDate={handleDateChange}
                   />
                 </div>
-                <div className="md:col-span-2 relative z-10">
-                  <ClientOrManualInput
-                    labelText={entityLabel}
-                    selectedClientId={formData.pessoa_id}
-                    onSelectClient={handleClientSelectId}
-                    clientName={formData.cliente_fornecedor_name}
-                    onClientNameChange={handleClientNameChange}
-                    cnpjCpf={formData.cnpj_cpf}
-                    onCnpjCpfChange={handleCnpjCpfChange}
-                  />
+                <div className="md:col-span-2 relative z-10 flex items-end gap-2"> {/* Added flex and gap */}
+                  <div className="flex-grow"> {/* Make ClientOrManualInput take available space */}
+                    <ClientOrManualInput
+                      labelText={entityLabel}
+                      selectedClientId={formData.pessoa_id}
+                      onSelectClient={handleClientSelectId}
+                      clientName={formData.cliente_fornecedor_name}
+                      onClientNameChange={handleClientNameChange}
+                      cnpjCpf={formData.cnpj_cpf}
+                      onCnpjCpfChange={handleCnpjCpfChange}
+                    />
+                  </div>
+                  <Dialog open={isNewClientModalOpen} onOpenChange={setIsNewClientModalOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="icon" className="h-10 w-10 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white">
+                        <PlusCircle className="h-5 w-5" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[800px] bg-gray-800 text-white border-gray-700 rounded-xl">
+                      <DialogHeader>
+                        <DialogTitle className="text-emerald-300">Novo Cliente</DialogTitle>
+                      </DialogHeader>
+                      <ClienteForm isModal onSaveSuccess={handleNewClientSuccess} />
+                    </DialogContent>
+                  </Dialog>
                 </div>
                 <div>
                   <Label htmlFor="cnpj_cpf" className="text-lg">CNPJ/CPF <span className="text-red-500">*</span></Label>
@@ -328,16 +382,31 @@ const FinanceiroForm = ({ type }) => {
                     </SelectContent>
                   </Select>
                 </div>
-                <div>
-                  <Label htmlFor="cost_center" className="text-lg">Centro de Custo</Label>
-                  <Select value={formData.cost_center} onValueChange={(value) => handleSelectChange('cost_center', value)}>
-                    <SelectTrigger className="bg-white/5 border-white/20 rounded-xl">
-                      <SelectValue placeholder="Selecione o centro de custo" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
-                      {costCenters.map(center => <SelectItem key={center.value} value={center.value}>{center.label}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                <div className="flex items-end gap-2"> {/* Added flex and gap */}
+                  <div className="flex-grow"> {/* Make Select take available space */}
+                    <Label htmlFor="cost_center" className="text-lg">Centro de Custo</Label>
+                    <Select value={formData.cost_center} onValueChange={(value) => handleSelectChange('cost_center', value)}>
+                      <SelectTrigger className="bg-white/5 border-white/20 rounded-xl">
+                        <SelectValue placeholder="Selecione o centro de custo" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
+                        {costCenters.map(center => <SelectItem key={center.value} value={center.value}>{center.label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Dialog open={isNewCostCenterModalOpen} onOpenChange={setIsNewCostCenterModalOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="icon" className="h-10 w-10 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white">
+                        <PlusCircle className="h-5 w-5" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[600px] bg-gray-800 text-white border-gray-700 rounded-xl">
+                      <DialogHeader>
+                        <DialogTitle className="text-emerald-300">Novo Centro de Custo</DialogTitle>
+                      </DialogHeader>
+                      <CentroCustoForm isModal onSaveSuccess={handleNewCostCenterSuccess} />
+                    </DialogContent>
+                  </Dialog>
                 </div>
                 <div className="md:col-span-2">
                   <Label htmlFor="total_value" className="text-lg">Valor Total (R$) <span className="text-red-500">*</span></Label>
