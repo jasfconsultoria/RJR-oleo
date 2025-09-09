@@ -19,7 +19,7 @@ import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { unmask } from '@/lib/utils';
 import { useAutoSave } from '@/hooks/useAutoSave';
 
-const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'cliente' }) => {
+const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa' }) => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -27,9 +27,20 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'cliente' })
   const isEditing = Boolean(id) && !isModal;
   const cnpjCpfInputRef = useRef(null);
 
-  const titleLabel = personType === 'cliente' ? 'Cliente' : 'Fornecedor';
-  const pageTitle = isEditing ? `Editar ${titleLabel}` : `Novo ${titleLabel}`;
-  const nameFieldLabel = `Nome do ${titleLabel}`;
+  const getLabels = (type) => {
+    switch (type) {
+      case 'cliente':
+        return { title: 'Cliente', article: 'o', pageVerb: 'Novo' };
+      case 'fornecedor':
+        return { title: 'Fornecedor', article: 'o', pageVerb: 'Novo' };
+      default: // 'pessoa'
+        return { title: 'Pessoa', article: 'a', pageVerb: 'Nova' };
+    }
+  };
+
+  const { title: titleLabel, article, pageVerb } = getLabels(personType);
+  const pageTitle = isEditing ? `Editar ${titleLabel}` : `${pageVerb} ${titleLabel}`;
+  const nameFieldLabel = `Nome d${article} ${titleLabel}`;
 
   const autoSaveKey = id ? `autoSave_clienteForm_${id}` : 'autoSave_clienteForm_new';
 
