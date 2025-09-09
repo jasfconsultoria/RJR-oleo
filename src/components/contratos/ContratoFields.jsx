@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import { formatNumber, parseCurrency } from '@/lib/utils'; // Import formatNumber and parseCurrency
 
 const frequenciaOptions = [
   { value: 'Diária', label: 'Diária' },
@@ -104,9 +105,9 @@ const ContratoFields = ({ formData, setFormData, loading, errors, empresaTimezon
           <Label htmlFor="valor_coleta">Valor da Compra (R$ por kg)</Label>
           <Input
             id="valor_coleta"
-            type="number"
-            value={formData.valor_coleta || ''}
-            onChange={(e) => handleInputChange('valor_coleta', e.target.value)}
+            type="text" // Changed to text to allow custom formatting
+            value={formatNumber(formData.valor_coleta)} // Format for display
+            onChange={(e) => handleInputChange('valor_coleta', parseCurrency(e.target.value))} // Parse input
           />
         </div>
       )}
