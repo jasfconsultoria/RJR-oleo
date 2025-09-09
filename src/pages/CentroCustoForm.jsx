@@ -28,7 +28,7 @@ const CentroCustoForm = ({ onSaveSuccess, isModal = false }) => {
     if (!isEditing) return;
     setLoading(true);
     const { data, error } = await supabase
-      .from('centros_custo')
+      .from('centro_custos')
       .select('nome')
       .eq('id', id)
       .single();
@@ -53,7 +53,7 @@ const CentroCustoForm = ({ onSaveSuccess, isModal = false }) => {
     }
     // Check for uniqueness
     const { count, error } = await supabase
-      .from('centros_custo')
+      .from('centro_custos')
       .select('id', { count: 'exact' })
       .eq('nome', name.trim())
       .not('id', 'eq', id || null); // Exclude current item if editing
@@ -85,9 +85,9 @@ const CentroCustoForm = ({ onSaveSuccess, isModal = false }) => {
 
     let result;
     if (isEditing) {
-      result = await supabase.from('centros_custo').update(dataToSave).eq('id', id).select().single();
+      result = await supabase.from('centro_custos').update(dataToSave).eq('id', id).select().single();
     } else {
-      result = await supabase.from('centros_custo').insert(dataToSave).select().single();
+      result = await supabase.from('centro_custos').insert(dataToSave).select().single();
     }
 
     const { data, error } = result;
@@ -153,7 +153,7 @@ const CentroCustoForm = ({ onSaveSuccess, isModal = false }) => {
                 required
                 className="bg-white/5 border-white/20 rounded-xl"
               />
-              {nameError && <p className="text-red-500 text-xs mt-1">{nameError}</p>}
+              {nameError && <p className="text-yellow-400 text-xs mt-1">{nameError}</p>}
             </div>
 
             <div className="flex justify-between items-center pt-6">

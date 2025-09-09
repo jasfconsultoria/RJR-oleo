@@ -24,8 +24,8 @@ const ListaCentrosCusto = () => {
   const fetchCentrosCusto = useCallback(async () => {
     setLoading(true);
     const { data, error } = await supabase
-      .from('centros_custo')
-      .select('id, nome, created_at')
+      .from('centro_custos')
+      .select('id, codigo, nome, created_at')
       .order('nome', { ascending: true });
 
     if (error) {
@@ -43,7 +43,7 @@ const ListaCentrosCusto = () => {
 
   const handleDelete = async (id) => {
     setDeletingId(id);
-    const { error } = await supabase.from('centros_custo').delete().eq('id', id);
+    const { error } = await supabase.from('centro_custos').delete().eq('id', id);
 
     if (error) {
       toast({ title: 'Erro ao excluir centro de custo', description: error.message, variant: 'destructive' });
@@ -102,6 +102,7 @@ const ListaCentrosCusto = () => {
                 <Table>
                   <TableHeader>
                     <TableRow className="border-white/20">
+                      <TableHead className="text-emerald-300 w-[100px]">Código</TableHead>
                       <TableHead className="text-emerald-300">Nome</TableHead>
                       <TableHead className="text-emerald-300 text-right">Ações</TableHead>
                     </TableRow>
@@ -110,6 +111,7 @@ const ListaCentrosCusto = () => {
                     {filteredCentrosCusto.length > 0 ? (
                       filteredCentrosCusto.map((centro) => (
                         <TableRow key={centro.id} className="border-white/10 hover:bg-white/5">
+                          <TableCell className="font-mono">{centro.codigo}</TableCell>
                           <TableCell className="font-medium">{centro.nome}</TableCell>
                           <TableCell className="text-right">
                             <Button
@@ -151,7 +153,7 @@ const ListaCentrosCusto = () => {
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={2} className="text-center text-gray-400 py-8">
+                        <TableCell colSpan={3} className="text-center text-gray-400 py-8">
                           Nenhum centro de custo encontrado.
                         </TableCell>
                       </TableRow>

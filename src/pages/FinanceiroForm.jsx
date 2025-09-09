@@ -78,7 +78,7 @@ const FinanceiroForm = ({ type }) => {
 
   const fetchCostCenters = useCallback(async () => {
     const { data, error } = await supabase
-      .from('centros_custo')
+      .from('centro_custos')
       .select('nome')
       .order('nome', { ascending: true });
     if (error) {
