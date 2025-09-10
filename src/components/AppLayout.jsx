@@ -81,7 +81,6 @@ const AppLayout = ({ children }) => {
   const navItems = [
     { to: '/app/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/app/clientes', icon: Users, label: 'Pessoas' },
-    { to: '/app/contratos', icon: FileSignature, label: 'Contratos', adminOnly: true },
     { 
       label: 'Financeiro', 
       icon: DollarSign, 
@@ -89,6 +88,7 @@ const AppLayout = ({ children }) => {
       subItems: [
         { to: '/app/financeiro/credito', label: 'Crédito' },
         { to: '/app/financeiro/debito', label: 'Débito' },
+        { to: '/app/centros-custo', label: 'Centro de Custos', icon: Tag },
       ]
     },
     { to: '/app/coletas', icon: Truck, label: 'Coletas' },
@@ -106,7 +106,6 @@ const AppLayout = ({ children }) => {
         { to: '/app/estoque/saldo', label: 'Saldo Atual', icon: Scale },
       ]
     },
-    { to: '/app/centros-custo', icon: Tag, label: 'Centro de Custos', adminOnly: true }, // New menu item
     { to: '/app/usuarios', icon: UserCog, label: 'Usuários', adminOnly: true },
     { to: '/app/empresa', icon: Building, label: 'Empresa', adminOnly: true },
     { to: '/app/logs', icon: BookText, label: 'Logs', adminOnly: true },
