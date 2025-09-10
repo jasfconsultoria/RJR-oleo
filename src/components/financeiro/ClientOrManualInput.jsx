@@ -16,6 +16,7 @@ const ClientOrManualInput = ({
   onClientNameChange, // Callback for manual name input
   cnpjCpf,          // Controlled prop for cnpj_cpf
   onCnpjCpfChange,  // Callback for cnpj_cpf change (manual input)
+  refetchTrigger = 0,
   disabled = false,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -43,7 +44,7 @@ const ClientOrManualInput = ({
       setLoadingClients(false);
     };
     fetchClients();
-  }, [toast]);
+  }, [toast, refetchTrigger]);
 
   useEffect(() => {
     // Update internal searchTerm when clientName prop changes (e.g., on edit mode load)

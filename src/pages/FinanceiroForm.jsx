@@ -69,6 +69,7 @@ const FinanceiroForm = ({ type }) => {
   const [costCenters, setCostCenters] = useState([]); // State for dynamic cost centers
   const [isNewClientModalOpen, setIsNewClientModalOpen] = useState(false);
   const [isNewCostCenterModalOpen, setIsNewCostCenterModalOpen] = useState(false);
+  const [clientListVersion, setClientListVersion] = useState(0);
 
   const title = type === 'credito' ? 'Crédito' : 'Débito';
   const entityLabel = type === 'credito' ? 'Cliente' : 'Fornecedor';
@@ -165,6 +166,7 @@ const FinanceiroForm = ({ type }) => {
 
   const handleNewClientSuccess = (newClient) => {
     setIsNewClientModalOpen(false);
+    setClientListVersion(v => v + 1);
     // Automatically select the new client
     setFormData(prev => ({
       ...prev,
@@ -319,6 +321,7 @@ const FinanceiroForm = ({ type }) => {
                       onClientNameChange={handleClientNameChange}
                       cnpjCpf={formData.cnpj_cpf}
                       onCnpjCpfChange={handleCnpjCpfChange}
+                      refetchTrigger={clientListVersion}
                     />
                   </div>
                   <Dialog open={isNewClientModalOpen} onOpenChange={setIsNewClientModalOpen}>
