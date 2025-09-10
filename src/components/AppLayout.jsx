@@ -26,6 +26,8 @@ import {
   Scale, // New icon for Saldo Atual
   Package, // New icon for Produtos
   Tag, // New icon for Centros de Custo
+  TrendingUp, // New icon for Crédito
+  TrendingDown, // New icon for Débito
 } from 'lucide-react';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useProfile } from '@/contexts/ProfileContext';
@@ -86,8 +88,8 @@ const AppLayout = ({ children }) => {
       icon: DollarSign, 
       adminOnly: true,
       subItems: [
-        { to: '/app/financeiro/credito', label: 'Crédito' },
-        { to: '/app/financeiro/debito', label: 'Débito' },
+        { to: '/app/financeiro/credito', label: 'Crédito', icon: TrendingUp },
+        { to: '/app/financeiro/debito', label: 'Débito', icon: TrendingDown },
         { to: '/app/centros-custo', label: 'Centro de Custos', icon: Tag },
       ]
     },
