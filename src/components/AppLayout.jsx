@@ -95,7 +95,16 @@ const AppLayout = ({ children }) => {
     },
     { to: '/app/coletas', icon: Truck, label: 'Coletas' },
     { to: '/app/certificados', icon: FileText, label: 'Certificados', adminOnly: true },
-    { to: '/app/relatorios', icon: BarChart2, label: 'Relatórios', adminOnly: true },
+    { 
+      label: 'Relatórios', 
+      icon: BarChart2, 
+      adminOnly: true,
+      subItems: [
+        { to: '/app/relatorios/coletas', label: 'Coletas', icon: Truck },
+        { to: '/app/relatorios/financeiro', label: 'Financeiro', icon: DollarSign },
+        { to: '/app/relatorios/estoque', label: 'Estoque', icon: Warehouse },
+      ]
+    },
     { 
       label: 'Estoque', 
       icon: Warehouse, 

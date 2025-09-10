@@ -14,7 +14,9 @@ import ListaCertificados from '@/pages/ListaCertificados';
 import CertificadoViewPage from '@/pages/CertificadoViewPage';
 import AssinaturaPage from '@/pages/AssinaturaPage';
 import ContratoAssinadoPage from '@/pages/ContratoAssinadoPage';
-import RelatoriosPage from '@/pages/RelatoriosPage';
+import RelatorioColetasPage from '@/pages/relatorios/RelatorioColetasPage';
+import RelatorioFinanceiroPage from '@/pages/relatorios/RelatorioFinanceiroPage';
+import RelatorioEstoquePage from '@/pages/relatorios/RelatorioEstoquePage';
 import UserManagementPage from '@/pages/UserManagementPage';
 import UserFormPage from '@/pages/UserFormPage';
 import EmpresaPage from '@/pages/EmpresaPage';
@@ -132,7 +134,9 @@ function App() {
                   
                   <Route path="certificados" element={<ProtectedRoute requiredRole="administrador"><ListaCertificados /></ProtectedRoute>} />
                   <Route path="certificados/novo" element={<ProtectedRoute requiredRole="administrador"><CertificadoPage /></ProtectedRoute>} />
-                  <Route path="relatorios" element={<ProtectedRoute requiredRole="administrador"><RelatoriosPage /></ProtectedRoute>} />
+                  <Route path="relatorios/coletas" element={<ProtectedRoute requiredRole="administrador"><RelatorioColetasPage /></ProtectedRoute>} />
+                  <Route path="relatorios/financeiro" element={<ProtectedRoute requiredRole="administrador"><RelatorioFinanceiroPage /></ProtectedRoute>} />
+                  <Route path="relatorios/estoque" element={<ProtectedRoute requiredRole="administrador"><RelatorioEstoquePage /></ProtectedRoute>} />
                   <Route path="contratos" element={<ListaContratos />} />
                   <Route path="contratos/novo" element={<ContratoForm />} />
                   <Route path="contratos/editar/:id" element={<ContratoForm />} />
