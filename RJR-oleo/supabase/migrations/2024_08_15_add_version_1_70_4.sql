@@ -1,0 +1,2 @@
+INSERT INTO public.versoes (versao, hash, descricao)
+VALUES ('1.70.4', 'a988771', '- **Correção Crítica de Assinatura de Recibo:** Resolvido o problema que impedia a página pública de assinatura de recibos de ser exibida. Foi criada uma função de banco de dados segura (`get_public_recibo_data`) para permitir que a página carregue os dados necessários sem falhas de permissão, espelhando a solução já implementada para os contratos.');

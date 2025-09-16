@@ -1,0 +1,3 @@
+INSERT INTO public.versoes (versao, hash, descricao)
+VALUES ('1.8.8', 'h9i8j7k', '- **Ajuste de Layout do Modal de Recibo:** Aumentada a largura do modal de visualização do recibo para garantir que todos os botões de ação sejam exibidos corretamente em uma única linha.
+- **Confirmação do Status de Recibo:** Reforçado que a funcionalidade de status de recibo (Em Andamento, Aguardando Assinatura, Finalizada) já está implementada na lista de coletas, fornecendo uma visão clara do fluxo de cada recibo.');

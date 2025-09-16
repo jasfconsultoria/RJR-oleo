@@ -1,0 +1,2 @@
+INSERT INTO public.versoes (versao, hash, descricao)
+VALUES ('1.70.8', 'e2c4f5a', '- **Correção Definitiva de Acesso:** Ajustada a política de segurança do armazenamento (Storage) para permitir a leitura pública dos buckets `logos` e `recibos`, corrigindo a falha que impedia a página de assinatura de recibo de ser exibida.');
