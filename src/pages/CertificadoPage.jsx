@@ -189,6 +189,7 @@ const CertificadoPage = () => {
         </Card>
       </motion.div>
       <CertificadoViewDialog 
+        open={!!generatedCertificado}
         certificado={generatedCertificado}
         onOpenChange={(isOpen) => !isOpen && setGeneratedCertificado(null)}
       />

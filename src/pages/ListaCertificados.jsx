@@ -62,7 +62,6 @@ const ListaCertificados = () => {
     }
   }, [profile, profileLoading, toast]);
 
-
   const fetchCertificados = useCallback(async () => {
     if (!empresa || !debouncedFilters.startDate || !debouncedFilters.endDate) return;
     
@@ -205,6 +204,7 @@ const ListaCertificados = () => {
         />
       </div>
       <CertificadoViewDialog 
+        open={!!viewingCertificado}
         certificado={viewingCertificado}
         onOpenChange={(isOpen) => !isOpen && setViewingCertificado(null)}
       />
