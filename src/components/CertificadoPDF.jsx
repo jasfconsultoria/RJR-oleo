@@ -22,7 +22,7 @@ const CertificadoPDF = ({ data }) => {
   };
 
   return (
-    <div className="bg-white text-black p-8 font-sans" style={{ width: '210mm', minHeight: '297mm', fontFamily: 'Arial, sans-serif' }}>
+    <div className="bg-white text-black p-8 font-sans" style={{ width: '297mm', minHeight: '210mm', fontFamily: 'Arial, sans-serif' }}>
       <header className="flex justify-between items-center pb-4 border-b-2 border-gray-300">
         <div>
           {empresa?.logo_documento_url ? (

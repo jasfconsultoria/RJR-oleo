@@ -23,14 +23,14 @@ export const CertificadoViewDialog = ({ certificado, open, onOpenChange }) => {
     
     try {
       const canvas = await html2canvas(input, { 
-        scale: 3, // Aumenta a escala para melhor qualidade
+        scale: 2, // Escala ajustada para performance
         useCORS: true,
-        allowTaint: true
+        allowTaint: true,
+        backgroundColor: '#ffffff'
       });
       const imgData = canvas.toDataURL('image/png');
       
-      // 'l' para orientação paisagem (landscape), como solicitado
-      const pdf = new jsPDF('l', 'mm', 'a4'); 
+      const pdf = new jsPDF('l', 'mm', 'a4'); // 'l' para paisagem
       
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
@@ -38,7 +38,6 @@ export const CertificadoViewDialog = ({ certificado, open, onOpenChange }) => {
       const canvasWidth = canvas.width;
       const canvasHeight = canvas.height;
       
-      // Lógica do contrato: calcula a proporção para ajustar a imagem na página
       const ratio = Math.min(pdfWidth / canvasWidth, pdfHeight / canvasHeight);
       
       const imgWidth = canvasWidth * ratio;
@@ -50,10 +49,11 @@ export const CertificadoViewDialog = ({ certificado, open, onOpenChange }) => {
       pdf.addImage(imgData, 'PNG', x, y, imgWidth, imgHeight);
 
       if (action === 'print') {
-        // Lógica do contrato: download direto do arquivo
-        pdf.save(`Certificado_${certificado.cliente.nome}.pdf`);
+        const pdfBlob = pdf.output('blob');
+        const url = URL.createObjectURL(pdfBlob);
+        window.open(url, '_blank');
+        // Não é necessário revogar a URL imediatamente, o navegador cuida disso ao fechar a aba.
       } else if (action === 'share') {
-        // Correção definitiva: usa pdf.output('blob') para compartilhar
         const pdfBlob = pdf.output('blob');
         const file = new File([pdfBlob], `Certificado_${certificado.cliente.nome}.pdf`, { type: 'application/pdf' });
         
@@ -80,14 +80,26 @@ export const CertificadoViewDialog = ({ certificado, open, onOpenChange }) => {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange} modal={true}>
-      <DialogContent className="max-w-4xl h-[90vh] flex flex-col bg-white/10 border-white/20 text-white">
+      <DialogContent 
+        className="max-w-4xl h-[90vh] flex flex-col bg-white/10 border-white/20 text-white"
+        onPointerDownOutside={(e) => {
+          if (isGenerating) {
+            e.preventDefault();
+          }
+        }}
+        onEscapeKeyDown={(e) => {
+          if (isGenerating) {
+            e.preventDefault();
+          }
+        }}
+      >
         <DialogHeader>
           <DialogTitle className="text-emerald-300">Visualizar Certificado</DialogTitle>
         </DialogHeader>
         {certificado && (
           <>
             <div className="flex-grow overflow-auto p-2 bg-gray-800 rounded-md">
-              <div ref={certificadoPdfRef}>
+              <div ref={certificadoPdfRef} className="bg-white">
                 <CertificadoPDF data={certificado} />
               </div>
             </div>
@@ -98,7 +110,7 @@ export const CertificadoViewDialog = ({ certificado, open, onOpenChange }) => {
               </Button>
               <Button onClick={() => generateAndProcessPdf('print')} variant="outline" className="text-white hover:bg-white/10 border-white/30" disabled={isGenerating}>
                 {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Printer className="mr-2 h-4 w-4" />}
-                Imprimir / Salvar
+                Imprimir
               </Button>
             </DialogFooter>
           </>
