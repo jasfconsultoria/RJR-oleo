@@ -1,0 +1,2 @@
+INSERT INTO public.versoes (versao, hash, descricao)
+VALUES ('1.70.9', 'f3a1b2c', '- **Refatoração de Acesso Público:** Criada uma função RPC `get_public_recibo_data` para buscar de forma segura e unificada todos os dados necessários para as páginas de assinatura e visualização de recibos. Isso resolve em definitivo os problemas de permissão que causavam a página em branco.');

@@ -1,0 +1,2 @@
+INSERT INTO public.versoes (versao, hash, descricao)
+VALUES ('1.70.7', 'd589a1b', '- **Correção de Permissão:** Aplicada a política de segurança definitiva para permitir o acesso público às páginas de assinatura de recibo, resolvendo o problema da tela em branco.');
