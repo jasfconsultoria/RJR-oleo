@@ -28,7 +28,7 @@ const CertificadoPDF = ({ data }) => {
           )}
         </div>
         <div className="text-right text-sm">
-          <p className="font-bold">{empresa?.nome_fantasia}</p>
+          <p className="font-bold" style={{ letterSpacing: '0.025em' }}>{empresa?.nome_fantasia}</p>
           <p>{empresa?.endereco}</p>
           <p>CNPJ: {empresa?.cnpj}</p>
           <p>Telefone: {empresa?.telefone}</p>
@@ -69,7 +69,7 @@ const CertificadoPDF = ({ data }) => {
 
       <footer className="mt-24 text-center">
         <div className="inline-block">
-          <p className="border-t-2 border-gray-400 pt-2 px-12 font-bold">{empresa?.nome_fantasia}</p>
+          <p className="border-t-2 border-gray-400 pt-2 px-12 font-bold" style={{ letterSpacing: '0.025em' }}>{empresa?.nome_fantasia}</p>
           <p className="text-sm">Assinatura do Responsável</p>
         </div>
         <p className="text-sm text-gray-500 mt-8">
