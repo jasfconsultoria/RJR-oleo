@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -11,7 +11,6 @@ import { DatePicker } from '@/components/ui/date-picker';
 import ClienteSearchableSelect from '@/components/ui/ClienteSearchableSelect';
 import { ArrowLeft, Loader2, FileText } from 'lucide-react';
 import { logAction } from '@/lib/logger';
-import { CertificadoViewDialog } from '@/components/certificados/CertificadoViewDialog';
 
 const getTodayDate = () => new Date();
 const getFirstDayOfMonth = () => {
@@ -26,8 +25,6 @@ const CertificadoPage = () => {
   const [periodoFim, setPeriodoFim] = useState(getTodayDate());
   const [loading, setLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedCertificado, setGeneratedCertificado] = useState(null);
-  const [empresa, setEmpresa] = useState(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -35,18 +32,15 @@ const CertificadoPage = () => {
     const fetchInitialData = async () => {
       setLoading(true);
       try {
-        const [clientRes, empresaRes] = await Promise.all([
-          supabase.from('clientes').select('id, nome, cnpj_cpf, municipio, estado, endereco').order('nome', { ascending: true }),
-          supabase.from('empresa').select('*').single(),
-        ]);
+        const { data, error } = await supabase
+          .from('clientes')
+          .select('id, nome, cnpj_cpf, municipio, estado, endereco')
+          .order('nome', { ascending: true });
 
-        if (clientRes.error) throw clientRes.error;
-        setClients(clientRes.data || []);
-
-        if (empresaRes.error) throw empresaRes.error;
-        setEmpresa(empresaRes.data);
+        if (error) throw error;
+        setClients(data || []);
       } catch (error) {
-        toast({ title: 'Erro ao carregar dados', description: error.message, variant: 'destructive' });
+        toast({ title: 'Erro ao carregar clientes', description: error.message, variant: 'destructive' });
       } finally {
         setLoading(false);
       }

@@ -29,7 +29,6 @@ const ListaCertificados = () => {
   const [sortConfig, setSortConfig] = useState({ key: 'data_emissao', direction: 'desc' });
   const { profile, loading: profileLoading } = useProfile();
   const [clients, setClients] = useState([]);
-  const [viewingCertificado, setViewingCertificado] = useState(null);
   const [empresa, setEmpresa] = useState(null);
   const { toast } = useToast();
   const [currentPage, setCurrentPage] = useState(1);
