@@ -70,14 +70,17 @@ const ListaCertificados = () => {
     const from = (currentPage - 1) * pageSize;
     const to = from + pageSize - 1;
 
-    const startDateISO = formatToISODate(debouncedFilters.startDate);
-    const endDateISO = formatToISODate(debouncedFilters.endDate);
+    const startDate = new Date(debouncedFilters.startDate);
+    startDate.setHours(0, 0, 0, 0);
+
+    const endDate = new Date(debouncedFilters.endDate);
+    endDate.setHours(23, 59, 59, 999);
 
     let query = supabase
       .from('certificados')
       .select('id, cliente_id, cliente_nome, periodo_inicio, periodo_fim, total_kg, data_emissao', { count: 'exact' })
-      .gte('data_emissao', `${startDateISO} 00:00:00`)
-      .lte('data_emissao', `${endDateISO} 23:59:59`);
+      .gte('data_emissao', startDate.toISOString())
+      .lte('data_emissao', endDate.toISOString());
 
     if (debouncedFilters.selectedClientId) {
       query = query.eq('cliente_id', debouncedFilters.selectedClientId);

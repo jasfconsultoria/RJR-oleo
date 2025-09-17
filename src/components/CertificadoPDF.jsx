@@ -32,7 +32,7 @@ const CertificadoPDF = ({ data }) => {
           )}
         </div>
         <div className="text-right text-sm">
-          <p className="font-bold">{empresa?.razao_social}</p>
+          <p className="font-bold">{empresa?.nome_fantasia}</p>
           <p>{empresa?.endereco}</p>
           <p>CNPJ: {empresa?.cnpj}</p>
           <p>Telefone: {empresa?.telefone}</p>
@@ -41,7 +41,7 @@ const CertificadoPDF = ({ data }) => {
       </header>
 
       <main className="mt-12">
-        <h1 className="text-2xl font-bold text-center mb-10">CERTIFICADO DE DESTINAÇÃO CORRETA DE ÓLEO</h1>
+        <h1 className="text-2xl font-bold text-center mb-10 tracking-wider">CERTIFICADO DE DESTINAÇÃO CORRETA DE ÓLEO</h1>
 
         <p className="text-lg leading-relaxed text-justify indent-8">
           Certificamos que a empresa <span className="font-bold">{cliente?.nome}</span>,
