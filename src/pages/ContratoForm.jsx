@@ -142,38 +142,9 @@ const ContratoForm = () => {
                 navigate('/app/contratos');
                 return;
             }
-
-            const { data: fullContrato, error: fetchError } = await supabase
-                .from('contratos')
-                .select('*, pessoa:clientes(*)')
-                .eq('id', data.id)
-                .single();
-
-            if (fetchError) {
-                toast({ title: 'Erro ao recarregar dados do contrato', description: fetchError.message, variant: 'destructive' });
-                if (!isEditing) navigate(`/app/contratos/editar/${data.id}`);
-            } else {
-                const parseDateWithTimezone = (dateString) => {
-                    if (!dateString) return null;
-                    return new Date(`${dateString}T00:00:00`);
-                };
-                const updatedFormData = {
-                    ...fullContrato,
-                    data_inicio: parseDateWithTimezone(fullContrato.data_inicio),
-                    data_fim: parseDateWithTimezone(fullContrato.data_fim),
-                    pessoa: fullContrato.pessoa,
-                };
-
-                setFormData(updatedFormData);
-                setOriginalContrato(fullContrato);
-                
-                setIsViewModalOpen(true);
-                
-                if (!isEditing) {
-                    navigate(`/app/contratos/editar/${data.id}`, { replace: true });
-                }
-            }
-            setIsSaving(false);
+            
+            // Navega para a página de visualização/compartilhamento
+            navigate(`/app/contrato/${data.id}`);
         }
     };
 
@@ -192,20 +163,12 @@ const ContratoForm = () => {
                 <title>{isEditing ? 'Editar Contrato' : 'Novo Contrato'} - Sistema de Gestão</title>
             </Helmet>
 
-            {isViewModalOpen && (
-                <ContratoViewModal
-                    contrato={formData}
-                    isOpen={isViewModalOpen}
-                    onClose={handleCloseModal}
-                />
-            )}
-
             <Card className="max-w-4xl mx-auto bg-white/5 border-white/10 backdrop-blur-sm rounded-xl">
                 <CardHeader>
                     <CardTitle className="text-2xl text-white flex items-center justify-between">
                       {isEditing ? `Contrato: ${formData.numero_contrato}` : 'Novo Contrato'}
                       {isEditing && (
-                        <Button onClick={() => setIsViewModalOpen(true)} variant="outline" size="sm">
+                        <Button onClick={() => navigate(`/app/contrato/${id}`)} variant="outline" size="sm">
                             <Share2 className="w-4 h-4 mr-2" />
                             Visualizar/Compartilhar
                         </Button>

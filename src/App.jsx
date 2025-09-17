@@ -25,7 +25,7 @@ import { useProfile } from '@/contexts/ProfileContext';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
 import ListaContratos from '@/pages/ListaContratos';
-import ContratoForm from '@/pages/ContratoForm';
+import ContratoForm from './pages/ContratoForm';
 import AjudaPage from '@/pages/AjudaPage';
 import FaqPage from '@/pages/FaqPage';
 import SobreSistemaPage from '@/pages/SobreSistemaPage';
@@ -33,8 +33,10 @@ import LogsPage from '@/pages/LogsPage';
 import VersoesPage from '@/pages/VersoesPage';
 import ListaFinanceiro from '@/pages/ListaFinanceiro';
 import FinanceiroForm from '@/pages/FinanceiroForm';
-import AssinaturaReciboPage from '@/pages/AssinaturaReciboPage';
-import ReciboPublicoPage from '@/pages/ReciboPublicoPage';
+import AssinaturaReciboPage from './pages/AssinaturaReciboPage';
+import ReciboPublicoPage from './pages/ReciboPublicoPage';
+import ContratoPublicoPage from './pages/ContratoPublicoPage';
+
 // Estoque Pages
 import EntradaFormPage from '@/pages/estoque/EntradaFormPage';
 import SaidaFormPage from '@/pages/estoque/SaidaFormPage';
@@ -142,6 +144,7 @@ function App() {
                   <Route path="contratos" element={<ListaContratos />} />
                   <Route path="contratos/novo" element={<ContratoForm />} />
                   <Route path="contratos/editar/:id" element={<ContratoForm />} />
+                  <Route path="contrato/:id" element={<ContratoPublicoPage />} />
                   
                   {/* New Financeiro Routes */}
                   <Route path="financeiro/credito" element={<ProtectedRoute requiredRole="administrador"><ListaFinanceiro type="credito" /></ProtectedRoute>} />
