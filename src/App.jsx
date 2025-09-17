@@ -46,6 +46,7 @@ import ListaEntradasPage from '@/pages/estoque/ListaEntradasPage'; // New import
 import ListaSaidasPage from '@/pages/estoque/ListaSaidasPage'; // New import
 import ListaCentrosCusto from '@/pages/ListaCentrosCusto'; // New import
 import CentroCustoForm from '@/pages/CentroCustoForm'; // New import
+import CertificadoDisplayPage from '@/pages/CertificadoDisplayPage';
 
 const ProtectedRoute = ({ children, requiredRole }) => {
   const { session, loading: authLoading } = useAuth();
@@ -134,6 +135,7 @@ function App() {
                   
                   <Route path="certificados" element={<ProtectedRoute requiredRole="administrador"><ListaCertificados /></ProtectedRoute>} />
                   <Route path="certificados/novo" element={<ProtectedRoute requiredRole="administrador"><CertificadoPage /></ProtectedRoute>} />
+                  <Route path="certificados/view/:id" element={<ProtectedRoute requiredRole="administrador"><CertificadoDisplayPage /></ProtectedRoute>} />
                   <Route path="relatorios/coletas" element={<ProtectedRoute requiredRole="administrador"><RelatorioColetasPage /></ProtectedRoute>} />
                   <Route path="relatorios/financeiro" element={<ProtectedRoute requiredRole="administrador"><RelatorioFinanceiroPage /></ProtectedRoute>} />
                   <Route path="relatorios/estoque" element={<ProtectedRoute requiredRole="administrador"><RelatorioEstoquePage /></ProtectedRoute>} />

@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Helmet } from 'react-helmet';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
 import { useProfile } from '@/contexts/ProfileContext';
 import { CertificadosHeader } from '@/components/certificados/CertificadosHeader';
 import { CertificadosFilters } from '@/components/certificados/CertificadosFilters';
 import { CertificadosTable } from '@/components/certificados/CertificadosTable';
-import { CertificadoViewDialog } from '@/components/certificados/CertificadoViewDialog';
 import { logAction } from '@/lib/logger';
 import { Pagination } from '@/components/ui/pagination';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -34,6 +34,7 @@ const ListaCertificados = () => {
   const { toast } = useToast();
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
+  const navigate = useNavigate();
 
   const debouncedFilters = useDebounce(filters, 500);
 
@@ -122,29 +123,8 @@ const ListaCertificados = () => {
     }
   };
 
-  const handleView = async (cert) => {
-    const { data: clienteData, error: clienteError } = await supabase
-      .from('clientes')
-      .select('*')
-      .eq('id', cert.cliente_id)
-      .single();
-
-    if (clienteError) {
-      toast({ title: 'Erro ao carregar dados do cliente', variant: 'destructive' });
-      return;
-    }
-
-    const fullCertData = {
-      cliente: clienteData,
-      empresa: empresa,
-      periodo: { 
-        inicio: cert.periodo_inicio, 
-        fim: cert.periodo_fim 
-      },
-      totalKg: cert.total_kg,
-      data_emissao: cert.data_emissao,
-    };
-    setViewingCertificado(fullCertData);
+  const handleView = (cert) => {
+    navigate(`/app/certificados/view/${cert.id}`);
   };
 
   const requestSort = (key) => {
@@ -203,11 +183,6 @@ const ListaCertificados = () => {
           totalCount={totalCount}
         />
       </div>
-      <CertificadoViewDialog 
-        open={!!viewingCertificado}
-        certificado={viewingCertificado}
-        onOpenChange={(isOpen) => !isOpen && setViewingCertificado(null)}
-      />
     </>
   );
 };

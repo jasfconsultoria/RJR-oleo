@@ -103,17 +103,7 @@ const CertificadoPage = () => {
       await logAction('generate_certificate', { certificate_id: certData.id, client_id: selectedClientId });
       toast({ title: 'Certificado gerado com sucesso!' });
 
-      const fullCertData = {
-        cliente: selectedClient,
-        empresa: empresa,
-        periodo: { 
-          inicio: certData.periodo_inicio, 
-          fim: certData.periodo_fim 
-        },
-        totalKg: certData.total_kg,
-        data_emissao: certData.data_emissao,
-      };
-      setGeneratedCertificado(fullCertData);
+      navigate(`/app/certificados/view/${certData.id}`);
 
     } catch (error) {
       toast({ title: 'Erro ao gerar certificado', description: error.message, variant: 'destructive' });
@@ -188,11 +178,6 @@ const CertificadoPage = () => {
           </CardFooter>
         </Card>
       </motion.div>
-      <CertificadoViewDialog 
-        open={!!generatedCertificado}
-        certificado={generatedCertificado}
-        onOpenChange={(isOpen) => !isOpen && setGeneratedCertificado(null)}
-      />
     </>
   );
 };
