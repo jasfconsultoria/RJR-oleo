@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { CertificadoActions } from './CertificadoActions';
+import { formatDate, formatDateWithTimezone } from '@/lib/utils';
 
 export const CertificadosTable = ({ loading, certificados, sortConfig, requestSort, handleView, handleDelete }) => {
   const getSortIcon = (key) => {
@@ -40,9 +41,9 @@ export const CertificadosTable = ({ loading, certificados, sortConfig, requestSo
           <TableBody>
             {certificados.length > 0 ? certificados.map((cert) => (
               <TableRow key={cert.id} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
-                <TableCell data-label="Data Emissão" className="p-2">{new Date(cert.data_emissao).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</TableCell>
+                <TableCell data-label="Data Emissão" className="p-2">{formatDateWithTimezone(cert.data_emissao, 'America/Sao_Paulo')}</TableCell>
                 <TableCell data-label="Cliente" className="font-medium p-2">{cert.cliente_nome}</TableCell>
-                <TableCell data-label="Período" className="p-2">{new Date(cert.periodo_inicio + 'T00:00:00').toLocaleDateString('pt-BR', { timeZone: 'UTC' })} - {new Date(cert.periodo_fim + 'T00:00:00').toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</TableCell>
+                <TableCell data-label="Período" className="p-2">{formatDate(cert.periodo_inicio)} - {formatDate(cert.periodo_fim)}</TableCell>
                 <TableCell data-label="Total (kg)" className="text-right p-2">{parseFloat(cert.total_kg).toFixed(2)}</TableCell>
                 <TableCell className="p-2 actions-cell">
                   <CertificadoActions 

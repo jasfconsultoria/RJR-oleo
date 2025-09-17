@@ -1,17 +1,13 @@
 import React from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { formatDate as formatUtilDate } from '@/lib/utils';
 
 const CertificadoPDF = ({ data }) => {
   if (!data) return null;
 
   const { cliente, empresa, periodo, totalKg, data_emissao } = data;
 
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    return format(new Date(dateString + 'T00:00:00'), 'dd/MM/yyyy', { locale: ptBR });
-  };
-  
   const formatDateTime = (dateTimeString) => {
     if (!dateTimeString) return 'N/A';
     return format(new Date(dateTimeString), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
@@ -55,7 +51,7 @@ const CertificadoPDF = ({ data }) => {
           <div className="grid grid-cols-2 gap-4">
             <div className="text-center">
               <p className="text-sm text-gray-600">Período da Coleta</p>
-              <p className="font-bold text-lg">{formatDate(periodo?.inicio)} - {formatDate(periodo?.fim)}</p>
+              <p className="font-bold text-lg">{formatUtilDate(periodo?.inicio)} - {formatUtilDate(periodo?.fim)}</p>
             </div>
             <div className="text-center">
               <p className="text-sm text-gray-600">Quantidade Total Coletada</p>

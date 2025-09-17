@@ -11,6 +11,7 @@ import { DatePicker } from '@/components/ui/date-picker';
 import ClienteSearchableSelect from '@/components/ui/ClienteSearchableSelect';
 import { ArrowLeft, Loader2, FileText } from 'lucide-react';
 import { logAction } from '@/lib/logger';
+import { formatToISODate } from '@/lib/utils';
 
 const getTodayDate = () => new Date();
 const getFirstDayOfMonth = () => {
@@ -84,8 +85,8 @@ const CertificadoPage = () => {
         .insert({
           cliente_id: selectedClientId,
           cliente_nome: selectedClient.nome,
-          periodo_inicio: periodoInicio.toISOString().split('T')[0],
-          periodo_fim: periodoFim.toISOString().split('T')[0],
+          periodo_inicio: formatToISODate(periodoInicio),
+          periodo_fim: formatToISODate(periodoFim),
           total_kg: totalKg,
           data_emissao: dataEmissao.toISOString(),
         })

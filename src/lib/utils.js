@@ -10,9 +10,11 @@ export function cn(...inputs) {
 
 export function formatDate(dateString) {
     if (!dateString) return '';
-    const date = new Date(`${dateString}T00:00:00`);
+    // Trata a string 'YYYY-MM-DD' como uma data em UTC para evitar deslocamentos de fuso horário.
+    const date = parseISO(`${dateString}T00:00:00Z`);
     if (!isValid(date)) return '';
-    return formatFns(date, 'dd/MM/yyyy', { locale: ptBR });
+    // Formata a data de volta, ainda em UTC, para garantir que o dia não mude.
+    return formatInTimeZone(date, 'UTC', 'dd/MM/yyyy', { locale: ptBR });
 }
 
 export function formatDateWithTimezone(dateString, timeZone) {
