@@ -11,16 +11,22 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Eye, Trash2 } from 'lucide-react';
+import { FileText, Share2, Pencil, Trash2 } from 'lucide-react';
 
-export const CertificadoActions = ({ onView, onDelete }) => (
+export const CertificadoActions = ({ onOpenPdf, onShare, onEdit, onDelete }) => (
   <div className="flex items-center gap-2">
-    <Button variant="ghost" size="icon" onClick={onView}>
-      <Eye className="h-4 w-4 text-blue-400" />
+    <Button variant="ghost" size="icon" onClick={onOpenPdf} title="Abrir PDF">
+      <FileText className="h-4 w-4 text-blue-400" />
+    </Button>
+    <Button variant="ghost" size="icon" onClick={onShare} title="Compartilhar">
+      <Share2 className="h-4 w-4 text-green-400" />
+    </Button>
+    <Button variant="ghost" size="icon" onClick={onEdit} title="Editar/Visualizar">
+      <Pencil className="h-4 w-4 text-yellow-400" />
     </Button>
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button variant="ghost" size="icon">
+        <Button variant="ghost" size="icon" title="Excluir">
           <Trash2 className="h-4 w-4 text-red-500" />
         </Button>
       </AlertDialogTrigger>

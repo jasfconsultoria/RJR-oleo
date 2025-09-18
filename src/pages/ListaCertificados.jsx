@@ -11,6 +11,7 @@ import { logAction } from '@/lib/logger';
 import { Pagination } from '@/components/ui/pagination';
 import { useDebounce } from '@/hooks/useDebounce';
 import { formatToISODate } from '@/lib/utils';
+import { motion } from 'framer-motion';
 
 const getTodayDate = () => new Date();
 const getFirstDayOfMonth = () => {
@@ -78,7 +79,7 @@ const ListaCertificados = () => {
 
     let query = supabase
       .from('certificados')
-      .select('id, cliente_id, cliente_nome, periodo_inicio, periodo_fim, total_kg, data_emissao', { count: 'exact' })
+      .select('id, cliente_id, cliente_nome, periodo_inicio, periodo_fim, total_kg, data_emissao, pdf_url', { count: 'exact' })
       .gte('data_emissao', startDate.toISOString())
       .lte('data_emissao', endDate.toISOString());
 
@@ -125,8 +126,39 @@ const ListaCertificados = () => {
     }
   };
 
-  const handleView = (cert) => {
-    navigate(`/app/certificados/view/${cert.id}`);
+  const handleOpenPdf = (cert) => {
+    if (cert.pdf_url) {
+      const url = `${cert.pdf_url}?t=${new Date().getTime()}`;
+      window.open(url, '_blank');
+    } else {
+      toast({ title: 'PDF não gerado', description: 'Redirecionando para gerar o PDF...' });
+      navigate(`/app/certificados/view/${cert.id}`, { state: { autoGenerate: true } });
+    }
+  };
+
+  const handleShare = async (cert) => {
+    if (!cert.pdf_url) {
+      toast({ title: 'PDF não encontrado', description: 'Gere o PDF primeiro para poder compartilhar.', variant: 'destructive' });
+      return;
+    }
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Certificado - ${cert.cliente_nome}`,
+          text: `Confira o certificado de coleta de ${cert.cliente_nome}.`,
+          url: cert.pdf_url,
+        });
+      } catch (error) {
+        toast({ title: 'Compartilhamento cancelado ou falhou.' });
+      }
+    } else {
+      navigator.clipboard.writeText(cert.pdf_url);
+      toast({ title: 'Link copiado!', description: 'O link do PDF foi copiado para a área de transferência.' });
+    }
+  };
+
+  const handleEdit = (cert) => {
+    navigate(`/app/certificados/editar/${cert.id}`);
   };
 
   const requestSort = (key) => {
@@ -167,16 +199,18 @@ const ListaCertificados = () => {
           endDate={filters.endDate}
           setEndDate={(value) => handleFilterChange('endDate', value)}
         />
-        <div className="relative z-10">
+        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white/10 backdrop-blur-sm rounded-xl relative z-10">
           <CertificadosTable 
             loading={loading || profileLoading || !empresa}
             certificados={certificados}
             sortConfig={sortConfig}
             requestSort={requestSort}
-            handleView={handleView}
+            handleOpenPdf={handleOpenPdf}
+            handleShare={handleShare}
+            handleEdit={handleEdit}
             handleDelete={handleDelete}
           />
-        </div>
+        </motion.div>
         <Pagination
           currentPage={currentPage}
           totalPages={totalPages}

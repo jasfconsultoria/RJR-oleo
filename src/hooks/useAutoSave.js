@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useDebounce } from './useDebounce';
 
-export function useAutoSave(key, initialValue) {
+export function useAutoSave(key, initialValue, enabled = true) {
   const [value, setValue] = useState(() => {
+    if (!enabled) return initialValue;
     try {
       const storedValue = localStorage.getItem(key);
       return storedValue ? JSON.parse(storedValue) : initialValue;
@@ -12,15 +13,17 @@ export function useAutoSave(key, initialValue) {
     }
   });
 
-  const debouncedValue = useDebounce(value, 500); // Salva a cada 500ms de inatividade
+  const debouncedValue = useDebounce(value, 500);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(key, JSON.stringify(debouncedValue));
-    } catch (error) {
-      console.error("Erro ao escrever no localStorage:", error);
+    if (enabled) {
+      try {
+        localStorage.setItem(key, JSON.stringify(debouncedValue));
+      } catch (error) {
+        console.error("Erro ao escrever no localStorage:", error);
+      }
     }
-  }, [key, debouncedValue]);
+  }, [key, debouncedValue, enabled]);
 
   const clearSavedData = useCallback(() => {
     try {
@@ -29,6 +32,15 @@ export function useAutoSave(key, initialValue) {
       console.error("Erro ao limpar o localStorage:", error);
     }
   }, [key]);
+
+  // Limpa os dados quando o componente é desmontado
+  useEffect(() => {
+    return () => {
+      if (enabled) {
+        clearSavedData();
+      }
+    };
+  }, [enabled, clearSavedData]);
 
   return [value, setValue, clearSavedData];
 }

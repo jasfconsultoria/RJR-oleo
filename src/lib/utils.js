@@ -9,12 +9,21 @@ export function cn(...inputs) {
 }
 
 export function formatDate(dateString) {
-    if (!dateString) return '';
-    // Trata a string 'YYYY-MM-DD' como uma data em UTC para evitar deslocamentos de fuso horário.
-    const date = parseISO(`${dateString}T00:00:00Z`);
-    if (!isValid(date)) return '';
-    // Formata a data de volta, ainda em UTC, para garantir que o dia não mude.
-    return formatInTimeZone(date, 'UTC', 'dd/MM/yyyy', { locale: ptBR });
+  if (!dateString) return '';
+
+  // Verifica se é uma data simples 'YYYY-MM-DD' ou um timestamp completo
+  const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(dateString);
+  
+  // Se for apenas data, adiciona tempo e 'Z' para tratar como UTC
+  // Caso contrário, usa a string original que deve ser um timestamp ISO completo
+  const dateToParse = isDateOnly ? `${dateString}T00:00:00Z` : dateString;
+  
+  const date = parseISO(dateToParse);
+  
+  if (!isValid(date)) return '';
+  
+  // Formata sempre em UTC para evitar deslocamentos de fuso horário
+  return formatInTimeZone(date, 'UTC', 'dd/MM/yyyy', { locale: ptBR });
 }
 
 export function formatDateWithTimezone(dateString, timeZone) {

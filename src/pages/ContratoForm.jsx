@@ -1,16 +1,21 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Helmet } from 'react-helmet';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/use-toast';
+import { ToastAction } from '@/components/ui/toast';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import ContratoFields from '@/components/contratos/ContratoFields';
-import { ArrowLeft, Save, Loader2, Share2 } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, CheckCircle } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { logAction } from '@/lib/logger';
-import ContratoViewModal from '@/components/contratos/ContratoViewModal';
 import { formatToISODate } from '@/lib/utils';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
+import { format } from 'date-fns';
+import ContratoPDF from '@/components/ContratoPDF';
+import { Progress } from '@/components/ui/progress';
 
 const ContratoForm = () => {
     const { id } = useParams();
@@ -20,9 +25,11 @@ const ContratoForm = () => {
     const [loading, setLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [errors, setErrors] = useState({});
-    const [isViewModalOpen, setIsViewModalOpen] = useState(false);
     const [originalContrato, setOriginalContrato] = useState(null);
-    const [empresaTimezone, setEmpresaTimezone] = useState('America/Sao_Paulo');
+    const [empresa, setEmpresa] = useState(null);
+    const [progress, setProgress] = useState(0);
+    const [pdfData, setPdfData] = useState(null);
+    const pdfContainerRef = useRef(null);
     
     const [formData, setFormData] = useState({
         cliente_id: null,
@@ -71,9 +78,11 @@ const ContratoForm = () => {
 
     useEffect(() => {
         const fetchInitialData = async () => {
-            const { data: empresaData } = await supabase.from('empresa').select('timezone').single();
-            if (empresaData?.timezone) {
-                setEmpresaTimezone(empresaData.timezone);
+            const { data: empresaData, error: empresaError } = await supabase.from('empresa').select('*').single();
+            if (empresaError) {
+                toast({ title: 'Erro ao buscar dados da empresa', variant: 'destructive' });
+            } else {
+                setEmpresa(empresaData);
             }
 
             if (isEditing) {
@@ -83,7 +92,7 @@ const ContratoForm = () => {
             }
         };
         fetchInitialData();
-    }, [isEditing, id, fetchContrato]);
+    }, [isEditing, id, fetchContrato, toast]);
 
     const validateForm = () => {
         const newErrors = {};
@@ -105,52 +114,94 @@ const ContratoForm = () => {
             return;
         }
         setIsSaving(true);
+        setProgress(10);
         
-        const dataToSave = {
-            ...formData,
-            user_id: user.id,
-            data_inicio: formatToISODate(formData.data_inicio),
-            data_fim: formatToISODate(formData.data_fim),
-            valor_coleta: formData.tipo_coleta === 'Compra' ? (formData.valor_coleta || null) : null,
-            fator_troca: formData.tipo_coleta === 'Troca' ? (formData.fator_troca || null) : null,
-            qtd_recipiente: formData.usa_recipiente ? (parseInt(formData.qtd_recipiente, 10) || null) : null,
-        };
+        try {
+            const dataToSave = {
+                ...formData,
+                user_id: user.id,
+                data_inicio: formatToISODate(formData.data_inicio),
+                data_fim: formatToISODate(formData.data_fim),
+                valor_coleta: formData.tipo_coleta === 'Compra' ? (formData.valor_coleta || null) : null,
+                fator_troca: formData.tipo_coleta === 'Troca' ? (formData.fator_troca || null) : null,
+                qtd_recipiente: formData.usa_recipiente ? (parseInt(formData.qtd_recipiente, 10) || null) : null,
+            };
+    
+            if (isEditing && originalContrato?.status === 'Ativo') {
+                dataToSave.status = 'Aguardando Assinatura';
+                dataToSave.assinatura_url = null;
+                toast({ title: 'Contrato alterado', description: 'Uma nova assinatura será necessária.' });
+            }
+            
+            delete dataToSave.pessoa;
+    
+            const { data: savedContract, error: saveError } = await supabase
+                .from('contratos')
+                .upsert(dataToSave, { onConflict: 'id' })
+                .select('*, pessoa:clientes(*)')
+                .single();
+    
+            if (saveError) throw saveError;
+            setProgress(30);
 
-        if (isEditing && originalContrato?.status === 'Ativo') {
-            dataToSave.status = 'Aguardando Assinatura';
-            dataToSave.assinatura_url = null;
-            toast({ title: 'Contrato alterado', description: 'Uma nova assinatura será necessária.' });
-        }
-        
-        delete dataToSave.pessoa;
+            setPdfData(savedContract);
+            await new Promise(resolve => setTimeout(resolve, 200));
 
-        const { data, error } = await supabase
-            .from('contratos')
-            .upsert(dataToSave, { onConflict: 'id' })
-            .select('id, numero_contrato, status')
-            .single();
+            const input = pdfContainerRef.current.firstChild;
+            if (!input) throw new Error('Falha ao renderizar o componente do PDF.');
+            
+            const canvas = await html2canvas(input, { scale: 2, useCORS: true });
+            setProgress(60);
 
-        if (error) {
+            const imgData = canvas.toDataURL('image/png');
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+            const imgProps = pdf.getImageProperties(imgData);
+            const ratio = Math.min(pdfWidth / imgProps.width, pdfHeight / imgProps.height);
+            const width = imgProps.width * ratio;
+            const height = imgProps.height * ratio;
+            pdf.addImage(imgData, 'PNG', 0, 0, width, height);
+            
+            const pdfBlob = pdf.output('blob');
+            setProgress(75);
+
+            const dateStr = format(new Date(), 'yyyy-MM-dd');
+            const fileName = `contracts/Contrato_${savedContract.numero_contrato}_${dateStr}.pdf`;
+
+            const { error: uploadError } = await supabase.storage.from('contracts').upload(fileName, pdfBlob, { upsert: true });
+            if (uploadError) throw uploadError;
+            setProgress(90);
+
+            const { data: urlData } = supabase.storage.from('contracts').getPublicUrl(fileName);
+            
+            const { error: dbError } = await supabase.from('contratos').update({ pdf_url: urlData.publicUrl }).eq('id', savedContract.id);
+            if (dbError) throw dbError;
+            setProgress(100);
+
+            await logAction(isEditing ? 'update_contrato' : 'create_contrato', { contrato_id: savedContract.id, numero_contrato: savedContract.numero_contrato });
+            
+            toast({
+                title: 'Sucesso!',
+                description: `Contrato ${isEditing ? 'atualizado' : 'salvo'} com sucesso.`,
+                variant: 'success',
+                action: (
+                    <ToastAction altText="Abrir PDF" onClick={() => window.open(urlData.publicUrl, '_blank')}>
+                        Abrir PDF
+                    </ToastAction>
+                ),
+            });
+
+            setTimeout(() => {
+                navigate('/app/contratos');
+            }, 800);
+
+        } catch (error) {
             console.error("Erro ao salvar contrato:", error);
             toast({ title: 'Erro ao salvar contrato', description: error.message, variant: 'destructive' });
             setIsSaving(false);
-        } else {
-            await logAction(isEditing ? 'update_contrato' : 'create_contrato', { contrato_id: data.id, numero_contrato: data.numero_contrato });
-            toast({ title: 'Sucesso!', description: `Contrato ${isEditing ? 'atualizado' : 'salvo'} com sucesso.` });
-
-            if (isEditing && (formData.status === 'Inativo' || formData.status === 'Cancelado')) {
-                navigate('/app/contratos');
-                return;
-            }
-            
-            // Navega para a página de visualização/compartilhamento
-            navigate(`/app/contrato/${data.id}`);
+            setProgress(0);
         }
-    };
-
-    const handleCloseModal = () => {
-        setIsViewModalOpen(false);
-        navigate('/app/contratos');
     };
 
     if (loading) {
@@ -163,40 +214,56 @@ const ContratoForm = () => {
                 <title>{isEditing ? 'Editar Contrato' : 'Novo Contrato'} - Sistema de Gestão</title>
             </Helmet>
 
-            <Card className="max-w-4xl mx-auto bg-white/5 border-white/10 backdrop-blur-sm rounded-xl">
-                <CardHeader>
-                    <CardTitle className="text-2xl text-white flex items-center justify-between">
-                      {isEditing ? `Contrato: ${formData.numero_contrato}` : 'Novo Contrato'}
-                      {isEditing && (
-                        <Button onClick={() => navigate(`/app/contrato/${id}`)} variant="outline" size="sm">
-                            <Share2 className="w-4 h-4 mr-2" />
-                            Visualizar/Compartilhar
+            <div className="relative max-w-4xl mx-auto">
+                {isSaving && (
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col justify-center items-center z-20 rounded-xl p-8 outline-none">
+                        {progress < 100 ? (
+                            <>
+                                <Loader2 className="w-8 h-8 animate-spin text-emerald-400" />
+                                <p className="text-white mt-4 text-lg">Salvando e gerando PDF...</p>
+                                <p className="text-emerald-300 text-sm mb-4">Por favor, aguarde.</p>
+                            </>
+                        ) : (
+                            <>
+                                <CheckCircle className="w-10 h-10 text-emerald-400" />
+                                <p className="text-white mt-4 text-lg">Concluído!</p>
+                            </>
+                        )}
+                        <Progress value={progress} className="w-3/4 mt-4" />
+                    </div>
+                )}
+                <Card className="bg-white/5 border-white/10 backdrop-blur-sm rounded-xl">
+                    <CardHeader>
+                        <CardTitle className="text-2xl text-white flex items-center justify-between">
+                          {isEditing ? `Contrato: ${formData.numero_contrato}` : 'Novo Contrato'}
+                        </CardTitle>
+                        <CardDescription className="text-emerald-200/80">
+                            Preencha os dados abaixo para {isEditing ? 'editar o' : 'criar um novo'} contrato.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <ContratoFields 
+                            formData={formData} 
+                            setFormData={setFormData}
+                            loading={loading}
+                            errors={errors}
+                            empresaTimezone={empresa?.timezone || 'America/Sao_Paulo'}
+                        />
+                    </CardContent>
+                    <CardFooter className="flex justify-between">
+                        <Button variant="outline" onClick={() => navigate('/app/contratos')} disabled={isSaving}>
+                            <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
                         </Button>
-                      )}
-                    </CardTitle>
-                    <CardDescription className="text-emerald-200/80">
-                        Preencha os dados abaixo para {isEditing ? 'editar o' : 'criar um novo'} contrato.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <ContratoFields 
-                        formData={formData} 
-                        setFormData={setFormData}
-                        loading={loading}
-                        errors={errors}
-                        empresaTimezone={empresaTimezone}
-                    />
-                </CardContent>
-                <CardFooter className="flex justify-between">
-                    <Button variant="outline" onClick={() => navigate('/app/contratos')}>
-                        <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
-                    </Button>
-                    <Button onClick={handleSave} disabled={isSaving} className="bg-emerald-600 hover:bg-emerald-700 text-white">
-                        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                        {isEditing ? 'Salvar Alterações' : 'Salvar'}
-                    </Button>
-                </CardFooter>
-            </Card>
+                        <Button onClick={handleSave} disabled={isSaving} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                            {isEditing ? 'Salvar Alterações' : 'Salvar'}
+                        </Button>
+                    </CardFooter>
+                </Card>
+            </div>
+            <div ref={pdfContainerRef} style={{ position: 'absolute', left: '-9999px', top: 0, zIndex: -1 }}>
+                {pdfData && empresa && <ContratoPDF contrato={pdfData} empresa={empresa} />}
+            </div>
         </>
     );
 };

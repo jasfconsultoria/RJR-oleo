@@ -1,17 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Helmet } from 'react-helmet';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
+import { ToastAction } from '@/components/ui/toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { DatePicker } from '@/components/ui/date-picker';
+import { Input } from '@/components/ui/input';
 import ClienteSearchableSelect from '@/components/ui/ClienteSearchableSelect';
-import { ArrowLeft, Loader2, FileText } from 'lucide-react';
+import { ArrowLeft, Loader2, FileText, CheckCircle } from 'lucide-react';
 import { logAction } from '@/lib/logger';
-import { formatToISODate } from '@/lib/utils';
+import { formatToISODate, formatCnpjCpf } from '@/lib/utils';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
+import { format } from 'date-fns';
+import CertificadoPDF from '@/components/CertificadoPDF';
+import { Progress } from '@/components/ui/progress';
+import { useAutoSave } from '@/hooks/useAutoSave';
+import { useProfile } from '@/contexts/ProfileContext';
 
 const getTodayDate = () => new Date();
 const getFirstDayOfMonth = () => {
@@ -19,98 +27,249 @@ const getFirstDayOfMonth = () => {
   return new Date(date.getFullYear(), date.getMonth(), 1);
 };
 
+const initialFormState = {
+  selectedClientId: '',
+  periodoInicio: getFirstDayOfMonth(),
+  periodoFim: getTodayDate(),
+  data_emissao: new Date(),
+};
+
 const CertificadoPage = () => {
+  const { id } = useParams();
+  const isEditMode = !!id;
   const [clients, setClients] = useState([]);
-  const [selectedClientId, setSelectedClientId] = useState('');
-  const [periodoInicio, setPeriodoInicio] = useState(getFirstDayOfMonth());
-  const [periodoFim, setPeriodoFim] = useState(getTodayDate());
   const [loading, setLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [progress, setProgress] = useState(0);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { profile } = useProfile();
+
+  const pdfContainerRef = useRef(null);
+  const [pdfData, setPdfData] = useState(null);
+
+  const [localFormData, setLocalFormData] = useState(initialFormState);
+
+  const [savedData, setSavedData, clearSavedData] = useAutoSave(
+    'certificado-form-data',
+    initialFormState,
+    !isEditMode 
+  );
+
+  useEffect(() => {
+    if (isEditMode) {
+      setLocalFormData(initialFormState);
+    } else {
+      const dataToLoad = {
+        ...savedData,
+        periodoInicio: savedData.periodoInicio ? new Date(savedData.periodoInicio) : getFirstDayOfMonth(),
+        periodoFim: savedData.periodoFim ? new Date(savedData.periodoFim) : getTodayDate(),
+        data_emissao: savedData.data_emissao ? new Date(savedData.data_emissao) : new Date(),
+      };
+      setLocalFormData(dataToLoad);
+    }
+  }, [isEditMode, savedData]);
+
+  const setFormData = (updater) => {
+    const updateFn = typeof updater === 'function' ? updater : () => updater;
+    setLocalFormData(prev => {
+      const newState = updateFn(prev);
+      if (!isEditMode) {
+        setSavedData(newState);
+      }
+      return newState;
+    });
+  };
+
+  const { selectedClientId, periodoInicio, periodoFim, data_emissao } = localFormData;
+
+  const selectedClient = useMemo(() => {
+    if (!selectedClientId) return null;
+    return clients.find(c => c.id === selectedClientId);
+  }, [selectedClientId, clients]);
 
   useEffect(() => {
     const fetchInitialData = async () => {
       setLoading(true);
       try {
-        const { data, error } = await supabase
+        const { data: clientData, error: clientError } = await supabase
           .from('clientes')
           .select('id, nome, cnpj_cpf, municipio, estado, endereco')
           .order('nome', { ascending: true });
 
-        if (error) throw error;
-        setClients(data || []);
+        if (clientError) throw clientError;
+        setClients(clientData || []);
+
+        if (isEditMode) {
+          const { data: certData, error: certError } = await supabase
+            .from('certificados')
+            .select('cliente_id, periodo_inicio, periodo_fim, data_emissao')
+            .eq('id', id)
+            .single();
+          
+          if (certError) throw certError;
+
+          setFormData({
+            selectedClientId: certData.cliente_id,
+            periodoInicio: new Date(certData.periodo_inicio.replace(/-/g, '/')),
+            periodoFim: new Date(certData.periodo_fim.replace(/-/g, '/')),
+            data_emissao: certData.data_emissao ? new Date(certData.data_emissao) : new Date(),
+          });
+        }
       } catch (error) {
-        toast({ title: 'Erro ao carregar clientes', description: error.message, variant: 'destructive' });
+        toast({ title: 'Erro ao carregar dados', description: error.message, variant: 'destructive' });
+        if (isEditMode) navigate('/app/certificados');
       } finally {
         setLoading(false);
       }
     };
     fetchInitialData();
-  }, [toast]);
+  }, [id, isEditMode, toast, navigate]);
 
-  const handleGenerate = async () => {
-    if (!selectedClientId || !periodoInicio || !periodoFim) {
-      toast({ title: 'Campos obrigatórios', description: 'Por favor, selecione um cliente e o período.', variant: 'destructive' });
+  const handleSubmit = async () => {
+    if (!selectedClientId || !periodoInicio || !periodoFim || !data_emissao) {
+      toast({ title: 'Campos obrigatórios', description: 'Por favor, selecione um cliente e preencha todas as datas.', variant: 'destructive' });
       return;
     }
-    if (periodoInicio > periodoFim) {
+    if (new Date(periodoInicio) > new Date(periodoFim)) {
       toast({ title: 'Período inválido', description: 'A data de início não pode ser posterior à data de fim.', variant: 'destructive' });
       return;
     }
 
     setIsGenerating(true);
+    setProgress(10);
+
     try {
       const { data: coletas, error: coletasError } = await supabase
         .from('coletas')
         .select('quantidade_coletada')
         .eq('cliente_id', selectedClientId)
-        .gte('data_coleta', periodoInicio.toISOString().split('T')[0])
-        .lte('data_coleta', periodoFim.toISOString().split('T')[0]);
+        .gte('data_coleta', formatToISODate(periodoInicio))
+        .lte('data_coleta', formatToISODate(periodoFim));
 
       if (coletasError) throw coletasError;
+      setProgress(20);
 
       const totalKg = coletas.reduce((acc, coleta) => acc + (coleta.quantidade_coletada || 0), 0);
       if (totalKg === 0) {
         toast({ title: 'Nenhuma coleta encontrada', description: 'Não há coletas para o cliente no período selecionado.', variant: 'destructive' });
         setIsGenerating(false);
+        setProgress(0);
         return;
       }
 
-      const selectedClient = clients.find(c => c.id === selectedClientId);
-      const dataEmissao = new Date();
+      const certificateData = {
+        cliente_id: selectedClientId,
+        cliente_nome: selectedClient.nome,
+        periodo_inicio: formatToISODate(periodoInicio),
+        periodo_fim: formatToISODate(periodoFim),
+        total_kg: totalKg,
+        data_emissao: data_emissao.toISOString(),
+      };
 
-      const { data: certData, error: certError } = await supabase
-        .from('certificados')
-        .insert({
-          cliente_id: selectedClientId,
-          cliente_nome: selectedClient.nome,
-          periodo_inicio: formatToISODate(periodoInicio),
-          periodo_fim: formatToISODate(periodoFim),
-          total_kg: totalKg,
-          data_emissao: dataEmissao.toISOString(),
-        })
-        .select()
-        .single();
+      let certData, certError;
+
+      if (isEditMode) {
+        const { data, error } = await supabase.from('certificados').update(certificateData).eq('id', id).select().single();
+        certData = data; certError = error;
+      } else {
+        const { data, error } = await supabase.from('certificados').insert(certificateData).select().single();
+        certData = data; certError = error;
+      }
 
       if (certError) throw certError;
+      setProgress(40);
 
-      await logAction('generate_certificate', { certificate_id: certData.id, client_id: selectedClientId });
-      toast({ title: 'Certificado gerado com sucesso!' });
+      const [clienteRes, empresaRes] = await Promise.all([
+        supabase.from('clientes').select('*').eq('id', certData.cliente_id).single(),
+        supabase.from('empresa').select('*').single(),
+      ]);
 
-      navigate(`/app/certificados/view/${certData.id}`);
+      if (clienteRes.error) throw new Error('Dados do cliente não encontrados.');
+      if (empresaRes.error) throw new Error('Dados da empresa não encontrados.');
+      setProgress(50);
+
+      setPdfData({
+        id: certData.id,
+        cliente: clienteRes.data,
+        empresa: empresaRes.data,
+        periodo: { inicio: certData.periodo_inicio, fim: certData.periodo_fim },
+        totalKg: certData.total_kg,
+        data_emissao: certData.data_emissao,
+      });
+
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      const input = pdfContainerRef.current.firstChild;
+      if (!input) throw new Error('Falha ao renderizar o componente do PDF.');
+      
+      const canvas = await html2canvas(input, { scale: 2, useCORS: true, allowTaint: true, backgroundColor: '#ffffff' });
+      setProgress(70);
+      
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('l', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const ratio = Math.min(pdfWidth / canvas.width, pdfHeight / canvas.height);
+      const imgWidth = canvas.width * ratio;
+      const imgHeight = canvas.height * ratio;
+      const x = (pdfWidth - imgWidth) / 2;
+      const y = (pdfHeight - imgHeight) / 2;
+      pdf.addImage(imgData, 'PNG', x, y, imgWidth, imgHeight);
+
+      const pdfBlob = pdf.output('blob');
+      const dateStr = format(new Date(), 'yyyy-MM-dd');
+      const fileName = `certificados/Certificado_${certData.id.substring(0, 8)}_${dateStr}.pdf`;
+
+      const { error: uploadError } = await supabase.storage.from('certificados').upload(fileName, pdfBlob, { cacheControl: '3600', upsert: true });
+      if (uploadError) throw uploadError;
+      setProgress(90);
+
+      const { data: urlData } = supabase.storage.from('certificados').getPublicUrl(fileName);
+      
+      const { error: dbError } = await supabase.from('certificados').update({ pdf_url: urlData.publicUrl }).eq('id', certData.id);
+      if (dbError) throw dbError;
+      setProgress(100);
+
+      if (isEditMode) {
+        await logAction('update_certificate', { certificate_id: certData.id, client_id: selectedClientId });
+      } else {
+        await logAction('generate_certificate', { certificate_id: certData.id, client_id: selectedClientId });
+        clearSavedData();
+      }
+      
+      toast({
+        title: 'Certificado Gerado com Sucesso!',
+        description: 'O certificado foi salvo no sistema.',
+        variant: 'success',
+        duration: 10000,
+        action: (
+          <ToastAction altText="Abrir PDF" onClick={() => {
+            const url = `${urlData.publicUrl}?t=${new Date().getTime()}`;
+            window.open(url, '_blank');
+          }}>
+            Abrir PDF
+          </ToastAction>
+        ),
+      });
+
+      setTimeout(() => {
+        navigate('/app/certificados');
+      }, 800);
 
     } catch (error) {
-      toast({ title: 'Erro ao gerar certificado', description: error.message, variant: 'destructive' });
+      toast({ title: `Erro ao ${isEditMode ? 'atualizar' : 'gerar'} certificado`, description: error.message, variant: 'destructive' });
     } finally {
       setIsGenerating(false);
+      setPdfData(null);
+      setProgress(0);
     }
   };
 
   return (
     <>
       <Helmet>
-        <title>Emissão de Certificados - RJR Óleo</title>
+        <title>{isEditMode ? 'Editar' : 'Emissão de'} Certificado - RJR Óleo</title>
       </Helmet>
       <motion.div
         initial={{ opacity: 0, y: -20 }}
@@ -118,61 +277,125 @@ const CertificadoPage = () => {
         transition={{ duration: 0.5 }}
         className="max-w-3xl mx-auto p-4 md:p-8"
       >
-        <Card className="bg-white/10 backdrop-blur-sm border-white/10 text-white rounded-xl shadow-lg">
-          <CardHeader>
-            <CardTitle className="text-2xl md:text-3xl font-bold flex items-center gap-3">
-              <FileText className="w-8 h-8 text-emerald-400" />
-              Emissão de Certificados
-            </CardTitle>
-            <CardDescription className="text-emerald-200/80">
-              Gere certificados de destinação de óleo para seus clientes.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-4 md:p-6 space-y-6">
-            <div>
-              <Label htmlFor="cliente" className="block mb-2">Cliente *</Label>
-              <ClienteSearchableSelect
-                value={selectedClientId}
-                onChange={setSelectedClientId}
-                loading={loading}
-              />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <Label htmlFor="periodo-inicio" className="block mb-2">Período Início *</Label>
-                <DatePicker date={periodoInicio} setDate={setPeriodoInicio} />
-              </div>
-              <div>
-                <Label htmlFor="periodo-fim" className="block mb-2">Período Fim *</Label>
-                <DatePicker date={periodoFim} setDate={setPeriodoFim} />
-              </div>
-            </div>
-          </CardContent>
-          <CardFooter className="flex justify-between p-4 md:p-6">
-            <Button
-              type="button"
-              onClick={() => navigate(-1)}
-              variant="outline"
-              className="w-auto rounded-xl"
+        <div className="relative">
+          {isGenerating && (
+            <div
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col justify-center items-center z-20 rounded-xl p-8 outline-none"
             >
-              <ArrowLeft className="w-5 h-5 mr-2" />
-              Voltar
-            </Button>
-            <Button
-              onClick={handleGenerate}
-              disabled={isGenerating || loading}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl"
-            >
-              {isGenerating ? (
-                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+              {progress < 100 ? (
+                <>
+                  <Loader2 className="w-8 h-8 animate-spin text-emerald-400" />
+                  <p className="text-white mt-4 text-lg">Gerando e salvando...</p>
+                  <p className="text-emerald-300 text-sm mb-4">Por favor, aguarde.</p>
+                </>
               ) : (
-                <FileText className="w-5 h-5 mr-2" />
+                <>
+                  <CheckCircle className="w-10 h-10 text-emerald-400" />
+                  <p className="text-white mt-4 text-lg">Concluído!</p>
+                </>
               )}
-              Gerar
-            </Button>
-          </CardFooter>
-        </Card>
+              <Progress value={progress} className="w-3/4 mt-4" />
+            </div>
+          )}
+          <Card className="bg-white/10 backdrop-blur-sm border-white/10 text-white rounded-xl shadow-lg">
+            <CardHeader>
+              <CardTitle className="text-2xl md:text-3xl font-bold flex items-center gap-3">
+                <FileText className="w-8 h-8 text-emerald-400" />
+                {isEditMode ? 'Editar' : 'Emissão de'} Certificado
+              </CardTitle>
+              <CardDescription className="text-emerald-200/80">
+                {isEditMode ? 'Altere os dados do certificado e gere um novo PDF.' : 'Gere certificados de destinação de óleo para seus clientes.'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-4 md:p-6 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="md:col-span-2">
+                  <Label htmlFor="data_emissao" className="block mb-2">Data de Emissão *</Label>
+                  <Input
+                    type="date"
+                    id="data_emissao"
+                    value={data_emissao ? formatToISODate(data_emissao) : ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, data_emissao: new Date(e.target.value.replace(/-/g, '/')) }))}
+                    disabled={profile?.role !== 'administrador'}
+                    className="bg-white/20 border-white/30"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <Label htmlFor="cliente" className="block mb-2">Cliente *</Label>
+                  <ClienteSearchableSelect
+                    value={selectedClientId}
+                    onChange={(value) => setFormData(prev => ({ ...prev, selectedClientId: value }))}
+                    loading={loading}
+                  />
+                </div>
+                {selectedClient && (
+                  <div className="md:col-span-2">
+                    <Label htmlFor="cnpj_cpf">CNPJ/CPF</Label>
+                    <Input
+                      id="cnpj_cpf"
+                      value={formatCnpjCpf(selectedClient.cnpj_cpf)}
+                      disabled
+                      className="bg-white/20 border-white/30 mt-2"
+                    />
+                  </div>
+                )}
+              </div>
+              <div className="border border-white/20 rounded-xl p-4">
+                <h3 className="text-lg font-semibold text-emerald-300 mb-4">Período da Coleta</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <Label htmlFor="periodo-inicio" className="block mb-2">Período Início *</Label>
+                    <Input
+                      type="date"
+                      id="periodo-inicio"
+                      value={periodoInicio ? formatToISODate(periodoInicio) : ''}
+                      onChange={(e) => setFormData(prev => ({ ...prev, periodoInicio: new Date(e.target.value.replace(/-/g, '/')) }))}
+                      className="bg-white/20 border-white/30"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="periodo-fim" className="block mb-2">Período Fim *</Label>
+                    <Input
+                      type="date"
+                      id="periodo-fim"
+                      value={periodoFim ? formatToISODate(periodoFim) : ''}
+                      onChange={(e) => setFormData(prev => ({ ...prev, periodoFim: new Date(e.target.value.replace(/-/g, '/')) }))}
+                      className="bg-white/20 border-white/30"
+                    />
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+            <CardFooter className="flex justify-between p-4 md:p-6">
+              <Button
+                type="button"
+                onClick={() => navigate('/app/certificados')}
+                variant="outline"
+                className="w-auto rounded-xl"
+                disabled={isGenerating}
+              >
+                <ArrowLeft className="w-5 h-5 mr-2" />
+                Voltar
+              </Button>
+              <Button
+                onClick={handleSubmit}
+                disabled={isGenerating || loading}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl"
+              >
+                {isGenerating ? (
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                ) : (
+                  <FileText className="w-5 h-5 mr-2" />
+                )}
+                {isEditMode ? 'Atualizar Certificado' : 'Gerar Certificado'}
+              </Button>
+            </CardFooter>
+          </Card>
+        </div>
       </motion.div>
+      <div ref={pdfContainerRef} style={{ position: 'absolute', left: '-9999px', top: 0, zIndex: -1 }}>
+        {pdfData && <CertificadoPDF data={pdfData} />}
+      </div>
     </>
   );
 };

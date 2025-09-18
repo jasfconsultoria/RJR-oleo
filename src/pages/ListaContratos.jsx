@@ -5,7 +5,7 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, PlusCircle, Edit, Trash2, FileText, Search } from 'lucide-react';
+import { Loader2, PlusCircle, Edit, Trash2, FileText, Search, Share2 } from 'lucide-react';
 import { useDebounce } from '@/hooks/useDebounce';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -58,7 +58,7 @@ const ListaContratos = () => {
 
     let query = supabase
       .from('contratos')
-      .select('*', { count: 'exact' })
+      .select('*, pdf_url', { count: 'exact' })
       .order('created_at', { ascending: false })
       .range(from, to);
 
@@ -122,6 +122,54 @@ const ListaContratos = () => {
       setIsViewModalOpen(true);
     }
     setLoading(false);
+  };
+
+  const handleOpenPdf = (contrato) => {
+    if (contrato.pdf_url) {
+        window.open(contrato.pdf_url, '_blank');
+    } else {
+        toast({
+            title: 'PDF não disponível',
+            description: 'Edite e salve o contrato para gerar o PDF.',
+            variant: 'destructive'
+        });
+    }
+  };
+
+  const handleShare = async (contrato) => {
+    if (!contrato || !contrato.id) {
+        toast({ title: 'Erro', description: 'ID do contrato não encontrado.', variant: 'destructive' });
+        return;
+    }
+
+    let link = '';
+    let shareTitle = '';
+    let shareText = '';
+
+    if (contrato.status === 'Aguardando Assinatura') {
+        link = `${window.location.origin}/assinatura/${contrato.id}`;
+        shareTitle = "Link de Assinatura do Contrato";
+        shareText = `Olá! Segue o link para assinatura do contrato Nº ${contrato.numero_contrato}.`;
+    } else if (contrato.status === 'Ativo') {
+        link = `${window.location.origin}/contrato-assinado/${contrato.id}`;
+        shareTitle = "Link do Contrato Assinado";
+        shareText = `Olá! Segue o link para visualização do contrato assinado Nº ${contrato.numero_contrato}.`;
+    } else {
+        toast({ title: 'Ação não disponível', description: `Não é possível compartilhar um contrato com status "${contrato.status}".`, variant: 'destructive' });
+        return;
+    }
+
+    if (navigator.share) {
+        try {
+            await navigator.share({ title: shareTitle, text: shareText, url: link });
+            toast({ title: 'Sucesso!', description: 'Contrato compartilhado.' });
+        } catch (error) {
+            console.error('Erro ao compartilhar:', error);
+        }
+    } else {
+        navigator.clipboard.writeText(link);
+        toast({ title: "Link Copiado!", description: "O link foi copiado para a área de transferência." });
+    }
   };
 
   const totalPages = Math.ceil(totalCount / pageSize);
@@ -219,11 +267,13 @@ const ListaContratos = () => {
                           </span>
                         </TableCell>
                         <TableCell className="text-right actions-cell">
-                           <div className="flex justify-end items-center gap-2">
-                            <Button variant="ghost" size="icon" className="text-yellow-400 hover:text-yellow-300 rounded-xl" onClick={() => navigate(`/app/contratos/editar/${contrato.id}`)}><Edit className="h-4 w-4" /></Button>
+                           <div className="flex justify-end items-center gap-1">
+                            <Button variant="ghost" size="icon" onClick={() => handleOpenPdf(contrato)} title="Abrir PDF"><FileText className="h-4 w-4 text-blue-400" /></Button>
+                            <Button variant="ghost" size="icon" onClick={() => handleShare(contrato)} title="Compartilhar"><Share2 className="h-4 w-4 text-green-400" /></Button>
+                            <Button variant="ghost" size="icon" className="text-yellow-400 hover:text-yellow-300 rounded-xl" onClick={() => navigate(`/app/contratos/editar/${contrato.id}`)} title="Editar"><Edit className="h-4 w-4" /></Button>
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="icon" className="text-red-400 hover:text-red-300 rounded-xl"><Trash2 className="h-4 w-4" /></Button>
+                                <Button variant="ghost" size="icon" className="text-red-400 hover:text-red-300 rounded-xl" title="Excluir"><Trash2 className="h-4 w-4" /></Button>
                               </AlertDialogTrigger>
                               <AlertDialogContent className="bg-emerald-900 border-emerald-700 text-white rounded-xl">
                                 <AlertDialogHeader>

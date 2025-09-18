@@ -1,49 +1,44 @@
 import React from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { formatDate as formatUtilDate } from '@/lib/utils';
+import { formatDate as formatUtilDate, formatCnpjCpf, formatNumber } from '@/lib/utils';
+import { QRCodeSVG as QRCode } from 'qrcode.react';
 
 const CertificadoPDF = ({ data }) => {
   if (!data) return null;
 
-  const { cliente, empresa, periodo, totalKg, data_emissao } = data;
+  const { id, cliente, empresa, periodo, totalKg, data_emissao } = data;
+  const validationUrl = `${window.location.origin}/certificado/publico/${id}`;
 
   const formatDateTime = (dateTimeString) => {
     if (!dateTimeString) return 'N/A';
     return format(new Date(dateTimeString), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
   };
 
-  const formatNumber = (num) => {
-    return new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num || 0);
-  };
-
   return (
     <div className="bg-white text-black p-8 font-sans" style={{ width: '297mm', minHeight: '210mm', fontFamily: 'Arial, sans-serif' }}>
-      <header className="flex justify-between items-center pb-4 border-b-2 border-gray-300">
-        <div>
+      <header className="flex justify-between items-start pb-4 border-b-2 border-gray-300">
+        <div className="w-1/3">
           {empresa?.logo_documento_url ? (
             <img src={empresa.logo_documento_url} alt="Logo da Empresa" className="h-28 object-contain" crossOrigin="anonymous" />
           ) : (
             <h1 className="text-2xl font-bold">{empresa?.nome_fantasia || 'Nome da Empresa'}</h1>
           )}
         </div>
-        <div className="text-right text-sm">
-          <p className="font-bold" style={{ letterSpacing: '0.025em' }}>{empresa?.nome_fantasia}</p>
+        <div className="w-2/3 text-right text-sm">
+          <p className="font-bold text-base" style={{ letterSpacing: '0.025em' }}>{empresa?.nome_fantasia}</p>
           <p>{empresa?.endereco}</p>
-          <p>CNPJ: {empresa?.cnpj}</p>
+          <p>CNPJ: {formatCnpjCpf(empresa?.cnpj)}</p>
           <p>Telefone: {empresa?.telefone}</p>
           <p>Email: {empresa?.email}</p>
         </div>
       </header>
 
       <main className="mt-12">
-        <h1 className="text-2xl font-bold text-center mb-10 tracking-wider">CERTIFICADO DE DESTINAÇÃO CORRETA DE ÓLEO</h1>
+        <h1 className="text-2xl font-bold text-center mb-10 tracking-wider">CERTIFICADO DE DESTINAÇÃO – OLEO DE FRITURA USADO</h1>
 
         <p className="text-lg leading-relaxed text-justify indent-8">
-          Certificamos que a empresa <span className="font-bold">{cliente?.nome}</span>,
-          inscrita no CNPJ/CPF sob o nº <span className="font-bold">{cliente?.cnpj_cpf}</span>,
-          localizada em <span className="font-bold">{cliente?.endereco}, {cliente?.municipio} - {cliente?.estado}</span>,
-          realizou a entrega voluntária de resíduos de óleo de cozinha usado, contribuindo para a preservação do meio ambiente.
+          A empresa <span className="font-bold whitespace-nowrap" style={{ letterSpacing: '0.01em' }}>{empresa?.razao_social || 'Razão Social da Empresa'} – {empresa?.nome_fantasia}</span>, cadastrada sob o CNPJ: <span className="font-bold">{formatCnpjCpf(empresa?.cnpj)}</span>, localizada em <span className="font-bold">{empresa?.endereco}</span>, atuando sob a Licença Ambiental Simplificada (LAS) 53/2023 certifica que a empresa <span className="font-bold">{cliente?.nome}</span>, CNPJ <span className="font-bold">{formatCnpjCpf(cliente?.cnpj_cpf)}</span>, endereço <span className="font-bold">{cliente?.endereco}</span>, telefone <span className="font-bold">{cliente?.telefone}</span>, realizou a entrega do óleo de fritura usado.
         </p>
 
         <div className="my-8 p-6 bg-gray-100 rounded-lg border border-gray-200">
@@ -60,19 +55,41 @@ const CertificadoPDF = ({ data }) => {
           </div>
         </div>
 
-        <p className="text-lg leading-relaxed text-justify indent-8">
-          A quantidade de resíduo mencionada foi coletada e destinada corretamente pela nossa empresa,
-          seguindo todas as normas ambientais vigentes para o reprocessamento e reciclagem do material,
-          evitando o descarte inadequado e seus impactos negativos na natureza.
-        </p>
+        <div className="mt-8">
+            <h2 className="text-xl font-bold text-center mb-4">DECLARAÇÃO</h2>
+            <p className="text-lg leading-relaxed text-justify indent-8">
+                Certificamos, para os devidos fins, que os resíduos estavam acondicionados de forma adequada e apropriada para transporte, e que a referida quantidade foi levada a sede, para limpeza e em seguida destinada a indústria, que faz a destinação final ambientalmente adequada, segundo a legislação em vigor.
+            </p>
+        </div>
       </main>
 
-      <footer className="mt-24 text-center">
-        <div className="inline-block">
-          <p className="border-t-2 border-gray-400 pt-2 px-12 font-bold" style={{ letterSpacing: '0.025em' }}>{empresa?.nome_fantasia}</p>
-          <p className="text-sm">Assinatura do Responsável</p>
+      <footer className="mt-16">
+        <div className="flex justify-between items-end">
+          <div className="w-1/3 text-left">
+            <div className="flex items-end gap-4">
+              {validationUrl && id && (
+                <div>
+                  <p className="text-xs mb-1">Valide este certificado:</p>
+                  <QRCode value={validationUrl} size={80} level={"H"} includeMargin={true} />
+                </div>
+              )}
+              <div className="text-xs text-gray-500">
+                <p>ID do Certificado:</p>
+                <p className="font-mono break-words">{id}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="w-1/3 text-center">
+            <div className="inline-block">
+              <p className="border-t-2 border-gray-400 pt-2 px-12 font-bold" style={{ letterSpacing: '0.025em' }}>{empresa?.nome_fantasia}</p>
+              <p className="text-sm">Assinatura do Responsável</p>
+            </div>
+          </div>
+
+          <div className="w-1/3"></div>
         </div>
-        <p className="text-sm text-gray-500 mt-8">
+        <p className="text-sm text-gray-500 mt-8 text-center">
           Data de Emissão: {formatDateTime(data_emissao)}
         </p>
       </footer>

@@ -25,7 +25,7 @@ import { useProfile } from '@/contexts/ProfileContext';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
 import ListaContratos from '@/pages/ListaContratos';
-import ContratoForm from './pages/ContratoForm';
+import ContratoForm from '@/pages/ContratoForm';
 import AjudaPage from '@/pages/AjudaPage';
 import FaqPage from '@/pages/FaqPage';
 import SobreSistemaPage from '@/pages/SobreSistemaPage';
@@ -33,10 +33,8 @@ import LogsPage from '@/pages/LogsPage';
 import VersoesPage from '@/pages/VersoesPage';
 import ListaFinanceiro from '@/pages/ListaFinanceiro';
 import FinanceiroForm from '@/pages/FinanceiroForm';
-import AssinaturaReciboPage from './pages/AssinaturaReciboPage';
-import ReciboPublicoPage from './pages/ReciboPublicoPage';
-import ContratoPublicoPage from './pages/ContratoPublicoPage';
-
+import AssinaturaReciboPage from '@/pages/AssinaturaReciboPage';
+import ReciboPublicoPage from '@/pages/ReciboPublicoPage';
 // Estoque Pages
 import EntradaFormPage from '@/pages/estoque/EntradaFormPage';
 import SaidaFormPage from '@/pages/estoque/SaidaFormPage';
@@ -49,6 +47,7 @@ import ListaSaidasPage from '@/pages/estoque/ListaSaidasPage'; // New import
 import ListaCentrosCusto from '@/pages/ListaCentrosCusto'; // New import
 import CentroCustoForm from '@/pages/CentroCustoForm'; // New import
 import CertificadoDisplayPage from '@/pages/CertificadoDisplayPage';
+import CertificadoPublicoPage from '@/pages/CertificadoPublicoPage';
 
 const ProtectedRoute = ({ children, requiredRole }) => {
   const { session, loading: authLoading } = useAuth();
@@ -116,6 +115,7 @@ function App() {
         <Route path="/certificado-view" element={<CertificadoViewPage />} />
         <Route path="/assinatura/recibo/:id" element={<AssinaturaReciboPage />} />
         <Route path="/recibo/publico/:id" element={<ReciboPublicoPage />} />
+        <Route path="/certificado/publico/:id" element={<CertificadoPublicoPage />} />
         <Route path="/assinatura/:id" element={<AssinaturaPage />} />
         <Route path="/contrato-assinado/:id" element={<ContratoAssinadoPage />} />
         <Route path="/app/login" element={!session ? <LoginScreen /> : <Navigate to="/app/dashboard" />} />
@@ -137,6 +137,7 @@ function App() {
                   
                   <Route path="certificados" element={<ProtectedRoute requiredRole="administrador"><ListaCertificados /></ProtectedRoute>} />
                   <Route path="certificados/novo" element={<ProtectedRoute requiredRole="administrador"><CertificadoPage /></ProtectedRoute>} />
+                  <Route path="certificados/editar/:id" element={<ProtectedRoute requiredRole="administrador"><CertificadoPage /></ProtectedRoute>} />
                   <Route path="certificados/view/:id" element={<ProtectedRoute requiredRole="administrador"><CertificadoDisplayPage /></ProtectedRoute>} />
                   <Route path="relatorios/coletas" element={<ProtectedRoute requiredRole="administrador"><RelatorioColetasPage /></ProtectedRoute>} />
                   <Route path="relatorios/financeiro" element={<ProtectedRoute requiredRole="administrador"><RelatorioFinanceiroPage /></ProtectedRoute>} />
@@ -144,7 +145,6 @@ function App() {
                   <Route path="contratos" element={<ListaContratos />} />
                   <Route path="contratos/novo" element={<ContratoForm />} />
                   <Route path="contratos/editar/:id" element={<ContratoForm />} />
-                  <Route path="contrato/:id" element={<ContratoPublicoPage />} />
                   
                   {/* New Financeiro Routes */}
                   <Route path="financeiro/credito" element={<ProtectedRoute requiredRole="administrador"><ListaFinanceiro type="credito" /></ProtectedRoute>} />
