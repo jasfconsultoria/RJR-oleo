@@ -167,13 +167,13 @@ const ContratoForm = () => {
             setProgress(75);
 
             const dateStr = format(new Date(), 'yyyy-MM-dd');
-            const fileName = `contracts/Contrato_${savedContract.numero_contrato}_${dateStr}.pdf`;
+            const fileName = `contratos/Contrato_${savedContract.numero_contrato}_${dateStr}.pdf`;
 
-            const { error: uploadError } = await supabase.storage.from('contracts').upload(fileName, pdfBlob, { upsert: true });
+            const { error: uploadError } = await supabase.storage.from('contratos').upload(fileName, pdfBlob, { upsert: true });
             if (uploadError) throw uploadError;
             setProgress(90);
 
-            const { data: urlData } = supabase.storage.from('contracts').getPublicUrl(fileName);
+            const { data: urlData } = supabase.storage.from('contratos').getPublicUrl(fileName);
             
             const { error: dbError } = await supabase.from('contratos').update({ pdf_url: urlData.publicUrl }).eq('id', savedContract.id);
             if (dbError) throw dbError;
