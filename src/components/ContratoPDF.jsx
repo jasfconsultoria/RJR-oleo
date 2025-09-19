@@ -141,21 +141,28 @@ const ContratoPDF = React.forwardRef(({ contrato, empresa, showSignature }, ref)
         </p>
 
         {showSignature && contrato.assinatura_url ? (
-          <div className="flex flex-col items-center justify-center mt-6">
-            <img src={contrato.assinatura_url} alt="Assinatura do Cliente" className="h-20 border-b-2 border-black" />
-            <p className="text-center font-bold mt-1">{cliente.nome}</p>
-            <p className="text-center text-xs">CONTRATANTE</p>
+          <div className="flex justify-around mt-10">
+            <div className="w-2/5 text-center">
+              <div className="border-b-2 border-black pb-1 mb-1"></div>
+              <p className="font-bold mt-1 text-xs whitespace-nowrap">{empresa?.nome_fantasia || 'CONTRATADA'}</p>
+              <p className="text-xs">CONTRATADA</p>
+            </div>
+            <div className="w-2/5 text-center">
+              <img src={contrato.assinatura_url} alt="Assinatura do Cliente" className="h-20 border-b-2 border-black mx-auto" />
+              <p className="font-bold mt-1 text-xs whitespace-nowrap">{cliente.nome}</p>
+              <p className="text-xs">CONTRATANTE</p>
+            </div>
           </div>
         ) : (
           <div className="flex justify-around mt-10">
             <div className="w-2/5 text-center">
               <div className="border-b-2 border-black pb-1 mb-1"></div>
-              <p className="font-bold text-xs">{empresa?.nome_fantasia || '_____________________'}</p>
+              <p className="font-bold text-xs whitespace-nowrap">{empresa?.nome_fantasia || '_____________________'}</p>
               <p className="text-xs">CONTRATADA</p>
             </div>
             <div className="w-2/5 text-center">
               <div className="border-b-2 border-black pb-1 mb-1"></div>
-              <p className="font-bold text-xs">{cliente.nome}</p>
+              <p className="font-bold text-xs whitespace-nowrap">{cliente.nome}</p>
               <p className="text-xs">CONTRATANTE</p>
             </div>
           </div>
