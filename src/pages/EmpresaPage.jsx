@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription } from '@/components/ui/card';
-import { Building, Upload, Save, Loader2, Clock, ListChecks, Signature } from 'lucide-react';
+import { Building, Upload, Save, Loader2, Clock, ListChecks, PenLine } from 'lucide-react'; // Alterado de Signature para PenLine
 import { motion } from 'framer-motion';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { brazilianLocations } from '@/lib/brazilian-locations';
@@ -302,7 +302,7 @@ const EmpresaPage = () => {
               {/* Nova seção para Assinatura do Responsável */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-6 border-t border-white/20">
                 <div className="space-y-4 md:col-span-2">
-                  <CardTitle className="text-lg flex items-center gap-2"><Signature className="w-5 h-5" /> Assinatura do Responsável</CardTitle>
+                  <CardTitle className="text-lg flex items-center gap-2"><PenLine className="w-5 h-5" /> Assinatura do Responsável</CardTitle>
                   <CardDescription>Assinatura e nome do responsável que aparecerão em documentos como contratos e certificados.</CardDescription>
                   
                   <div className="space-y-2">

@@ -29,6 +29,7 @@ import {
   TrendingUp, // New icon for Crédito
   TrendingDown, // New icon for Débito
   ClipboardList, // Icon for Cadastro
+  PenLine, // Alterado de Signature para PenLine
 } from 'lucide-react';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useProfile } from '@/contexts/ProfileContext';
