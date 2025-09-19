@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { Helmet } from 'react-helmet';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -214,7 +215,7 @@ const ListaClientes = ({ personType = 'pessoa' }) => { // Accept personType prop
             </h1>
             <p className="text-emerald-200/80 mt-1">Visualize e gerencie {listTitle.toLowerCase()} cadastradas.</p>
           </div>
-          <Link to={"/app/cadastro/" + personType + "s/novo"} className='w-full sm:w-auto'>
+          <Link to={`/app/cadastro/${personType}s/novo`} className='w-full sm:w-auto'>
             <Button className="bg-emerald-600 hover:bg-emerald-700 text-white w-full rounded-xl">
               <PlusCircle className="mr-2 h-4 w-4" />
               {pageVerb}
