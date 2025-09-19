@@ -134,7 +134,7 @@ const AssinaturaReciboPage = () => {
           </CardHeader>
           <CardContent>
             <div className="max-h-[50vh] overflow-y-auto p-4 bg-white rounded-md text-black border-2 border-dashed border-emerald-400/50">
-              <Recibo data={coleta} empresa={empresa} signature={reciboData?.assinatura_url} />
+              <Recibo data={coleta} empresa={empresa} signature={reciboData?.assinatura_url} timezone={empresa?.timezone || 'America/Sao_Paulo'} />
             </div>
             
             <div className="mt-6">

@@ -106,7 +106,7 @@ const ReciboPublicoPage = () => {
             </div>
             <div className="bg-white rounded-lg shadow-2xl overflow-hidden">
                 <div className="p-4 sm:p-8 overflow-x-auto" ref={reciboRef}>
-                    <Recibo data={coleta} empresa={empresa} signature={reciboData.assinatura_url} />
+                    <Recibo data={coleta} empresa={empresa} signature={reciboData.assinatura_url} timezone={empresa?.timezone || 'America/Sao_Paulo'} />
                 </div>
             </div>
             <div className="mt-6 text-center">

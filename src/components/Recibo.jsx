@@ -2,18 +2,20 @@ import React from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { formatCurrency, parseCurrency, formatCnpjCpf } from '@/lib/utils';
+import { formatInTimeZone } from 'date-fns-tz'; // Importar formatInTimeZone
 
-const formatDateTime = (dateString) => {
+const formatDateTime = (dateString, timezone) => {
     if (!dateString) return 'N/A';
     try {
         const date = new Date(dateString);
-        return format(date, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
+        // Usar formatInTimeZone para garantir que a data seja formatada no fuso horário da empresa
+        return formatInTimeZone(date, timezone, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
     } catch (error) {
         return 'Data inválida';
     }
 };
 
-export const Recibo = React.forwardRef(({ data, signature, empresa }, ref) => {
+export const Recibo = React.forwardRef(({ data, signature, empresa, timezone }, ref) => { // Adicionar timezone como prop
     if (!data) return null; // Mantém esta verificação para o objeto de dados principal
 
     const isCompra = data.tipo_coleta === 'Compra';
@@ -62,7 +64,7 @@ export const Recibo = React.forwardRef(({ data, signature, empresa }, ref) => {
                     </div>
                     <div>
                         <p className="text-gray-500">DATA/HORA DA COLETA</p>
-                        <p className="font-semibold">{formatDateTime(data.data_coleta)}</p>
+                        <p className="font-semibold">{formatDateTime(data.data_coleta, timezone)}</p>
                     </div>
                     <div className="col-span-2">
                         <p className="text-gray-500">ENDEREÇO</p>
