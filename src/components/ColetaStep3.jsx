@@ -10,9 +10,9 @@ import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/customSupabaseClient';
 import { ReciboViewDialog } from '@/components/coletas/ReciboViewDialog';
-import { formatInTimeZone } from 'date-fns-tz'; // Importar formatInTimeZone
+import { formatInTimeZone, utcToZonedTime } from 'date-fns-tz'; // Importar formatInTimeZone e utcToZonedTime
 
-export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData, empresaTimezone }) { // Receber empresaTimezone
+export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData, empresaTimezone }) {
   const [resultadoFinal, setResultadoFinal] = useState('0,00');
   const [showReciboDialog, setShowReciboDialog] = useState(false);
   const [savedColeta, setSavedColeta] = useState(null);
@@ -95,13 +95,17 @@ export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData, em
     navigate('/app/coletas');
   };
 
-  const formatColetaDateTime = (dateString, timeString) => {
+  const formatColetaDateTime = (dateString, timeString, timezone) => {
     if (!dateString || !timeString) return 'N/A';
     try {
-      const combined = `${dateString}T${timeString}:00`;
-      // Usar new Date() para criar um objeto Date a partir da string ISO local
-      // e então formatar no fuso horário da empresa
-      return formatInTimeZone(new Date(combined), empresaTimezone, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
+      const [year, month, day] = dateString.split('-').map(Number);
+      const [hour, minute] = timeString.split(':').map(Number);
+
+      // Cria uma data UTC a partir dos componentes, depois converte para o fuso horário da empresa
+      const date = new Date(Date.UTC(year, month - 1, day, hour, minute));
+      const zonedDate = utcToZonedTime(date, timezone);
+
+      return formatInTimeZone(zonedDate, timezone, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
     } catch (e) {
       console.error("Error formatting date/time for display:", e);
       return 'Data/Hora inválida';
@@ -139,7 +143,7 @@ export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData, em
             <div><span className="text-emerald-300">Telefone:</span><span className="text-white ml-2">{data.telefone || 'N/A'}</span></div>
             <div><span className="text-emerald-300">E-mail:</span><span className="text-white ml-2">{data.email || 'N/A'}</span></div>
             <div className="md:col-span-2"><span className="text-emerald-300">Endereço:</span><span className="text-white ml-2">{data.endereco}</span></div>
-            <div><span className="text-emerald-300">Data/Hora:</span><span className="text-white ml-2">{formatColetaDateTime(data.data_coleta, data.hora_coleta)}</span></div>
+            <div><span className="text-emerald-300">Data/Hora:</span><span className="text-white ml-2">{formatColetaDateTime(data.data_coleta, data.hora_coleta, empresaTimezone)}</span></div>
             <div><span className="text-emerald-300">Tipo:</span><span className="text-white ml-2 font-bold">{data.tipo_coleta}</span></div>
             <div><span className="text-emerald-300">Qtd. Coletada:</span><span className="text-white ml-2 font-bold">{parseCurrency(data.quantidade_coletada).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg</span></div>
             {!isCompra && <div><span className="text-emerald-300">Fator:</span><span className="text-white ml-2">{data.fator}</span></div>}
