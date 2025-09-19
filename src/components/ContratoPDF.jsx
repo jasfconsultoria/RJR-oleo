@@ -123,7 +123,7 @@ const ContratoPDF = React.forwardRef(({ contrato, empresa, showSignature }, ref)
         <p className="mb-3 text-justify">
           <strong>CLÁUSULA QUINTA - DO PRAZO</strong>
           <br />
-          O presente contrato terá vigência de <strong>{formatarDataExtenso(contrato.data_inicio)}</strong> a <strong>{formatarDataExtenso(contrato.data_fim)}</strong> (doze) meses, podendo ser renovado mediante acordo entre as partes e ser rescindido, desde que ocorra o aviso prévio de 30 dias.
+          O presente contrato terá vigência de <strong>{formatarDataExtenso(contrato.data_inicio)}</strong> a <strong>{formatarDataExtenso(contrato.data_fim)}</strong> 12 (doze) meses, podendo ser renovado mediante acordo entre as partes e ser rescindido, desde que ocorra o aviso prévio de 30 dias.
         </p>
 
         <p className="mb-3 text-justify">
