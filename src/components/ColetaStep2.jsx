@@ -8,9 +8,9 @@ import { useToast } from '@/components/ui/use-toast';
 import { parseCurrency, formatCurrency } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { formatDate } from '@/lib/utils'; // Import formatDate from utils
+import { formatInTimeZone } from 'date-fns-tz'; // Importar formatInTimeZone
 
-export function ColetaStep2({ data, onBack, onNext, onUpdate }) {
+export function ColetaStep2({ data, onBack, onNext, onUpdate, empresaTimezone }) { // Receber empresaTimezone
   const [quantidadeColetada, setQuantidadeColetada] = useState(data.quantidade_coletada || '');
   const { toast } = useToast();
   const isCompra = data.tipo_coleta === 'Compra';
@@ -44,6 +44,17 @@ export function ColetaStep2({ data, onBack, onNext, onUpdate }) {
     }
   };
 
+  const formatColetaDateTime = (dateString, timeString) => {
+    if (!dateString || !timeString) return 'N/A';
+    try {
+      const combined = `${dateString}T${timeString}:00`;
+      return formatInTimeZone(new Date(combined), empresaTimezone, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
+    } catch (e) {
+      console.error("Error formatting date/time for display in Step 2:", e);
+      return 'Data/Hora inválida';
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, x: 50 }}
@@ -64,7 +75,7 @@ export function ColetaStep2({ data, onBack, onNext, onUpdate }) {
         <h3 className="text-lg font-semibold text-white mb-4">Resumo da Coleta</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
           <div><span className="text-emerald-300">Cliente:</span><span className="text-white ml-2">{data.cliente || 'N/A'}</span></div>
-          <div><span className="text-emerald-300">Data:</span><span className="text-white ml-2">{formatDate(data.data_coleta)}</span></div>
+          <div><span className="text-emerald-300">Data/Hora:</span><span className="text-white ml-2">{formatColetaDateTime(data.data_coleta, data.hora_coleta)}</span></div>
           <div><span className="text-emerald-300">Tipo:</span><span className="text-white ml-2 font-bold">{data.tipo_coleta || 'N/A'}</span></div>
           {!isCompra && <div><span className="text-emerald-300">Fator:</span><span className="text-white ml-2">{data.fator || 'N/A'}</span></div>}
           {isCompra && <div><span className="text-emerald-300">Valor/kg:</span><span className="text-white ml-2">{formatCurrency(parseCurrency(data.valor_compra))}</span></div>}

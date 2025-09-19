@@ -99,6 +99,8 @@ export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData, em
     if (!dateString || !timeString) return 'N/A';
     try {
       const combined = `${dateString}T${timeString}:00`;
+      // Usar new Date() para criar um objeto Date a partir da string ISO local
+      // e então formatar no fuso horário da empresa
       return formatInTimeZone(new Date(combined), empresaTimezone, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
     } catch (e) {
       console.error("Error formatting date/time for display:", e);
