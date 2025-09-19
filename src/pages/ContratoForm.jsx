@@ -185,11 +185,7 @@ const ContratoForm = () => {
                 title: 'Sucesso!',
                 description: `Contrato ${isEditing ? 'atualizado' : 'salvo'} com sucesso.`,
                 variant: 'success',
-                action: (
-                    <ToastAction altText="Abrir PDF" onClick={() => window.open(urlData.publicUrl, '_blank')}>
-                        Abrir PDF
-                    </ToastAction>
-                ),
+                duration: 5000, // Reduced duration as no action is needed
             });
 
             setTimeout(() => {
@@ -256,7 +252,7 @@ const ContratoForm = () => {
                         </Button>
                         <Button onClick={handleSave} disabled={isSaving} className="bg-emerald-600 hover:bg-emerald-700 text-white">
                             {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                            {isEditing ? 'Salvar Alterações' : 'Salvar'}
+                            {isSaving ? 'Salvando...' : 'Salvar'}
                         </Button>
                     </CardFooter>
                 </Card>
