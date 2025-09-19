@@ -40,12 +40,12 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa' }) 
 
   const { title: titleLabel, article, pageVerb } = getLabels(personType);
   const pageTitle = isEditing ? `Editar ${titleLabel}` : `${pageVerb} ${titleLabel}`;
-  const nameFieldLabel = `Nome d${article} ${titleLabel}`;
 
   const autoSaveKey = id ? `autoSave_clienteForm_${id}` : 'autoSave_clienteForm_new';
 
   const [formData, setFormData, clearSavedData] = useAutoSave(autoSaveKey, {
-    nome: '',
+    nome: '', // This will be Razão Social
+    nome_fantasia: '', // New field
     cnpj_cpf: '',
     telefone: '',
     email: '',
@@ -134,6 +134,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa' }) 
       setFormData((prev) => ({
         ...prev,
         nome: data.nome || '',
+        nome_fantasia: data.nome_fantasia || '', // Fetch new field
         cnpj_cpf: data.cnpj_cpf || '',
         telefone: data.telefone || '',
         email: data.email || '',
@@ -175,7 +176,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa' }) 
     setSaving(true);
 
     if (!formData.nome || !formData.estado) {
-      toast({ title: 'Campos obrigatórios', description: 'Nome e Estado são obrigatórios.', variant: 'destructive' });
+      toast({ title: 'Campos obrigatórios', description: 'Razão Social e Estado são obrigatórios.', variant: 'destructive' });
       setSaving(false);
       return;
     }
@@ -269,10 +270,6 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa' }) 
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="md:col-span-2">
-                  <Label htmlFor="nome" className="text-lg">{nameFieldLabel} <span className="text-red-500">*</span></Label>
-                  <Input id="nome" name="nome" value={formData.nome} onChange={handleChange} placeholder="Nome completo ou Razão Social" required className="bg-white/5 border-white/20 rounded-xl" />
-                </div>
                 <div>
                    <Label htmlFor="cnpj_cpf" className="text-lg flex items-center gap-2">
                     CNPJ/CPF <span className="text-red-500">*</span>
@@ -308,6 +305,14 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa' }) 
                     placeholder="(00) 00000-0000"
                     className="w-full flex h-10 rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   />
+                </div>
+                <div className="md:col-span-2">
+                  <Label htmlFor="nome" className="text-lg">Razão Social <span className="text-red-500">*</span></Label>
+                  <Input id="nome" name="nome" value={formData.nome} onChange={handleChange} placeholder="Razão Social" required className="bg-white/5 border-white/20 rounded-xl" />
+                </div>
+                <div className="md:col-span-2">
+                  <Label htmlFor="nome_fantasia" className="text-lg">Nome Fantasia</Label>
+                  <Input id="nome_fantasia" name="nome_fantasia" value={formData.nome_fantasia} onChange={handleChange} placeholder="Nome Fantasia" className="bg-white/5 border-white/20 rounded-xl" />
                 </div>
                 <div className="md:col-span-2">
                   <Label htmlFor="email" className="text-lg">Email</Label>
