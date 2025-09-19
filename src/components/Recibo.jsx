@@ -2,15 +2,16 @@ import React from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { formatCurrency, parseCurrency, formatCnpjCpf } from '@/lib/utils';
-import { formatInTimeZone } from 'date-fns-tz'; // Importar formatInTimeZone
+import { formatInTimeZone, utcToZonedTime } from 'date-fns-tz'; // Importar formatInTimeZone e utcToZonedTime
 
 const formatDateTime = (dateString, timezone) => {
     if (!dateString) return 'N/A';
     try {
-        const date = new Date(dateString);
-        // Usar formatInTimeZone para garantir que a data seja formatada no fuso horário da empresa
-        return formatInTimeZone(date, timezone, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
+        // Converte a string ISO (que é UTC) para a data no fuso horário da empresa
+        const zonedDate = utcToZonedTime(dateString, timezone);
+        return formatInTimeZone(zonedDate, timezone, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
     } catch (error) {
+        console.error("Erro ao formatar data/hora no recibo:", error);
         return 'Data inválida';
     }
 };

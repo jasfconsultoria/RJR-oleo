@@ -13,6 +13,7 @@ import { format } from 'date-fns';
 import { logAction } from '@/lib/logger';
 import { useAutoSave } from '@/hooks/useAutoSave';
 import { useProfile } from '@/contexts/ProfileContext';
+import { formatInTimeZone, zonedTimeToUtc, utcToZonedTime } from 'date-fns-tz'; // Importar funções de fuso horário
 
 const ColetaForm = () => {
   const [currentStep, setCurrentStep] = useState(1);
@@ -21,6 +22,17 @@ const ColetaForm = () => {
   const { user } = useAuth();
   const isEditing = !!id;
   const { profile } = useProfile();
+  const [empresaTimezone, setEmpresaTimezone] = useState('America/Sao_Paulo');
+
+  useEffect(() => {
+    const fetchEmpresaTimezone = async () => {
+      const { data, error } = await supabase.from('empresa').select('timezone').single();
+      if (data?.timezone) {
+        setEmpresaTimezone(data.timezone);
+      }
+    };
+    fetchEmpresaTimezone();
+  }, []);
 
   const autoSaveKey = id ? `autoSave_coletaForm_${id}` : 'autoSave_coletaForm_new';
 
@@ -34,6 +46,7 @@ const ColetaForm = () => {
     estado: '',
     telefone: '',
     data_coleta: format(new Date(), 'yyyy-MM-dd'),
+    hora_coleta: formatInTimeZone(new Date(), empresaTimezone, 'HH:mm'), // Default hora baseada no fuso da empresa
     fator: '6',
     tipo_coleta: 'Troca',
     quantidade_coletada: '',
@@ -51,6 +64,14 @@ const ColetaForm = () => {
   }, [user, coletaData.user_id, setColetaData]);
 
   useEffect(() => {
+    // Update default hora_coleta if timezone changes and it's a new form
+    if (!isEditing && empresaTimezone && coletaData.hora_coleta === formatInTimeZone(new Date(), 'America/Sao_Paulo', 'HH:mm')) {
+      setColetaData(prev => ({ ...prev, hora_coleta: formatInTimeZone(new Date(), empresaTimezone, 'HH:mm') }));
+    }
+  }, [empresaTimezone, isEditing, coletaData.hora_coleta, setColetaData]);
+
+
+  useEffect(() => {
     const fetchColeta = async () => {
       if (isEditing) {
         const { data, error } = await supabase
@@ -63,6 +84,11 @@ const ColetaForm = () => {
           toast({ title: "Erro", description: "Coleta não encontrada.", variant: "destructive" });
           navigate('/app/coletas');
         } else {
+          // Separar data e hora ao carregar para edição
+          const fullDate = new Date(data.data_coleta);
+          const formattedDate = format(fullDate, 'yyyy-MM-dd');
+          const formattedTime = format(fullDate, 'HH:mm');
+
           setColetaData((prev) => ({
             ...prev,
             ...data,
@@ -75,7 +101,8 @@ const ColetaForm = () => {
             estado: data.pessoa?.estado,
             telefone: data.pessoa?.telefone,
             tipo_coleta: data.tipo_coleta,
-            data_coleta: data.data_coleta,
+            data_coleta: formattedDate, // Data separada
+            hora_coleta: formattedTime, // Hora separada
             valor_compra: String(data.valor_compra || '0').replace('.', ','),
             quantidade_coletada: String(data.quantidade_coletada || '').replace('.', ','),
           }));
@@ -127,11 +154,16 @@ const ColetaForm = () => {
         clienteId = cliente.id;
     }
     
+    // Combinar data_coleta e hora_coleta em um único timestamp com fuso horário
+    const combinedDateTimeString = `${finalColetaData.data_coleta}T${finalColetaData.hora_coleta}:00`;
+    const zonedDate = new Date(combinedDateTimeString);
+    const utcDate = zonedTimeToUtc(zonedDate, empresaTimezone);
+
     const coletaToSave = {
       id: isEditing ? finalColetaData.id : undefined,
       cliente_id: clienteId,
       cliente_nome: finalColetaData.cliente,
-      data_coleta: finalColetaData.data_coleta,
+      data_coleta: utcDate.toISOString(), // Salvar como ISO string UTC
       fator: parseInt(finalColetaData.fator, 10),
       tipo_coleta: finalColetaData.tipo_coleta,
       quantidade_coletada: parseCurrency(finalColetaData.quantidade_coletada),
@@ -234,6 +266,7 @@ const ColetaForm = () => {
               onUpdate={updateColetaData}
               isEditing={isEditing}
               profile={profile}
+              empresaTimezone={empresaTimezone} // Passar o fuso horário
             />
           )}
           {currentStep === 2 && (
@@ -253,6 +286,7 @@ const ColetaForm = () => {
               onSave={handleSave}
               onUpdate={updateColetaData}
               clearSavedData={clearSavedData}
+              empresaTimezone={empresaTimezone} // Passar o fuso horário
             />
           )}
         </AnimatePresence>

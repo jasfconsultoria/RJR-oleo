@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar, User, MapPin, Calculator, Package, Info, AtSign, Phone, ArrowLeft } from 'lucide-react';
+import { Calendar, User, MapPin, Calculator, Package, Info, AtSign, Phone, ArrowLeft, Clock } from 'lucide-react'; // Adicionado Clock
 import { toast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
 import { estados, getMunicipios } from '@/lib/location';
@@ -13,13 +13,14 @@ import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { useIMask } from 'react-imask';
 import { formatCnpjCpf, unmask, formatToISODate } from '@/lib/utils';
 import { DatePicker } from '@/components/ui/date-picker';
+import { formatInTimeZone } from 'date-fns-tz'; // Importar formatInTimeZone
 
 const tiposColeta = [
   { id: 'Troca', nome: 'Troca' },
   { id: 'Compra', nome: 'Compra' },
 ];
 
-export function ColetaStep1({ data, onNext, onUpdate, profile }) {
+export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }) { // Receber empresaTimezone
   const navigate = useNavigate();
   const [formData, setFormData] = useState(data);
   const [clientes, setClientes] = useState([]);
@@ -152,7 +153,7 @@ export function ColetaStep1({ data, onNext, onUpdate, profile }) {
   const handleSubmit = (e) => {
     e.preventDefault();
     
-    if (!formData.cliente.trim() || !unmask(formData.cnpj_cpf) || !unmask(formData.telefone) || !formData.data_coleta || !formData.tipo_coleta || !formData.municipio || !formData.estado) {
+    if (!formData.cliente.trim() || !unmask(formData.cnpj_cpf) || !unmask(formData.telefone) || !formData.data_coleta || !formData.hora_coleta || !formData.tipo_coleta || !formData.municipio || !formData.estado) {
       toast({
         title: "Campos obrigatórios",
         description: "Por favor, preencha todos os campos com asterisco (*).",
@@ -190,17 +191,33 @@ export function ColetaStep1({ data, onNext, onUpdate, profile }) {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
-        <div className="space-y-2">
-          <Label htmlFor="data_coleta" className="text-white flex items-center gap-2">
-            <Calendar className="w-4 h-4" />
-            Data da Coleta *
-          </Label>
-          <DatePicker
-            date={formData.data_coleta ? new Date(formData.data_coleta + 'T00:00:00') : null}
-            setDate={(date) => handleInputChange('data_coleta', formatToISODate(date))}
-            className="w-full"
-            disabled={profile?.role !== 'admin'}
-          />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+          <div className="space-y-2">
+            <Label htmlFor="data_coleta" className="text-white flex items-center gap-2">
+              <Calendar className="w-4 h-4" />
+              Data da Coleta *
+            </Label>
+            <DatePicker
+              date={formData.data_coleta ? new Date(formData.data_coleta + 'T00:00:00') : null}
+              setDate={(date) => handleInputChange('data_coleta', formatToISODate(date))}
+              className="w-full"
+              disabled={profile?.role !== 'administrador'}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="hora_coleta" className="text-white flex items-center gap-2">
+              <Clock className="w-4 h-4" />
+              Hora da Coleta *
+            </Label>
+            <Input
+              id="hora_coleta"
+              type="time"
+              value={formData.hora_coleta}
+              onChange={(e) => handleInputChange('hora_coleta', e.target.value)}
+              className="bg-white/5 border-white/20 text-white placeholder:text-white/60 rounded-xl"
+              required
+            />
+          </div>
         </div>
 
         <div className="space-y-2 relative">

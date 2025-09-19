@@ -10,9 +10,9 @@ import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/customSupabaseClient';
 import { ReciboViewDialog } from '@/components/coletas/ReciboViewDialog';
-import { formatDate } from '@/lib/utils';
+import { formatInTimeZone } from 'date-fns-tz'; // Importar formatInTimeZone
 
-export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData }) {
+export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData, empresaTimezone }) { // Receber empresaTimezone
   const [resultadoFinal, setResultadoFinal] = useState('0,00');
   const [showReciboDialog, setShowReciboDialog] = useState(false);
   const [savedColeta, setSavedColeta] = useState(null);
@@ -95,6 +95,17 @@ export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData }) 
     navigate('/app/coletas');
   };
 
+  const formatColetaDateTime = (dateString, timeString) => {
+    if (!dateString || !timeString) return 'N/A';
+    try {
+      const combined = `${dateString}T${timeString}:00`;
+      return formatInTimeZone(new Date(combined), empresaTimezone, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
+    } catch (e) {
+      console.error("Error formatting date/time for display:", e);
+      return 'Data/Hora inválida';
+    }
+  };
+
   return (
     <>
       {showReciboDialog && savedColeta && empresa && (
@@ -103,6 +114,7 @@ export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData }) 
           empresa={empresa}
           isOpen={showReciboDialog}
           onClose={finishProcess}
+          empresaTimezone={empresaTimezone} // Passar o fuso horário
         />
       )}
     
@@ -125,7 +137,7 @@ export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData }) 
             <div><span className="text-emerald-300">Telefone:</span><span className="text-white ml-2">{data.telefone || 'N/A'}</span></div>
             <div><span className="text-emerald-300">E-mail:</span><span className="text-white ml-2">{data.email || 'N/A'}</span></div>
             <div className="md:col-span-2"><span className="text-emerald-300">Endereço:</span><span className="text-white ml-2">{data.endereco}</span></div>
-            <div><span className="text-emerald-300">Data:</span><span className="text-white ml-2">{formatDate(data.data_coleta)}</span></div>
+            <div><span className="text-emerald-300">Data/Hora:</span><span className="text-white ml-2">{formatColetaDateTime(data.data_coleta, data.hora_coleta)}</span></div>
             <div><span className="text-emerald-300">Tipo:</span><span className="text-white ml-2 font-bold">{data.tipo_coleta}</span></div>
             <div><span className="text-emerald-300">Qtd. Coletada:</span><span className="text-white ml-2 font-bold">{parseCurrency(data.quantidade_coletada).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg</span></div>
             {!isCompra && <div><span className="text-emerald-300">Fator:</span><span className="text-white ml-2">{data.fator}</span></div>}
