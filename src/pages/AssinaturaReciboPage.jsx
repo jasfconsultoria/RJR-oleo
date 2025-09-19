@@ -37,10 +37,7 @@ const AssinaturaReciboPage = () => {
         navigate(`/recibo/publico/${id}`);
         return;
       }
-
-      // A view v_coletas_com_status já traz os dados do cliente diretamente
-      // então 'data.coleta' já contém 'cliente_nome', 'cliente_cnpj_cpf', etc.
-      // Não precisamos mais do 'data.cliente' separado para o componente Recibo.
+      
       setColeta(data.coleta);
       setEmpresa(data.empresa);
       setReciboData(data.recibo);
