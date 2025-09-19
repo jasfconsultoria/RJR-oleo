@@ -1,245 +1,179 @@
-import { clsx } from 'clsx';
-import { twMerge } from 'tailwind-merge';
-import { format as formatFns, parseISO, isValid } from 'date-fns';
+import { clsx } from "clsx";
+import { twMerge } from "tailwind-merge";
+import { format, parseISO, isValid, differenceInMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { formatInTimeZone } from 'date-fns-tz';
 
 export function cn(...inputs) {
   return twMerge(clsx(inputs));
 }
 
-export function formatDate(dateString) {
-  if (!dateString) return '';
-
-  // Verifica se é uma data simples 'YYYY-MM-DD' ou um timestamp completo
-  const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(dateString);
-  
-  // Se for apenas data, adiciona tempo e 'Z' para tratar como UTC
-  // Caso contrário, usa a string original que deve ser um timestamp ISO completo
-  const dateToParse = isDateOnly ? `${dateString}T00:00:00Z` : dateString;
-  
-  const date = parseISO(dateToParse);
-  
-  if (!isValid(date)) return '';
-  
-  // Formata sempre em UTC para evitar deslocamentos de fuso horário
-  return formatInTimeZone(date, 'UTC', 'dd/MM/yyyy', { locale: ptBR });
-}
-
-export function formatDateWithTimezone(dateString, timeZone) {
-    if (!dateString || !timeZone) return '';
-    try {
-        const date = parseISO(dateString);
-        if (!isValid(date)) return '';
-        return formatInTimeZone(date, timeZone, 'dd/MM/yyyy', { locale: ptBR });
-    } catch (error) {
-        console.error("Error formatting date with timezone:", error);
-        return dateString; // Fallback
-    }
-}
-
-export function formatToISODate(date) {
-    if (!date || !isValid(date)) return null;
-    return formatFns(date, 'yyyy-MM-dd');
-}
-
-export function formatCnpjCpf(value) {
+export const formatCnpjCpf = (value) => {
   if (!value) return '';
-  const onlyNumbers = value.replace(/[^\d]/g, '');
-
-  if (onlyNumbers.length <= 11) {
-    return onlyNumbers.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+  const cleaned = String(value).replace(/\D/g, '');
+  if (cleaned.length === 11) {
+    return cleaned.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
   }
+  if (cleaned.length === 14) {
+    return cleaned.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
+  }
+  return value;
+};
 
-  return onlyNumbers.replace(
-    /(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,
-    '$1.$2.$3/$4-$5'
-  );
-}
+export const unmask = (value) => {
+  if (!value) return '';
+  return String(value).replace(/\D/g, '');
+};
 
-export function unmask(value) {
-  return value ? value.replace(/[^\d]/g, '') : '';
-}
+export const parseCurrency = (value) => {
+  if (typeof value === 'number') return value;
+  if (!value) return 0;
+  const cleaned = String(value).replace(/\./g, '').replace(',', '.');
+  return parseFloat(cleaned);
+};
 
-export function parseCurrency(value) {
-  if (typeof value !== 'string' && typeof value !== 'number') return 0;
-  const stringValue = String(value)
-    .replace('R$', '')    // Remove o símbolo da moeda
-    .trim()               // Remove espaços em branco
-    .replace(/\./g, '')   // Remove separadores de milhar
-    .replace(',', '.');   // Substitui a vírgula decimal por ponto
-  
-  const number = parseFloat(stringValue);
-  return isNaN(number) ? 0 : number;
-}
+export const formatCurrency = (value) => {
+  if (typeof value !== 'number') {
+    value = parseCurrency(value);
+  }
+  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+};
 
-export function formatCurrency(value) {
-    if (value === null || value === undefined || isNaN(Number(value))) {
-        return 'R$ 0,00';
+export const formatNumber = (value, options = { minimumFractionDigits: 2, maximumFractionDigits: 2 }) => {
+  if (typeof value !== 'number') {
+    value = parseFloat(value);
+  }
+  if (isNaN(value)) return '0,00';
+  return value.toLocaleString('pt-BR', options);
+};
+
+export const formatToISODate = (date) => {
+  if (!date) return '';
+  const d = new Date(date);
+  return d.toISOString().split('T')[0];
+};
+
+export const formatDate = (dateString) => {
+  if (!dateString) return 'N/A';
+  try {
+    const date = new Date(dateString + 'T00:00:00'); // Ensure it's treated as UTC to avoid timezone issues
+    return format(date, 'dd/MM/yyyy', { locale: ptBR });
+  } catch (error) {
+    return 'Data inválida';
+  }
+};
+
+export const formatDateWithTimezone = (dateString, timezone = 'America/Sao_Paulo') => {
+  if (!dateString) return 'N/A';
+  try {
+    // date-fns-tz is not directly used here, but the principle is to handle dates carefully.
+    // For simple display, we assume the dateString is already in the correct local date.
+    const date = parseISO(dateString);
+    if (!isValid(date)) {
+      // Fallback for simple 'YYYY-MM-DD' strings without time
+      const [year, month, day] = dateString.split('-').map(Number);
+      return format(new Date(year, month - 1, day), 'dd/MM/yyyy', { locale: ptBR });
     }
-    return new Intl.NumberFormat('pt-BR', {
-        style: 'currency',
-        currency: 'BRL',
-    }).format(Number(value));
-}
-
-export function formatNumber(value, options = {}) {
-  const { minimumFractionDigits = 2, maximumFractionDigits = 2 } = options;
-  if (value === null || value === undefined || isNaN(Number(value))) {
-    return '0,00';
+    return format(date, 'dd/MM/yyyy', { locale: ptBR });
+  } catch (error) {
+    console.error("Failed to format date with timezone:", error);
+    return 'Data inválida';
   }
-  return new Intl.NumberFormat('pt-BR', {
-    minimumFractionDigits,
-    maximumFractionDigits,
-  }).format(Number(value));
-}
+};
 
-const unidades = ['zero', 'um', 'dois', 'três', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove'];
+// Function to convert number to extenso (Portuguese)
+const unidades = ['', 'um', 'dois', 'três', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove'];
 const dezenas = ['', 'dez', 'vinte', 'trinta', 'quarenta', 'cinquenta', 'sessenta', 'setenta', 'oitenta', 'noventa'];
-const dezenasEspeciais = ['dez', 'onze', 'doze', 'treze', 'quatorze', 'quinze', 'dezesseis', 'dezessete', 'dezoito', 'dezenove'];
 const centenas = ['', 'cento', 'duzentos', 'trezentos', 'quatrocentos', 'quinhentos', 'seiscentos', 'setecentos', 'oitocentos', 'novecentos'];
+const especiais = ['dez', 'onze', 'doze', 'treze', 'quatorze', 'quinze', 'dezesseis', 'dezessete', 'dezoito', 'dezenove'];
 
-function converterNumeroParaPalavras(num) {
-    if (num === 0) return 'zero';
-    if (num < 0) return 'menos ' + converterNumeroParaPalavras(Math.abs(num));
+function numeroParaExtenso(num) {
+  if (num === 0) return 'zero';
+  if (num < 0) return 'menos ' + numeroParaExtenso(Math.abs(num));
 
-    let s = num.toString();
-    let result = [];
+  let s = String(num);
+  let extenso = [];
 
-    function processChunk(chunk) {
-        let c = parseInt(chunk);
-        if (c === 0) return '';
-        if (c < 10) return unidades[c];
-        if (c < 20) return dezenasEspeciais[c - 10];
-        if (c < 100) {
-            let dez = Math.floor(c / 10);
-            let uni = c % 10;
-            return dezenas[dez] + (uni > 0 ? ' e ' + unidades[uni] : '');
-        }
-        if (c < 1000) {
-            let cent = Math.floor(c / 100);
-            let rest = c % 100;
-            return (cent === 1 && rest === 0 ? 'cem' : centenas[cent]) + (rest > 0 ? ' e ' + converterNumeroParaPalavras(rest) : '');
-        }
-        return ''; // Should not happen for chunks of 3 digits
+  function converterGrupo(n) {
+    let str = '';
+    let c = Math.floor(n / 100);
+    let d = Math.floor((n % 100) / 10);
+    let u = n % 10;
+
+    if (c > 0) {
+      str += (c === 1 && (d > 0 || u > 0)) ? 'cento e ' : centenas[c] + ' ';
     }
 
-    let chunks = [];
-    for (let i = s.length; i > 0; i -= 3) {
-        chunks.unshift(s.substring(Math.max(0, i - 3), i));
+    if (d > 1) {
+      str += dezenas[d] + (u > 0 ? ' e ' : '');
+    } else if (d === 1) {
+      str += especiais[u] + ' ';
+      return str.trim();
     }
 
-    const grandezas = ['', 'mil', 'milhões', 'bilhões', 'trilhões']; // Extend as needed
-
-    for (let i = 0; i < chunks.length; i++) {
-        let chunk = parseInt(chunks[i]);
-        if (chunk === 0) continue;
-
-        let chunkWords = processChunk(chunks[i]);
-        let grandeza = grandezas[chunks.length - 1 - i];
-
-        if (grandeza === 'mil' && chunk === 1) {
-            // "um mil" is usually just "mil"
-            result.push('mil');
-        } else if (grandeza) {
-            result.push(chunkWords + ' ' + grandeza + (chunk > 1 && grandeza !== 'mil' ? 'ões' : ''));
-        } else {
-            result.push(chunkWords);
-        }
+    if (u > 0 && d !== 1) {
+      str += unidades[u] + ' ';
     }
-
-    return result.join(' ').trim();
-}
-
-export function valorPorExtenso(valor) {
-    if (typeof valor !== 'number' || isNaN(valor)) {
-        return '';
-    }
-
-    let partes = valor.toFixed(2).split('.');
-    let reais = parseInt(partes[0]);
-    let centavos = parseInt(partes[1]);
-
-    let extenso = '';
-
-    if (reais > 0) {
-        extenso += converterNumeroParaPalavras(reais);
-        extenso += (reais === 1) ? ' real' : ' reais';
-    }
-
-    if (centavos > 0) {
-        if (reais > 0) {
-            extenso += ' e ';
-        }
-        extenso += converterNumeroParaPalavras(centavos);
-        extenso += (centavos === 1) ? ' centavo' : ' centavos';
-    }
-
-    if (reais === 0 && centavos === 0) {
-        return 'zero reais';
-    }
-
-    return extenso;
-}
-
-function validateCpf(cpf) {
-  const strCPF = unmask(cpf);
-  if (!strCPF || strCPF.length !== 11 || /^(\d)\1{10}$/.test(strCPF)) return false;
-  let sum = 0;
-  let remainder;
-  for (let i = 1; i <= 9; i++) sum = sum + parseInt(strCPF.substring(i - 1, i)) * (11 - i);
-  remainder = (sum * 10) % 11;
-  if ((remainder === 10) || (remainder === 11)) remainder = 0;
-  if (remainder !== parseInt(strCPF.substring(9, 10))) return false;
-  sum = 0;
-  for (let i = 1; i <= 10; i++) sum = sum + parseInt(strCPF.substring(i - 1, i)) * (12 - i);
-  remainder = (sum * 10) % 11;
-  if ((remainder === 10) || (remainder === 11)) remainder = 0;
-  if (remainder !== parseInt(strCPF.substring(10, 11))) return false;
-  return true;
-}
-
-function validateCnpj(cnpj) {
-  const strCNPJ = unmask(cnpj);
-  if (!strCNPJ || strCNPJ.length !== 14 || /^(\d)\1{13}$/.test(strCNPJ)) return false;
-  
-  let size = strCNPJ.length - 2;
-  let numbers = strCNPJ.substring(0, size);
-  const digits = strCNPJ.substring(size);
-  let sum = 0;
-  let pos = size - 7;
-  
-  for (let i = size; i >= 1; i--) {
-    sum += numbers.charAt(size - i) * pos--;
-    if (pos < 2) pos = 9;
+    return str.trim();
   }
-  
-  let result = sum % 11 < 2 ? 0 : 11 - sum % 11;
-  if (result != digits.charAt(0)) return false;
-  
-  size = size + 1;
-  numbers = strCNPJ.substring(0, size);
-  sum = 0;
-  pos = size - 7;
-  
-  for (let i = size; i >= 1; i--) {
-    sum += numbers.charAt(size - i) * pos--;
-    if (pos < 2) pos = 9;
+
+  let grupos = [];
+  while (s.length > 0) {
+    grupos.unshift(parseInt(s.slice(-3)));
+    s = s.slice(0, -3);
   }
-  
-  result = sum % 11 < 2 ? 0 : 11 - sum % 11;
-  if (result != digits.charAt(1)) return false;
-  
-  return true;
+
+  const sufixos = ['', 'mil', 'milhões', 'bilhões', 'trilhões'];
+
+  for (let i = 0; i < grupos.length; i++) {
+    let grupo = grupos[grupos.length - 1 - i];
+    if (grupo === 0) continue;
+
+    let parte = converterGrupo(grupo);
+    let sufixo = sufixos[i];
+
+    if (i === 1 && grupo === 1) { // "mil" singular
+      extenso.unshift('mil');
+    } else if (i > 1 && grupo > 1) { // "milhões", "bilhões" plural
+      extenso.unshift(sufixo);
+      extenso.unshift(parte);
+    } else if (i > 1 && grupo === 1) { // "um milhão", "um bilhão"
+      extenso.unshift(sufixo.slice(0, -1)); // remove 's'
+      extenso.unshift('um');
+    } else {
+      extenso.unshift(sufixo);
+      extenso.unshift(parte);
+    }
+  }
+
+  return extenso.filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
 }
 
-export function validateCnpjCpf(value) {
-  const unmaskedValue = unmask(value);
-  if (unmaskedValue.length === 11) {
-    return validateCpf(unmaskedValue);
+export const valorPorExtenso = (valor) => {
+  if (typeof valor !== 'number') {
+    valor = parseCurrency(valor);
   }
-  if (unmaskedValue.length === 14) {
-    return validateCnpj(unmaskedValue);
+  if (isNaN(valor)) return 'zero reais';
+
+  const inteiro = Math.floor(valor);
+  const centavos = Math.round((valor - inteiro) * 100);
+
+  let extenso = numeroParaExtenso(inteiro);
+  extenso += (inteiro === 1) ? ' real' : ' reais';
+
+  if (centavos > 0) {
+    extenso += ' e ' + numeroParaExtenso(centavos);
+    extenso += (centavos === 1) ? ' centavo' : ' centavos';
   }
-  return false;
-}
+
+  return extenso;
+};
+
+export const getMonthsDifference = (startDate, endDate) => {
+  if (!startDate || !endDate) return 0;
+  const start = isValid(startDate) ? startDate : parseISO(startDate);
+  const end = isValid(endDate) ? endDate : parseISO(endDate);
+
+  if (!isValid(start) || !isValid(end)) return 0;
+
+  return differenceInMonths(end, start);
+};

@@ -1,7 +1,76 @@
 import React from 'react';
 import { format, parseISO, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { formatCnpjCpf, formatCurrency, valorPorExtenso } from '@/lib/utils';
+import { formatCnpjCpf, formatCurrency, valorPorExtenso, getMonthsDifference } from '@/lib/utils';
+
+// Função para converter número para extenso (copiada de utils para evitar circular dependency se utils importar ContratoPDF)
+const unidades = ['', 'um', 'dois', 'três', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove'];
+const dezenas = ['', 'dez', 'vinte', 'trinta', 'quarenta', 'cinquenta', 'sessenta', 'setenta', 'oitenta', 'noventa'];
+const centenas = ['', 'cento', 'duzentos', 'trezentos', 'quatrocentos', 'quinhentos', 'seiscentos', 'setecentos', 'oitocentos', 'novecentos'];
+const especiais = ['dez', 'onze', 'doze', 'treze', 'quatorze', 'quinze', 'dezesseis', 'dezessete', 'dezoito', 'dezenove'];
+
+function numeroParaExtenso(num) {
+  if (num === 0) return 'zero';
+  if (num < 0) return 'menos ' + numeroParaExtenso(Math.abs(num));
+
+  let s = String(num);
+  let extenso = [];
+
+  function converterGrupo(n) {
+    let str = '';
+    let c = Math.floor(n / 100);
+    let d = Math.floor((n % 100) / 10);
+    let u = n % 10;
+
+    if (c > 0) {
+      str += (c === 1 && (d > 0 || u > 0)) ? 'cento e ' : centenas[c] + ' ';
+    }
+
+    if (d > 1) {
+      str += dezenas[d] + (u > 0 ? ' e ' : '');
+    } else if (d === 1) {
+      str += especiais[u] + ' ';
+      return str.trim();
+    }
+
+    if (u > 0 && d !== 1) {
+      str += unidades[u] + ' ';
+    }
+    return str.trim();
+  }
+
+  let grupos = [];
+  while (s.length > 0) {
+    grupos.unshift(parseInt(s.slice(-3)));
+    s = s.slice(0, -3);
+  }
+
+  const sufixos = ['', 'mil', 'milhões', 'bilhões', 'trilhões'];
+
+  for (let i = 0; i < grupos.length; i++) {
+    let grupo = grupos[grupos.length - 1 - i];
+    if (grupo === 0) continue;
+
+    let parte = converterGrupo(grupo);
+    let sufixo = sufixos[i];
+
+    if (i === 1 && grupo === 1) { // "mil" singular
+      extenso.unshift('mil');
+    } else if (i > 1 && grupo > 1) { // "milhões", "bilhões" plural
+      extenso.unshift(sufixo);
+      extenso.unshift(parte);
+    } else if (i > 1 && grupo === 1) { // "um milhão", "um bilhão"
+      extenso.unshift(sufixo.slice(0, -1)); // remove 's'
+      extenso.unshift('um');
+    } else {
+      extenso.unshift(sufixo);
+      extenso.unshift(parte);
+    }
+  }
+
+  return extenso.filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+}
+
 
 const ContratoPDF = React.forwardRef(({ contrato, empresa, showSignature }, ref) => {
   const cliente = contrato?.pessoa;
@@ -57,6 +126,9 @@ const ContratoPDF = React.forwardRef(({ contrato, empresa, showSignature }, ref)
     }
     return null;
   };
+
+  const contractDurationMonths = getMonthsDifference(contrato.data_inicio, contrato.data_fim);
+  const durationText = numeroParaExtenso(contractDurationMonths);
 
   return (
     <div 
@@ -123,7 +195,7 @@ const ContratoPDF = React.forwardRef(({ contrato, empresa, showSignature }, ref)
         <p className="mb-3 text-justify">
           <strong>CLÁUSULA QUINTA - DO PRAZO</strong>
           <br />
-          O presente contrato terá vigência de <strong>{formatarDataExtenso(contrato.data_inicio)}</strong> a <strong>{formatarDataExtenso(contrato.data_fim)}</strong> 12 (doze) meses, podendo ser renovado mediante acordo entre as partes e ser rescindido, desde que ocorra o aviso prévio de 30 dias.
+          O presente contrato terá vigência de <strong>{formatarDataExtenso(contrato.data_inicio)}</strong> a <strong>{formatarDataExtenso(contrato.data_fim)}</strong> {contractDurationMonths} ({durationText}) meses, podendo ser renovado mediante acordo entre as partes e ser rescindido, desde que ocorra o aviso prévio de 30 dias.
         </p>
 
         <p className="mb-3 text-justify">
