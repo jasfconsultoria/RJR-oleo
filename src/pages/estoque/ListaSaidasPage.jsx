@@ -18,7 +18,7 @@ import { ptBR } from 'date-fns/locale';
 import ClienteSearchableSelect from '@/components/ui/ClienteSearchableSelect';
 import ProdutoSearchableSelect from '@/components/estoque/ProdutoSearchableSelect';
 import { formatNumber } from '@/lib/utils';
-import MovimentacaoViewDialog from '@/components/estoque/MovimentacaoViewDialog'; // New import
+import MovimentacaoViewDialog from '@/components/estoque/MovimentacaoViewDialog';
 
 const ListaSaidasPage = () => {
   const navigate = useNavigate();
@@ -36,7 +36,7 @@ const ListaSaidasPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [empresa, setEmpresa] = useState(null);
-  const [viewingMovimentacao, setViewingMovimentacao] = useState(null); // For view dialog
+  const [viewingMovimentacao, setViewingMovimentacao] = useState(null);
 
   const pageSize = useMemo(() => empresa?.items_per_page || 25, [empresa]);
 
@@ -62,6 +62,7 @@ const ListaSaidasPage = () => {
         data,
         tipo,
         origem,
+        document_number,
         observacao,
         cliente:clientes(nome),
         itens_entrada_saida(
@@ -70,13 +71,13 @@ const ListaSaidasPage = () => {
           produto:produtos(nome, unidade)
         )
       `, { count: 'exact' })
-      .eq('tipo', 'saida') // Filter for exits only
+      .eq('tipo', 'saida')
       .order('data', { ascending: false })
       .order('created_at', { ascending: false })
       .range(from, to);
 
     if (debouncedFilters.searchTerm) {
-      query = query.ilike('observacao', `%${debouncedFilters.searchTerm}%`);
+      query = query.or(`observacao.ilike.%${debouncedFilters.searchTerm}%,document_number.ilike.%${debouncedFilters.searchTerm}%`);
     }
     if (debouncedFilters.selectedClienteId) {
       query = query.eq('cliente_id', debouncedFilters.selectedClienteId);
@@ -101,7 +102,7 @@ const ListaSaidasPage = () => {
         );
       }
       setMovimentacoes(filteredData);
-      setTotalCount(count || 0); // Note: count might be inaccurate if client-side filtering is applied
+      setTotalCount(count || 0);
     }
     setLoading(false);
   }, [toast, currentPage, pageSize, debouncedFilters, empresa]);
@@ -162,7 +163,7 @@ const ListaSaidasPage = () => {
                 <Input
                   id="searchTerm"
                   type="search"
-                  placeholder="Observação..."
+                  placeholder="Nº Doc, Observação..."
                   value={filters.searchTerm}
                   onChange={(e) => handleFilterChange('searchTerm', e.target.value)}
                   className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60 rounded-xl"
@@ -205,6 +206,7 @@ const ListaSaidasPage = () => {
                 <TableHeader>
                   <TableRow className="hover:bg-transparent border-b border-white/20 text-xs">
                     <th className="p-2 text-left text-white">Data</th>
+                    <th className="p-2 text-left text-white">Nº Documento</th> {/* New column */}
                     <th className="p-2 text-left text-white">Origem</th>
                     <th className="p-2 text-left text-white">Cliente</th>
                     <th className="p-2 text-left text-white">Itens</th>
@@ -216,6 +218,7 @@ const ListaSaidasPage = () => {
                     movimentacoes.map(mov => (
                       <TableRow key={mov.id} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
                         <TableCell data-label="Data">{format(parseISO(mov.data), 'dd/MM/yyyy HH:mm', { locale: ptBR })}</TableCell>
+                        <TableCell data-label="Nº Documento">{mov.document_number || 'N/A'}</TableCell> {/* New cell */}
                         <TableCell data-label="Origem" className="capitalize">{mov.origem}</TableCell>
                         <TableCell data-label="Cliente">{mov.cliente?.nome || 'N/A'}</TableCell>
                         <TableCell data-label="Itens">
@@ -249,7 +252,7 @@ const ListaSaidasPage = () => {
                       </TableRow>
                     ))
                   ) : (
-                    <TableRow><TableCell colSpan="5" className="text-center text-gray-400 py-10">Nenhuma saída encontrada.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan="6" className="text-center text-gray-400 py-10">Nenhuma saída encontrada.</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>

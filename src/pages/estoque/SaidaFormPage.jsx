@@ -6,33 +6,35 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Save, ArrowUpSquare, Loader2, Info } from 'lucide-react'; // Added Info icon
+import { ArrowLeft, Save, ArrowUpSquare, Loader2, Info } from 'lucide-react';
 import { logAction } from '@/lib/logger';
 import MovimentacaoFormFields from '@/components/estoque/MovimentacaoFormFields';
 import ItensMovimentacaoTable from '@/components/estoque/ItensMovimentacaoTable';
 import { parseCurrency } from '@/lib/utils';
-import { useAuth } from '@/contexts/SupabaseAuthContext'; // Import useAuth
-import { Label } from '@/components/ui/label'; // Import Label
-import { Textarea } from '@/components/ui/textarea'; // Import Textarea
+import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 
 const SaidaFormPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
   const isEditing = Boolean(id);
-  const { user } = useAuth(); // Get user from useAuth
+  const { user } = useAuth();
 
   const [formData, setFormData] = useState({
     data: new Date(),
     tipo: 'saida',
     origem: 'manual',
+    document_number: '', // New field
     cliente_id: null,
+    coleta_id: null, // New field
     observacao: '',
     itens: [],
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [loadingClients, setLoadingClients] = useState(false); // For ClienteSearchableSelect
+  const [loadingClients, setLoadingClients] = useState(false);
 
   const fetchMovimentacao = useCallback(async () => {
     if (!id) {
@@ -84,6 +86,33 @@ const SaidaFormPage = () => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  const handleSelectChange = (name, value) => {
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    if (name === 'origem' && value !== 'coleta') {
+      setFormData((prev) => ({ ...prev, coleta_id: null }));
+    }
+  };
+
+  const handleColetaSelect = (coleta) => {
+    if (coleta) {
+      setFormData((prev) => ({
+        ...prev,
+        coleta_id: coleta.id,
+        cliente_id: coleta.cliente_id,
+        document_number: coleta.numero_coleta?.toString().padStart(6, '0'),
+        observacao: `Movimentação referente à coleta Nº ${coleta.numero_coleta?.toString().padStart(6, '0')} do cliente ${coleta.cliente_nome}.`,
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        coleta_id: null,
+        cliente_id: null,
+        document_number: '',
+        observacao: '',
+      }));
+    }
+  };
+
   const handleItemsChange = (newItems) => {
     setFormData((prev) => ({ ...prev, itens: newItems }));
   };
@@ -93,8 +122,12 @@ const SaidaFormPage = () => {
       toast({ title: 'Campos obrigatórios', description: 'Data, Tipo e Origem são obrigatórios.', variant: 'destructive' });
       return false;
     }
-    if (!formData.cliente_id) { // New validation for cliente_id
+    if (!formData.cliente_id && formData.origem !== 'coleta') { // Cliente is required unless origin is 'coleta'
       toast({ title: 'Campo obrigatório', description: 'O campo Cliente é obrigatório.', variant: 'destructive' });
+      return false;
+    }
+    if (!formData.coleta_id && formData.origem === 'coleta') { // Coleta is required if origin is 'coleta'
+      toast({ title: 'Campo obrigatório', description: 'Selecione uma Coleta.', variant: 'destructive' });
       return false;
     }
     if (formData.itens.length === 0) {
@@ -134,7 +167,7 @@ const SaidaFormPage = () => {
     setSaving(true);
     try {
       const { itens, ...movimentacaoHeader } = formData;
-      movimentacaoHeader.user_id = user?.id; // Use user.id from useAuth
+      movimentacaoHeader.user_id = user?.id;
 
       let savedMovimentacao;
       if (isEditing) {
@@ -147,7 +180,6 @@ const SaidaFormPage = () => {
         if (error) throw error;
         savedMovimentacao = data;
 
-        // Delete existing items and insert new ones
         const { error: deleteError } = await supabase.from('itens_entrada_saida').delete().eq('entrada_saida_id', id);
         if (deleteError) throw deleteError;
 
@@ -176,6 +208,8 @@ const SaidaFormPage = () => {
         movimentacao_id: savedMovimentacao.id,
         tipo: savedMovimentacao.tipo,
         origem: savedMovimentacao.origem,
+        document_number: savedMovimentacao.document_number,
+        coleta_id: savedMovimentacao.coleta_id,
       });
 
       toast({ title: `Movimentação de ${formData.tipo} ${isEditing ? 'atualizada' : 'registrada'} com sucesso!` });
@@ -223,7 +257,8 @@ const SaidaFormPage = () => {
               <MovimentacaoFormFields
                 formData={formData}
                 handleChange={handleFormChange}
-                handleSelectChange={handleFormChange}
+                handleSelectChange={handleSelectChange}
+                handleColetaSelect={handleColetaSelect}
                 isEditing={isEditing}
                 type="saida"
                 loadingClients={loadingClients}
@@ -236,7 +271,6 @@ const SaidaFormPage = () => {
                 isEditing={isEditing}
               />
 
-              {/* Moved Observação field here */}
               <div className="md:col-span-2">
                 <Label htmlFor="observacao" className="text-lg flex items-center gap-2">
                   <Info className="w-4 h-4" /> Observação

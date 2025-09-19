@@ -5,12 +5,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar, Info, User, Tag } from 'lucide-react';
 import ClienteSearchableSelect from '@/components/ui/ClienteSearchableSelect';
+import ColetaSearchableSelect from '@/components/ui/ColetaSearchableSelect'; // New import
 import { format } from 'date-fns';
 
-const MovimentacaoFormFields = ({ formData, handleChange, handleSelectChange, isEditing, type, loadingClients }) => {
+const MovimentacaoFormFields = ({ formData, handleChange, handleSelectChange, handleColetaSelect, isEditing, type, loadingClients }) => {
   const originOptions = [
     { value: 'manual', label: 'Manual' },
-    // { value: 'coleta', label: 'Coleta' }, // Future integration
+    { value: 'coleta', label: 'Coleta' }, // Added Coleta origin
   ];
 
   return (
@@ -27,6 +28,7 @@ const MovimentacaoFormFields = ({ formData, handleChange, handleSelectChange, is
           onChange={(e) => handleChange('data', new Date(e.target.value))}
           className="bg-white/5 border-white/20 rounded-xl"
           required
+          disabled={isEditing}
         />
       </div>
 
@@ -46,16 +48,43 @@ const MovimentacaoFormFields = ({ formData, handleChange, handleSelectChange, is
         </Select>
       </div>
 
-      <div className="md:col-span-2">
-        <ClienteSearchableSelect
-          labelText="Cliente *"
-          value={formData.cliente_id}
-          onChange={(value) => handleSelectChange('cliente_id', value)}
-          loading={loadingClients}
-          disabled={isEditing}
-          required // Making it required
+      {/* New Document Number Field */}
+      <div>
+        <Label htmlFor="document_number" className="text-lg flex items-center gap-2">
+          <Info className="w-4 h-4" /> Nº Documento
+        </Label>
+        <Input
+          id="document_number"
+          name="document_number"
+          value={formData.document_number}
+          onChange={(e) => handleChange('document_number', e.target.value)}
+          placeholder="Ex: NF-12345, Recibo-001"
+          className="bg-white/5 border-white/20 rounded-xl"
+          disabled={isEditing || formData.origem === 'coleta'} // Disable if editing or origin is coleta
         />
       </div>
+
+      {formData.origem === 'coleta' ? (
+        <div className="md:col-span-2">
+          <ColetaSearchableSelect
+            labelText="Selecionar Coleta *"
+            value={formData.coleta_id}
+            onChange={handleColetaSelect}
+            disabled={isEditing}
+          />
+        </div>
+      ) : (
+        <div className="md:col-span-2">
+          <ClienteSearchableSelect
+            labelText="Cliente *"
+            value={formData.cliente_id}
+            onChange={(value) => handleSelectChange('cliente_id', value)}
+            loading={loadingClients}
+            disabled={isEditing}
+            required // Making it required
+          />
+        </div>
+      )}
     </div>
   );
 };
