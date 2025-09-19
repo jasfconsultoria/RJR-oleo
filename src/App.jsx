@@ -42,10 +42,10 @@ import ListaMovimentacoesPage from '@/pages/estoque/ListaMovimentacoesPage';
 import SaldoEstoquePage from '@/pages/estoque/SaldoEstoquePage';
 import ListaProdutosPage from '@/pages/estoque/ListaProdutosPage';
 import ProdutoFormPage from '@/pages/estoque/ProdutoFormPage';
-import ListaEntradasPage from '@/pages/estoque/ListaEntradasPage'; // New import
-import ListaSaidasPage from '@/pages/estoque/ListaSaidasPage'; // New import
-import ListaCentrosCusto from '@/pages/ListaCentrosCusto'; // New import
-import CentroCustoForm from '@/pages/CentroCustoForm'; // New import
+import ListaEntradasPage from '@/pages/estoque/ListaEntradasPage'; // New list page
+import ListaSaidasPage from '@/pages/estoque/ListaSaidasPage'; // New list page
+import ListaCentrosCusto from '@/pages/ListaCentrosCusto'; // New list page
+import CentroCustoForm from '@/pages/CentroCustoForm'; // New form page
 import CertificadoDisplayPage from '@/pages/CertificadoDisplayPage';
 import CertificadoPublicoPage from '@/pages/CertificadoPublicoPage';
 
@@ -129,9 +129,18 @@ function App() {
                   <Route path="coletas" element={<ListaColetas />} />
                   <Route path="coletas/nova" element={<ColetaForm />} />
                   <Route path="coletas/editar/:id" element={<ColetaForm />} />
-                  <Route path="clientes" element={<ListaClientes />} />
-                  <Route path="clientes/novo" element={<ClienteForm />} />
-                  <Route path="clientes/editar/:id" element={<ClienteForm />} />
+                  
+                  {/* Updated Cadastro Routes */}
+                  <Route path="cadastro/clientes" element={<ListaClientes personType="cliente" />} />
+                  <Route path="cadastro/clientes/novo" element={<ClienteForm personType="cliente" />} />
+                  <Route path="cadastro/clientes/editar/:id" element={<ClienteForm personType="cliente" />} />
+                  <Route path="cadastro/fornecedores" element={<ListaClientes personType="fornecedor" />} />
+                  <Route path="cadastro/fornecedores/novo" element={<ClienteForm personType="fornecedor" />} />
+                  <Route path="cadastro/fornecedores/editar/:id" element={<ClienteForm personType="fornecedor" />} />
+                  <Route path="cadastro/contratos" element={<ListaContratos />} />
+                  <Route path="cadastro/contratos/novo" element={<ContratoForm />} />
+                  <Route path="cadastro/contratos/editar/:id" element={<ContratoForm />} />
+
                   <Route path="sobre" element={<SobreSistemaPage />} />
                   <Route path="versoes" element={<VersoesPage />} />
                   
@@ -142,9 +151,6 @@ function App() {
                   <Route path="relatorios/coletas" element={<ProtectedRoute requiredRole="administrador"><RelatorioColetasPage /></ProtectedRoute>} />
                   <Route path="relatorios/financeiro" element={<ProtectedRoute requiredRole="administrador"><RelatorioFinanceiroPage /></ProtectedRoute>} />
                   <Route path="relatorios/estoque" element={<ProtectedRoute requiredRole="administrador"><RelatorioEstoquePage /></ProtectedRoute>} />
-                  <Route path="contratos" element={<ListaContratos />} />
-                  <Route path="contratos/novo" element={<ContratoForm />} />
-                  <Route path="contratos/editar/:id" element={<ContratoForm />} />
                   
                   {/* New Financeiro Routes */}
                   <Route path="financeiro/credito" element={<ProtectedRoute requiredRole="administrador"><ListaFinanceiro type="credito" /></ProtectedRoute>} />

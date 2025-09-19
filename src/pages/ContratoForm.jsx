@@ -57,7 +57,7 @@ const ContratoForm = () => {
 
         if (error) {
             toast({ title: 'Erro ao carregar contrato', variant: 'destructive' });
-            navigate('/app/contratos');
+            navigate('/app/cadastro/contratos');
         } else {
             const parseDateWithTimezone = (dateString) => {
                 if (!dateString) return null;
@@ -202,7 +202,7 @@ const ContratoForm = () => {
             });
 
             setTimeout(() => {
-                navigate('/app/contratos');
+                navigate('/app/cadastro/contratos');
             }, 800);
 
         } catch (error) {
@@ -260,7 +260,7 @@ const ContratoForm = () => {
                         />
                     </CardContent>
                     <CardFooter className="flex justify-between">
-                        <Button variant="outline" onClick={() => navigate('/app/contratos')} disabled={isSaving}>
+                        <Button variant="outline" onClick={() => navigate('/app/cadastro/contratos')} disabled={isSaving}>
                             <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
                         </Button>
                         <Button onClick={handleSave} disabled={isSaving} className="bg-emerald-600 hover:bg-emerald-700 text-white">

@@ -31,7 +31,7 @@ import { logAction } from '@/lib/logger';
 import { Pagination } from '@/components/ui/pagination';
 import { useDebounce } from '@/hooks/useDebounce';
 
-const ListaClientes = () => {
+const ListaClientes = ({ personType = 'pessoa' }) => { // Accept personType prop
   const [clientes, setClientes] = useState([]);
   const [allContratos, setAllContratos] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -46,6 +46,34 @@ const ListaClientes = () => {
   const { toast } = useToast();
 
   const pageSize = useMemo(() => empresa?.items_per_page || 25, [empresa]);
+
+  const getLabels = (type) => {
+    switch (type) {
+      case 'cliente':
+        return { 
+          listTitle: 'Clientes', 
+          pageVerb: 'Novo Cliente', 
+          singularNoun: 'cliente', 
+          singularArticle: 'o' 
+        };
+      case 'fornecedor':
+        return { 
+          listTitle: 'Fornecedores', 
+          pageVerb: 'Novo Fornecedor', 
+          singularNoun: 'fornecedor', 
+          singularArticle: 'o' 
+        };
+      default: // 'pessoa'
+        return { 
+          listTitle: 'Pessoas', 
+          pageVerb: 'Nova Pessoa', 
+          singularNoun: 'pessoa', 
+          singularArticle: 'a' 
+        };
+    }
+  };
+
+  const { listTitle, pageVerb, singularNoun, singularArticle } = getLabels(personType);
 
   useEffect(() => {
     const fetchEmpresaData = async () => {
@@ -177,20 +205,20 @@ const ListaClientes = () => {
   return (
     <>
       <Helmet>
-        <title>Lista de Pessoas - Sistema RJR Óleo</title>
+        <title>Lista de {listTitle} - Sistema RJR Óleo</title>
       </Helmet>
       <div className="space-y-6">
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold text-white flex items-center gap-2">
-                <Users className="w-8 h-8 text-emerald-400" /> Lista de Pessoas
+                <Users className="w-8 h-8 text-emerald-400" /> Lista de {listTitle}
             </h1>
-            <p className="text-emerald-200/80 mt-1">Visualize e gerencie as pessoas cadastradas.</p>
+            <p className="text-emerald-200/80 mt-1">Visualize e gerencie {listTitle.toLowerCase()} cadastradas.</p>
           </div>
-          <Link to="/app/clientes/novo" className='w-full sm:w-auto'>
+          <Link to={`/app/cadastro/${personType}s/novo`} className='w-full sm:w-auto'>
             <Button className="bg-emerald-600 hover:bg-emerald-700 text-white w-full rounded-xl">
               <PlusCircle className="mr-2 h-4 w-4" />
-              Nova Pessoa
+              {pageVerb}
             </Button>
           </Link>
         </motion.div>
@@ -200,7 +228,7 @@ const ListaClientes = () => {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/70" />
                 <Input
                 type="search"
-                placeholder="Buscar por nome, CNPJ/CPF, município ou estado..."
+                placeholder={`Buscar por nome, CNPJ/CPF, município ou estado d${singularArticle} ${singularNoun}...`}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60 rounded-xl"
@@ -240,17 +268,17 @@ const ListaClientes = () => {
                         <TableCell data-label="Contrato" className="p-2">{getContractStatus(cliente.id)}</TableCell>
                         <TableCell className="p-2 actions-cell">
                           <div className="flex items-center gap-1">
-                            <Button variant="ghost" size="icon" title="Ver Contratos" onClick={() => navigate(`/app/contratos?clienteId=${cliente.id}`)}>
+                            <Button variant="ghost" size="icon" title="Ver Contratos" onClick={() => navigate(`/app/cadastro/contratos?clienteId=${cliente.id}`)}>
                                 <FileText className="h-4 w-4 text-cyan-400" />
                             </Button>
-                            <Link to={`/app/clientes/editar/${cliente.id}`}>
-                              <Button variant="ghost" size="icon" title="Editar Cliente">
+                            <Link to={`/app/cadastro/${personType}s/editar/${cliente.id}`}>
+                              <Button variant="ghost" size="icon" title={`Editar ${singularNoun}`}>
                                 <Edit className="h-4 w-4 text-yellow-400" />
                               </Button>
                             </Link>
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="icon" title="Excluir Cliente">
+                                <Button variant="ghost" size="icon" title={`Excluir ${singularNoun}`}>
                                   <Trash2 className="h-4 w-4 text-red-500" />
                                 </Button>
                               </AlertDialogTrigger>
@@ -258,7 +286,7 @@ const ListaClientes = () => {
                                 <AlertDialogHeader>
                                   <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
                                   <AlertDialogDescription className="text-emerald-300">
-                                    Esta ação não pode ser desfeita. Isso excluirá permanentemente o cliente. Certifique-se de que não há coletas, contratos ou certificados vinculados.
+                                    Esta ação não pode ser desfeita. Isso excluirá permanentemente {singularArticle} {singularNoun}. Certifique-se de que não há coletas, contratos ou certificados vinculados.
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
@@ -277,7 +305,7 @@ const ListaClientes = () => {
                     )) : (
                       <TableRow>
                         <TableCell colSpan={5} className="h-24 text-center text-white/70">
-                          Nenhuma pessoa encontrada.
+                          Nenhum{singularArticle === 'a' ? 'a' : ''} {singularNoun} encontrado{singularArticle === 'a' ? 'a' : ''}.
                         </TableCell>
                       </TableRow>
                     )}

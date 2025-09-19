@@ -129,7 +129,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa' }) 
       .single();
     if (error) {
       toast({ title: 'Erro ao buscar cliente', description: error.message, variant: 'destructive' });
-      if (!isModal) navigate('/app/clientes');
+      if (!isModal) navigate(`/app/cadastro/${personType}s`);
     } else if (data) {
       setFormData((prev) => ({
         ...prev,
@@ -145,7 +145,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa' }) 
       }));
     }
     setLoading(false);
-  }, [id, isEditing, navigate, toast, setFormData, isModal]);
+  }, [id, isEditing, navigate, toast, setFormData, isModal, personType]);
 
   useEffect(() => {
     fetchCliente();
@@ -215,7 +215,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa' }) 
     const { data, error } = result;
 
     if (error) {
-      let title = `Erro ao ${isEditing ? 'atualizar' : 'cadastrar'} cliente`;
+      let title = `Erro ao ${isEditing ? 'atualizar' : 'cadastrar'} ${titleLabel.toLowerCase()}`;
       let description = error.message;
 
       if (error.code === '23505') { // Unique constraint violation
@@ -228,13 +228,13 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa' }) 
       toast({ title, description, variant: 'destructive' });
       await logAction(isEditing ? 'update_client_failed' : 'create_client_failed', { error: error.message, client_name: formData.nome });
     } else {
-      toast({ title: `Cliente ${isEditing ? 'atualizado' : 'cadastrado'} com sucesso!`, description: `${formData.nome} foi salvo.` });
+      toast({ title: `${titleLabel} ${isEditing ? 'atualizado' : 'cadastrado'} com sucesso!`, description: `${formData.nome} foi salvo.` });
       await logAction(isEditing ? 'update_client_success' : 'create_client_success', { client_id: data.id, client_name: data.nome });
       clearSavedData(); // Clear auto-saved data on successful submission
       if (onSaveSuccess) {
         onSaveSuccess(data);
       } else {
-        navigate('/app/clientes');
+        navigate(`/app/cadastro/${personType}s`);
       }
     }
 
@@ -287,7 +287,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa' }) 
                     value={formData.cnpj_cpf}
                     onAccept={(value) => handleMaskedChange(String(value), 'cnpj_cpf')}
                     onBlur={handleCnpjCpfBlur}
-                    placeholder="Digite o CNPJ ou CPF"
+                    placeholder={`Digite o CNPJ ou CPF d${article} ${titleLabel.toLowerCase()}`}
                     className={`w-full flex h-10 rounded-xl border ${cnpjCpfError ? 'border-red-500' : 'border-white/20'} bg-white/5 px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50`}
                     required
                   />
@@ -308,15 +308,15 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa' }) 
                 </div>
                 <div className="md:col-span-2">
                   <Label htmlFor="nome" className="text-lg">Razão Social <span className="text-red-500">*</span></Label>
-                  <Input id="nome" name="nome" value={formData.nome} onChange={handleChange} placeholder="Razão Social" required className="bg-white/5 border-white/20 rounded-xl" />
+                  <Input id="nome" name="nome" value={formData.nome} onChange={handleChange} placeholder={`Razão Social d${article} ${titleLabel.toLowerCase()}`} required className="bg-white/5 border-white/20 rounded-xl" />
                 </div>
                 <div className="md:col-span-2">
                   <Label htmlFor="nome_fantasia" className="text-lg">Nome Fantasia</Label>
-                  <Input id="nome_fantasia" name="nome_fantasia" value={formData.nome_fantasia} onChange={handleChange} placeholder="Nome Fantasia" className="bg-white/5 border-white/20 rounded-xl" />
+                  <Input id="nome_fantasia" name="nome_fantasia" value={formData.nome_fantasia} onChange={handleChange} placeholder={`Nome Fantasia d${article} ${titleLabel.toLowerCase()}`} className="bg-white/5 border-white/20 rounded-xl" />
                 </div>
                 <div className="md:col-span-2">
                   <Label htmlFor="email" className="text-lg">Email</Label>
-                  <Input id="email" name="email" type="email" value={formData.email} onChange={handleChange} placeholder="email@exemplo.com" className="bg-white/5 border-white/20 rounded-xl" />
+                  <Input id="email" name="email" type="email" value={formData.email} onChange={handleChange} placeholder={`email d${article} ${titleLabel.toLowerCase()}`} className="bg-white/5 border-white/20 rounded-xl" />
                 </div>
                 <div>
                   <Label htmlFor="estado" className="text-lg">Estado <span className="text-red-500">*</span></Label>
@@ -341,17 +341,17 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa' }) 
                 </div>
                 <div className="md:col-span-2">
                   <Label htmlFor="endereco" className="text-lg">Endereço</Label>
-                  <Input id="endereco" name="endereco" value={formData.endereco} onChange={handleChange} placeholder="Rua, número, bairro" className="bg-white/5 border-white/20 rounded-xl" />
+                  <Input id="endereco" name="endereco" value={formData.endereco} onChange={handleChange} placeholder={`Endereço d${article} ${titleLabel.toLowerCase()}`} className="bg-white/5 border-white/20 rounded-xl" />
                 </div>
                 <div className="md:col-span-2">
                   <Label htmlFor="referencia" className="text-lg">Ponto de Referência</Label>
-                  <Input id="referencia" name="referencia" value={formData.referencia} onChange={handleChange} placeholder="Ex: Próximo à padaria" className="bg-white/5 border-white/20 rounded-xl" />
+                  <Input id="referencia" name="referencia" value={formData.referencia} onChange={handleChange} placeholder={`Ex: Próximo à padaria d${article} ${titleLabel.toLowerCase()}`} className="bg-white/5 border-white/20 rounded-xl" />
                 </div>
               </div>
 
               <div className="flex justify-between items-center pt-6">
                 {!isModal && (
-                  <Button type="button" onClick={() => navigate('/app/clientes')} variant="outline" className="rounded-xl">
+                  <Button type="button" onClick={() => navigate(`/app/cadastro/${personType}s`)} variant="outline" className="rounded-xl">
                     <ArrowLeft className="w-5 h-5 mr-2" />
                     Voltar
                   </Button>

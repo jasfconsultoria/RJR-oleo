@@ -88,8 +88,9 @@ const AppLayout = ({ children }) => {
       label: 'Cadastro', 
       icon: ClipboardList, // Using ClipboardList for Cadastro
       subItems: [
-        { to: '/app/clientes', label: 'Cliente/Fornecedor', icon: Users }, // Renamed and moved
-        { to: '/app/contratos', label: 'Contratos', icon: FileSignature }, // Moved
+        { to: '/app/cadastro/clientes', label: 'Clientes', icon: Users },
+        { to: '/app/cadastro/fornecedores', label: 'Fornecedores', icon: Users },
+        { to: '/app/cadastro/contratos', label: 'Contratos', icon: FileSignature },
       ]
     },
     { 
@@ -250,8 +251,7 @@ const AppLayout = ({ children }) => {
                 exit="closed"
                 className="fixed top-0 left-0 h-full w-64 bg-emerald-900 border-r border-white/10 z-50 md:hidden"
               >
-                <div className="flex h-full max-h-screen flex-col gap-2">
-                   <div className="flex h-14 items-center justify-between border-b border-white/10 px-4 lg:h-[60px] lg:px-6">
+                <div className="flex h-14 items-center justify-between border-b border-white/10 px-4 lg:h-[60px] lg:px-6">
                      <Link to="/" className="flex items-center gap-1 font-semibold text-white">
                         <span className="text-white font-bold text-xl">RJR</span>
                         <span className="text-yellow-400 font-bold text-xl">ÓLEO</span>

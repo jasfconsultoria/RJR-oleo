@@ -202,7 +202,7 @@ const ListaContratos = () => {
             </h1>
             <p className="text-emerald-200/80 mt-1">Gerencie os contratos de prestação de serviços.</p>
           </div>
-          <Button onClick={() => navigate('/app/contratos/novo')} className="bg-emerald-600 hover:bg-emerald-700 text-white w-full sm:w-auto rounded-xl">
+          <Button onClick={() => navigate('/app/cadastro/contratos/novo')} className="bg-emerald-600 hover:bg-emerald-700 text-white w-full sm:w-auto rounded-xl">
             <PlusCircle className="mr-2 h-4 w-4" /> Novo Contrato
           </Button>
         </motion.div>
@@ -272,7 +272,7 @@ const ListaContratos = () => {
                            <div className="flex justify-end items-center gap-1">
                             <Button variant="ghost" size="icon" onClick={() => handleOpenPdf(contrato)} title="Abrir Contrato"><FileText className="h-4 w-4 text-blue-400" /></Button>
                             <Button variant="ghost" size="icon" onClick={() => handleShare(contrato)} title="Compartilhar"><Share2 className="h-4 w-4 text-green-400" /></Button>
-                            <Button variant="ghost" size="icon" className="text-yellow-400 hover:text-yellow-300 rounded-xl" onClick={() => navigate(`/app/contratos/editar/${contrato.id}`)} title="Editar"><Edit className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" className="text-yellow-400 hover:text-yellow-300 rounded-xl" onClick={() => navigate(`/app/cadastro/contratos/editar/${contrato.id}`)} title="Editar"><Edit className="h-4 w-4" /></Button>
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
                                 <Button variant="ghost" size="icon" className="text-red-400 hover:text-red-300 rounded-xl" title="Excluir"><Trash2 className="h-4 w-4" /></Button>
