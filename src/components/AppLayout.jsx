@@ -275,7 +275,7 @@ const AppLayout = ({ children }) => {
                       </div>
                     )}
                   </div>
-                </div>
+                {/* Removed the extra closing div tag here */}
               </motion.div>
             </>
           )}
