@@ -125,14 +125,14 @@ const ListaContratos = () => {
   };
 
   const handleOpenPdf = (contrato) => {
-    if (contrato.status === 'Ativo') {
+    if (contrato.status === 'Aguardando Assinatura') {
+        navigate(`/assinatura/${contrato.id}`);
+    } else if (contrato.status === 'Ativo') {
         navigate(`/contrato-assinado/${contrato.id}`);
-    } else if (contrato.pdf_url) {
-        window.open(contrato.pdf_url, '_blank');
     } else {
         toast({
-            title: 'PDF não disponível',
-            description: 'Edite e salve o contrato para gerar o PDF.',
+            title: 'Ação não disponível',
+            description: `Não é possível abrir o contrato com status "${contrato.status}".`,
             variant: 'destructive'
         });
     }
@@ -237,7 +237,7 @@ const ListaContratos = () => {
           <div className="overflow-x-auto rounded-xl">
             {loading ? (
               <div className="flex justify-center items-center h-64">
-                <Loader2 className="h-8 w-8 text-emerald-400 animate-spin" />
+                <Loader2 className="h-8 w-8 animate-spin text-emerald-400" />
               </div>
             ) : (
               <Table className="responsive-table">
@@ -270,7 +270,7 @@ const ListaContratos = () => {
                         </TableCell>
                         <TableCell className="text-right actions-cell">
                            <div className="flex justify-end items-center gap-1">
-                            <Button variant="ghost" size="icon" onClick={() => handleOpenPdf(contrato)} title="Abrir PDF"><FileText className="h-4 w-4 text-blue-400" /></Button>
+                            <Button variant="ghost" size="icon" onClick={() => handleOpenPdf(contrato)} title="Abrir Contrato"><FileText className="h-4 w-4 text-blue-400" /></Button>
                             <Button variant="ghost" size="icon" onClick={() => handleShare(contrato)} title="Compartilhar"><Share2 className="h-4 w-4 text-green-400" /></Button>
                             <Button variant="ghost" size="icon" className="text-yellow-400 hover:text-yellow-300 rounded-xl" onClick={() => navigate(`/app/contratos/editar/${contrato.id}`)} title="Editar"><Edit className="h-4 w-4" /></Button>
                             <AlertDialog>

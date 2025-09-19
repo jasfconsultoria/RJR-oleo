@@ -185,9 +185,18 @@ const ContratoForm = () => {
                 title: 'Sucesso!',
                 description: `Contrato ${isEditing ? 'atualizado' : 'salvo'} com sucesso.`,
                 variant: 'success',
+                duration: 10000,
                 action: (
-                    <ToastAction altText="Abrir PDF" onClick={() => window.open(urlData.publicUrl, '_blank')}>
-                        Abrir PDF
+                    <ToastAction altText="Abrir Contrato" onClick={() => {
+                        if (savedContract.status === 'Aguardando Assinatura') {
+                            navigate(`/assinatura/${savedContract.id}`);
+                        } else if (savedContract.status === 'Ativo') {
+                            navigate(`/contrato-assinado/${savedContract.id}`);
+                        } else {
+                            toast({ title: 'Ação não disponível', description: `Não é possível abrir o contrato com status "${savedContract.status}".`, variant: 'destructive' });
+                        }
+                    }}>
+                        Abrir Contrato
                     </ToastAction>
                 ),
             });
