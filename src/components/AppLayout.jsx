@@ -28,6 +28,7 @@ import {
   Tag, // New icon for Centros de Custo
   TrendingUp, // New icon for Crédito
   TrendingDown, // New icon for Débito
+  ClipboardList, // Icon for Cadastro
 } from 'lucide-react';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useProfile } from '@/contexts/ProfileContext';
@@ -82,7 +83,14 @@ const AppLayout = ({ children }) => {
 
   const navItems = [
     { to: '/app/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    { to: '/app/clientes', icon: Users, label: 'Pessoas' },
+    { 
+      label: 'Cadastro', 
+      icon: ClipboardList, // Using ClipboardList for Cadastro
+      subItems: [
+        { to: '/app/clientes', label: 'Cliente/Fornecedor', icon: Users }, // Renamed and moved
+        { to: '/app/contratos', label: 'Contratos', icon: FileSignature }, // Moved
+      ]
+    },
     { 
       label: 'Financeiro', 
       icon: DollarSign, 
@@ -110,7 +118,7 @@ const AppLayout = ({ children }) => {
       icon: Warehouse, 
       adminOnly: true,
       subItems: [
-        { to: '/app/estoque/produtos', label: 'Produtos', icon: Package }, // New sub-item
+        { to: '/app/estoque/produtos', label: 'Produtos', icon: Package },
         { to: '/app/estoque/entradas', label: 'Entradas', icon: ArrowDownSquare },
         { to: '/app/estoque/saidas', label: 'Saídas', icon: ArrowUpSquare },
         { to: '/app/estoque/movimentacoes', label: 'Movimentações', icon: ListChecks },
