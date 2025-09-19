@@ -125,7 +125,9 @@ const ListaContratos = () => {
   };
 
   const handleOpenPdf = (contrato) => {
-    if (contrato.pdf_url) {
+    if (contrato.status === 'Ativo') {
+        navigate(`/contrato-assinado/${contrato.id}`);
+    } else if (contrato.pdf_url) {
         window.open(contrato.pdf_url, '_blank');
     } else {
         toast({
