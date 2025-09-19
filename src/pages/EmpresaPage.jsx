@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { Helmet } from 'react-helmet';
 import { supabase } from '@/lib/customSupabaseClient';
@@ -7,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription } from '@/components/ui/card';
-import { Building, Upload, Save, Loader2, Clock, ListChecks } from 'lucide-react';
+import { Building, Upload, Save, Loader2, Clock, ListChecks, Signature } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { brazilianLocations } from '@/lib/brazilian-locations';
@@ -47,10 +46,12 @@ const EmpresaPage = () => {
     items_per_page: 25,
     estado: '',
     municipio: '',
+    assinatura_responsavel_url: '', // Novo campo
+    nome_responsavel_assinatura: '', // Novo campo
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState({ sistema: false, documento: false });
+  const [uploading, setUploading] = useState({ sistema: false, documento: false, assinatura: false }); // Adicionado 'assinatura'
   const { toast } = useToast();
   const [municipios, setMunicipios] = useState([]);
 
@@ -72,6 +73,8 @@ const EmpresaPage = () => {
         items_per_page: data.items_per_page || 25,
         estado: data.estado || '',
         municipio: data.municipio || '',
+        assinatura_responsavel_url: data.assinatura_responsavel_url || '', // Carregar novo campo
+        nome_responsavel_assinatura: data.nome_responsavel_assinatura || '', // Carregar novo campo
       });
       if (data.estado) {
         setMunicipios(brazilianLocations.municipios[data.estado] || []);
@@ -97,19 +100,19 @@ const EmpresaPage = () => {
     }
   };
 
-  const handleLogoUpload = async (event, logoType) => {
+  const handleLogoUpload = async (event, fileType) => { // Renomeado logoType para fileType
     const file = event.target.files[0];
     if (!file) return;
 
-    setUploading(prev => ({ ...prev, [logoType]: true }));
-    const fileName = `${logoType}_${Date.now()}_${file.name}`;
+    setUploading(prev => ({ ...prev, [fileType]: true })); // Usar fileType
+    const fileName = `${fileType}_${Date.now()}_${file.name}`;
     const filePath = `${fileName}`;
 
     const { error: uploadError } = await supabase.storage.from('logos').upload(filePath, file, { upsert: true });
 
     if (uploadError) {
-      toast({ title: 'Erro no upload da logo', description: uploadError.message, variant: 'destructive' });
-      setUploading(prev => ({ ...prev, [logoType]: false }));
+      toast({ title: `Erro no upload da ${fileType}`, description: uploadError.message, variant: 'destructive' });
+      setUploading(prev => ({ ...prev, [fileType]: false }));
       return;
     }
 
@@ -117,14 +120,14 @@ const EmpresaPage = () => {
 
     if (!publicUrlData) {
         toast({ title: 'Erro ao obter URL pública', variant: 'destructive' });
-        setUploading(prev => ({ ...prev, [logoType]: false }));
+        setUploading(prev => ({ ...prev, [fileType]: false }));
         return;
     }
     
-    const urlKey = logoType === 'sistema' ? 'logo_sistema_url' : 'logo_documento_url';
+    const urlKey = fileType === 'sistema' ? 'logo_sistema_url' : (fileType === 'documento' ? 'logo_documento_url' : 'assinatura_responsavel_url'); // Lógica para o novo campo
     setFormData((prev) => ({ ...prev, [urlKey]: publicUrlData.publicUrl }));
-    setUploading(prev => ({ ...prev, [logoType]: false }));
-    toast({ title: `Logo (${logoType}) enviada com sucesso!` });
+    setUploading(prev => ({ ...prev, [fileType]: false }));
+    toast({ title: `${fileType === 'assinatura' ? 'Assinatura' : 'Logo'} (${fileType}) enviada com sucesso!` });
   };
   
   const handleSubmit = async (e) => {
@@ -287,11 +290,45 @@ const EmpresaPage = () => {
                   <div className="flex items-center gap-4">
                     <Button type="button" asChild variant="outline" className="border-emerald-500 text-emerald-300 hover:bg-emerald-800 hover:text-emerald-200">
                       <label htmlFor="logo-documento-upload" className="cursor-pointer flex items-center">
-                        {uploading.documento ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+                        {uploading.documento ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Enviando...'}
                         {uploading.documento ? 'Enviando...' : 'Trocar Logo'}
                       </label>
                     </Button>
                     <input type="file" id="logo-documento-upload" accept="image/*" className="hidden" onChange={(e) => handleLogoUpload(e, 'documento')} disabled={uploading.documento} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Nova seção para Assinatura do Responsável */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-6 border-t border-white/20">
+                <div className="space-y-4 md:col-span-2">
+                  <CardTitle className="text-lg flex items-center gap-2"><Signature className="w-5 h-5" /> Assinatura do Responsável</CardTitle>
+                  <CardDescription>Assinatura e nome do responsável que aparecerão em documentos como contratos e certificados.</CardDescription>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="nome_responsavel_assinatura">Nome do Responsável</Label>
+                    <Input 
+                      id="nome_responsavel_assinatura" 
+                      value={formData.nome_responsavel_assinatura || ''} 
+                      onChange={handleChange} 
+                      className="bg-white/20 border-white/30" 
+                      placeholder="Ex: Ronaldo Medeiros Alves"
+                    />
+                  </div>
+
+                  {formData.assinatura_responsavel_url && (
+                      <div className="my-4 p-2 bg-white/10 rounded-md flex justify-center">
+                          <img src={formData.assinatura_responsavel_url} alt="Assinatura do Responsável" className="h-24 w-auto rounded object-contain" />
+                      </div>
+                    )}
+                  <div className="flex items-center gap-4">
+                    <Button type="button" asChild variant="outline" className="border-emerald-500 text-emerald-300 hover:bg-emerald-800 hover:text-emerald-200">
+                      <label htmlFor="assinatura-upload" className="cursor-pointer flex items-center">
+                        {uploading.assinatura ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+                        {uploading.assinatura ? 'Enviando...' : 'Trocar Assinatura'}
+                      </label>
+                    </Button>
+                    <input type="file" id="assinatura-upload" accept="image/*" className="hidden" onChange={(e) => handleLogoUpload(e, 'assinatura')} disabled={uploading.assinatura} />
                   </div>
                 </div>
               </div>
