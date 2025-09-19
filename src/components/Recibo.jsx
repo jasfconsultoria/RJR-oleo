@@ -23,8 +23,9 @@ export const Recibo = React.forwardRef(({ data, signature, empresa }, ref) => {
     
     // Usa encadeamento opcional e fornece valores de fallback para os dados do cliente
     const clientName = data.pessoa?.nome || data.cliente_nome || 'Cliente não informado';
-    const clientCnpjCpf = data.pessoa?.cnpj_cpf || data.cliente_cnpj_cpf;
-    const clientAddress = data.pessoa?.endereco || data.cliente_endereco || 'Endereço não informado';
+    // Prioriza data.cnpj_cpf e data.endereco que são adicionados no objeto de coleta no ColetaForm
+    const clientCnpjCpf = data.pessoa?.cnpj_cpf || data.cnpj_cpf || data.cliente_cnpj_cpf;
+    const clientAddress = data.pessoa?.endereco || data.endereco || data.cliente_endereco || 'Endereço não informado';
 
     return (
         <div ref={ref} className="bg-white text-gray-800 p-6 rounded-lg shadow-lg font-sans text-sm max-w-md mx-auto border border-gray-200">
@@ -61,7 +62,7 @@ export const Recibo = React.forwardRef(({ data, signature, empresa }, ref) => {
                     </div>
                     <div>
                         <p className="text-gray-500">DATA/HORA DA COLETA</p>
-                        <p className="font-semibold">{formatDateTime(data.data_lancamento || data.data_coleta)}</p>
+                        <p className="font-semibold">{formatDateTime(data.data_coleta)}</p>
                     </div>
                     <div className="col-span-2">
                         <p className="text-gray-500">ENDEREÇO</p>
