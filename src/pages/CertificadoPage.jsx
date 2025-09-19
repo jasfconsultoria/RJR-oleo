@@ -36,7 +36,7 @@ const initialFormState = {
 
 const CertificadoPage = () => {
   const { id } = useParams();
-  const isEditMode = !!id;
+  isEditMode = !!id;
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -47,10 +47,9 @@ const CertificadoPage = () => {
 
   const pdfContainerRef = useRef(null);
   const [pdfData, setPdfData] = useState(null);
+  const [empresa, setEmpresa] = useState(null); // Adicionado estado para dados da empresa
 
-  const [localFormData, setLocalFormData] = useState(initialFormState);
-
-  const [savedData, setSavedData, clearSavedData] = useAutoSave(
+  const [localFormData, setLocalFormData, clearSavedData] = useAutoSave(
     'certificado-form-data',
     initialFormState,
     !isEditMode 
@@ -92,13 +91,19 @@ const CertificadoPage = () => {
     const fetchInitialData = async () => {
       setLoading(true);
       try {
-        const { data: clientData, error: clientError } = await supabase
-          .from('clientes')
-          .select('id, nome, cnpj_cpf, municipio, estado, endereco')
-          .order('nome', { ascending: true });
+        const [clientDataRes, empresaDataRes] = await Promise.all([ // Buscar dados da empresa
+          supabase
+            .from('clientes')
+            .select('id, nome, cnpj_cpf, municipio, estado, endereco')
+            .order('nome', { ascending: true }),
+          supabase.from('empresa').select('*').single(), // Buscar dados da empresa
+        ]);
 
-        if (clientError) throw clientError;
-        setClients(clientData || []);
+        if (clientDataRes.error) throw clientDataRes.error;
+        setClients(clientDataRes.data || []);
+
+        if (empresaDataRes.error) throw empresaDataRes.error; // Lidar com erro da empresa
+        setEmpresa(empresaDataRes.data); // Salvar dados da empresa
 
         if (isEditMode) {
           const { data: certData, error: certError } = await supabase
@@ -215,6 +220,7 @@ const CertificadoPage = () => {
       const imgHeight = canvas.height * ratio;
       const x = (pdfWidth - imgWidth) / 2;
       const y = (pdfHeight - imgHeight) / 2;
+
       pdf.addImage(imgData, 'PNG', x, y, imgWidth, imgHeight);
 
       const pdfBlob = pdf.output('blob');
@@ -394,7 +400,7 @@ const CertificadoPage = () => {
         </div>
       </motion.div>
       <div ref={pdfContainerRef} style={{ position: 'absolute', left: '-9999px', top: 0, zIndex: -1 }}>
-        {pdfData && <CertificadoPDF data={pdfData} />}
+        {pdfData && empresa && <CertificadoPDF data={pdfData} empresa={empresa} />}
       </div>
     </>
   );

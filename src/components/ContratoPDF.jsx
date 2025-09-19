@@ -212,33 +212,26 @@ const ContratoPDF = React.forwardRef(({ contrato, empresa, showSignature }, ref)
           {empresa?.municipio || 'Cidade'}, {formatarDataExtenso(new Date())}.
         </p>
 
-        {showSignature && contrato.assinatura_url ? (
-          <div className="flex justify-around mt-10">
-            <div className="w-2/5 text-center">
+        <div className="flex justify-around mt-10">
+          <div className="w-2/5 text-center">
+            {empresa?.assinatura_responsavel_url ? (
+              <img src={empresa.assinatura_responsavel_url} alt="Assinatura da Contratada" className="h-20 border-b-2 border-black mx-auto" crossOrigin="anonymous" />
+            ) : (
               <div className="border-b-2 border-black pb-1 mb-1"></div>
-              <p className="font-bold mt-1 text-xs">{empresa?.nome_fantasia || 'CONTRATADA'}</p>
-              <p className="text-xs">CONTRATADA</p>
-            </div>
-            <div className="w-2/5 text-center">
-              <img src={contrato.assinatura_url} alt="Assinatura do Cliente" className="h-20 border-b-2 border-black mx-auto" />
-              <p className="font-bold mt-1 text-xs">{cliente.nome}</p>
-              <p className="text-xs">CONTRATANTE</p>
-            </div>
+            )}
+            <p className="font-bold mt-1 text-xs">{empresa?.nome_responsavel_assinatura || empresa?.nome_fantasia || 'CONTRATADA'}</p>
+            <p className="text-xs">CONTRATADA</p>
           </div>
-        ) : (
-          <div className="flex justify-around mt-10">
-            <div className="w-2/5 text-center">
+          <div className="w-2/5 text-center">
+            {showSignature && contrato.assinatura_url ? (
+              <img src={contrato.assinatura_url} alt="Assinatura do Cliente" className="h-20 border-b-2 border-black mx-auto" crossOrigin="anonymous" />
+            ) : (
               <div className="border-b-2 border-black pb-1 mb-1"></div>
-              <p className="font-bold text-xs">{empresa?.nome_fantasia || '_____________________'}</p>
-              <p className="text-xs">CONTRATADA</p>
-            </div>
-            <div className="w-2/5 text-center">
-              <div className="border-b-2 border-black pb-1 mb-1"></div>
-              <p className="font-bold text-xs">{cliente.nome}</p>
-              <p className="text-xs">CONTRATANTE</p>
-            </div>
+            )}
+            <p className="font-bold mt-1 text-xs">{cliente.nome}</p>
+            <p className="text-xs">CONTRATANTE</p>
           </div>
-        )}
+        </div>
       </div>
 
       <style jsx>{`

@@ -81,10 +81,13 @@ const CertificadoPDF = ({ data }) => {
           </div>
 
           <div className="w-1/3 text-center">
-            <div className="inline-block">
-              <p className="border-t-2 border-gray-400 pt-2 px-12 font-bold" style={{ letterSpacing: '0.025em' }}>{empresa?.nome_fantasia}</p>
-              <p className="text-sm">Assinatura do Responsável</p>
-            </div>
+            {empresa?.assinatura_responsavel_url ? (
+              <img src={empresa.assinatura_responsavel_url} alt="Assinatura do Responsável" className="h-20 border-b-2 border-gray-400 mx-auto" crossOrigin="anonymous" />
+            ) : (
+              <div className="border-t-2 border-gray-400 pt-2 px-12 font-bold" style={{ letterSpacing: '0.025em' }}></div>
+            )}
+            <p className="font-bold mt-1 text-xs">{empresa?.nome_responsavel_assinatura || empresa?.nome_fantasia}</p>
+            <p className="text-sm">Assinatura do Responsável</p>
           </div>
 
           <div className="w-1/3"></div>
