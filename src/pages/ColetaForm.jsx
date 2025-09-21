@@ -36,26 +36,38 @@ const ColetaForm = () => {
 
   const autoSaveKey = id ? `autoSave_coletaForm_${id}` : 'autoSave_coletaForm_new';
 
-  const [coletaData, setColetaData, clearSavedData] = useAutoSave(autoSaveKey, {
-    cliente: '',
-    cliente_id: null,
-    cnpj_cpf: '',
-    endereco: '',
-    email: '',
-    municipio: '',
-    estado: '',
-    telefone: '',
-    data_coleta: format(new Date(), 'yyyy-MM-dd'),
-    hora_coleta: formatInTimeZone(new Date(), empresaTimezone, 'HH:mm'), // Default hora baseada no fuso da empresa
-    fator: '6',
-    tipo_coleta: 'Troca',
-    quantidade_coletada: '',
-    quantidade_entregue: 0,
-    valor_compra: '1,20',
-    total_pago: 0,
-    data_lancamento: null,
-    user_id: user?.id,
-  });
+  // Define initial state for new forms, considering the company timezone
+  const getInitialColetaData = useCallback((currentEmpresaTimezone) => {
+    const nowInEmpresaTimezone = utcToZonedTime(new Date(), currentEmpresaTimezone);
+    return {
+      cliente: '',
+      cliente_id: null,
+      cnpj_cpf: '',
+      endereco: '',
+      email: '',
+      municipio: '',
+      estado: '',
+      telefone: '',
+      data_coleta: format(nowInEmpresaTimezone, 'yyyy-MM-dd'),
+      hora_coleta: format(nowInEmpresaTimezone, 'HH:mm'),
+      fator: '6',
+      tipo_coleta: 'Troca',
+      quantidade_coletada: '',
+      quantidade_entregue: 0,
+      valor_compra: '1,20',
+      total_pago: 0,
+      data_lancamento: null,
+      user_id: user?.id,
+    };
+  }, [user]);
+
+  const [coletaData, setColetaData, clearSavedData] = useAutoSave(
+    autoSaveKey,
+    // Use a função para fornecer o estado inicial, garantindo que o fuso horário seja considerado
+    // mesmo na primeira renderização, antes do useEffect de empresaTimezone ser executado.
+    isEditing ? {} : getInitialColetaData('America/Sao_Paulo'), // Default para a primeira renderização
+    !isEditing
+  );
 
   useEffect(() => {
     if (user?.id && coletaData.user_id !== user.id) {
@@ -64,11 +76,25 @@ const ColetaForm = () => {
   }, [user, coletaData.user_id, setColetaData]);
 
   useEffect(() => {
-    // Update default hora_coleta if timezone changes and it's a new form
-    if (!isEditing && empresaTimezone && coletaData.hora_coleta === formatInTimeZone(new Date(), 'America/Sao_Paulo', 'HH:mm')) {
-      setColetaData(prev => ({ ...prev, hora_coleta: formatInTimeZone(new Date(), empresaTimezone, 'HH:mm') }));
+    // Este useEffect garante que, se o empresaTimezone for carregado assincronamente,
+    // ou se for um novo formulário, a data e a hora sejam definidas corretamente
+    // para o fuso horário da empresa.
+    if (empresaTimezone && !isEditing) {
+      const nowInEmpresaTimezone = utcToZonedTime(new Date(), empresaTimezone);
+      const currentFormattedDate = format(nowInEmpresaTimezone, 'yyyy-MM-dd');
+      const currentFormattedTime = format(nowInEmpresaTimezone, 'HH:mm');
+
+      // Atualiza apenas se os valores atuais não corresponderem ao tempo atual da empresa
+      // ou se os campos de data/hora não estiverem definidos (indicando um formulário novo sem auto-save)
+      if (coletaData.data_coleta !== currentFormattedDate || coletaData.hora_coleta !== currentFormattedTime) {
+        setColetaData(prev => ({
+          ...prev,
+          data_coleta: currentFormattedDate,
+          hora_coleta: currentFormattedTime
+        }));
+      }
     }
-  }, [empresaTimezone, isEditing, coletaData.hora_coleta, setColetaData]);
+  }, [empresaTimezone, isEditing, setColetaData, coletaData.data_coleta, coletaData.hora_coleta]);
 
 
   useEffect(() => {
