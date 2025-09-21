@@ -4,13 +4,24 @@ import { ptBR } from 'date-fns/locale';
 import { formatCurrency, parseCurrency, formatCnpjCpf } from '@/lib/utils';
 import { formatInTimeZone, utcToZonedTime } from 'date-fns-tz'; // Importar formatInTimeZone e utcToZonedTime
 
-// Agora espera um objeto Date para dateObject
-const formatDateTime = (dateObject, timeString, timezone) => {
-    if (!dateObject || !timeString || !(dateObject instanceof Date)) return 'N/A';
-    console.log('Recibo.jsx - formatDateTime inputs:', { dateObject, timeString, timezone }); // Adicionado para depuração
+// Esta função agora pode receber um objeto Date OU uma string ISO UTC
+const formatDateTime = (dateInput, timeString, timezone) => {
+    if (!dateInput || !timeString) return 'N/A';
+    console.log('Recibo.jsx - formatDateTime inputs:', { dateInput, timeString, timezone }); // Adicionado para depuração
     try {
-        // dateObject já está no fuso horário da empresa (definido em ColetaForm)
-        const formattedDate = format(dateObject, 'dd/MM/yyyy', { locale: ptBR });
+        let dateObject;
+        if (dateInput instanceof Date) {
+            dateObject = dateInput;
+        } else if (typeof dateInput === 'string') {
+            // Se for uma string, assume que é ISO UTC do DB e converte para Date
+            dateObject = new Date(dateInput);
+        } else {
+            return 'Data inválida';
+        }
+
+        // Converte a data para o fuso horário da empresa para obter a data correta
+        const zonedDate = utcToZonedTime(dateObject, timezone);
+        const formattedDate = format(zonedDate, 'dd/MM/yyyy', { locale: ptBR });
         // Usa a string de hora diretamente do campo hora_coleta
         return `${formattedDate} às ${timeString}`;
     } catch (error) {
