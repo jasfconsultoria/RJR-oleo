@@ -16,7 +16,7 @@ const formatDateTime = (dateString, timezone) => {
     }
 };
 
-export const Recibo = React.forwardRef(({ data, signature, empresa, timezone }, ref) => { // Adicionar timezone como prop
+export const Recibo = React.forwardRef(({ data, signature, empresa, timezone, collectorName }, ref) => { // Adicionar timezone e collectorName como prop
     if (!data) return null; // Mantém esta verificação para o objeto de dados principal
 
     const isCompra = data.tipo_coleta === 'Compra';
@@ -130,6 +130,13 @@ export const Recibo = React.forwardRef(({ data, signature, empresa, timezone }, 
                         <div className="border-b-2 border-gray-400 w-4/5"></div>
                     )}
                 </div>
+                {collectorName && (
+                    <div className="mt-6">
+                        <p className="text-gray-500 mb-2">Coletor</p>
+                        <div className="border-b-2 border-gray-400 w-4/5 mx-auto pb-1 mb-1"></div>
+                        <p className="font-bold mt-1 text-xs">{collectorName}</p>
+                    </div>
+                )}
             </footer>
         </div>
     );

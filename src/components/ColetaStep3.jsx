@@ -12,7 +12,7 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { ReciboViewDialog } from '@/components/coletas/ReciboViewDialog';
 import { formatInTimeZone, utcToZonedTime } from 'date-fns-tz'; // Importar formatInTimeZone e utcToZonedTime
 
-export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData, empresaTimezone }) {
+export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData, empresaTimezone, collectorName }) {
   const [resultadoFinal, setResultadoFinal] = useState('0,00');
   const [showReciboDialog, setShowReciboDialog] = useState(false);
   const [savedColeta, setSavedColeta] = useState(null);
@@ -121,6 +121,7 @@ export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData, em
           isOpen={showReciboDialog}
           onClose={finishProcess}
           empresaTimezone={empresaTimezone} // Passar o fuso horário
+          collectorName={collectorName} // Passar o nome do coletor
         />
       )}
     

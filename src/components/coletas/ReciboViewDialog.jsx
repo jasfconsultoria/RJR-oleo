@@ -10,7 +10,7 @@ import SignatureCanvas from 'react-signature-canvas';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Label } from '@/components/ui/label';
 
-export const ReciboViewDialog = ({ coleta, empresa, isOpen, onClose }) => {
+export const ReciboViewDialog = ({ coleta, empresa, isOpen, onClose, empresaTimezone, collectorName }) => {
   const { toast } = useToast();
   const reciboRef = useRef();
   const sigCanvas = useRef({});
@@ -121,7 +121,7 @@ export const ReciboViewDialog = ({ coleta, empresa, isOpen, onClose }) => {
           <DialogTitle>Visualizar Recibo - {coleta.numero_coleta}</DialogTitle>
         </DialogHeader>
         <div className="flex-grow overflow-y-auto p-4 bg-white rounded-md">
-          <Recibo ref={reciboRef} data={coleta} empresa={empresa} signature={coleta.assinatura_url} timezone={empresa?.timezone || 'America/Sao_Paulo'} />
+          <Recibo ref={reciboRef} data={coleta} empresa={empresa} signature={coleta.assinatura_url} timezone={empresaTimezone} collectorName={collectorName} />
           {!isSigned && (
             <div className="mt-6 p-4 border-t-2 border-dashed">
               <Label htmlFor="signature-canvas-modal" className="text-lg font-semibold mb-2 block text-gray-800">Assinatura:</Label>

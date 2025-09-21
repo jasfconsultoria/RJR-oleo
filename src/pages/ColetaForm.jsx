@@ -84,10 +84,11 @@ const ColetaForm = () => {
           toast({ title: "Erro", description: "Coleta não encontrada.", variant: "destructive" });
           navigate('/app/coletas');
         } else {
-          // Separar data e hora ao carregar para edição
-          const fullDate = new Date(data.data_coleta);
-          const formattedDate = format(fullDate, 'yyyy-MM-dd');
-          const formattedTime = format(fullDate, 'HH:mm');
+          // Separar data e hora ao carregar para edição, convertendo para o fuso horário da empresa
+          const fullDateUTC = new Date(data.data_coleta); // Data do DB é UTC
+          const zonedDate = utcToZonedTime(fullDateUTC, empresaTimezone); // Converte para o fuso da empresa
+          const formattedDate = format(zonedDate, 'yyyy-MM-dd');
+          const formattedTime = format(zonedDate, 'HH:mm');
 
           setColetaData((prev) => ({
             ...prev,
@@ -110,7 +111,7 @@ const ColetaForm = () => {
       }
     };
     fetchColeta();
-  }, [id, isEditing, navigate, setColetaData, toast]);
+  }, [id, isEditing, navigate, setColetaData, toast, empresaTimezone]); // Adicionado empresaTimezone como dependência
 
   const nextStep = () => {
     setCurrentStep(prev => prev < 3 ? prev + 1 : prev);
@@ -276,6 +277,7 @@ const ColetaForm = () => {
               onNext={nextStep}
               onBack={prevStep}
               onUpdate={updateColetaData}
+              empresaTimezone={empresaTimezone} // Passar o fuso horário
             />
           )}
           {currentStep === 3 && (
@@ -287,6 +289,7 @@ const ColetaForm = () => {
               onUpdate={updateColetaData}
               clearSavedData={clearSavedData}
               empresaTimezone={empresaTimezone} // Passar o fuso horário
+              collectorName={profile?.full_name || user?.email} // Passar o nome do coletor
             />
           )}
         </AnimatePresence>
