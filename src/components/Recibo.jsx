@@ -4,20 +4,26 @@ import { ptBR } from 'date-fns/locale';
 import { formatCurrency, parseCurrency, formatCnpjCpf } from '@/lib/utils';
 import { formatInTimeZone, zonedTimeToUtc } from 'date-fns-tz'; // Importar formatInTimeZone e utcToZonedTime
 
-const formatDateTime = (dateString, timeString, timezone) => {
-    if (!dateString || !timeString) return 'N/A';
-    console.log('Recibo.jsx - formatDateTime inputs:', { dateString, timeString, timezone }); // Adicionado para depuração
+const formatDateTime = (dateStringFromDB, timeStringFromForm, timezone) => {
+    if (!dateStringFromDB || !timeStringFromForm) return 'N/A';
+    console.log('Recibo.jsx - formatDateTime inputs:', { dateStringFromDB, timeStringFromForm, timezone }); // Adicionado para depuração
     try {
-        // Combina as strings de data e hora para criar um objeto Date no fuso horário da empresa
-        const [year, month, day] = dateString.split('-').map(Number);
-        const [hour, minute] = timeString.split(':').map(Number);
-        
-        // Cria um objeto Date que representa a hora no fuso horário da empresa
-        // new Date(year, month - 1, day, hour, minute) cria uma data no fuso horário local do navegador.
-        // zonedTimeToUtc interpreta essa data local como se estivesse no 'timezone' fornecido e a converte para UTC.
-        const dateInUTC = zonedTimeToUtc(new Date(year, month - 1, day, hour, minute), timezone);
+        // Extrai a parte da data (yyyy-MM-dd) da string ISO do banco de dados
+        const datePart = dateStringFromDB.split('T')[0]; // Ex: "2025-09-21"
 
-        return formatInTimeZone(dateInUTC, timezone, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
+        // Combina a parte da data com a string de hora do formulário
+        const combinedDateTimeString = `${datePart}T${timeStringFromForm}:00`; // Ex: "2025-09-21T11:51:00"
+
+        // Cria um objeto Date a partir desta string combinada.
+        // Este objeto Date será interpretado no fuso horário local do ambiente.
+        const localDate = new Date(combinedDateTimeString);
+
+        // Agora, interpreta esta data 'local' como se estivesse no 'timezone' fornecido,
+        // e a converte para seu equivalente UTC.
+        const utcEquivalentInCompanyTimezone = zonedTimeToUtc(localDate, timezone);
+
+        // Finalmente, formata esta data UTC para exibi-la no fuso horário da empresa.
+        return formatInTimeZone(utcEquivalentInCompanyTimezone, timezone, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
     } catch (error) {
         console.error("Erro ao formatar data/hora no recibo:", error);
         return 'Data inválida';
