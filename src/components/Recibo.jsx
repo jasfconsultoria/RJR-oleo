@@ -25,9 +25,8 @@ const formatDateTime = (dateInput, timeString, timezone) => {
             return 'Data inválida';
         }
 
-        // Converte a data para o fuso horário da empresa para obter a data correta
-        const zonedDate = utcToZonedTime(dateObject, timezone);
-        const formattedDate = format(zonedDate, 'dd/MM/yyyy', { locale: ptBR });
+        // dateObject já está no fuso horário da empresa (definido em ColetaForm)
+        const formattedDate = format(dateObject, 'dd/MM/yyyy', { locale: ptBR });
         // Usa a string de hora diretamente do campo hora_coleta
         return `${formattedDate} às ${timeString}`;
     } catch (error) {
