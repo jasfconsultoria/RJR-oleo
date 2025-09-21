@@ -3,7 +3,7 @@ import { Helmet } from 'react-helmet';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ColetaStep1 } from '@/components/ColetaStep1';
-import { ColetaStep2 } => '@/components/ColetaStep2';
+import { ColetaStep2 } from '@/components/ColetaStep2';
 import { ColetaStep3 } from '@/components/ColetaStep3';
 import { toast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
@@ -215,7 +215,7 @@ const ColetaForm = () => {
     }
 
     // Após salvar a coleta, crie ou atualize a entrada na tabela 'recibos'
-    // Se estiver editando, a assinatura_url deve ser resetada para null
+    // Se estiver editando, a assinatura_url deve ser explicitamente definida como null
     const { data: reciboEntry, error: reciboError } = await supabase
       .from('recibos')
       .upsert({ 
