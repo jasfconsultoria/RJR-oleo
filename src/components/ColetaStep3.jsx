@@ -169,7 +169,7 @@ export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData, em
               {isCompra ? 'Total a Pagar' : 'Qtd. de Óleo Novo a Entregar (Unidades)'} {/* Alterado para Unidades */}
             </Label>
             <div className="relative">
-              <Input id="resultado_final" type="text" value={isCompra ? formatCurrency(parseCurrency(resultadoFinal)) : `${resultadoFinal} unidades`} readOnly {/* Alterado para unidades */}
+              <Input id="resultado_final" type="text" value={isCompra ? formatCurrency(parseCurrency(resultadoFinal)) : `${resultadoFinal} unidades`} readOnly
                 className="bg-emerald-500/20 border-emerald-400/30 text-white text-lg py-4 pr-16 font-bold"
               />
             </div>
