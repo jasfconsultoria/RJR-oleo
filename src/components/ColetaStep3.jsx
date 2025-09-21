@@ -85,17 +85,29 @@ export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData, em
   };
 
   // Agora espera um objeto Date para dateObject
-  const formatColetaDateTime = (dateObject, timeString, timezone) => {
-    console.log('ColetaStep3 - formatColetaDateTime inputs:', { dateObject, timeString, timezone }); // DEBUG
-    if (!dateObject || !timeString) {
-      console.error("ColetaStep3 - Missing dateObject or timeString:", { dateObject, timeString });
+  const formatColetaDateTime = (dateInput, timeString, timezone) => {
+    console.log('ColetaStep3 - formatColetaDateTime inputs:', { dateInput, timeString, timezone }); // DEBUG
+    if (!dateInput || !timeString) {
+      console.error("ColetaStep3 - Missing dateInput or timeString:", { dateInput, timeString });
       return 'N/A';
     }
-    if (!(dateObject instanceof Date) || isNaN(dateObject.getTime())) {
-      console.error("ColetaStep3 - Invalid Date object:", dateObject);
-      return 'Data/Hora inválida';
-    }
     try {
+        let dateObject;
+        if (dateInput instanceof Date) {
+            dateObject = dateInput;
+        } else if (typeof dateInput === 'string') {
+            // Se for uma string, tenta converter para Date
+            dateObject = new Date(dateInput);
+        } else {
+            return 'Data/Hora inválida';
+        }
+
+        // Verifica se o objeto Date é válido após a conversão
+        if (isNaN(dateObject.getTime())) {
+            console.error("ColetaStep3 - Invalid Date object after parsing:", dateInput);
+            return 'Data/Hora inválida';
+        }
+
       // dateObject já está no fuso horário da empresa (definido em ColetaForm)
       const formattedDate = format(dateObject, 'dd/MM/yyyy', { locale: ptBR });
       return `${formattedDate} às ${timeString}`;
