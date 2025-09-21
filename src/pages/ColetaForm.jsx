@@ -219,9 +219,9 @@ const ColetaForm = () => {
       fator: parseInt(finalColetaData.fator, 10),
       tipo_coleta: finalColetaData.tipo_coleta,
       quantidade_coletada: parseCurrency(finalColetaData.quantidade_coletada),
-      quantidade_entregue: finalColetaData.quantidade_entregue ? parseFloat(finalColetaData.quantidade_entregue) : null,
-      valor_compra: finalColetaData.valor_compra ? parseCurrency(finalColetaData.valor_compra) : null,
-      total_pago: finalColetaData.total_pago ? parseCurrency(finalColetaData.total_pago) : null,
+      quantidade_entregue: finalColetaData.tipo_coleta === 'Troca' || finalColetaData.tipo_coleta === 'Doação' ? parseFloat(finalColetaData.quantidade_entregue) : null, // Ajustado para Doação
+      valor_compra: finalColetaData.tipo_coleta === 'Compra' ? parseCurrency(finalColetaData.valor_compra) : null, // Ajustado para Doação
+      total_pago: finalColetaData.tipo_coleta === 'Compra' ? parseCurrency(finalColetaData.total_pago) : null, // Ajustado para Doação
       data_lancamento: finalColetaData.data_lancamento,
       user_id: user.id,
       estado: finalColetaData.estado,

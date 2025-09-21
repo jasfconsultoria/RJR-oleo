@@ -19,6 +19,7 @@ export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData, em
   const [savedColeta, setSavedColeta] = useState(null);
   const [empresa, setEmpresa] = useState(null);
   const isCompra = data.tipo_coleta === 'Compra';
+  const isDoacao = data.tipo_coleta === 'Doação'; // Novo: verificar se é doação
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -41,12 +42,14 @@ export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData, em
       const valor = parseCurrency(data.valor_compra);
       const total = isNaN(valor) ? 0 : qtd * valor;
       setResultadoFinal(total.toFixed(2).replace('.', ','));
-    } else {
+    } else if (isDoacao) { // Se for doação, a quantidade entregue é 0
+      setResultadoFinal('0');
+    } else { // Troca
       const fator = parseFloat(data.fator);
       const entrega = (isNaN(fator) || fator === 0) ? 0 : Math.floor(qtd / fator);
       setResultadoFinal(entrega.toString());
     }
-  }, [data, isCompra]);
+  }, [data, isCompra, isDoacao]);
 
   const handleLancar = async () => {
     const dataLancamento = new Date().toISOString();
@@ -54,7 +57,7 @@ export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData, em
     const calculatedFinalData = { 
       ...(isCompra 
         ? { total_pago: resultadoFinal }
-        : { quantidade_entregue: resultadoFinal }),
+        : { quantidade_entregue: resultadoFinal }), // resultadoFinal já é o número de unidades ou 0 para doação
       data_lancamento: dataLancamento 
     };
     
@@ -163,10 +166,10 @@ export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData, em
           <div className="space-y-2">
             <Label htmlFor="resultado_final" className="text-white flex items-center gap-2 text-lg">
               {isCompra ? <DollarSign className="w-5 h-5" /> : <Droplets className="w-5 h-5" />}
-              {isCompra ? 'Total a Pagar' : 'Qtd. de Óleo Novo a Entregar'}
+              {isCompra ? 'Total a Pagar' : 'Qtd. de Óleo Novo a Entregar (Unidades)'} {/* Alterado para Unidades */}
             </Label>
             <div className="relative">
-              <Input id="resultado_final" type="text" value={isCompra ? formatCurrency(parseCurrency(resultadoFinal)) : `${resultadoFinal} litros`} readOnly
+              <Input id="resultado_final" type="text" value={isCompra ? formatCurrency(parseCurrency(resultadoFinal)) : `${resultadoFinal} unidades`} readOnly {/* Alterado para unidades */}
                 className="bg-emerald-500/20 border-emerald-400/30 text-white text-lg py-4 pr-16 font-bold"
               />
             </div>
@@ -174,7 +177,7 @@ export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData, em
               <p className="text-emerald-200 text-sm">
                 <strong>Cálculo:</strong> {isCompra 
                   ? `${parseCurrency(data.quantidade_coletada).toLocaleString('pt-BR')} kg × ${formatCurrency(parseCurrency(data.valor_compra))} = ${formatCurrency(parseCurrency(resultadoFinal))}`
-                  : `${parseCurrency(data.quantidade_coletada).toLocaleString('pt-BR')} kg ÷ ${data.fator || 1} = ${resultadoFinal} litros`
+                  : `${parseCurrency(data.quantidade_coletada).toLocaleString('pt-BR')} kg ÷ ${data.fator || 1} = ${resultadoFinal} unidades` /* Alterado para unidades */
                 }
               </p>
                {!isCompra && <p className="text-xs text-emerald-200 mt-1">* Valor Arredondado.</p>}

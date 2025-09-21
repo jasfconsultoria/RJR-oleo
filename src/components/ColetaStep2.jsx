@@ -14,6 +14,7 @@ export function ColetaStep2({ data, onBack, onNext, onUpdate, empresaTimezone })
   const [quantidadeColetada, setQuantidadeColetada] = useState(data.quantidade_coletada || '');
   const { toast } = useToast();
   const isCompra = data.tipo_coleta === 'Compra';
+  const isDoacao = data.tipo_coleta === 'Doação'; // Novo: verificar se é doação
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -37,7 +38,9 @@ export function ColetaStep2({ data, onBack, onNext, onUpdate, empresaTimezone })
       const valor = parseCurrency(data.valor_compra);
       if (isNaN(valor)) return 0;
       return (qtd * valor);
-    } else {
+    } else if (isDoacao) { // Se for doação, a quantidade entregue é 0
+      return 0;
+    } else { // Troca
       const fator = parseFloat(data.fator);
       if (isNaN(fator) || fator === 0) return 0;
       return Math.floor(qtd / fator);
@@ -105,10 +108,12 @@ export function ColetaStep2({ data, onBack, onNext, onUpdate, empresaTimezone })
                   <p>Valor por kg: <span className="font-bold">{formatCurrency(parseCurrency(data.valor_compra))}</span></p>
                   <p className="text-emerald-300 font-bold text-lg">Total a Pagar: {formatCurrency(calcularResultado())}</p>
                 </>
+              ) : isDoacao ? (
+                <p className="text-emerald-300 font-bold text-lg">Não há quantidade a entregar para Doação.</p>
               ) : (
                 <>
                   <p>Fator de conversão: <span className="font-bold">{data.fator}</span></p>
-                  <p className="text-emerald-300 font-bold text-lg">Qtd. a entregar (óleo novo): {calcularResultado()} litros</p>
+                  <p className="text-emerald-300 font-bold text-lg">Qtd. a entregar (óleo novo): {calcularResultado()} unidades</p> {/* Alterado para unidades */}
                   <p className="text-xs text-emerald-200 mt-1">* Valor Arredondado.</p>
                 </>
               )}

@@ -182,7 +182,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
           'Município': item.municipio,
           'Tipo Coleta': item.tipo_coleta,
           'Qtd Coletada (kg)': formatNumber(item.quantidade_coletada),
-          'Qtd Entregue (L)': item.tipo_coleta === 'Troca' ? formatNumber(item.quantidade_entregue, { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : 'N/A',
+          'Qtd Entregue (Unidades)': (item.tipo_coleta === 'Troca' || item.tipo_coleta === 'Doação') ? formatNumber(item.quantidade_entregue, { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : 'N/A', // Alterado para Unidades
           'Total Pago (R$)': item.tipo_coleta === 'Compra' ? formatCurrency(item.total_pago) : 'N/A',
         }));
         const worksheet = XLSX.utils.json_to_sheet(dataToExport);
@@ -198,7 +198,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
           if (item.tipo_coleta === 'Compra') {
             acc.totalPago += Number(item.total_pago) || 0;
           }
-          if (item.tipo_coleta === 'Troca') {
+          if (item.tipo_coleta === 'Troca' || item.tipo_coleta === 'Doação') { // Adicionado Doação
             acc.totalEntregue += Number(item.quantidade_entregue) || 0;
           }
           return acc;
@@ -293,15 +293,15 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
                       </Card>
                       <Card className="bg-white/10 backdrop-blur-sm border-white/10 text-white rounded-xl">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-emerald-300">Massa Total Coletada</CardTitle><Droplets className="h-4 w-4 text-gray-400" /></CardHeader>
-                        <CardContent><div className="text-2xl font-bold">{formatNumber(summary.totalMassa)} kg</div></CardContent>
+                        <CardContent><div className="2xl font-bold">{formatNumber(summary.totalMassa)} kg</div></CardContent>
                       </Card>
                        <Card className="bg-white/10 backdrop-blur-sm border-white/10 text-white rounded-xl">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-emerald-300">Total Pago (Compras)</CardTitle><DollarSign className="h-4 w-4 text-gray-400" /></CardHeader>
-                        <CardContent><div className="text-2xl font-bold">{formatCurrency(summary.totalPago)}</div></CardContent>
+                        <CardContent><div className="2xl font-bold">{formatCurrency(summary.totalPago)}</div></CardContent>
                       </Card>
                        <Card className="bg-white/10 backdrop-blur-sm border-white/10 text-white rounded-xl">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-emerald-300">Total Entregue (Trocas)</CardTitle><Repeat className="h-4 w-4 text-gray-400" /></CardHeader>
-                        <CardContent><div className="text-2xl font-bold">{formatNumber(summary.totalEntregue, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} L</div></CardContent>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-emerald-300">Total Entregue (Trocas/Doações)</CardTitle><Repeat className="h-4 w-4 text-gray-400" /></CardHeader> {/* Alterado para Doações */}
+                        <CardContent><div className="2xl font-bold">{formatNumber(summary.totalEntregue, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} Unidades</div></CardContent> {/* Alterado para Unidades */}
                       </Card>
                     </div>
 
@@ -330,7 +330,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
                                   <TableCell data-label="Local">{item.municipio}, {item.estado}</TableCell>
                                   <TableCell data-label="Tipo">{item.tipo_coleta}</TableCell>
                                   <TableCell data-label="Qtd. (kg)" className="text-right">{formatNumber(item.quantidade_coletada)}</TableCell>
-                                  <TableCell data-label="Valor/Entregue" className="text-right">{item.tipo_coleta === 'Compra' ? formatCurrency(item.total_pago) : `${formatNumber(item.quantidade_entregue, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} L`}</TableCell>
+                                  <TableCell data-label="Valor/Entregue" className="text-right">{(item.tipo_coleta === 'Troca' || item.tipo_coleta === 'Doação') ? `${formatNumber(item.quantidade_entregue, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} Unidades` : formatCurrency(item.total_pago)}</TableCell> {/* Alterado para Unidades */}
                                 </TableRow>
                               ))}
                             </TableBody>
@@ -338,7 +338,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
                                 <TableRow className="hover:bg-transparent border-t-2 border-emerald-500 font-bold hidden md:table-row">
                                     <TableCell colSpan={5}>Totais (Página)</TableCell>
                                     <TableCell className="text-right">{formatNumber(summary.totalMassa)} kg</TableCell>
-                                    <TableCell className="text-right">{`${formatCurrency(summary.totalPago)} / ${formatNumber(summary.totalEntregue, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} L`}</TableCell>
+                                    <TableCell className="text-right">{`${formatCurrency(summary.totalPago)} / ${formatNumber(summary.totalEntregue, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} Unidades`}</TableCell> {/* Alterado para Unidades */}
                                 </TableRow>
                             </TableFooter>
                           </Table>
@@ -349,7 +349,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
                             </div>
                             <div className="flex justify-between items-center">
                               <span>Total Pago/Entregue (Página):</span>
-                              <span>{`${formatCurrency(summary.totalPago)} / ${formatNumber(summary.totalEntregue, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} L`}</span>
+                              <span>{`${formatCurrency(summary.totalPago)} / ${formatNumber(summary.totalEntregue, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} Unidades`}</p> {/* Alterado para Unidades */}
                             </div>
                           </div>
                         </div>

@@ -57,7 +57,7 @@ export const Recibo = React.forwardRef(({ data, signature, empresa, timezone, co
     const isCompra = data.tipo_coleta === 'Compra';
     const resultadoFinal = isCompra
         ? formatCurrency(parseCurrency(data.total_pago))
-        : `${Math.floor(data.quantidade_entregue || 0)} litros`;
+        : `${Math.floor(data.quantidade_entregue || 0)} unidades`; // Alterado para unidades
     
     const clientName = data.pessoa?.nome || data.cliente_nome || 'Cliente não informado';
     const clientCnpjCpf = data.pessoa?.cnpj_cpf || data.cnpj_cpf || data.cliente_cnpj_cpf;
@@ -88,7 +88,7 @@ export const Recibo = React.forwardRef(({ data, signature, empresa, timezone, co
 
             <main className="space-y-4">
                 <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                    <div>
+                    <div className="col-span-2">
                         <p className="text-gray-500">CLIENTE</p>
                         <p className="font-semibold">{clientName}</p>
                     </div>

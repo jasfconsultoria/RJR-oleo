@@ -33,7 +33,10 @@ const ColetasTable = ({ coletas, sortConfig, requestSort, handleOpenRecibo, hand
     if (coleta.tipo_coleta === 'Compra') {
       return formatCurrency(coleta.total_pago);
     }
-    return `${formatNumber(coleta.quantidade_entregue, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} L`;
+    if (coleta.tipo_coleta === 'Troca' || coleta.tipo_coleta === 'Doação') { // Adicionado Doação
+      return `${formatNumber(coleta.quantidade_entregue, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} Unidades`;
+    }
+    return 'N/A'; // Para outros tipos de coleta
   };
 
   const tipoColetaStyle = (tipo) => {
@@ -42,6 +45,8 @@ const ColetasTable = ({ coletas, sortConfig, requestSort, handleOpenRecibo, hand
         return 'bg-blue-500/20 text-blue-300 border border-blue-500/30';
       case 'Compra':
         return 'bg-green-500/20 text-green-300 border border-green-500/30';
+      case 'Doação': // Estilo para Doação
+        return 'bg-purple-500/20 text-purple-300 border border-purple-500/30';
       default:
         return 'bg-gray-500/20 text-gray-300 border border-gray-500/30';
     }
@@ -90,7 +95,7 @@ const ColetasTable = ({ coletas, sortConfig, requestSort, handleOpenRecibo, hand
                 <div className="flex items-center justify-end">Qtd. Coletada (kg) {getSortIcon('quantidade_coletada')}</div>
               </th>
                <th className="text-white p-2 text-right">
-                <div className="flex items-center justify-end">Valor/Entregue (R$/L)</div>
+                <div className="flex items-center justify-end">Valor/Entregue (R$/Unidade)</div> {/* Alterado para R$/Unidade */}
               </th>
               <th className="p-2 text-left text-white">Status</th> {/* Nova coluna de status */}
               <th className="text-left text-white p-2">Ações</th>
@@ -108,7 +113,7 @@ const ColetasTable = ({ coletas, sortConfig, requestSort, handleOpenRecibo, hand
                     </span>
                   </TableCell>
                   <TableCell data-label="Qtd. Coletada (kg)" className="p-2 text-right">{formatNumber(coleta.quantidade_coletada)}</TableCell>
-                  <TableCell data-label="Valor/Entregue (R$/L)" className="p-2 text-right">{getEntregueValor(coleta)}</TableCell>
+                  <TableCell data-label="Valor/Entregue (R$/Unidade)" className="p-2 text-right">{getEntregueValor(coleta)}</TableCell>
                   <TableCell data-label="Status" className="p-2"> {/* Nova célula de status */}
                     <span className={`px-2 py-1 rounded-xl text-xs font-semibold ${getStatusBadge(coleta.status_recibo)}`}>
                       {getStatusText(coleta.status_recibo)}
@@ -161,7 +166,7 @@ const ColetasTable = ({ coletas, sortConfig, requestSort, handleOpenRecibo, hand
               <TableCell colSpan={4} className="p-2">TOTAIS DO PERÍODO</TableCell>
               <TableCell className="text-right p-2">{formatNumber(totals.coletado)} kg</TableCell>
               <TableCell className="text-right p-2 whitespace-nowrap">
-                {formatCurrency(totals.compras)} / {formatNumber(totals.entregue, {minimumFractionDigits: 0, maximumFractionDigits: 0})} L
+                {formatCurrency(totals.compras)} / {formatNumber(totals.entregue, {minimumFractionDigits: 0, maximumFractionDigits: 0})} Unidades {/* Alterado para Unidades */}
               </TableCell>
               <TableCell colSpan={2} className="p-2"></TableCell>
             </TableRow>
@@ -178,7 +183,7 @@ const ColetasTable = ({ coletas, sortConfig, requestSort, handleOpenRecibo, hand
           </div>
           <div className="flex justify-between items-center">
             <span>Total Entregue (Período):</span>
-            <span>{formatNumber(totals.entregue, {minimumFractionDigits: 0, maximumFractionDigits: 0})} L</span>
+            <span>{formatNumber(totals.entregue, {minimumFractionDigits: 0, maximumFractionDigits: 0})} Unidades</span> {/* Alterado para Unidades */}
           </div>
         </div>
     </div>

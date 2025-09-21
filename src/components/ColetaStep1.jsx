@@ -19,6 +19,7 @@ import { formatInTimeZone, utcToZonedTime, toDate } from 'date-fns-tz'; // Impor
 const tiposColeta = [
   { id: 'Troca', nome: 'Troca' },
   { id: 'Compra', nome: 'Compra' },
+  { id: 'Doação', nome: 'Doação' }, // Adicionado 'Doação'
 ];
 
 export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }) { // Receber empresaTimezone
@@ -384,11 +385,11 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
                 <Input
                   id="fator" type="number" step="1" min="1"
                   value={formData.fator} onChange={(e) => handleInputChange('fator', e.target.value)}
-                  placeholder="Ex: 6 (para 1L de óleo novo a cada 6L usado)"
+                  placeholder="Ex: 6 (para 1 unidade de óleo novo a cada 6kg usado)"
                   className="bg-white/5 border-white/20 text-white placeholder:text-white/60 rounded-xl" required
                 />
               </div>
-            ) : (
+            ) : formData.tipo_coleta === 'Compra' ? (
               <div className="space-y-2">
                 <Label htmlFor="valor_compra" className="text-white flex items-center gap-2">
                   <Calculator className="w-4 h-4" />
@@ -399,6 +400,20 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
                   value={formData.valor_compra} onChange={(e) => handleInputChange('valor_compra', e.target.value)}
                   placeholder="Ex: 1,20"
                   className="bg-white/5 border-white/20 text-white placeholder:text-white/60 rounded-xl" required
+                />
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label htmlFor="doacao_info" className="text-white flex items-center gap-2">
+                  <Info className="w-4 h-4" />
+                  Informações da Doação
+                </Label>
+                <Input
+                  id="doacao_info" type="text"
+                  value={formData.doacao_info || ''}
+                  onChange={(e) => handleInputChange('doacao_info', e.target.value)}
+                  placeholder="Detalhes da doação (opcional)"
+                  className="bg-white/5 border-white/20 text-white placeholder:text-white/60 rounded-xl"
                 />
               </div>
             )}
