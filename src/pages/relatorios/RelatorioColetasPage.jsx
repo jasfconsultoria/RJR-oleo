@@ -349,7 +349,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
                             </div>
                             <div className="flex justify-between items-center">
                               <span>Total Pago/Entregue (Página):</span>
-                              <span>{`${formatCurrency(summary.totalPago)} / ${formatNumber(summary.totalEntregue, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} Unidades`}</p> {/* Alterado para Unidades */}
+                              <span>{`${formatCurrency(summary.totalPago)} / ${formatNumber(summary.totalEntregue, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} Unidades`}</span> {/* Alterado para Unidades */}
                             </div>
                           </div>
                         </div>
