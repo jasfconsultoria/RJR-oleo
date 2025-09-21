@@ -45,6 +45,7 @@ export function ColetaStep2({ data, onBack, onNext, onUpdate, empresaTimezone })
   };
 
   const formatColetaDateTime = (utcDateString, timeString, timezone) => {
+    console.log('ColetaStep2 - formatColetaDateTime inputs:', { utcDateString, timeString, timezone }); // DEBUG
     if (!utcDateString || !timeString) return 'N/A';
     try {
       const utcDate = new Date(utcDateString); // Cria um objeto Date representando o tempo UTC

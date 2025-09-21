@@ -66,20 +66,9 @@ export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData, em
        return;
     }
 
-    // Após salvar a coleta, crie ou atualize a entrada na tabela 'recibos'
-    const { data: reciboEntry, error: reciboError } = await supabase
-      .from('recibos')
-      .upsert({ coleta_id: savedData.id }, { onConflict: 'coleta_id' })
-      .select()
-      .single();
-
-    if (reciboError) {
-      toast({ title: 'Erro ao preparar recibo', description: reciboError.message, variant: 'destructive' });
-      return;
-    }
-
+    // savedData agora já inclui a assinatura_url atualizada (null se foi editado)
     onUpdate(calculatedFinalData);
-    setSavedColeta({ ...savedData, assinatura_url: reciboEntry.assinatura_url }); // Inclui a URL da assinatura do recibo, se houver
+    setSavedColeta(savedData); 
     
     toast({
       title: "Coleta finalizada!",
@@ -96,6 +85,7 @@ export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData, em
   };
 
   const formatColetaDateTime = (utcDateString, timeString, timezone) => {
+    console.log('ColetaStep3 - formatColetaDateTime inputs:', { utcDateString, timeString, timezone }); // DEBUG
     if (!utcDateString || !timeString) return 'N/A';
     try {
       const utcDate = new Date(utcDateString); // Cria um objeto Date representando o tempo UTC

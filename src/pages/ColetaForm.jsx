@@ -3,7 +3,7 @@ import { Helmet } from 'react-helmet';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ColetaStep1 } from '@/components/ColetaStep1';
-import { ColetaStep2 } from '@/components/ColetaStep2';
+import { ColetaStep2 } => '@/components/ColetaStep2';
 import { ColetaStep3 } from '@/components/ColetaStep3';
 import { toast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
@@ -214,6 +214,22 @@ const ColetaForm = () => {
       return;
     }
 
+    // Após salvar a coleta, crie ou atualize a entrada na tabela 'recibos'
+    // Se estiver editando, a assinatura_url deve ser resetada para null
+    const { data: reciboEntry, error: reciboError } = await supabase
+      .from('recibos')
+      .upsert({ 
+        coleta_id: savedData.id,
+        assinatura_url: isEditing ? null : undefined // Se estiver editando, reseta a assinatura
+      }, { onConflict: 'coleta_id' })
+      .select()
+      .single();
+
+    if (reciboError) {
+      toast({ title: 'Erro ao preparar recibo', description: reciboError.message, variant: 'destructive' });
+      return;
+    }
+
     await logAction(isEditing ? 'update_coleta' : 'create_coleta', { 
       coleta_id: savedData.id, 
       cliente_nome: savedData.cliente_nome,
@@ -226,6 +242,7 @@ const ColetaForm = () => {
         ...savedData,
         cnpj_cpf: cliente?.cnpj_cpf,
         endereco: cliente?.endereco,
+        assinatura_url: reciboEntry.assinatura_url // Inclui a URL da assinatura do recibo, que pode ser null agora
       };
       return { data: fullSavedData, error: null };
     }
