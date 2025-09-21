@@ -8,7 +8,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { parseCurrency, formatCurrency } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { formatInTimeZone, zonedTimeToUtc } from 'date-fns-tz'; // Importar formatInTimeZone e zonedTimeToUtc
+import { formatInTimeZone, utcToZonedTime } from 'date-fns-tz'; // Importar formatInTimeZone e utcToZonedTime
 
 export function ColetaStep2({ data, onBack, onNext, onUpdate, empresaTimezone }) {
   const [quantidadeColetada, setQuantidadeColetada] = useState(data.quantidade_coletada || '');
@@ -44,18 +44,11 @@ export function ColetaStep2({ data, onBack, onNext, onUpdate, empresaTimezone })
     }
   };
 
-  const formatColetaDateTime = (dateString, timeString, timezone) => {
-    if (!dateString || !timeString) return 'N/A';
+  const formatColetaDateTime = (utcDateString, timezone) => {
+    if (!utcDateString) return 'N/A';
     try {
-      const [year, month, day] = dateString.split('-').map(Number);
-      const [hour, minute] = timeString.split(':').map(Number);
-
-      // Cria um objeto Date que representa a hora no fuso horário da empresa
-      // new Date(year, month - 1, day, hour, minute) cria uma data no fuso horário local do navegador.
-      // zonedTimeToUtc interpreta essa data local como se estivesse no 'timezone' fornecido e a converte para UTC.
-      const dateInUTC = zonedTimeToUtc(new Date(year, month - 1, day, hour, minute), timezone);
-
-      return formatInTimeZone(dateInUTC, timezone, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
+      const utcDate = new Date(utcDateString); // Cria um objeto Date representando o tempo UTC
+      return formatInTimeZone(utcDate, timezone, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
     } catch (e) {
       console.error("Error formatting date/time for display in Step 2:", e);
       return 'Data/Hora inválida';
@@ -82,7 +75,7 @@ export function ColetaStep2({ data, onBack, onNext, onUpdate, empresaTimezone })
         <h3 className="text-lg font-semibold text-white mb-4">Resumo da Coleta</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
           <div><span className="text-emerald-300">Cliente:</span><span className="text-white ml-2">{data.cliente || 'N/A'}</span></div>
-          <div><span className="text-emerald-300">Data/Hora:</span><span className="text-white ml-2">{formatColetaDateTime(data.data_coleta, data.hora_coleta, empresaTimezone)}</span></div>
+          <div><span className="text-emerald-300">Data/Hora:</span><span className="text-white ml-2">{formatColetaDateTime(data.data_coleta, empresaTimezone)}</span></div>
           <div><span className="text-emerald-300">Tipo:</span><span className="text-white ml-2 font-bold">{data.tipo_coleta || 'N/A'}</span></div>
           {!isCompra && <div><span className="text-emerald-300">Fator:</span><span className="text-white ml-2">{data.fator || 'N/A'}</span></div>}
           {isCompra && <div><span className="text-emerald-300">Valor/kg:</span><span className="text-white ml-2">{formatCurrency(parseCurrency(data.valor_compra))}</span></div>}

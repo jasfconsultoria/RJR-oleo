@@ -13,7 +13,7 @@ import { format } from 'date-fns';
 import { logAction } from '@/lib/logger';
 import { useAutoSave } from '@/hooks/useAutoSave';
 import { useProfile } from '@/contexts/ProfileContext';
-import { formatInTimeZone, zonedTimeToUtc, utcToZonedTime } from 'date-fns-tz'; // Importar funções de fuso horário
+import { formatInTimeZone, zonedTimeToUtc, utcToZonedTime, toDate } from 'date-fns-tz'; // Importar funções de fuso horário
 
 const ColetaForm = () => {
   const [currentStep, setCurrentStep] = useState(1);
@@ -63,8 +63,6 @@ const ColetaForm = () => {
 
   const [coletaData, setColetaData, clearSavedData] = useAutoSave(
     autoSaveKey,
-    // Use a função para fornecer o estado inicial, garantindo que o fuso horário seja considerado
-    // mesmo na primeira renderização, antes do useEffect de empresaTimezone ser executado.
     isEditing ? {} : getInitialColetaData('America/Sao_Paulo'), // Default para a primeira renderização
     !isEditing
   );
@@ -110,7 +108,7 @@ const ColetaForm = () => {
           toast({ title: "Erro", description: "Coleta não encontrada.", variant: "destructive" });
           navigate('/app/coletas');
         } else {
-          // Separar data e hora ao carregar para edição, convertendo para o fuso horário da empresa
+          // Converte a data UTC do DB para o fuso horário da empresa para preencher o formulário
           const fullDateUTC = new Date(data.data_coleta); // Data do DB é UTC
           const zonedDate = utcToZonedTime(fullDateUTC, empresaTimezone); // Converte para o fuso da empresa
           const formattedDate = format(zonedDate, 'yyyy-MM-dd');
@@ -181,17 +179,19 @@ const ColetaForm = () => {
         clienteId = cliente.id;
     }
     
-    // Combinar data_coleta e hora_coleta em um único timestamp com fuso horário
-    const [year, month, day] = finalColetaData.data_coleta.split('-').map(Number);
-    const [hour, minute] = finalColetaData.hora_coleta.split(':').map(Number);
-    const localDateForTimezoneConversion = new Date(year, month - 1, day, hour, minute);
-    const utcDate = zonedTimeToUtc(localDateForTimezoneConversion, empresaTimezone);
+    // Combinar data_coleta (string yyyy-MM-dd) e hora_coleta (string HH:mm)
+    // para criar um objeto Date que representa a data e hora no fuso horário da empresa.
+    const combinedDateTimeString = `${finalColetaData.data_coleta} ${finalColetaData.hora_coleta}`;
+    const dateInCompanyTimezone = toDate(combinedDateTimeString, { timeZone: empresaTimezone });
+    
+    // Converter para ISO string (UTC) para salvar no banco de dados
+    const utcDateISOString = dateInCompanyTimezone.toISOString();
 
     const coletaToSave = {
       id: isEditing ? finalColetaData.id : undefined,
       cliente_id: clienteId,
       cliente_nome: finalColetaData.cliente,
-      data_coleta: utcDate.toISOString(), // Salvar como ISO string UTC
+      data_coleta: utcDateISOString, // Salvar como ISO string UTC
       fator: parseInt(finalColetaData.fator, 10),
       tipo_coleta: finalColetaData.tipo_coleta,
       quantidade_coletada: parseCurrency(finalColetaData.quantidade_coletada),
