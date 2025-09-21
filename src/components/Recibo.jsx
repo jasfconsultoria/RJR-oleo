@@ -8,8 +8,8 @@ const formatDateTime = (dateString, timezone) => {
     if (!dateString) return 'N/A';
     console.log('Recibo.jsx - formatDateTime inputs:', { dateString, timezone }); // Adicionado para depuração
     try {
-        // Converte a string ISO (que é UTC) para a data no fuso horário da empresa
-        const zonedDate = utcToZonedTime(dateString, timezone);
+        // Converte a string ISO (que é UTC) para um objeto Date, depois para a data no fuso horário da empresa
+        const zonedDate = utcToZonedTime(new Date(dateString), timezone);
         return formatInTimeZone(zonedDate, timezone, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
     } catch (error) {
         console.error("Erro ao formatar data/hora no recibo:", error);
