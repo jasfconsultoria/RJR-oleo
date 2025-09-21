@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Truck, CheckCircle, Droplets, ArrowLeft, DollarSign } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { formatCnpjCpf, parseCurrency, formatCurrency } from '@/lib/utils';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns'; // Importação adicionada isValid
 import { ptBR } from 'date-fns/locale'; // Importação adicionada
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/customSupabaseClient';
@@ -104,7 +104,7 @@ export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData, em
         }
 
         // Verifica se o objeto Date é válido após a conversão
-        if (isNaN(dateObject.getTime())) {
+        if (!isValid(dateObject)) { // Usar isValid para validação
             console.error("ColetaStep3 - Invalid Date object after parsing:", dateInput);
             return 'Data/Hora inválida';
         }
@@ -150,7 +150,8 @@ export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData, em
             <div><span className="text-emerald-300">Telefone:</span><span className="text-white ml-2">{data.telefone || 'N/A'}</span></div>
             <div><span className="text-emerald-300">E-mail:</span><span className="text-white ml-2">{data.email || 'N/A'}</span></div>
             <div className="md:col-span-2"><span className="text-emerald-300">Endereço:</span><span className="text-white ml-2">{data.endereco}</span></div>
-            <div><span className="text-emerald-300">Data/Hora:</span><span className="text-white ml-2">{formatColetaDateTime(data.data_coleta, data.hora_coleta, empresaTimezone)}</span></div>
+            <div><span className="text-emerald-300">Data:</span><span className="text-white ml-2">{data.data_coleta instanceof Date && isValid(data.data_coleta) ? format(data.data_coleta, 'dd/MM/yyyy', { locale: ptBR }) : 'N/A'}</span></div>
+            <div><span className="text-emerald-300">Hora:</span><span className="text-white ml-2">{data.hora_coleta || 'N/A'}</span></div>
             <div><span className="text-emerald-300">Tipo:</span><span className="text-white ml-2 font-bold">{data.tipo_coleta}</span></div>
             <div><span className="text-emerald-300">Qtd. Coletada:</span><span className="text-white ml-2 font-bold">{parseCurrency(data.quantidade_coletada).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg</span></div>
             {!isCompra && <div><span className="text-emerald-300">Fator:</span><span className="text-white ml-2">{data.fator}</span></div>}

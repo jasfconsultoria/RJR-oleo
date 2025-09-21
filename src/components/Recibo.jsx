@@ -1,5 +1,5 @@
 import React from 'react';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns'; // Importar isValid
 import { ptBR } from 'date-fns/locale';
 import { formatCurrency, parseCurrency, formatCnpjCpf } from '@/lib/utils';
 import { formatInTimeZone, utcToZonedTime } from 'date-fns-tz'; // Importar formatInTimeZone e utcToZonedTime
@@ -8,6 +8,7 @@ import { formatInTimeZone, utcToZonedTime } from 'date-fns-tz'; // Importar form
 // A `dateInput` pode ser um objeto Date (do ColetaForm) ou uma string ISO UTC (do ReciboPublicoPage).
 const formatDisplayDate = (dateInput, timezone) => {
     if (!dateInput) return 'N/A';
+    console.log('Recibo.jsx - formatDisplayDate inputs:', { dateInput, timezone }); // DEBUG
     try {
         let dateObject;
         if (dateInput instanceof Date) {
@@ -19,7 +20,8 @@ const formatDisplayDate = (dateInput, timezone) => {
             return 'Data inválida';
         }
 
-        if (isNaN(dateObject.getTime())) {
+        // Verifica se o objeto Date é válido após a conversão
+        if (!isValid(dateObject)) { // Usar isValid para validação
             console.error("Recibo.jsx - Objeto Date inválido após parsing:", dateInput);
             return 'Data inválida';
         }

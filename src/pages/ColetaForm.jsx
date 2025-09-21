@@ -9,7 +9,7 @@ import { toast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { parseCurrency } from '@/lib/utils';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns'; // Importar isValid
 import { logAction } from '@/lib/logger';
 import { useAutoSave } from '@/hooks/useAutoSave';
 import { useProfile } from '@/contexts/ProfileContext';
@@ -69,10 +69,17 @@ const ColetaForm = () => {
 
   // Efeito para re-hidratar data_coleta se for uma string (do localStorage)
   useEffect(() => {
-    if (typeof coletaData.data_coleta === 'string' && !isNaN(new Date(coletaData.data_coleta))) {
-      setColetaData(prev => ({ ...prev, data_coleta: new Date(prev.data_coleta) }));
+    if (typeof coletaData.data_coleta === 'string') {
+      const parsedDate = new Date(coletaData.data_coleta);
+      if (isValid(parsedDate)) { // Use isValid from date-fns
+        setColetaData(prev => ({ ...prev, data_coleta: parsedDate }));
+      } else {
+        console.warn("ColetaForm - Auto-saved data_coleta string is invalid:", coletaData.data_coleta);
+        // Se for inválido, resetar para um estado válido conhecido
+        setColetaData(prev => ({ ...prev, data_coleta: getInitialColetaData(empresaTimezone).data_coleta }));
+      }
     }
-  }, [coletaData.data_coleta, setColetaData]);
+  }, [coletaData.data_coleta, setColetaData, empresaTimezone, getInitialColetaData]);
 
 
   useEffect(() => {
@@ -189,7 +196,7 @@ const ColetaForm = () => {
     // Combinar data_coleta (objeto Date no fuso horário da empresa) e hora_coleta (string HH:mm)
     // para criar um objeto Date que representa a data e hora no fuso horário da empresa.
     let combinedDateTimeString;
-    if (finalColetaData.data_coleta instanceof Date && !isNaN(finalColetaData.data_coleta.getTime())) {
+    if (finalColetaData.data_coleta instanceof Date && isValid(finalColetaData.data_coleta)) { // Usar isValid
         combinedDateTimeString = `${format(finalColetaData.data_coleta, 'yyyy-MM-dd')} ${finalColetaData.hora_coleta}`;
     } else {
         console.error("ColetaForm.jsx - finalColetaData.data_coleta is invalid:", finalColetaData.data_coleta);
