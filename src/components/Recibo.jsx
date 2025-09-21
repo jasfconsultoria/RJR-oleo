@@ -4,19 +4,31 @@ import { ptBR } from 'date-fns/locale';
 import { formatCurrency, parseCurrency, formatCnpjCpf } from '@/lib/utils';
 import { formatInTimeZone, zonedTimeToUtc } from 'date-fns-tz'; // Importar formatInTimeZone e utcToZonedTime
 
-const formatDateTime = (dateString, timeString, timezone) => {
-    if (!dateString || !timeString) return 'N/A';
-    console.log('Recibo.jsx - formatDateTime inputs:', { dateString, timeString, timezone }); // Adicionado para depuração
+const formatDateTime = (dateStringFromDB, timeStringFromForm, timezone) => {
+    if (!dateStringFromDB || !timeStringFromForm) return 'N/A';
+    console.log('Recibo.jsx - formatDateTime inputs:', { dateStringFromDB, timeStringFromForm, timezone }); // Adicionado para depuração
     try {
-        // Combina as strings de data e hora para criar um objeto Date no fuso horário da empresa
-        const [year, month, day] = dateString.split('-').map(Number);
-        const [hour, minute] = timeString.split(':').map(Number);
-        
-        // Cria um objeto Date que representa a hora no fuso horário da empresa
-        const localDate = new Date(year, month - 1, day, hour, minute);
-        const utcEquivalent = zonedTimeToUtc(localDate, timezone); // Obtém o equivalente UTC dessa hora local, interpretada como `timezone`
+        // Parse the UTC date string from the database
+        const utcDate = new Date(dateStringFromDB);
 
-        return formatInTimeZone(utcEquivalent, timezone, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
+        // Extract year, month, day from the UTC date components
+        const year = utcDate.getUTCFullYear();
+        const month = utcDate.getUTCMonth(); // 0-indexed
+        const day = utcDate.getUTCDate();
+
+        // Parse the time string from the form
+        const [hour, minute] = timeStringFromForm.split(':').map(Number);
+
+        // Construct a new Date object using the extracted date components and the time from the form.
+        // This date is initially in the local timezone of the environment where this code runs.
+        const combinedLocalTimeDate = new Date(year, month, day, hour, minute);
+
+        // Now, interpret this 'local' date as if it were in the 'timezone' provided,
+        // and convert it to its UTC equivalent.
+        const utcEquivalentInCompanyTimezone = zonedTimeToUtc(combinedLocalTimeDate, timezone);
+
+        // Finally, format this UTC date to display it in the specified company timezone.
+        return formatInTimeZone(utcEquivalentInCompanyTimezone, timezone, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
     } catch (error) {
         console.error("Erro ao formatar data/hora no recibo:", error);
         return 'Data inválida';
