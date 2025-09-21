@@ -225,7 +225,11 @@ const ListaColetas = () => {
             coleta={selectedColeta}
             empresa={empresa}
             isOpen={reciboModalOpen}
-            onClose={() => setReciboModalOpen(false)}
+            onClose={() => {
+                setReciboModalOpen(false);
+                fetchColetas(); // Recarrega a lista de coletas
+                fetchPeriodTotals(); // Recarrega os totais
+            }}
          />
        )}
       </div>
