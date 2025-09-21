@@ -129,6 +129,7 @@ export const ReciboViewDialog = ({ coleta, empresa, isOpen, onClose, empresaTime
             timezone={empresaTimezone} 
             collectorName={collectorName} 
             coletaDateString={coleta.data_coleta} // Passar a string ISO UTC
+            coletaTimeString={coleta.hora_coleta} // Passar a string HH:mm do DB
           />
           {!isSigned && (
             <div className="mt-6 p-4 border-t-2 border-dashed">

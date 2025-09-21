@@ -44,11 +44,14 @@ export function ColetaStep2({ data, onBack, onNext, onUpdate, empresaTimezone })
     }
   };
 
-  const formatColetaDateTime = (utcDateString, timezone) => {
-    if (!utcDateString) return 'N/A';
+  const formatColetaDateTime = (utcDateString, timeString, timezone) => {
+    if (!utcDateString || !timeString) return 'N/A';
     try {
       const utcDate = new Date(utcDateString); // Cria um objeto Date representando o tempo UTC
-      return formatInTimeZone(utcDate, timezone, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
+      // Combina a data UTC com a hora exata do campo hora_coleta para exibição no fuso horário da empresa
+      const zonedDate = utcToZonedTime(utcDate, timezone);
+      const formattedDate = format(zonedDate, 'dd/MM/yyyy', { locale: ptBR });
+      return `${formattedDate} às ${timeString}`;
     } catch (e) {
       console.error("Error formatting date/time for display in Step 2:", e);
       return 'Data/Hora inválida';
@@ -75,7 +78,7 @@ export function ColetaStep2({ data, onBack, onNext, onUpdate, empresaTimezone })
         <h3 className="text-lg font-semibold text-white mb-4">Resumo da Coleta</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
           <div><span className="text-emerald-300">Cliente:</span><span className="text-white ml-2">{data.cliente || 'N/A'}</span></div>
-          <div><span className="text-emerald-300">Data/Hora:</span><span className="text-white ml-2">{formatColetaDateTime(data.data_coleta, empresaTimezone)}</span></div>
+          <div><span className="text-emerald-300">Data/Hora:</span><span className="text-white ml-2">{formatColetaDateTime(data.data_coleta, data.hora_coleta, empresaTimezone)}</span></div>
           <div><span className="text-emerald-300">Tipo:</span><span className="text-white ml-2 font-bold">{data.tipo_coleta || 'N/A'}</span></div>
           {!isCompra && <div><span className="text-emerald-300">Fator:</span><span className="text-white ml-2">{data.fator || 'N/A'}</span></div>}
           {isCompra && <div><span className="text-emerald-300">Valor/kg:</span><span className="text-white ml-2">{formatCurrency(parseCurrency(data.valor_compra))}</span></div>}

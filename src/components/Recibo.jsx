@@ -4,19 +4,23 @@ import { ptBR } from 'date-fns/locale';
 import { formatCurrency, parseCurrency, formatCnpjCpf } from '@/lib/utils';
 import { formatInTimeZone, utcToZonedTime } from 'date-fns-tz'; // Importar formatInTimeZone e utcToZonedTime
 
-const formatDateTime = (utcDateString, timezone) => {
-    if (!utcDateString) return 'N/A';
-    console.log('Recibo.jsx - formatDateTime inputs:', { utcDateString, timezone }); // Adicionado para depuração
+const formatDateTime = (utcDateString, timeString, timezone) => {
+    if (!utcDateString || !timeString) return 'N/A';
+    console.log('Recibo.jsx - formatDateTime inputs:', { utcDateString, timeString, timezone }); // Adicionado para depuração
     try {
         const utcDate = new Date(utcDateString); // Cria um objeto Date representando o tempo UTC
-        return formatInTimeZone(utcDate, timezone, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
+        // Converte a data UTC para o fuso horário da empresa para obter a data correta
+        const zonedDate = utcToZonedTime(utcDate, timezone);
+        const formattedDate = format(zonedDate, 'dd/MM/yyyy', { locale: ptBR });
+        // Usa a string de hora diretamente do campo hora_coleta
+        return `${formattedDate} às ${timeString}`;
     } catch (error) {
         console.error("Erro ao formatar data/hora no recibo:", error);
         return 'Data inválida';
     }
 };
 
-export const Recibo = React.forwardRef(({ data, signature, empresa, timezone, collectorName, coletaDateString }, ref) => { // Removido coletaTimeString
+export const Recibo = React.forwardRef(({ data, signature, empresa, timezone, collectorName, coletaDateString, coletaTimeString }, ref) => { // Adicionar coletaDateString e coletaTimeString
     if (!data) return null; // Mantém esta verificação para o objeto de dados principal
 
     const isCompra = data.tipo_coleta === 'Compra';
@@ -65,7 +69,7 @@ export const Recibo = React.forwardRef(({ data, signature, empresa, timezone, co
                     </div>
                     <div>
                         <p className="text-gray-500">DATA/HORA DA COLETA</p>
-                        <p className="font-semibold">{formatDateTime(coletaDateString, timezone)}</p>
+                        <p className="font-semibold">{formatDateTime(coletaDateString, coletaTimeString, timezone)}</p>
                     </div>
                     <div className="col-span-2">
                         <p className="text-gray-500">ENDEREÇO</p>

@@ -112,7 +112,8 @@ const ColetaForm = () => {
           const fullDateUTC = new Date(data.data_coleta); // Data do DB é UTC
           const zonedDate = utcToZonedTime(fullDateUTC, empresaTimezone); // Converte para o fuso da empresa
           const formattedDate = format(zonedDate, 'yyyy-MM-dd');
-          const formattedTime = format(zonedDate, 'HH:mm');
+          // A hora_coleta agora é lida diretamente do novo campo do DB
+          const formattedTime = data.hora_coleta || format(zonedDate, 'HH:mm'); // Fallback se o campo ainda não existir no DB
 
           setColetaData((prev) => ({
             ...prev,
@@ -127,7 +128,7 @@ const ColetaForm = () => {
             telefone: data.pessoa?.telefone,
             tipo_coleta: data.tipo_coleta,
             data_coleta: formattedDate, // Data separada
-            hora_coleta: formattedTime, // Hora separada
+            hora_coleta: formattedTime, // Hora separada (do novo campo do DB)
             valor_compra: String(data.valor_compra || '0').replace('.', ','),
             quantidade_coletada: String(data.quantidade_coletada || '').replace('.', ','),
           }));
@@ -184,7 +185,7 @@ const ColetaForm = () => {
     const combinedDateTimeString = `${finalColetaData.data_coleta} ${finalColetaData.hora_coleta}`;
     const dateInCompanyTimezone = toDate(combinedDateTimeString, { timeZone: empresaTimezone });
     
-    // Converter para ISO string (UTC) para salvar no banco de dados
+    // Converter para ISO string (UTC) para salvar na coluna data_coleta do banco de dados
     const utcDateISOString = dateInCompanyTimezone.toISOString();
 
     const coletaToSave = {
@@ -192,6 +193,7 @@ const ColetaForm = () => {
       cliente_id: clienteId,
       cliente_nome: finalColetaData.cliente,
       data_coleta: utcDateISOString, // Salvar como ISO string UTC
+      hora_coleta: finalColetaData.hora_coleta, // Salvar a string HH:mm exata
       fator: parseInt(finalColetaData.fator, 10),
       tipo_coleta: finalColetaData.tipo_coleta,
       quantidade_coletada: parseCurrency(finalColetaData.quantidade_coletada),
