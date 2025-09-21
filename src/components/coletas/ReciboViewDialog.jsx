@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
@@ -10,13 +10,34 @@ import SignatureCanvas from 'react-signature-canvas';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Label } from '@/components/ui/label';
 
-export const ReciboViewDialog = ({ coleta, empresa, isOpen, onClose, empresaTimezone, collectorName }) => {
+export const ReciboViewDialog = ({ coleta, empresa, isOpen, onClose, empresaTimezone }) => {
   const { toast } = useToast();
   const reciboRef = useRef();
   const sigCanvas = useRef({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [collectorName, setCollectorName] = useState(null); // Novo estado para o nome do coletor
 
   const isSigned = !!coleta.assinatura_url;
+
+  const fetchCollectorName = useCallback(async () => {
+    if (coleta?.user_id) {
+      const { data, error } = await supabase.rpc('get_all_users');
+      if (error) {
+        console.error('Erro ao buscar usuários para nome do coletor:', error);
+      } else {
+        const collector = data.find(u => u.id === coleta.user_id);
+        setCollectorName(collector?.full_name || collector?.email || 'N/A');
+      }
+    }
+  }, [coleta?.user_id]);
+
+  useEffect(() => {
+    if (isOpen && coleta) {
+      fetchCollectorName();
+      // Log para depuração da hora da coleta
+      console.log('ReciboViewDialog - coleta.hora_coleta:', coleta.hora_coleta);
+    }
+  }, [isOpen, coleta, fetchCollectorName]);
 
   const handleShare = async () => {
     if (!coleta) return;
@@ -128,8 +149,8 @@ export const ReciboViewDialog = ({ coleta, empresa, isOpen, onClose, empresaTime
             signature={coleta.assinatura_url} 
             timezone={empresaTimezone} 
             collectorName={collectorName} 
-            coletaDateString={coleta.data_coleta} // Passar a data como objeto Date
-            coletaTimeString={coleta.hora_coleta} // Passar a string HH:mm do DB
+            coletaDateString={coleta.data_coleta}
+            coletaTimeString={coleta.hora_coleta}
           />
           {!isSigned && (
             <div className="mt-6 p-4 border-t-2 border-dashed">

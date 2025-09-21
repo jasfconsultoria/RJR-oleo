@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import { supabase } from '@/lib/customSupabaseClient';
@@ -16,43 +16,52 @@ const ReciboPublicoPage = () => {
   const [reciboData, setReciboData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [collectorName, setCollectorName] = useState(null); // Novo estado para o nome do coletor
   const reciboRef = useRef();
 
-  useEffect(() => {
-    const fetchReciboData = async () => {
-      if (!id) {
-        setError("ID do recibo não fornecido.");
-        setLoading(false);
-        return;
+  const fetchReciboData = useCallback(async () => {
+    if (!id) {
+      setError("ID do recibo não fornecido.");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const { data, error: rpcError } = await supabase.rpc('get_public_recibo_data', { p_coleta_id: id });
+
+      if (rpcError || !data || !data.coleta) {
+        throw new Error("Recibo não encontrado ou acesso negado.");
       }
 
-      try {
-        const { data, error: rpcError } = await supabase.rpc('get_public_recibo_data', { p_coleta_id: id });
-
-        if (rpcError || !data || !data.coleta) {
-          throw new Error("Recibo não encontrado ou acesso negado.");
-        }
-
-        if (!data.recibo?.assinatura_url) {
-          throw new Error("A assinatura para este recibo não foi encontrada.");
-        }
-        
-        // A view v_coletas_com_status já traz os dados do cliente diretamente
-        // então 'data.coleta' já contém 'cliente_nome', 'cliente_cnpj_cpf', etc.
-        // Não precisamos mais do 'data.cliente' separado para o componente Recibo.
-        setColeta(data.coleta);
-        setEmpresa(data.empresa);
-        setReciboData(data.recibo);
-
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
+      if (!data.recibo?.assinatura_url) {
+        throw new Error("A assinatura para este recibo não foi encontrada.");
       }
-    };
+      
+      setColeta(data.coleta);
+      setEmpresa(data.empresa);
+      setReciboData(data.recibo);
 
-    fetchReciboData();
+      // Buscar o nome do coletor
+      if (data.coleta?.user_id) {
+        const { data: users, error: usersError } = await supabase.rpc('get_all_users');
+        if (usersError) {
+          console.error('Erro ao buscar usuários para nome do coletor:', usersError);
+        } else {
+          const collector = users.find(u => u.id === data.coleta.user_id);
+          setCollectorName(collector?.full_name || collector?.email || 'N/A');
+        }
+      }
+
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   }, [id]);
+
+  useEffect(() => {
+    fetchReciboData();
+  }, [fetchReciboData]);
 
   const handleDownload = async () => {
     const input = reciboRef.current;
@@ -88,7 +97,7 @@ const ReciboPublicoPage = () => {
       return (
         <div className="flex flex-col items-center justify-center text-white bg-red-900/20 p-10 rounded-lg">
           <FileWarning className="h-12 w-12 text-red-400 mb-4" />
-          <h2 className="text-2xl font-bold mb-2">Erro ao Carregar Recibo</h2>
+          <h2 className="2xl font-bold mb-2">Erro ao Carregar Recibo</h2>
           <p className="text-red-300 mb-6">{error}</p>
           <Button asChild variant="outline">
             <Link to="/"><ArrowLeft className="mr-2 h-4 w-4" /> Voltar para a Página Inicial</Link>
@@ -106,7 +115,7 @@ const ReciboPublicoPage = () => {
             </div>
             <div className="bg-white rounded-lg shadow-2xl overflow-hidden">
                 <div className="p-4 sm:p-8 overflow-x-auto" ref={reciboRef}>
-                    <Recibo data={coleta} empresa={empresa} signature={reciboData.assinatura_url} timezone={empresa?.timezone || 'America/Sao_Paulo'} coletaDateString={coleta.data_coleta} coletaTimeString={coleta.hora_coleta} />
+                    <Recibo data={coleta} empresa={empresa} signature={reciboData.assinatura_url} timezone={empresa?.timezone || 'America/Sao_Paulo'} coletaDateString={coleta.data_coleta} coletaTimeString={coleta.hora_coleta} collectorName={collectorName} />
                 </div>
             </div>
             <div className="mt-6 text-center">

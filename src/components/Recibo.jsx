@@ -1,14 +1,12 @@
 import React from 'react';
-import { format, isValid } from 'date-fns'; // Importar isValid
+import { format, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { formatCurrency, parseCurrency, formatCnpjCpf } from '@/lib/utils';
-import { formatInTimeZone, utcToZonedTime } from 'date-fns-tz'; // Importar formatInTimeZone e utcToZonedTime
+import { formatInTimeZone, utcToZonedTime } from 'date-fns-tz';
 
-// Esta função agora recebe a data e a hora separadamente e as formata para exibição.
-// A `dateInput` pode ser um objeto Date (do ColetaForm) ou uma string ISO UTC (do ReciboPublicoPage).
+// Esta função agora pode receber um objeto Date OU uma string ISO UTC
 const formatDisplayDate = (dateInput, timezone) => {
     if (!dateInput) return 'N/A';
-    console.log('Recibo.jsx - formatDisplayDate inputs:', { dateInput, timezone }); // DEBUG
     try {
         let dateObject;
         if (dateInput instanceof Date) {
@@ -20,8 +18,7 @@ const formatDisplayDate = (dateInput, timezone) => {
             return 'Data inválida';
         }
 
-        // Verifica se o objeto Date é válido após a conversão
-        if (!isValid(dateObject)) { // Usar isValid para validação
+        if (!isValid(dateObject)) {
             console.error("Recibo.jsx - Objeto Date inválido após parsing:", dateInput);
             return 'Data inválida';
         }
@@ -33,17 +30,15 @@ const formatDisplayDate = (dateInput, timezone) => {
     }
 };
 
-export const Recibo = React.forwardRef(({ data, signature, empresa, timezone, collectorName, coletaDateString, coletaTimeString }, ref) => { // Adicionar coletaDateString e coletaTimeString
-    if (!data) return null; // Mantém esta verificação para o objeto de dados principal
+export const Recibo = React.forwardRef(({ data, signature, empresa, timezone, collectorName, coletaDateString, coletaTimeString }, ref) => {
+    if (!data) return null;
 
     const isCompra = data.tipo_coleta === 'Compra';
     const resultadoFinal = isCompra
         ? formatCurrency(parseCurrency(data.total_pago))
         : `${Math.floor(data.quantidade_entregue || 0)} litros`;
     
-    // Usa encadeamento opcional e fornece valores de fallback para os dados do cliente
     const clientName = data.pessoa?.nome || data.cliente_nome || 'Cliente não informado';
-    // Prioriza data.cnpj_cpf e data.endereco que são adicionados no objeto de coleta no ColetaForm
     const clientCnpjCpf = data.pessoa?.cnpj_cpf || data.cnpj_cpf || data.cliente_cnpj_cpf;
     const clientAddress = data.pessoa?.endereco || data.endereco || data.cliente_endereco || 'Endereço não informado';
 
@@ -87,6 +82,10 @@ export const Recibo = React.forwardRef(({ data, signature, empresa, timezone, co
                     <div>
                         <p className="text-gray-500">HORA DA COLETA</p>
                         <p className="font-semibold">{coletaTimeString || 'N/A'}</p>
+                    </div>
+                    <div className="col-span-2">
+                        <p className="text-gray-500">COLETADO POR</p>
+                        <p className="font-semibold">{collectorName || 'N/A'}</p>
                     </div>
                     <div className="col-span-2">
                         <p className="text-gray-500">ENDEREÇO</p>
