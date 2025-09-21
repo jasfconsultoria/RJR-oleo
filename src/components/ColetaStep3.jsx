@@ -7,6 +7,7 @@ import { Truck, CheckCircle, Droplets, ArrowLeft, DollarSign } from 'lucide-reac
 import { useToast } from '@/components/ui/use-toast';
 import { formatCnpjCpf, parseCurrency, formatCurrency } from '@/lib/utils';
 import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale'; // Importação adicionada
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/customSupabaseClient';
 import { ReciboViewDialog } from '@/components/coletas/ReciboViewDialog';
@@ -84,6 +85,39 @@ export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData, em
     navigate('/app/coletas');
   };
 
+  // Agora espera um objeto Date para dateObject
+  const formatColetaDateTime = (dateInput, timeString, timezone) => {
+    console.log('ColetaStep3 - formatColetaDateTime inputs:', { dateInput, timeString, timezone }); // DEBUG
+    if (!dateInput || !timeString) {
+      console.error("ColetaStep3 - Missing dateInput or timeString:", { dateInput, timeString });
+      return 'N/A';
+    }
+    try {
+        let dateObject;
+        if (dateInput instanceof Date) {
+            dateObject = dateInput;
+        } else if (typeof dateInput === 'string') {
+            // Se for uma string, tenta converter para Date
+            dateObject = new Date(dateInput);
+        } else {
+            return 'Data/Hora inválida';
+        }
+
+        // Verifica se o objeto Date é válido após a conversão
+        if (isNaN(dateObject.getTime())) {
+            console.error("ColetaStep3 - Invalid Date object after parsing:", dateInput);
+            return 'Data/Hora inválida';
+        }
+
+      // dateObject já está no fuso horário da empresa (definido em ColetaForm)
+      const formattedDate = format(dateObject, 'dd/MM/yyyy', { locale: ptBR });
+      return `${formattedDate} às ${timeString}`;
+    } catch (e) {
+      console.error("ColetaStep3 - Error formatting date/time for display:", e);
+      return 'Data/Hora inválida';
+    }
+  };
+
   return (
     <>
       {showReciboDialog && savedColeta && empresa && (
@@ -116,8 +150,7 @@ export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData, em
             <div><span className="text-emerald-300">Telefone:</span><span className="text-white ml-2">{data.telefone || 'N/A'}</span></div>
             <div><span className="text-emerald-300">E-mail:</span><span className="text-white ml-2">{data.email || 'N/A'}</span></div>
             <div className="md:col-span-2"><span className="text-emerald-300">Endereço:</span><span className="text-white ml-2">{data.endereco}</span></div>
-            <div><span className="text-emerald-300">Data:</span><span className="text-white ml-2">{data.data_coleta instanceof Date && !isNaN(data.data_coleta.getTime()) ? format(data.data_coleta, 'dd/MM/yyyy', { locale: ptBR }) : 'N/A'}</span></div>
-            <div><span className="text-emerald-300">Hora:</span><span className="text-white ml-2">{data.hora_coleta || 'N/A'}</span></div>
+            <div><span className="text-emerald-300">Data/Hora:</span><span className="text-white ml-2">{formatColetaDateTime(data.data_coleta, data.hora_coleta, empresaTimezone)}</span></div>
             <div><span className="text-emerald-300">Tipo:</span><span className="text-white ml-2 font-bold">{data.tipo_coleta}</span></div>
             <div><span className="text-emerald-300">Qtd. Coletada:</span><span className="text-white ml-2 font-bold">{parseCurrency(data.quantidade_coletada).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg</span></div>
             {!isCompra && <div><span className="text-emerald-300">Fator:</span><span className="text-white ml-2">{data.fator}</span></div>}
