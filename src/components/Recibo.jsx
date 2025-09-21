@@ -2,22 +2,28 @@ import React from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { formatCurrency, parseCurrency, formatCnpjCpf } from '@/lib/utils';
-import { formatInTimeZone, utcToZonedTime } from 'date-fns-tz'; // Importar formatInTimeZone e utcToZonedTime
+import { formatInTimeZone, zonedTimeToUtc } from 'date-fns-tz'; // Importar formatInTimeZone e utcToZonedTime
 
-const formatDateTime = (dateString, timezone) => {
-    if (!dateString) return 'N/A';
-    console.log('Recibo.jsx - formatDateTime inputs:', { dateString, timezone }); // Adicionado para depuração
+const formatDateTime = (dateString, timeString, timezone) => {
+    if (!dateString || !timeString) return 'N/A';
+    console.log('Recibo.jsx - formatDateTime inputs:', { dateString, timeString, timezone }); // Adicionado para depuração
     try {
-        // Converte a string ISO (que é UTC) para um objeto Date, depois para a data no fuso horário da empresa
-        const zonedDate = utcToZonedTime(new Date(dateString), timezone);
-        return formatInTimeZone(zonedDate, timezone, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
+        // Combina as strings de data e hora para criar um objeto Date no fuso horário da empresa
+        const [year, month, day] = dateString.split('-').map(Number);
+        const [hour, minute] = timeString.split(':').map(Number);
+        
+        // Cria um objeto Date que representa a hora no fuso horário da empresa
+        const localDate = new Date(year, month - 1, day, hour, minute);
+        const utcEquivalent = zonedTimeToUtc(localDate, timezone); // Obtém o equivalente UTC dessa hora local, interpretada como `timezone`
+
+        return formatInTimeZone(utcEquivalent, timezone, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
     } catch (error) {
         console.error("Erro ao formatar data/hora no recibo:", error);
         return 'Data inválida';
     }
 };
 
-export const Recibo = React.forwardRef(({ data, signature, empresa, timezone, collectorName }, ref) => { // Adicionar timezone e collectorName como prop
+export const Recibo = React.forwardRef(({ data, signature, empresa, timezone, collectorName, coletaDateString, coletaTimeString }, ref) => { // Adicionar coletaDateString e coletaTimeString
     if (!data) return null; // Mantém esta verificação para o objeto de dados principal
 
     const isCompra = data.tipo_coleta === 'Compra';
@@ -66,7 +72,7 @@ export const Recibo = React.forwardRef(({ data, signature, empresa, timezone, co
                     </div>
                     <div>
                         <p className="text-gray-500">DATA/HORA DA COLETA</p>
-                        <p className="font-semibold">{formatDateTime(data.data_coleta, timezone)}</p>
+                        <p className="font-semibold">{formatDateTime(coletaDateString, coletaTimeString, timezone)}</p>
                     </div>
                     <div className="col-span-2">
                         <p className="text-gray-500">ENDEREÇO</p>

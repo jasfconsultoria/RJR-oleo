@@ -27,7 +27,7 @@ export const ReciboViewDialog = ({ coleta, empresa, isOpen, onClose, empresaTime
     
     const shareData = {
       title: isSigned ? `Recibo de Coleta Nº ${coleta.numero_coleta}` : `Assinatura do Recibo Nº ${coleta.numero_coleta}`,
-      text: isSigned ? `Segue o recibo da coleta para ${coleta.pessoa?.nome || coleta.cliente_nome}.` : `Olá! Por favor, assine o recibo da coleta para ${coleta.pessoa?.nome || coleta.cliente_nome}.`,
+      text: `Olá! Por favor, assine o recibo da coleta para ${coleta.pessoa?.nome || coleta.cliente_nome}.`,
       url: link,
     };
 
@@ -121,7 +121,16 @@ export const ReciboViewDialog = ({ coleta, empresa, isOpen, onClose, empresaTime
           <DialogTitle>Visualizar Recibo - {coleta.numero_coleta}</DialogTitle>
         </DialogHeader>
         <div className="flex-grow overflow-y-auto p-4 bg-white rounded-md">
-          <Recibo ref={reciboRef} data={coleta} empresa={empresa} signature={coleta.assinatura_url} timezone={empresaTimezone} collectorName={collectorName} />
+          <Recibo 
+            ref={reciboRef} 
+            data={coleta} 
+            empresa={empresa} 
+            signature={coleta.assinatura_url} 
+            timezone={empresaTimezone} 
+            collectorName={collectorName} 
+            coletaDateString={coleta.data_coleta} // Passar a string de data
+            coletaTimeString={coleta.hora_coleta} // Passar a string de hora
+          />
           {!isSigned && (
             <div className="mt-6 p-4 border-t-2 border-dashed">
               <Label htmlFor="signature-canvas-modal" className="text-lg font-semibold mb-2 block text-gray-800">Assinatura:</Label>

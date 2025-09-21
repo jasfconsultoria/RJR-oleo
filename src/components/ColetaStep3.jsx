@@ -95,22 +95,11 @@ export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData, em
     navigate('/app/coletas');
   };
 
-  const formatColetaDateTime = (dateString, timeString, timezone) => {
+  const formatColetaDateTime = (dateString, timeString) => {
     if (!dateString || !timeString) return 'N/A';
-    try {
-      const [year, month, day] = dateString.split('-').map(Number);
-      const [hour, minute] = timeString.split(':').map(Number);
-
-      // Cria um objeto Date que representa a hora no fuso horário da empresa
-      // new Date(year, month - 1, day, hour, minute) cria uma data no fuso horário local do navegador.
-      // zonedTimeToUtc interpreta essa data local como se estivesse no 'timezone' fornecido e a converte para UTC.
-      const dateInUTC = zonedTimeToUtc(new Date(year, month - 1, day, hour, minute), timezone);
-
-      return formatInTimeZone(dateInUTC, timezone, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
-    } catch (e) {
-      console.error("Error formatting date/time for display:", e);
-      return 'Data/Hora inválida';
-    }
+    // Como data_coleta e hora_coleta já estão no fuso horário da empresa,
+    // basta combiná-las e formatar.
+    return `${format(new Date(dateString), 'dd/MM/yyyy')} às ${timeString}`;
   };
 
   return (
@@ -145,7 +134,7 @@ export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData, em
             <div><span className="text-emerald-300">Telefone:</span><span className="text-white ml-2">{data.telefone || 'N/A'}</span></div>
             <div><span className="text-emerald-300">E-mail:</span><span className="text-white ml-2">{data.email || 'N/A'}</span></div>
             <div className="md:col-span-2"><span className="text-emerald-300">Endereço:</span><span className="text-white ml-2">{data.endereco}</span></div>
-            <div><span className="text-emerald-300">Data/Hora:</span><span className="text-white ml-2">{formatColetaDateTime(data.data_coleta, data.hora_coleta, empresaTimezone)}</span></div>
+            <div><span className="text-emerald-300">Data/Hora:</span><span className="text-white ml-2">{formatColetaDateTime(data.data_coleta, data.hora_coleta)}</span></div>
             <div><span className="text-emerald-300">Tipo:</span><span className="text-white ml-2 font-bold">{data.tipo_coleta}</span></div>
             <div><span className="text-emerald-300">Qtd. Coletada:</span><span className="text-white ml-2 font-bold">{parseCurrency(data.quantidade_coletada).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg</span></div>
             {!isCompra && <div><span className="text-emerald-300">Fator:</span><span className="text-white ml-2">{data.fator}</span></div>}
