@@ -67,6 +67,14 @@ const ColetaForm = () => {
     !isEditing
   );
 
+  // Efeito para re-hidratar data_coleta se for uma string (do localStorage)
+  useEffect(() => {
+    if (typeof coletaData.data_coleta === 'string' && !isNaN(new Date(coletaData.data_coleta))) {
+      setColetaData(prev => ({ ...prev, data_coleta: new Date(prev.data_coleta) }));
+    }
+  }, [coletaData.data_coleta, setColetaData]);
+
+
   useEffect(() => {
     if (user?.id && coletaData.user_id !== user.id) {
       setColetaData(prev => ({ ...prev, user_id: user.id }));
@@ -180,7 +188,16 @@ const ColetaForm = () => {
     
     // Combinar data_coleta (objeto Date no fuso horário da empresa) e hora_coleta (string HH:mm)
     // para criar um objeto Date que representa a data e hora no fuso horário da empresa.
-    const combinedDateTimeString = `${format(finalColetaData.data_coleta, 'yyyy-MM-dd')} ${finalColetaData.hora_coleta}`;
+    let combinedDateTimeString;
+    if (finalColetaData.data_coleta instanceof Date && !isNaN(finalColetaData.data_coleta.getTime())) {
+        combinedDateTimeString = `${format(finalColetaData.data_coleta, 'yyyy-MM-dd')} ${finalColetaData.hora_coleta}`;
+    } else {
+        console.error("ColetaForm.jsx - finalColetaData.data_coleta is invalid:", finalColetaData.data_coleta);
+        toast({ title: "Erro de Data", description: "A data da coleta é inválida. Por favor, verifique.", variant: "destructive" });
+        if (returnData) return { error: new Error("Invalid coleta date") };
+        return;
+    }
+    
     const dateInCompanyTimezone = toDate(combinedDateTimeString, { timeZone: empresaTimezone });
     
     // Converter para ISO string (UTC) para salvar na coluna data_coleta do banco de dados

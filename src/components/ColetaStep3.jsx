@@ -87,13 +87,20 @@ export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData, em
   // Agora espera um objeto Date para dateObject
   const formatColetaDateTime = (dateObject, timeString, timezone) => {
     console.log('ColetaStep3 - formatColetaDateTime inputs:', { dateObject, timeString, timezone }); // DEBUG
-    if (!dateObject || !timeString || !(dateObject instanceof Date)) return 'N/A';
+    if (!dateObject || !timeString) {
+      console.error("ColetaStep3 - Missing dateObject or timeString:", { dateObject, timeString });
+      return 'N/A';
+    }
+    if (!(dateObject instanceof Date) || isNaN(dateObject.getTime())) {
+      console.error("ColetaStep3 - Invalid Date object:", dateObject);
+      return 'Data/Hora inválida';
+    }
     try {
       // dateObject já está no fuso horário da empresa (definido em ColetaForm)
       const formattedDate = format(dateObject, 'dd/MM/yyyy', { locale: ptBR });
       return `${formattedDate} às ${timeString}`;
     } catch (e) {
-      console.error("Error formatting date/time for display:", e);
+      console.error("ColetaStep3 - Error formatting date/time for display:", e);
       return 'Data/Hora inválida';
     }
   };
