@@ -8,7 +8,7 @@ import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import SignatureCanvas from 'react-signature-canvas';
 import { supabase } from '@/lib/customSupabaseClient';
-import { Label } from '@/components/ui/label';
+import { Label } = '@/components/ui/label';
 
 export const ReciboViewDialog = ({ coleta, empresa, isOpen, onClose, empresaTimezone }) => {
   const { toast } = useToast();
