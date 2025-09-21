@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import { supabase } from '@/lib/customSupabaseClient';
@@ -113,7 +113,7 @@ const ReciboPublicoPage = () => {
       return (
         <div className="w-full max-w-4xl mx-auto">
             <div className="bg-emerald-600/20 border border-emerald-500 text-emerald-100 p-4 rounded-lg mb-6 text-center">
-                <h1 className="text-2xl font-bold">Recibo Assinado</h1>
+                <h1 className="2xl font-bold">Recibo Assinado</h1>
                 <p>Visualize, imprima ou baixe o recibo abaixo.</p>
             </div>
             <div className="bg-white rounded-lg shadow-2xl overflow-hidden">
