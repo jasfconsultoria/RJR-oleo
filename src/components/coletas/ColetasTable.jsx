@@ -20,7 +20,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { ChevronDown, ChevronUp, Edit, Trash2, Receipt } from 'lucide-react';
-import { formatCurrency, formatNumber, formatDate } from '@/lib/utils';
+import { formatCurrency, formatNumber, formatDateWithTimezone } from '@/lib/utils'; // Alterado para formatDateWithTimezone
 
 
 const ColetasTable = ({ coletas, sortConfig, requestSort, handleOpenRecibo, handleDelete, totals, timezone }) => {
@@ -100,7 +100,7 @@ const ColetasTable = ({ coletas, sortConfig, requestSort, handleOpenRecibo, hand
             {coletas.length > 0 ? coletas.map((coleta) => (
                 <TableRow key={coleta.id} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
                   <TableCell data-label="Nº Coleta" className="font-medium p-2">{coleta.numero_coleta?.toString().padStart(6, '0')}</TableCell>
-                  <TableCell data-label="Data" className="p-2">{formatDate(coleta.data_coleta)}</TableCell>
+                  <TableCell data-label="Data" className="p-2">{formatDateWithTimezone(coleta.data_coleta, timezone)}</TableCell>
                   <TableCell data-label="Cliente" className="p-2">{coleta.cliente_nome}</TableCell>
                   <TableCell data-label="Tipo" className="p-2">
                     <span className={`px-2 py-1 rounded-xl text-xs font-semibold ${tipoColetaStyle(coleta.tipo_coleta)}`}>
