@@ -106,7 +106,8 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
       const { data: fetchedClientes, error: clientesError } = await supabase
         .from('clientes')
         .select('*')
-        .in('id', clienteIds);
+        .in('id', clienteIds)
+        .order('nome', { ascending: true }); // Adicionado ordenação por nome
 
       if (clientesError) {
         toast({ title: "Erro ao buscar clientes", description: clientesError.message, variant: "destructive" });

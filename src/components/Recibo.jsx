@@ -52,6 +52,8 @@ const formatDisplayDate = (dateInput, timezone) => {
 export const Recibo = React.forwardRef(({ data, signature, empresa, timezone, collectorName, coletaDateString, coletaTimeString }, ref) => {
     if (!data) return null;
 
+    console.log('Recibo - coletaTimeString recebido:', coletaTimeString); // DEBUG: Log para verificar o valor da hora
+
     const isCompra = data.tipo_coleta === 'Compra';
     const resultadoFinal = isCompra
         ? formatCurrency(parseCurrency(data.total_pago))
@@ -98,17 +100,20 @@ export const Recibo = React.forwardRef(({ data, signature, empresa, timezone, co
                         <p className="text-gray-500">ENDEREÇO</p>
                         <p className="font-semibold">{clientAddress}</p>
                     </div>
-                    <div>
-                        <p className="text-gray-500">DATA DA COLETA</p>
-                        <p className="font-semibold">{formatDisplayDate(coletaDateString, timezone)}</p>
-                    </div>
-                    <div>
-                        <p className="text-gray-500">HORA DA COLETA</p>
-                        <p className="font-semibold">{coletaTimeString || 'N/A'}</p>
-                    </div>
-                    <div className="col-span-2"> {/* Coletado por em uma linha separada */}
-                        <p className="text-gray-500">COLETADO POR</p>
-                        <p className="font-semibold">{collectorName || 'N/A'}</p>
+                    {/* Nova estrutura para Data, Hora e Coletor na mesma linha */}
+                    <div className="col-span-2 flex flex-wrap justify-between gap-x-4 gap-y-2">
+                        <div>
+                            <p className="text-gray-500">DATA DA COLETA</p>
+                            <p className="font-semibold">{formatDisplayDate(coletaDateString, timezone)}</p>
+                        </div>
+                        <div>
+                            <p className="text-gray-500">HORA DA COLETA</p>
+                            <p className="font-semibold">{coletaTimeString || 'N/A'}</p>
+                        </div>
+                        <div>
+                            <p className="text-gray-500">COLETADO POR</p>
+                            <p className="font-semibold">{collectorName || 'N/A'}</p>
+                        </div>
                     </div>
                 </div>
 
