@@ -8,7 +8,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { parseCurrency, formatCurrency } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { formatInTimeZone, utcToZonedTime } from 'date-fns-tz'; // Importar formatInTimeZone e utcToZonedTime
+import { formatInTimeZone, zonedTimeToUtc, utcToZonedTime } from 'date-fns-tz'; // Importar formatInTimeZone e utcToZonedTime
 
 export function ColetaStep2({ data, onBack, onNext, onUpdate, empresaTimezone }) {
   const [quantidadeColetada, setQuantidadeColetada] = useState(data.quantidade_coletada || '');
@@ -50,13 +50,13 @@ export function ColetaStep2({ data, onBack, onNext, onUpdate, empresaTimezone })
       const [year, month, day] = dateString.split('-').map(Number);
       const [hour, minute] = timeString.split(':').map(Number);
 
-      // Cria uma data UTC a partir dos componentes, depois converte para o fuso horário da empresa
-      const date = new Date(Date.UTC(year, month - 1, day, hour, minute));
-      const zonedDate = utcToZonedTime(date, timezone);
+      // Cria um objeto Date que representa a hora no fuso horário da empresa
+      const localDate = new Date(year, month - 1, day, hour, minute);
+      const utcEquivalent = zonedTimeToUtc(localDate, timezone); // Obtém o equivalente UTC dessa hora local, interpretada como `timezone`
 
-      return formatInTimeZone(zonedDate, timezone, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
+      return formatInTimeZone(utcEquivalent, timezone, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
     } catch (e) {
-      console.error("Error formatting date/time for display in Step 2:", e);
+      console.error("Error formatting date/time for display:", e);
       return 'Data/Hora inválida';
     }
   };

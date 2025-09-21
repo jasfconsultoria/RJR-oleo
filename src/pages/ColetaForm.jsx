@@ -182,9 +182,10 @@ const ColetaForm = () => {
     }
     
     // Combinar data_coleta e hora_coleta em um único timestamp com fuso horário
-    const combinedDateTimeString = `${finalColetaData.data_coleta}T${finalColetaData.hora_coleta}:00`;
-    const zonedDate = new Date(combinedDateTimeString);
-    const utcDate = zonedTimeToUtc(zonedDate, empresaTimezone);
+    const [year, month, day] = finalColetaData.data_coleta.split('-').map(Number);
+    const [hour, minute] = finalColetaData.hora_coleta.split(':').map(Number);
+    const localDateForTimezoneConversion = new Date(year, month - 1, day, hour, minute);
+    const utcDate = zonedTimeToUtc(localDateForTimezoneConversion, empresaTimezone);
 
     const coletaToSave = {
       id: isEditing ? finalColetaData.id : undefined,

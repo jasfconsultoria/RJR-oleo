@@ -6,6 +6,7 @@ import { formatInTimeZone, utcToZonedTime } from 'date-fns-tz'; // Importar form
 
 const formatDateTime = (dateString, timezone) => {
     if (!dateString) return 'N/A';
+    console.log('Recibo.jsx - formatDateTime inputs:', { dateString, timezone }); // Adicionado para depuração
     try {
         // Converte a string ISO (que é UTC) para a data no fuso horário da empresa
         const zonedDate = utcToZonedTime(dateString, timezone);
