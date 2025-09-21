@@ -26,6 +26,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa' }) 
   const { user } = useAuth();
   const isEditing = Boolean(id) && !isModal;
   const cnpjCpfInputRef = useRef(null);
+  const telefoneInputRef = useRef(null); // Ref for telefone input
 
   const getLabels = (type) => {
     switch (type) {
@@ -41,7 +42,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa' }) 
   const { title: titleLabel, article, pageVerb } = getLabels(personType);
   const pageTitle = isEditing ? `Editar ${titleLabel}` : `${pageVerb} ${titleLabel}`;
 
-  const autoSaveKey = id ? `autoSave_clienteForm_${id}` : 'autoSave_clienteForm_new';
+  const autoSaveKey = id ? `autoSave_clienteForm_${id}` : `autoSave_clienteForm_new_${personType}`; // Unique key for new forms based on personType
 
   const [formData, setFormData, clearSavedData] = useAutoSave(autoSaveKey, {
     nome: '', // This will be Razão Social
@@ -53,12 +54,13 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa' }) 
     municipio: '',
     endereco: '',
     referencia: '',
-  });
+  }, !isEditing); // Only load from auto-save if not editing
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [isCnpjCpfChecking, setIsCnpjCpfChecking] = useState(false);
   const [cnpjCpfError, setCnpjCpfError] = useState('');
+  const [telefoneError, setTelefoneError] = useState(''); // New state for telefone error
   
   const municipiosOptions = useMemo(() => {
     if (!formData.estado) return [];
@@ -119,8 +121,29 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa' }) 
     }
   };
 
+  const validateTelefone = useCallback((value) => {
+    const unmaskedValue = unmask(value);
+    if (!unmaskedValue) {
+      setTelefoneError('O telefone é um campo obrigatório.');
+      return false;
+    }
+    if (unmaskedValue.length < 10) { // Minimum 10 digits for (XX) XXXX-XXXX
+      setTelefoneError('O telefone está incompleto.');
+      return false;
+    }
+    setTelefoneError('');
+    return true;
+  }, []);
+
+  const handleTelefoneBlur = (e) => {
+    validateTelefone(e.target.value);
+  };
+
   const fetchCliente = useCallback(async () => {
-    if (!isEditing) return;
+    if (!isEditing) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     const { data, error } = await supabase
       .from('clientes')
@@ -167,6 +190,8 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa' }) 
   const handleMaskedChange = (value, field) => {
     if (field === 'cnpj_cpf') {
       setCnpjCpfError('');
+    } else if (field === 'telefone') {
+      setTelefoneError('');
     }
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
@@ -198,10 +223,20 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa' }) 
         setSaving(false);
         return;
     }
+
+    // Validate telefone
+    const isTelefoneValid = validateTelefone(formData.telefone);
+    if (!isTelefoneValid) {
+        toast({ title: 'Verificação falhou', description: telefoneError, variant: 'destructive' });
+        telefoneInputRef.current?.element?.focus();
+        setSaving(false);
+        return;
+    }
     
     const dataToSave = { 
         ...formData, 
         cnpj_cpf: unmaskedCnpjCpf, // No longer allow null, as it's mandatory
+        telefone: unmask(formData.telefone), // Unmask telefone before saving
         user_id: user.id 
     };
 
@@ -294,17 +329,21 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa' }) 
                    {cnpjCpfError && <p className="text-red-500 text-xs mt-1">{cnpjCpfError}</p>}
                 </div>
                 <div>
-                  <Label htmlFor="telefone" className="text-lg">Telefone</Label>
+                  <Label htmlFor="telefone" className="text-lg">Telefone <span className="text-red-500">*</span></Label>
                   <IMaskInput
                     mask={[{ mask: '(00) 0000-0000' }, { mask: '(00) 00000-0000' }]}
                     as={Input}
+                    ref={telefoneInputRef} // Assign ref
                     id="telefone"
                     name="telefone"
                     value={formData.telefone}
                     onAccept={(value) => handleMaskedChange(String(value), 'telefone')}
+                    onBlur={handleTelefoneBlur}
                     placeholder="(00) 00000-0000"
-                    className="w-full flex h-10 rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    className={`w-full flex h-10 rounded-xl border ${telefoneError ? 'border-red-500' : 'border-white/20'} bg-white/5 px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50`}
+                    required
                   />
+                  {telefoneError && <p className="text-red-500 text-xs mt-1">{telefoneError}</p>}
                 </div>
                 <div className="md:col-span-2">
                   <Label htmlFor="nome" className="text-lg">Razão Social <span className="text-red-500">*</span></Label>
