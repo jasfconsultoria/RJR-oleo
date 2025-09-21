@@ -4,33 +4,29 @@ import { ptBR } from 'date-fns/locale';
 import { formatCurrency, parseCurrency, formatCnpjCpf } from '@/lib/utils';
 import { formatInTimeZone, utcToZonedTime } from 'date-fns-tz'; // Importar formatInTimeZone e utcToZonedTime
 
-// Esta função agora pode receber um objeto Date OU uma string ISO UTC
-const formatDateTime = (dateInput, timeString, timezone) => {
-    if (!dateInput || !timeString) return 'N/A';
-    console.log('Recibo.jsx - formatDateTime inputs:', { dateInput, timeString, timezone }); // Adicionado para depuração
+// Esta função agora recebe a data e a hora separadamente e as formata para exibição.
+// A `dateInput` pode ser um objeto Date (do ColetaForm) ou uma string ISO UTC (do ReciboPublicoPage).
+const formatDisplayDate = (dateInput, timezone) => {
+    if (!dateInput) return 'N/A';
     try {
         let dateObject;
         if (dateInput instanceof Date) {
-            dateObject = dateInput;
+            dateObject = dateInput; // Já é um objeto Date no fuso horário da empresa
         } else if (typeof dateInput === 'string') {
-            // Se for uma string, assume que é ISO UTC do DB e converte para Date
-            dateObject = new Date(dateInput);
+            // Se for uma string ISO UTC do DB, converte para Date e depois para o fuso horário da empresa
+            dateObject = utcToZonedTime(new Date(dateInput), timezone);
         } else {
             return 'Data inválida';
         }
 
-        // Verifica se o objeto Date é válido após a conversão
         if (isNaN(dateObject.getTime())) {
             console.error("Recibo.jsx - Objeto Date inválido após parsing:", dateInput);
             return 'Data inválida';
         }
 
-        // dateObject já está no fuso horário da empresa (definido em ColetaForm)
-        const formattedDate = format(dateObject, 'dd/MM/yyyy', { locale: ptBR });
-        // Usa a string de hora diretamente do campo hora_coleta
-        return `${formattedDate} às ${timeString}`;
+        return format(dateObject, 'dd/MM/yyyy', { locale: ptBR });
     } catch (error) {
-        console.error("Erro ao formatar data/hora no recibo:", error);
+        console.error("Erro ao formatar data no recibo:", error);
         return 'Data inválida';
     }
 };
@@ -83,8 +79,12 @@ export const Recibo = React.forwardRef(({ data, signature, empresa, timezone, co
                         <p className="font-semibold">{clientCnpjCpf ? formatCnpjCpf(clientCnpjCpf) : 'Não informado'}</p>
                     </div>
                     <div>
-                        <p className="text-gray-500">DATA/HORA DA COLETA</p>
-                        <p className="font-semibold">{formatDateTime(coletaDateString, coletaTimeString, timezone)}</p>
+                        <p className="text-gray-500">DATA DA COLETA</p>
+                        <p className="font-semibold">{formatDisplayDate(coletaDateString, timezone)}</p>
+                    </div>
+                    <div>
+                        <p className="text-gray-500">HORA DA COLETA</p>
+                        <p className="font-semibold">{coletaTimeString || 'N/A'}</p>
                     </div>
                     <div className="col-span-2">
                         <p className="text-gray-500">ENDEREÇO</p>

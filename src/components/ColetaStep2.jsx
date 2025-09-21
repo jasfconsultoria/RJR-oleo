@@ -44,27 +44,6 @@ export function ColetaStep2({ data, onBack, onNext, onUpdate, empresaTimezone })
     }
   };
 
-  // Agora espera um objeto Date para dateObject
-  const formatColetaDateTime = (dateObject, timeString, timezone) => {
-    console.log('ColetaStep2 - formatColetaDateTime inputs:', { dateObject, timeString, timezone }); // DEBUG
-    if (!dateObject || !timeString) {
-      console.error("ColetaStep2 - Missing dateObject or timeString:", { dateObject, timeString });
-      return 'N/A';
-    }
-    if (!(dateObject instanceof Date) || isNaN(dateObject.getTime())) {
-      console.error("ColetaStep2 - Invalid Date object:", dateObject);
-      return 'Data/Hora inválida';
-    }
-    try {
-      // dateObject já está no fuso horário da empresa (definido em ColetaForm)
-      const formattedDate = format(dateObject, 'dd/MM/yyyy', { locale: ptBR });
-      return `${formattedDate} às ${timeString}`;
-    } catch (e) {
-      console.error("ColetaStep2 - Error formatting date/time for display:", e);
-      return 'Data/Hora inválida';
-    }
-  };
-
   return (
     <motion.div
       initial={{ opacity: 0, x: 50 }}
@@ -85,7 +64,8 @@ export function ColetaStep2({ data, onBack, onNext, onUpdate, empresaTimezone })
         <h3 className="text-lg font-semibold text-white mb-4">Resumo da Coleta</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
           <div><span className="text-emerald-300">Cliente:</span><span className="text-white ml-2">{data.cliente || 'N/A'}</span></div>
-          <div><span className="text-emerald-300">Data/Hora:</span><span className="text-white ml-2">{formatColetaDateTime(data.data_coleta, data.hora_coleta, empresaTimezone)}</span></div>
+          <div><span className="text-emerald-300">Data:</span><span className="text-white ml-2">{data.data_coleta instanceof Date && !isNaN(data.data_coleta.getTime()) ? format(data.data_coleta, 'dd/MM/yyyy', { locale: ptBR }) : 'N/A'}</span></div>
+          <div><span className="text-emerald-300">Hora:</span><span className="text-white ml-2">{data.hora_coleta || 'N/A'}</span></div>
           <div><span className="text-emerald-300">Tipo:</span><span className="text-white ml-2 font-bold">{data.tipo_coleta || 'N/A'}</span></div>
           {!isCompra && <div><span className="text-emerald-300">Fator:</span><span className="text-white ml-2">{data.fator || 'N/A'}</span></div>}
           {isCompra && <div><span className="text-emerald-300">Valor/kg:</span><span className="text-white ml-2">{formatCurrency(parseCurrency(data.valor_compra))}</span></div>}
