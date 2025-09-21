@@ -6,26 +6,46 @@ import { formatInTimeZone, utcToZonedTime } from 'date-fns-tz';
 
 // Esta função agora pode receber um objeto Date OU uma string ISO UTC
 const formatDisplayDate = (dateInput, timezone) => {
-    if (!dateInput) return 'N/A';
+    if (!dateInput) {
+        return 'N/A';
+    }
+
+    let baseDate;
+    if (dateInput instanceof Date) {
+        baseDate = dateInput;
+    } else if (typeof dateInput === 'string') {
+        baseDate = new Date(dateInput);
+    } else {
+        console.error("Recibo.jsx - Unexpected dateInput type:", typeof dateInput, dateInput);
+        return 'Data inválida';
+    }
+
+    // Check if the baseDate is valid after initial parsing/assignment
+    if (!isValid(baseDate)) {
+        console.error("Recibo.jsx - Base date is Invalid Date:", dateInput);
+        return 'Data inválida';
+    }
+
+    let zonedDate;
     try {
-        let dateObject;
-        if (dateInput instanceof Date) {
-            dateObject = dateInput; // Já é um objeto Date no fuso horário da empresa
-        } else if (typeof dateInput === 'string') {
-            // Se for uma string ISO UTC do DB, converte para Date e depois para o fuso horário da empresa
-            dateObject = utcToZonedTime(new Date(dateInput), timezone);
-        } else {
-            return 'Data inválida';
-        }
+        // Ensure timezone is a string, fallback if not
+        const validTimezone = typeof timezone === 'string' && timezone ? timezone : 'America/Sao_Paulo';
+        zonedDate = utcToZonedTime(baseDate, validTimezone);
+    } catch (tzError) {
+        console.error("Recibo.jsx - Error converting to zoned time:", tzError, baseDate, timezone);
+        return 'Data inválida'; // Fallback if timezone conversion fails
+    }
 
-        if (!isValid(dateObject)) {
-            console.error("Recibo.jsx - Objeto Date inválido após parsing:", dateInput);
-            return 'Data inválida';
-        }
+    // Final check for validity after timezone conversion
+    if (!isValid(zonedDate)) {
+        console.error("Recibo.jsx - Zoned date is Invalid Date:", zonedDate);
+        return 'Data inválida';
+    }
 
-        return format(dateObject, 'dd/MM/yyyy', { locale: ptBR });
-    } catch (error) {
-        console.error("Erro ao formatar data no recibo:", error);
+    try {
+        return format(zonedDate, 'dd/MM/yyyy', { locale: ptBR });
+    } catch (formatError) {
+        console.error("Recibo.jsx - Error during final date formatting:", formatError, zonedDate);
         return 'Data inválida';
     }
 };
