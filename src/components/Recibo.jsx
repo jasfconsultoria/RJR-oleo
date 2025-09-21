@@ -2,7 +2,7 @@ import React from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { formatCurrency, parseCurrency, formatCnpjCpf } from '@/lib/utils';
-import { formatInTimeZone, zonedTimeToUtc } from 'date-fns-tz'; // Importar formatInTimeZone e utcToZonedTime
+import { formatInTimeZone, toDate } from 'date-fns-tz'; // Importar formatInTimeZone e toDate
 
 const formatDateTime = (dateStringFromDB, timeStringFromForm, timezone) => {
     if (!dateStringFromDB || !timeStringFromForm) return 'N/A';
@@ -12,18 +12,14 @@ const formatDateTime = (dateStringFromDB, timeStringFromForm, timezone) => {
         const datePart = dateStringFromDB.split('T')[0]; // Ex: "2025-09-21"
 
         // Combina a parte da data com a string de hora do formulário
-        const combinedDateTimeString = `${datePart}T${timeStringFromForm}:00`; // Ex: "2025-09-21T11:51:00"
+        const combinedDateTimeString = `${datePart} ${timeStringFromForm}`; // Ex: "2025-09-21 11:51"
 
-        // Cria um objeto Date a partir desta string combinada.
-        // Este objeto Date será interpretado no fuso horário local do ambiente.
-        const localDate = new Date(combinedDateTimeString);
+        // Cria um objeto Date que representa a data e hora exatas no fuso horário da empresa.
+        // `toDate` da `date-fns-tz` é a forma mais robusta para isso.
+        const dateInCompanyTimezone = toDate(combinedDateTimeString, { timeZone: timezone });
 
-        // Agora, interpreta esta data 'local' como se estivesse no 'timezone' fornecido,
-        // e a converte para seu equivalente UTC.
-        const utcEquivalentInCompanyTimezone = zonedTimeToUtc(localDate, timezone);
-
-        // Finalmente, formata esta data UTC para exibi-la no fuso horário da empresa.
-        return formatInTimeZone(utcEquivalentInCompanyTimezone, timezone, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
+        // Finalmente, formata esta data para exibi-la no fuso horário da empresa.
+        return formatInTimeZone(dateInCompanyTimezone, timezone, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
     } catch (error) {
         console.error("Erro ao formatar data/hora no recibo:", error);
         return 'Data inválida';
