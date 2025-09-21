@@ -2,7 +2,7 @@ import React from 'react';
 import { format, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { formatCurrency, parseCurrency, formatCnpjCpf } from '@/lib/utils';
-import { formatInTimeZone, utcToZonedTime } from 'date-fns-tz';
+import { utcToZonedTime } from 'date-fns-tz';
 
 // Esta função agora pode receber um objeto Date OU uma string ISO UTC
 const formatDisplayDate = (dateInput, timezone) => {
@@ -14,38 +14,37 @@ const formatDisplayDate = (dateInput, timezone) => {
     if (dateInput instanceof Date) {
         baseDate = dateInput;
     } else if (typeof dateInput === 'string') {
-        baseDate = new Date(dateInput);
+        const parsedDate = new Date(dateInput);
+        if (!isValid(parsedDate)) {
+            console.error("Recibo.jsx - Invalid date string provided:", dateInput);
+            return 'Data inválida';
+        }
+        baseDate = parsedDate;
     } else {
         console.error("Recibo.jsx - Unexpected dateInput type:", typeof dateInput, dateInput);
         return 'Data inválida';
     }
 
-    // Check if the baseDate is valid after initial parsing/assignment
-    if (!isValid(baseDate)) {
-        console.error("Recibo.jsx - Base date is Invalid Date:", dateInput);
-        return 'Data inválida';
+    let finalDateObject = baseDate;
+    if (typeof dateInput === 'string') { // Se a entrada foi uma string, assume que é UTC do DB e converte
+        try {
+            const validTimezone = typeof timezone === 'string' && timezone ? timezone : 'America/Sao_Paulo';
+            finalDateObject = utcToZonedTime(baseDate, validTimezone);
+        } catch (tzError) {
+            console.error("Recibo.jsx - Error converting to zoned time:", tzError, baseDate, timezone);
+            return 'Data inválida';
+        }
     }
 
-    let zonedDate;
-    try {
-        // Ensure timezone is a string, fallback if not
-        const validTimezone = typeof timezone === 'string' && timezone ? timezone : 'America/Sao_Paulo';
-        zonedDate = utcToZonedTime(baseDate, validTimezone);
-    } catch (tzError) {
-        console.error("Recibo.jsx - Error converting to zoned time:", tzError, baseDate, timezone);
-        return 'Data inválida'; // Fallback if timezone conversion fails
-    }
-
-    // Final check for validity after timezone conversion
-    if (!isValid(zonedDate)) {
-        console.error("Recibo.jsx - Zoned date is Invalid Date:", zonedDate);
+    if (!isValid(finalDateObject)) {
+        console.error("Recibo.jsx - Final date object is Invalid Date:", finalDateObject);
         return 'Data inválida';
     }
 
     try {
-        return format(zonedDate, 'dd/MM/yyyy', { locale: ptBR });
+        return format(finalDateObject, 'dd/MM/yyyy', { locale: ptBR });
     } catch (formatError) {
-        console.error("Recibo.jsx - Error during final date formatting:", formatError, zonedDate);
+        console.error("Recibo.jsx - Error during final date formatting:", formatError, finalDateObject);
         return 'Data inválida';
     }
 };
@@ -95,6 +94,10 @@ export const Recibo = React.forwardRef(({ data, signature, empresa, timezone, co
                         <p className="text-gray-500">CNPJ/CPF</p>
                         <p className="font-semibold">{clientCnpjCpf ? formatCnpjCpf(clientCnpjCpf) : 'Não informado'}</p>
                     </div>
+                    <div className="col-span-2"> {/* Alterado para col-span-2 */}
+                        <p className="text-gray-500">ENDEREÇO</p>
+                        <p className="font-semibold">{clientAddress}</p>
+                    </div>
                     <div>
                         <p className="text-gray-500">DATA DA COLETA</p>
                         <p className="font-semibold">{formatDisplayDate(coletaDateString, timezone)}</p>
@@ -103,13 +106,9 @@ export const Recibo = React.forwardRef(({ data, signature, empresa, timezone, co
                         <p className="text-gray-500">HORA DA COLETA</p>
                         <p className="font-semibold">{coletaTimeString || 'N/A'}</p>
                     </div>
-                    <div className="col-span-2">
+                    <div className="col-span-2"> {/* Coletado por em uma linha separada */}
                         <p className="text-gray-500">COLETADO POR</p>
                         <p className="font-semibold">{collectorName || 'N/A'}</p>
-                    </div>
-                    <div className="col-span-2">
-                        <p className="text-gray-500">ENDEREÇO</p>
-                        <p className="font-semibold">{clientAddress}</p>
                     </div>
                 </div>
 
