@@ -34,7 +34,8 @@ export const ReciboViewDialog = ({ coleta, empresa, isOpen, onClose, empresaTime
   useEffect(() => {
     if (isOpen && coleta) {
       fetchCollectorName();
-      // Log para depuração da hora da coleta
+      // DEBUG: Log para verificar o objeto coleta completo e a hora da coleta
+      console.log('ReciboViewDialog - Coleta prop recebida:', coleta);
       console.log('ReciboViewDialog - coleta.hora_coleta:', coleta.hora_coleta);
     }
   }, [isOpen, coleta, fetchCollectorName]);

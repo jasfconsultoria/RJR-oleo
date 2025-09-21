@@ -88,7 +88,7 @@ export const Recibo = React.forwardRef(({ data, signature, empresa, timezone, co
 
             <main className="space-y-4">
                 <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                    <div className="col-span-2">
+                    <div>
                         <p className="text-gray-500">CLIENTE</p>
                         <p className="font-semibold">{clientName}</p>
                     </div>
@@ -96,7 +96,7 @@ export const Recibo = React.forwardRef(({ data, signature, empresa, timezone, co
                         <p className="text-gray-500">CNPJ/CPF</p>
                         <p className="font-semibold">{clientCnpjCpf ? formatCnpjCpf(clientCnpjCpf) : 'Não informado'}</p>
                     </div>
-                    <div className="col-span-2"> {/* Alterado para col-span-2 */}
+                    <div className="col-span-2"> {/* Endereço na linha de baixo */}
                         <p className="text-gray-500">ENDEREÇO</p>
                         <p className="font-semibold">{clientAddress}</p>
                     </div>
