@@ -150,13 +150,6 @@ export const Recibo = React.forwardRef(({ data, signature, empresa, timezone, co
                         <div className="border-b-2 border-gray-400 w-4/5"></div>
                     )}
                 </div>
-                {collectorName && (
-                    <div className="mt-6">
-                        <p className="text-gray-500 mb-2">Coletor</p>
-                        <div className="border-b-2 border-gray-400 w-4/5 mx-auto pb-1 mb-1"></div>
-                        <p className="font-bold mt-1 text-xs">{collectorName}</p>
-                    </div>
-                )}
             </footer>
         </div>
     );
