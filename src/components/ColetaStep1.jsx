@@ -13,7 +13,7 @@ import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { useIMask } from 'react-imask';
 import { formatCnpjCpf, unmask, formatToISODate } from '@/lib/utils';
 import { DatePicker } from '@/components/ui/date-picker';
-import { formatInTimeZone } from 'date-fns-tz'; // Importar formatInTimeZone
+import { formatInTimeZone, utcToZonedTime, toDate } from 'date-fns-tz'; // Importar formatInTimeZone
 
 const tiposColeta = [
   { id: 'Troca', nome: 'Troca' },
@@ -198,8 +198,8 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
               Data da Coleta *
             </Label>
             <DatePicker
-              date={formData.data_coleta ? new Date(formData.data_coleta + 'T00:00:00') : null}
-              setDate={(date) => handleInputChange('data_coleta', formatToISODate(date))}
+              date={formData.data_coleta} // Agora é um objeto Date
+              setDate={(date) => handleInputChange('data_coleta', date)} // Passa o objeto Date
               className="w-full"
               disabled={profile?.role !== 'administrador'}
             />

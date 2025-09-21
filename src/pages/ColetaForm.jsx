@@ -48,7 +48,7 @@ const ColetaForm = () => {
       municipio: '',
       estado: '',
       telefone: '',
-      data_coleta: format(nowInEmpresaTimezone, 'yyyy-MM-dd'),
+      data_coleta: nowInEmpresaTimezone, // Armazenar como objeto Date no fuso horário da empresa
       hora_coleta: format(nowInEmpresaTimezone, 'HH:mm'),
       fator: '6',
       tipo_coleta: 'Troca',
@@ -79,15 +79,14 @@ const ColetaForm = () => {
     // para o fuso horário da empresa.
     if (empresaTimezone && !isEditing) {
       const nowInEmpresaTimezone = utcToZonedTime(new Date(), empresaTimezone);
-      const currentFormattedDate = format(nowInEmpresaTimezone, 'yyyy-MM-dd');
       const currentFormattedTime = format(nowInEmpresaTimezone, 'HH:mm');
 
       // Atualiza apenas se os valores atuais não corresponderem ao tempo atual da empresa
       // ou se os campos de data/hora não estiverem definidos (indicando um formulário novo sem auto-save)
-      if (coletaData.data_coleta !== currentFormattedDate || coletaData.hora_coleta !== currentFormattedTime) {
+      if (!coletaData.data_coleta || format(coletaData.data_coleta, 'yyyy-MM-dd') !== format(nowInEmpresaTimezone, 'yyyy-MM-dd') || coletaData.hora_coleta !== currentFormattedTime) {
         setColetaData(prev => ({
           ...prev,
-          data_coleta: currentFormattedDate,
+          data_coleta: nowInEmpresaTimezone, // Objeto Date
           hora_coleta: currentFormattedTime
         }));
       }
@@ -111,7 +110,6 @@ const ColetaForm = () => {
           // Converte a data UTC do DB para o fuso horário da empresa para preencher o formulário
           const fullDateUTC = new Date(data.data_coleta); // Data do DB é UTC
           const zonedDate = utcToZonedTime(fullDateUTC, empresaTimezone); // Converte para o fuso da empresa
-          const formattedDate = format(zonedDate, 'yyyy-MM-dd');
           // A hora_coleta agora é lida diretamente do novo campo do DB
           const formattedTime = data.hora_coleta || format(zonedDate, 'HH:mm'); // Fallback se o campo ainda não existir no DB
 
@@ -127,7 +125,7 @@ const ColetaForm = () => {
             estado: data.pessoa?.estado,
             telefone: data.pessoa?.telefone,
             tipo_coleta: data.tipo_coleta,
-            data_coleta: formattedDate, // Data separada
+            data_coleta: zonedDate, // Armazenar como objeto Date
             hora_coleta: formattedTime, // Hora separada (do novo campo do DB)
             valor_compra: String(data.valor_compra || '0').replace('.', ','),
             quantidade_coletada: String(data.quantidade_coletada || '').replace('.', ','),
@@ -180,9 +178,9 @@ const ColetaForm = () => {
         clienteId = cliente.id;
     }
     
-    // Combinar data_coleta (string yyyy-MM-dd) e hora_coleta (string HH:mm)
+    // Combinar data_coleta (objeto Date no fuso horário da empresa) e hora_coleta (string HH:mm)
     // para criar um objeto Date que representa a data e hora no fuso horário da empresa.
-    const combinedDateTimeString = `${finalColetaData.data_coleta} ${finalColetaData.hora_coleta}`;
+    const combinedDateTimeString = `${format(finalColetaData.data_coleta, 'yyyy-MM-dd')} ${finalColetaData.hora_coleta}`;
     const dateInCompanyTimezone = toDate(combinedDateTimeString, { timeZone: empresaTimezone });
     
     // Converter para ISO string (UTC) para salvar na coluna data_coleta do banco de dados

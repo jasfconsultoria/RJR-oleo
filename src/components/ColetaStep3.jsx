@@ -84,14 +84,13 @@ export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData, em
     navigate('/app/coletas');
   };
 
-  const formatColetaDateTime = (utcDateString, timeString, timezone) => {
-    console.log('ColetaStep3 - formatColetaDateTime inputs:', { utcDateString, timeString, timezone }); // DEBUG
-    if (!utcDateString || !timeString) return 'N/A';
+  // Agora espera um objeto Date para dateObject
+  const formatColetaDateTime = (dateObject, timeString, timezone) => {
+    console.log('ColetaStep3 - formatColetaDateTime inputs:', { dateObject, timeString, timezone }); // DEBUG
+    if (!dateObject || !timeString || !(dateObject instanceof Date)) return 'N/A';
     try {
-      const utcDate = new Date(utcDateString); // Cria um objeto Date representando o tempo UTC
-      // Combina a data UTC com a hora exata do campo hora_coleta para exibição no fuso horário da empresa
-      const zonedDate = utcToZonedTime(utcDate, timezone);
-      const formattedDate = format(zonedDate, 'dd/MM/yyyy', { locale: ptBR });
+      // dateObject já está no fuso horário da empresa (definido em ColetaForm)
+      const formattedDate = format(dateObject, 'dd/MM/yyyy', { locale: ptBR });
       return `${formattedDate} às ${timeString}`;
     } catch (e) {
       console.error("Error formatting date/time for display:", e);
