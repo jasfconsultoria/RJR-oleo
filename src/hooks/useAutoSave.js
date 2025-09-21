@@ -1,46 +1,44 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useDebounce } from './useDebounce';
 
-export function useAutoSave(key, initialValue, enabled = true) {
-  const [value, setValue] = useState(() => {
-    if (!enabled) return initialValue;
-    try {
-      const storedValue = localStorage.getItem(key);
-      return storedValue ? JSON.parse(storedValue) : initialValue;
-    } catch (error) {
-      console.error("Erro ao ler do localStorage:", error);
-      return initialValue;
-    }
-  });
-
-  const debouncedValue = useDebounce(value, 500);
-
-  useEffect(() => {
-    if (enabled) {
+/**
+ * Custom hook for auto-saving form data to local storage.
+ *
+ * @param {string} key - The key to use for storing data in local storage.
+ * @param {any} initialValue - The initial value for the state.
+ * @param {boolean} [shouldLoad=true] - Whether to load data from local storage on mount.
+ * @returns {[any, Function, Function]} - [state, setState, clearSavedData]
+ */
+export const useAutoSave = (key, initialValue, shouldLoad = true) => {
+  const [state, setState] = useState(() => {
+    if (shouldLoad) {
       try {
-        localStorage.setItem(key, JSON.stringify(debouncedValue));
+        const storedValue = localStorage.getItem(key);
+        return storedValue ? JSON.parse(storedValue) : initialValue;
       } catch (error) {
-        console.error("Erro ao escrever no localStorage:", error);
+        console.error("Error loading from localStorage:", error);
+        return initialValue;
       }
     }
-  }, [key, debouncedValue, enabled]);
+    return initialValue;
+  });
+
+  useEffect(() => {
+    if (shouldLoad) {
+      try {
+        localStorage.setItem(key, JSON.stringify(state));
+      } catch (error) {
+        console.error("Error saving to localStorage:", error);
+      }
+    }
+  }, [key, state, shouldLoad]);
 
   const clearSavedData = useCallback(() => {
     try {
       localStorage.removeItem(key);
     } catch (error) {
-      console.error("Erro ao limpar o localStorage:", error);
+      console.error("Error clearing from localStorage:", error);
     }
   }, [key]);
 
-  // Limpa os dados quando o componente é desmontado
-  useEffect(() => {
-    return () => {
-      if (enabled) {
-        clearSavedData();
-      }
-    };
-  }, [enabled, clearSavedData]);
-
-  return [value, setValue, clearSavedData];
-}
+  return [state, setState, clearSavedData];
+};

@@ -17,7 +17,7 @@ import { logAction } from '@/lib/logger';
 import { validateCnpjCpf as validateCnpjCpfFormat } from '@/lib/validators';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { unmask } from '@/lib/utils';
-import { useAutoSave } from '@/hooks/useAutoSave';
+import { useAutoSave } from '@/hooks/useAutoSave'; // Import the new hook
 
 const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa' }) => {
   const { id } = useParams();
@@ -26,7 +26,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa' }) 
   const { user } = useAuth();
   const isEditing = Boolean(id) && !isModal;
   const cnpjCpfInputRef = useRef(null);
-  const telefoneInputRef = useRef(null); // Ref for telefone input
+  const telefoneInputRef = useRef(null);
 
   const getLabels = (type) => {
     switch (type) {
@@ -34,7 +34,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa' }) 
         return { title: 'Cliente', article: 'o', pageVerb: 'Novo' };
       case 'fornecedor':
         return { title: 'Fornecedor', article: 'o', pageVerb: 'Novo' };
-      default: // 'pessoa'
+      default:
         return { title: 'Pessoa', article: 'a', pageVerb: 'Nova' };
     }
   };
@@ -42,11 +42,12 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa' }) 
   const { title: titleLabel, article, pageVerb } = getLabels(personType);
   const pageTitle = isEditing ? `Editar ${titleLabel}` : `${pageVerb} ${titleLabel}`;
 
-  const autoSaveKey = id ? `autoSave_clienteForm_${id}` : `autoSave_clienteForm_new_${personType}`; // Unique key for new forms based on personType
+  const autoSaveKey = id ? `autoSave_clienteForm_${id}` : `autoSave_clienteForm_new_${personType}`;
 
+  // Use the new useAutoSave hook
   const [formData, setFormData, clearSavedData] = useAutoSave(autoSaveKey, {
-    nome: '', // This will be Razão Social
-    nome_fantasia: '', // New field
+    nome: '',
+    nome_fantasia: '',
     cnpj_cpf: '',
     telefone: '',
     email: '',
@@ -54,13 +55,13 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa' }) 
     municipio: '',
     endereco: '',
     referencia: '',
-  }, !isEditing); // Only load from auto-save if not editing
+  }, !isEditing); // shouldLoad is true for new forms, false for editing
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [isCnpjCpfChecking, setIsCnpjCpfChecking] = useState(false);
   const [cnpjCpfError, setCnpjCpfError] = useState('');
-  const [telefoneError, setTelefoneError] = useState(''); // New state for telefone error
+  const [telefoneError, setTelefoneError] = useState('');
   
   const municipiosOptions = useMemo(() => {
     if (!formData.estado) return [];
@@ -70,13 +71,11 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa' }) 
   const validateAndCheckCnpjCpf = useCallback(async (value) => {
     const unmaskedValue = unmask(value);
     
-    // 1. Validate mandatory field
     if (!unmaskedValue) {
       setCnpjCpfError('O CNPJ/CPF é um campo obrigatório.');
       return false;
     }
 
-    // 2. Validate Format
     if (unmaskedValue.length !== 11 && unmaskedValue.length !== 14) {
       setCnpjCpfError('O CNPJ/CPF está incompleto.');
       return false;
@@ -86,7 +85,6 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa' }) 
       return false;
     }
 
-    // 3. Check for Duplicates
     setIsCnpjCpfChecking(true);
     try {
       let query = supabase.from('clientes').select('id', { count: 'exact' }).eq('cnpj_cpf', unmaskedValue);
@@ -127,7 +125,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa' }) 
       setTelefoneError('O telefone é um campo obrigatório.');
       return false;
     }
-    if (unmaskedValue.length < 10) { // Minimum 10 digits for (XX) XXXX-XXXX
+    if (unmaskedValue.length < 10) {
       setTelefoneError('O telefone está incompleto.');
       return false;
     }
@@ -157,7 +155,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa' }) 
       setFormData((prev) => ({
         ...prev,
         nome: data.nome || '',
-        nome_fantasia: data.nome_fantasia || '', // Fetch new field
+        nome_fantasia: data.nome_fantasia || '',
         cnpj_cpf: data.cnpj_cpf || '',
         telefone: data.telefone || '',
         email: data.email || '',
@@ -206,7 +204,6 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa' }) 
       return;
     }
 
-    // Explicitly validate cnpj_cpf for mandatory check before proceeding
     const unmaskedCnpjCpf = unmask(formData.cnpj_cpf);
     if (!unmaskedCnpjCpf) {
       setCnpjCpfError('O CNPJ/CPF é um campo obrigatório.');
@@ -224,7 +221,6 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa' }) 
         return;
     }
 
-    // Validate telefone
     const isTelefoneValid = validateTelefone(formData.telefone);
     if (!isTelefoneValid) {
         toast({ title: 'Verificação falhou', description: telefoneError, variant: 'destructive' });
@@ -235,8 +231,8 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa' }) 
     
     const dataToSave = { 
         ...formData, 
-        cnpj_cpf: unmaskedCnpjCpf, // No longer allow null, as it's mandatory
-        telefone: unmask(formData.telefone), // Unmask telefone before saving
+        cnpj_cpf: unmaskedCnpjCpf,
+        telefone: unmask(formData.telefone),
         user_id: user.id 
     };
 
@@ -253,7 +249,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa' }) 
       let title = `Erro ao ${isEditing ? 'atualizar' : 'cadastrar'} ${titleLabel.toLowerCase()}`;
       let description = error.message;
 
-      if (error.code === '23505') { // Unique constraint violation
+      if (error.code === '23505') {
         title = 'Documento já existe';
         description = `CPF/CNPJ ${formData.cnpj_cpf} já cadastrado. Verifique!`;
         setCnpjCpfError(description);
@@ -265,7 +261,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa' }) 
     } else {
       toast({ title: `${titleLabel} ${isEditing ? 'atualizado' : 'cadastrado'} com sucesso!`, description: `${formData.nome} foi salvo.` });
       await logAction(isEditing ? 'update_client_success' : 'create_client_success', { client_id: data.id, client_name: data.nome });
-      clearSavedData(); // Clear auto-saved data on successful submission
+      clearSavedData();
       if (onSaveSuccess) {
         onSaveSuccess(data);
       } else {
@@ -333,7 +329,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa' }) 
                   <IMaskInput
                     mask={[{ mask: '(00) 0000-0000' }, { mask: '(00) 00000-0000' }]}
                     as={Input}
-                    ref={telefoneInputRef} // Assign ref
+                    ref={telefoneInputRef}
                     id="telefone"
                     name="telefone"
                     value={formData.telefone}
