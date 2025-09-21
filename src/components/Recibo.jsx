@@ -19,6 +19,12 @@ const formatDateTime = (dateInput, timeString, timezone) => {
             return 'Data inválida';
         }
 
+        // Verifica se o objeto Date é válido após a conversão
+        if (isNaN(dateObject.getTime())) {
+            console.error("Recibo.jsx - Objeto Date inválido após parsing:", dateInput);
+            return 'Data inválida';
+        }
+
         // Converte a data para o fuso horário da empresa para obter a data correta
         const zonedDate = utcToZonedTime(dateObject, timezone);
         const formattedDate = format(zonedDate, 'dd/MM/yyyy', { locale: ptBR });
