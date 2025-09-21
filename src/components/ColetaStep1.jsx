@@ -13,6 +13,7 @@ import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { useIMask } from 'react-imask';
 import { formatCnpjCpf, unmask, formatToISODate } from '@/lib/utils';
 import { DatePicker } from '@/components/ui/date-picker';
+import { format, isValid } from 'date-fns'; // Importar isValid
 import { formatInTimeZone, utcToZonedTime, toDate } from 'date-fns-tz'; // Importar formatInTimeZone
 
 const tiposColeta = [
@@ -58,14 +59,23 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
   };
 
   useEffect(() => {
-    setFormData(data);
+    // Garante que data_coleta seja um objeto Date válido
+    let validDataColeta = data.data_coleta;
+    if (typeof data.data_coleta === 'string') {
+      const parsedDate = new Date(data.data_coleta);
+      validDataColeta = isValid(parsedDate) ? parsedDate : utcToZonedTime(new Date(), empresaTimezone);
+    } else if (!(data.data_coleta instanceof Date) || !isValid(data.data_coleta)) {
+      validDataColeta = utcToZonedTime(new Date(), empresaTimezone);
+    }
+
+    setFormData(prev => ({ ...data, data_coleta: validDataColeta }));
     if (data.estado) {
       setMunicipios(getMunicipios(data.estado).map(m => ({ value: m, label: m })));
     }
     setCnpjCpfValue(data.cnpj_cpf || '');
     setTelefoneValue(data.telefone || '');
     setIsClienteSelected(!!data.cliente_id);
-  }, [data, setCnpjCpfValue, setTelefoneValue]);
+  }, [data, setCnpjCpfValue, setTelefoneValue, empresaTimezone]);
 
   useEffect(() => {
     const fetchClientesComContratoAtivo = async () => {
