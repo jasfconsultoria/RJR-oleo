@@ -63,7 +63,7 @@ const ListaColetas = () => {
         p_end_date: debouncedColetaSearchTerm ? null : (debouncedEndDate || null),
         p_cliente_id: null, // Removido filtro por ID
         p_numero_coleta_term: debouncedColetaSearchTerm || null,
-        p_cliente_nome_term: debouncedClientSearchTerm || null, // Novo parâmetro para busca por nome do cliente
+        p_cliente_name_term: debouncedClientSearchTerm || null, // Novo parâmetro para busca por nome do cliente
     });
 
     const { data, error } = await query.single();
@@ -91,10 +91,10 @@ const ListaColetas = () => {
 
     if (debouncedColetaSearchTerm) {
         // Aplica a busca diretamente na view
-        query = query.or(`numero_coleta::text.ilike.%${debouncedColetaSearchTerm}%,cliente_nome.ilike.%${debouncedColetaSearchTerm}%`);
+        query = query.or(`numero_coleta::text.ilike.%${debouncedColetaSearchTerm}%,cliente_nome.ilike.%${debouncedColetaSearchTerm}%,cliente_nome_fantasia.ilike.%${debouncedColetaSearchTerm}%`);
     } else {
         if (debouncedClientSearchTerm) { // Filtrar por nome do cliente
-            query = query.ilike('cliente_nome', `%${debouncedClientSearchTerm}%`);
+            query = query.or(`cliente_nome.ilike.%${debouncedClientSearchTerm}%,cliente_nome_fantasia.ilike.%${debouncedClientSearchTerm}%`);
         }
         if (debouncedStartDate) {
             query = query.gte('data_coleta', debouncedStartDate);

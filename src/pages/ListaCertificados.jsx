@@ -79,12 +79,16 @@ const ListaCertificados = () => {
 
     let query = supabase
       .from('certificados')
-      .select('id, cliente_id, cliente_nome, periodo_inicio, periodo_fim, total_kg, data_emissao, pdf_url', { count: 'exact' })
+      .select(`
+        *,
+        cliente_nome_razao:clientes!inner(nome),
+        cliente_nome_fantasia:clientes!inner(nome_fantasia)
+      `, { count: 'exact' })
       .gte('data_emissao', startDate.toISOString())
       .lte('data_emissao', endDate.toISOString());
 
     if (debouncedFilters.clientSearchTerm) { // Filtrar por nome do cliente
-      query = query.ilike('cliente_nome', `%${debouncedFilters.clientSearchTerm}%`);
+      query = query.or(`cliente_nome_razao.ilike.%${debouncedFilters.clientSearchTerm}%,cliente_nome_fantasia.ilike.%${debouncedFilters.clientSearchTerm}%`);
     }
     
     query = query.order(sortConfig.key, { ascending: sortConfig.direction === 'asc' }).range(from, to);
@@ -153,7 +157,7 @@ const ListaCertificados = () => {
       }
     } else {
       navigator.clipboard.writeText(cert.pdf_url);
-      toast({ title: 'Link copiado!', description: 'O link do PDF foi copiado para a área de transferência.' });
+      toast({ title: 'Link copiado!', description: 'O link do PDF foi copido para a área de transferência.' });
     }
   };
 

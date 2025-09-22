@@ -79,7 +79,12 @@ const ListaContratos = () => {
 
     let query = supabase
       .from('contratos')
-      .select('*, pdf_url, cliente:clientes(nome, nome_fantasia)', { count: 'exact' }) // Incluir dados do cliente
+      .select(`
+        *,
+        pdf_url,
+        cliente_nome_razao:clientes!inner(nome),
+        cliente_nome_fantasia:clientes!inner(nome_fantasia)
+      `, { count: 'exact' }) // Incluir dados do cliente
       .order('created_at', { ascending: false })
       .range(from, to);
 
@@ -87,7 +92,7 @@ const ListaContratos = () => {
       query = query.ilike('numero_contrato', `%${debouncedContratoSearchTerm}%`);
     }
     if (debouncedClientSearchTerm) { // Filtrar por nome do cliente
-      query = query.or(`cliente.nome.ilike.%${debouncedClientSearchTerm}%,cliente.nome_fantasia.ilike.%${debouncedClientSearchTerm}%`);
+      query = query.or(`cliente_nome_razao.ilike.%${debouncedClientSearchTerm}%,cliente_nome_fantasia.ilike.%${debouncedClientSearchTerm}%`);
     }
 
     const { data, error, count } = await query;
@@ -290,7 +295,7 @@ const ListaContratos = () => {
                             {contrato.numero_contrato}
                           </Button>
                         </TableCell>
-                        <TableCell data-label="Cliente">{contrato.cliente?.nome_fantasia ? `${contrato.cliente.nome} - ${contrato.cliente.nome_fantasia}` : contrato.cliente?.nome || 'N/A'}</TableCell>
+                        <TableCell data-label="Cliente">{contrato.cliente_nome_fantasia ? `${contrato.cliente_nome_razao} - ${contrato.cliente_nome_fantasia}` : contrato.cliente_nome_razao || 'N/A'}</TableCell>
                         <TableCell data-label="Início">{formatDateWithTimezone(contrato.data_inicio, empresaTimezone)}</TableCell>
                         <TableCell data-label="Fim">{formatDateWithTimezone(contrato.data_fim, empresaTimezone)}</TableCell>
                         <TableCell data-label="Status" className="text-center">
