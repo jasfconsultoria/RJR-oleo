@@ -69,7 +69,7 @@ export const CertificadosTable = ({
             <TableRow key={cert.id} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
               <TableCell data-label="ID" className="p-2 font-mono">{cert.id.substring(0, 8)}</TableCell> {/* Removido text-xs */}
               <TableCell data-label="Data Emissão" className="p-2">{formatDateWithTimezone(cert.data_emissao, timezone)}</TableCell> {/* Usando formatDateWithTimezone */}
-              <TableCell data-label="Cliente" className="font-medium p-2">{cert.cliente_nome_fantasia ? `${cert.cliente_nome_razao} - ${cert.cliente_nome_fantasia}` : cert.cliente_nome_razao}</TableCell>
+              <TableCell data-label="Cliente" className="font-medium p-2">{cert.cliente?.nome_fantasia ? `${cert.cliente.nome} - ${cert.cliente.nome_fantasia}` : cert.cliente?.nome || 'N/A'}</TableCell>
               <TableCell data-label="Período" className="p-2">{formatDateWithTimezone(cert.periodo_inicio, timezone)} - {formatDateWithTimezone(cert.periodo_fim, timezone)}</TableCell>
               <TableCell data-label="Total (kg)" className="text-right p-2">{formatNumber(cert.total_kg)}</TableCell>
               <TableCell className="p-2 actions-cell text-right">

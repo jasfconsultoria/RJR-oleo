@@ -81,14 +81,13 @@ const ListaCertificados = () => {
       .from('certificados')
       .select(`
         *,
-        cliente_nome_razao:clientes!inner(nome),
-        cliente_nome_fantasia:clientes!inner(nome_fantasia)
+        cliente:clientes(nome, nome_fantasia)
       `, { count: 'exact' })
       .gte('data_emissao', startDate.toISOString())
       .lte('data_emissao', endDate.toISOString());
 
     if (debouncedFilters.clientSearchTerm) { // Filtrar por nome do cliente
-      query = query.or(`cliente_nome_razao.ilike.%${debouncedFilters.clientSearchTerm}%,cliente_nome_fantasia.ilike.%${debouncedFilters.clientSearchTerm}%`);
+      query = query.or(`cliente.nome.ilike.%${debouncedFilters.clientSearchTerm}%,cliente.nome_fantasia.ilike.%${debouncedFilters.clientSearchTerm}%`);
     }
     
     query = query.order(sortConfig.key, { ascending: sortConfig.direction === 'asc' }).range(from, to);
@@ -148,8 +147,8 @@ const ListaCertificados = () => {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: `Certificado - ${cert.cliente_nome}`,
-          text: `Confira o certificado de coleta de ${cert.cliente_nome}.`,
+          title: `Certificado - ${cert.cliente.nome}`,
+          text: `Confira o certificado de coleta de ${cert.cliente.nome}.`,
           url: cert.pdf_url,
         });
       } catch (error) {
