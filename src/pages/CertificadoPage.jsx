@@ -15,7 +15,7 @@ import { logAction } from '@/lib/logger';
 import { formatToISODate, formatCnpjCpf } from '@/lib/utils';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import { format, isValid, parseISO } from 'date-fns';
+import { format, isValid, parseISO, endOfDay } from 'date-fns'; // Adicionado 'endOfDay'
 import CertificadoPDF from '@/components/CertificadoPDF';
 import { Progress } from '@/components/ui/progress';
 import { useAutoSave } from '@/hooks/useAutoSave';
@@ -147,12 +147,19 @@ const CertificadoPage = () => {
     setProgress(10);
 
     try {
+      const startDateISO = formatToISODate(periodoInicio); // Ex: '2025-09-01'
+      
+      // Garante que periodoFim é um objeto Date válido antes de usar endOfDay
+      const actualPeriodoFim = periodoFim instanceof Date && isValid(periodoFim) ? periodoFim : new Date();
+      // Formata a data final para incluir o final do dia no fuso horário da empresa
+      const endDateWithTime = format(endOfDay(actualPeriodoFim), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx");
+
       const { data: coletas, error: coletasError } = await supabase
         .from('coletas')
         .select('quantidade_coletada')
         .eq('cliente_id', selectedClientId)
-        .gte('data_coleta', formatToISODate(periodoInicio))
-        .lte('data_coleta', formatToISODate(periodoFim));
+        .gte('data_coleta', startDateISO)
+        .lte('data_coleta', endDateWithTime); // Usar a data final formatada corretamente
 
       if (coletasError) throw coletasError;
       setProgress(20);
