@@ -77,6 +77,31 @@ const ListaContratos = () => {
     const from = (currentPage - 1) * pageSize;
     const to = from + pageSize - 1;
 
+    let clientIds = [];
+    if (debouncedClientSearchTerm) {
+        const { data: matchingClients, error: clientError } = await supabase
+            .from('clientes')
+            .select('id')
+            .or(`nome.ilike.%${debouncedClientSearchTerm}%,nome_fantasia.ilike.%${debouncedClientSearchTerm}%`);
+        if (clientError) {
+            console.error("Error fetching matching clients for contracts:", clientError);
+            toast({ title: 'Erro ao buscar clientes para filtro', description: clientError.message, variant: 'destructive' });
+            setContratos([]);
+            setTotalCount(0);
+            setLoading(false);
+            return;
+        } else {
+            clientIds = matchingClients.map(c => c.id);
+            if (clientIds.length === 0) {
+                // If a search term was provided but no clients matched, ensure no results are returned
+                setContratos([]);
+                setTotalCount(0);
+                setLoading(false);
+                return;
+            }
+        }
+    }
+
     let query = supabase
       .from('contratos')
       .select('*, pdf_url, cliente:clientes(nome, nome_fantasia)', { count: 'exact' }) // Incluir dados do cliente
@@ -86,9 +111,11 @@ const ListaContratos = () => {
     if (debouncedContratoSearchTerm) {
       query = query.ilike('numero_contrato', `%${debouncedContratoSearchTerm}%`);
     }
-    if (debouncedClientSearchTerm) { // Filtrar por nome do cliente
-      query = query.or(`cliente.nome.ilike.%${debouncedClientSearchTerm}%,cliente.nome_fantasia.ilike.%${debouncedClientSearchTerm}%`);
+    // Aplicar filtro por IDs de cliente se houver
+    if (clientIds.length > 0) {
+        query = query.in('cliente_id', clientIds);
     }
+
 
     const { data, error, count } = await query;
 

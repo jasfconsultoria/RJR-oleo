@@ -77,6 +77,31 @@ const ListaCertificados = () => {
     const endDate = new Date(debouncedFilters.endDate);
     endDate.setHours(23, 59, 59, 999);
 
+    let clientIds = [];
+    if (debouncedFilters.clientSearchTerm) {
+        const { data: matchingClients, error: clientError } = await supabase
+            .from('clientes')
+            .select('id')
+            .or(`nome.ilike.%${debouncedFilters.clientSearchTerm}%,nome_fantasia.ilike.%${debouncedFilters.clientSearchTerm}%`);
+        if (clientError) {
+            console.error("Error fetching matching clients for certificates:", clientError);
+            toast({ title: 'Erro ao buscar clientes para filtro', description: clientError.message, variant: 'destructive' });
+            setCertificados([]);
+            setTotalCount(0);
+            setLoading(false);
+            return;
+        } else {
+            clientIds = matchingClients.map(c => c.id);
+            if (clientIds.length === 0) {
+                // If a search term was provided but no clients matched, ensure no results are returned
+                setCertificados([]);
+                setTotalCount(0);
+                setLoading(false);
+                return;
+            }
+        }
+    }
+
     let query = supabase
       .from('certificados')
       .select(`
@@ -86,8 +111,9 @@ const ListaCertificados = () => {
       .gte('data_emissao', startDate.toISOString())
       .lte('data_emissao', endDate.toISOString());
 
-    if (debouncedFilters.clientSearchTerm) { // Filtrar por nome do cliente
-      query = query.or(`cliente.nome.ilike.%${debouncedFilters.clientSearchTerm}%,cliente.nome_fantasia.ilike.%${debouncedFilters.clientSearchTerm}%`);
+    // Aplicar filtro por IDs de cliente se houver
+    if (clientIds.length > 0) {
+        query = query.in('cliente_id', clientIds);
     }
     
     query = query.order(sortConfig.key, { ascending: sortConfig.direction === 'asc' }).range(from, to);
