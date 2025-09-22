@@ -50,7 +50,7 @@ const CertificadoPage = () => {
   const [progress, setProgress] = useState(0);
   const [clients, setClients] = useState([]);
 
-  const [localFormData, setLocalFormData, clearSavedData, savedData, setSavedData] = useAutoSave(
+  const [localFormData, setLocalFormData, clearSavedData, savedData] = useAutoSave( // Removido setSavedData daqui
     'certificado-form-data',
     initialFormState,
     !isEditMode 
@@ -76,9 +76,8 @@ const CertificadoPage = () => {
     const updateFn = typeof updater === 'function' ? updater : () => updater;
     setLocalFormData(prev => {
       const newState = updateFn(prev);
-      if (!isEditMode) {
-        setSavedData(newState);
-      }
+      // A função setLocalFormData do useAutoSave já deve lidar com a persistência.
+      // A chamada explícita a setSavedData(newState) foi removida.
       return newState;
     });
   };
