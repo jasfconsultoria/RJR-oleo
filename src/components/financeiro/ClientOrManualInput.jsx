@@ -32,7 +32,7 @@ const ClientOrManualInput = ({
       setLoadingClients(true);
       const { data, error } = await supabase
         .from('clientes')
-        .select('id, nome, cnpj_cpf, municipio, estado')
+        .select('id, nome, nome_fantasia, cnpj_cpf, municipio, estado') // Added nome_fantasia
         .order('nome', { ascending: true });
 
       if (error) {
@@ -51,7 +51,7 @@ const ClientOrManualInput = ({
     if (selectedClientId) {
       const selected = clients.find(c => c.id === selectedClientId);
       if (selected) {
-        setSearchTerm(selected.nome);
+        setSearchTerm(selected.nome_fantasia ? `${selected.nome} - ${selected.nome_fantasia}` : selected.nome);
       }
     } else {
       setSearchTerm(clientName || '');
@@ -62,6 +62,7 @@ const ClientOrManualInput = ({
     if (!searchTerm) return clients;
     return clients.filter(client =>
       client.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (client.nome_fantasia && client.nome_fantasia.toLowerCase().includes(searchTerm.toLowerCase())) || // Search by nome_fantasia
       (client.cnpj_cpf && formatCnpjCpf(client.cnpj_cpf).toLowerCase().includes(searchTerm.toLowerCase()))
     );
   }, [clients, searchTerm]);
@@ -79,9 +80,9 @@ const ClientOrManualInput = ({
 
   const handleSelect = (client) => {
     onSelectClient(client.id);
-    onClientNameChange(client.nome);
+    onClientNameChange(client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome);
     onCnpjCpfChange(client.cnpj_cpf || '');
-    setSearchTerm(client.nome);
+    setSearchTerm(client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome);
     setShowDropdown(false);
   };
 
@@ -146,7 +147,7 @@ const ClientOrManualInput = ({
                 onClick={() => handleSelect(client)}
                 className="p-3 hover:bg-emerald-50 cursor-pointer border-b border-gray-100 last:border-b-0"
               >
-                <div className="font-medium text-gray-900">{client.nome}</div>
+                <div className="font-medium text-gray-900">{client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome}</div>
                 <div className="text-sm text-gray-600">
                   {client.cnpj_cpf ? formatCnpjCpf(client.cnpj_cpf) : 'CNPJ/CPF não informado'} - {client.municipio}/{client.estado}
                 </div>

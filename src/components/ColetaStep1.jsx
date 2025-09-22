@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar, User, MapPin, Calculator, Package, Info, AtSign, Phone, ArrowLeft, Clock } from 'lucide-react'; // Adicionado Clock
+import { Calendar, User, MapPin, Calculator, Package, Info, AtSign, Phone, ArrowLeft, Clock } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
 import { estados, getMunicipios } from '@/lib/location';
@@ -13,20 +13,20 @@ import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { useIMask } from 'react-imask';
 import { formatCnpjCpf, unmask, formatToISODate } from '@/lib/utils';
 import { DatePicker } from '@/components/ui/date-picker';
-import { format, isValid, parseISO } from 'date-fns'; // Importar isValid e parseISO
-import { formatInTimeZone, utcToZonedTime, toDate } from 'date-fns-tz'; // Importar formatInTimeZone
+import { format, isValid, parseISO } from 'date-fns';
+import { formatInTimeZone, utcToZonedTime, toDate } from 'date-fns-tz';
 
 const tiposColeta = [
   { id: 'Troca', nome: 'Troca' },
   { id: 'Compra', nome: 'Compra' },
-  { id: 'Doação', nome: 'Doação' }, // Adicionado 'Doação'
+  { id: 'Doação', nome: 'Doação' },
 ];
 
-export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }) { // Receber empresaTimezone
+export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }) {
   const navigate = useNavigate();
   const [formData, setFormData] = useState(data);
-  const [clientes, setClientes] = useState([]);
-  const [filteredClientes, setFilteredClientes] = useState([]);
+  const [allClients, setAllClients] = useState([]); // All clients from DB
+  const [filteredClients, setFilteredClients] = useState([]); // Clients filtered by search term
   const [showClienteDropdown, setShowClienteDropdown] = useState(false);
   const [municipios, setMunicipios] = useState([]);
   const [isClienteSelected, setIsClienteSelected] = useState(false);
@@ -41,6 +41,28 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
   const { ref: telefoneRef, setValue: setTelefoneValue } = useIMask({
     mask: '(00) 00000-0000',
   });
+
+  // Fetch all clients with active contracts
+  useEffect(() => {
+    const fetchClients = async () => {
+      const { data, error } = await supabase
+        .from('clientes')
+        .select('*, contratos(status)') // Select contracts to filter active ones
+        .order('nome', { ascending: true });
+
+      if (error) {
+        toast({ title: 'Erro ao buscar clientes', description: error.message, variant: 'destructive' });
+        setAllClients([]);
+      } else {
+        // Filter clients with at least one active contract
+        const activeClients = (data || []).filter(client => 
+          client.contratos && client.contratos.some(contract => contract.status === 'Ativo')
+        );
+        setAllClients(activeClients);
+      }
+    };
+    fetchClients();
+  }, [toast]);
 
   const handleInputChange = (name, value) => {
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -63,7 +85,7 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
     // Garante que data_coleta seja um objeto Date válido
     let validDataColeta = data.data_coleta;
     if (typeof data.data_coleta === 'string') {
-      const parsedDate = parseISO(data.data_coleta); // Usar parseISO
+      const parsedDate = parseISO(data.data_coleta);
       validDataColeta = isValid(parsedDate) ? parsedDate : utcToZonedTime(new Date(), empresaTimezone);
     } else if (!(data.data_coleta instanceof Date) || !isValid(data.data_coleta)) {
       validDataColeta = utcToZonedTime(new Date(), empresaTimezone);
@@ -80,38 +102,39 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
 
   useEffect(() => {
     if (formData.cliente) {
-      const filtered = clientes.filter(cliente =>
-        cliente.nome.toLowerCase().includes(formData.cliente.toLowerCase())
+      const filtered = allClients.filter(client =>
+        client.nome.toLowerCase().includes(formData.cliente.toLowerCase()) ||
+        (client.nome_fantasia && client.nome_fantasia.toLowerCase().includes(formData.cliente.toLowerCase())) // Filter by nome_fantasia
       );
-      setFilteredClientes(filtered);
+      setFilteredClients(filtered);
     } else {
-      setFilteredClientes(clientes);
+      setFilteredClients(allClients);
     }
-  }, [formData.cliente, clientes]);
+  }, [formData.cliente, allClients]);
 
-  const handleClienteSelect = (cliente) => {
-    const activeContract = cliente.contratos?.[0];
+  const handleClienteSelect = (client) => {
+    const activeContract = client.contratos?.find(contract => contract.status === 'Ativo');
     
     const newFormData = {
       ...formData,
-      cliente_id: cliente.id,
-      cliente: cliente.nome,
-      cnpj_cpf: cliente.cnpj_cpf,
-      endereco: cliente.endereco,
-      email: cliente.email,
-      municipio: cliente.municipio,
-      estado: cliente.estado,
-      telefone: cliente.telefone,
+      cliente_id: client.id,
+      cliente: client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome, // Concatenate name
+      cnpj_cpf: client.cnpj_cpf,
+      endereco: client.endereco,
+      email: client.email,
+      municipio: client.municipio,
+      estado: client.estado,
+      telefone: client.telefone,
       tipo_coleta: activeContract?.tipo_coleta || formData.tipo_coleta,
       fator: activeContract?.tipo_coleta === 'Troca' ? activeContract.fator_troca : formData.fator,
       valor_compra: activeContract?.tipo_coleta === 'Compra' ? String(activeContract.valor_coleta || '').replace('.', ',') : formData.valor_compra,
     };
     setFormData(newFormData);
-    if (cliente.estado) {
-      setMunicipios(getMunicipios(cliente.estado).map(m => ({ value: m, label: m })));
+    if (client.estado) {
+      setMunicipios(getMunicipios(client.estado).map(m => ({ value: m, label: m })));
     }
-    setCnpjCpfValue(cliente.cnpj_cpf || '');
-    setTelefoneValue(cliente.telefone || '');
+    setCnpjCpfValue(client.cnpj_cpf || '');
+    setTelefoneValue(client.telefone || '');
     setShowClienteDropdown(false);
     setIsClienteSelected(true);
   };
@@ -164,8 +187,8 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
               Data da Coleta *
             </Label>
             <DatePicker
-              date={formData.data_coleta} // Agora é um objeto Date
-              setDate={(date) => handleInputChange('data_coleta', date || null)} // Passa o objeto Date ou null
+              date={formData.data_coleta}
+              setDate={(date) => handleInputChange('data_coleta', date || null)}
               className="w-full"
               disabled={profile?.role !== 'administrador'}
             />
@@ -209,14 +232,14 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
               animate={{ opacity: 1, y: 0 }}
               className="absolute z-10 w-full bg-white rounded-lg shadow-lg max-h-48 overflow-y-auto mt-1"
             >
-              {filteredClientes.length > 0 ? filteredClientes.map((cliente) => (
+              {filteredClients.length > 0 ? filteredClients.map((client) => (
                 <div
-                  key={cliente.id}
-                  onClick={() => handleClienteSelect(cliente)}
+                  key={client.id}
+                  onClick={() => handleClienteSelect(client)}
                   className="p-3 hover:bg-emerald-50 cursor-pointer border-b border-gray-100 last:border-b-0"
                 >
-                  <div className="font-medium text-gray-900">{cliente.nome}</div>
-                  <div className="text-sm text-gray-600">{formatCnpjCpf(cliente.cnpj_cpf)} - {cliente.municipio}/{cliente.estado}</div>
+                  <div className="font-medium text-gray-900">{client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome}</div>
+                  <div className="text-sm text-gray-600">{formatCnpjCpf(client.cnpj_cpf)} - {client.municipio}/{client.estado}</div>
                 </div>
               )) : (
                 <div className="p-3 text-center text-gray-500">Nenhum cliente com contrato ativo encontrado.</div>

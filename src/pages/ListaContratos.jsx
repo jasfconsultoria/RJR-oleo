@@ -37,12 +37,12 @@ const ListaContratos = () => {
 
   useEffect(() => {
     const fetchClientes = async () => {
-        const { data, error } = await supabase.from('clientes').select('id, nome');
+        const { data, error } = await supabase.from('clientes').select('id, nome, nome_fantasia'); // Added nome_fantasia
         if (error) {
             toast({ title: 'Erro ao buscar clientes', variant: 'destructive' });
         } else {
             const map = (data || []).reduce((acc, cliente) => {
-                acc[cliente.id] = cliente.nome;
+                acc[cliente.id] = cliente.nome_fantasia ? `${cliente.nome} - ${cliente.nome_fantasia}` : cliente.nome; // Concatenate name
                 return acc;
             }, {});
             setClientesMap(map);

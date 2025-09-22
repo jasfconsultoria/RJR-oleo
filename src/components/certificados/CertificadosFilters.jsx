@@ -27,7 +27,7 @@ const ClienteDropdown = ({
             onClick={() => onSelect(cliente)}
             className="p-3 hover:bg-emerald-50 cursor-pointer border-b border-gray-100 last:border-b-0"
           >
-            <div className="font-medium text-gray-900">{cliente.nome}</div>
+            <div className="font-medium text-gray-900">{cliente.nome_fantasia ? `${cliente.nome} - ${cliente.nome_fantasia}` : cliente.nome}</div>
             <div className="text-sm text-gray-600">
               {cliente.cnpj_cpf ? formatCnpjCpf(cliente.cnpj_cpf) : 'CNPJ/CPF não informado'} - {cliente.municipio}/{cliente.estado}
             </div>
@@ -59,7 +59,7 @@ export function CertificadosFilters({
     if (clients && clients.length > 0) {
       setLoadingClients(false);
       const selected = clients.find(c => c.id === selectedClientId);
-      setInputValue(selected ? selected.nome : '');
+      setInputValue(selected ? (selected.nome_fantasia ? `${selected.nome} - ${selected.nome_fantasia}` : selected.nome) : '');
       setFilteredClients(clients);
     }
   }, [clients, selectedClientId]);
@@ -76,7 +76,7 @@ export function CertificadosFilters({
 
   const handleClienteSelect = (cliente) => {
     setSelectedClientId(cliente.id);
-    setInputValue(cliente.nome);
+    setInputValue(cliente.nome_fantasia ? `${cliente.nome} - ${cliente.nome_fantasia}` : cliente.nome);
     setShowDropdown(false);
   };
 
@@ -89,7 +89,8 @@ export function CertificadosFilters({
     } else {
       setFilteredClients(
         clients.filter(client =>
-          client.nome.toLowerCase().includes(value.toLowerCase())
+          client.nome.toLowerCase().includes(value.toLowerCase()) ||
+          (client.nome_fantasia && client.nome_fantasia.toLowerCase().includes(value.toLowerCase())) // Filter by nome_fantasia
         )
       );
     }

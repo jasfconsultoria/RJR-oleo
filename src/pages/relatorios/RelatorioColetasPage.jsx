@@ -8,8 +8,8 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
     import { Loader2, FileDown, Droplets, Truck, DollarSign, Repeat, BarChart2 } from 'lucide-react';
     import { Table, TableBody, TableCell, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
     import { estados, getMunicipios } from '@/lib/location';
-    import { useProfile } from '@/contexts/ProfileContext';
-    import { format, subDays, endOfDay, parseISO, isValid } from 'date-fns'; // Importar isValid
+    import { useProfile } from '@/contexts/Profile/ProfileContext';
+    import { format, subDays, endOfDay, parseISO, isValid } from 'date-fns';
     import { ptBR } from 'date-fns/locale';
     import * as XLSX from 'xlsx';
     import { formatCurrency, formatNumber } from '@/lib/utils';
@@ -51,7 +51,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
           setLoading(true);
           try {
             const [clientesRes, usuariosRes, empresaRes] = await Promise.all([
-              supabase.from('clientes').select('id, nome, cnpj_cpf, municipio, estado').order('nome'),
+              supabase.from('clientes').select('id, nome, nome_fantasia, cnpj_cpf, municipio, estado').order('nome'), // Added nome_fantasia
               supabase.rpc('get_all_users'),
               supabase.from('empresa').select('items_per_page').single()
             ]);
@@ -86,7 +86,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
         const from = (currentPage - 1) * pageSize;
         const to = from + pageSize - 1;
 
-        let query = supabase.from('coletas').select('*, pessoa:clientes(nome), usuario:profiles(full_name)', { count: 'exact' });
+        let query = supabase.from('coletas').select('*, pessoa:clientes(nome, nome_fantasia), usuario:profiles(full_name)', { count: 'exact' }); // Added nome_fantasia to client select
 
         if (currentFilters.estado && currentFilters.estado !== 'all') query = query.eq('estado', currentFilters.estado);
         if (currentFilters.municipio && currentFilters.municipio !== 'all') query = query.eq('municipio', currentFilters.municipio);
@@ -152,7 +152,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
           const from = i * 500;
           const to = from + 500 - 1;
           
-          let query = supabase.from('coletas').select('*, pessoa:clientes(nome), usuario:profiles(full_name)');
+          let query = supabase.from('coletas').select('*, pessoa:clientes(nome, nome_fantasia), usuario:profiles(full_name)'); // Added nome_fantasia
           if (filters.estado && filters.estado !== 'all') query = query.eq('estado', filters.estado);
           if (filters.municipio && filters.municipio !== 'all') query = query.eq('municipio', filters.municipio);
           if (filters.clienteId && filters.clienteId !== 'all') query = query.eq('cliente_id', filters.clienteId);
@@ -177,15 +177,16 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
         const dataToExport = allData.map(item => {
           const dateObj = parseISO(item.data_coleta);
           const formattedDate = isValid(dateObj) ? format(dateObj, 'dd/MM/yyyy', { locale: ptBR }) : 'N/A';
+          const clientDisplayName = item.pessoa?.nome_fantasia ? `${item.pessoa.nome} - ${item.pessoa.nome_fantasia}` : item.pessoa?.nome || item.cliente_nome;
           return {
             'Data Coleta': formattedDate,
-            'Cliente': item.pessoa?.nome || item.cliente_nome,
+            'Cliente': clientDisplayName, // Use concatenated name
             'Usuário': item.usuario?.full_name || 'N/A',
             'Estado': item.estado,
             'Município': item.municipio,
             'Tipo Coleta': item.tipo_coleta,
             'Qtd Coletada (kg)': formatNumber(item.quantidade_coletada),
-            'Qtd Entregue (Unidades)': (item.tipo_coleta === 'Troca' || item.tipo_coleta === 'Doação') ? formatNumber(item.quantidade_entregue, { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : 'N/A', // Alterado para Unidades
+            'Qtd Entregue (Unidades)': (item.tipo_coleta === 'Troca' || item.tipo_coleta === 'Doação') ? formatNumber(item.quantidade_entregue, { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : 'N/A',
             'Total Pago (R$)': item.tipo_coleta === 'Compra' ? formatCurrency(item.total_pago) : 'N/A',
           };
         });
@@ -202,7 +203,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
           if (item.tipo_coleta === 'Compra') {
             acc.totalPago += Number(item.total_pago) || 0;
           }
-          if (item.tipo_coleta === 'Troca' || item.tipo_coleta === 'Doação') { // Adicionado Doação
+          if (item.tipo_coleta === 'Troca' || item.tipo_coleta === 'Doação') {
             acc.totalEntregue += Number(item.quantidade_entregue) || 0;
           }
           return acc;
@@ -265,7 +266,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
                         labelText="Cliente"
                         value={filters.clienteId}
                         onChange={(value) => setFilters({ ...filters, clienteId: value || 'all' })}
-                        clientes={clientes}
+                        clients={clientes}
                         loading={loading}
                       />
                     </div>
@@ -304,8 +305,8 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
                         <CardContent><div className="2xl font-bold">{formatCurrency(summary.totalPago)}</div></CardContent>
                       </Card>
                        <Card className="bg-white/10 backdrop-blur-sm border-white/10 text-white rounded-xl">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-emerald-300">Total Entregue (Trocas/Doações)</CardTitle><Repeat className="h-4 w-4 text-gray-400" /></CardHeader> {/* Alterado para Doações */}
-                        <CardContent><div className="2xl font-bold">{formatNumber(summary.totalEntregue, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} Unidades</div></CardContent> {/* Alterado para Unidades */}
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-emerald-300">Total Entregue (Trocas/Doações)</CardTitle><Repeat className="h-4 w-4 text-gray-400" /></CardHeader>
+                        <CardContent><div className="2xl font-bold">{formatNumber(summary.totalEntregue, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} Unidades</div></CardContent>
                       </Card>
                     </div>
 
@@ -329,15 +330,16 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
                               {reportData.map(item => {
                                 const dateObj = parseISO(item.data_coleta);
                                 const formattedDate = isValid(dateObj) ? format(dateObj, 'dd/MM/yyyy', { locale: ptBR }) : 'N/A';
+                                const clientDisplayName = item.pessoa?.nome_fantasia ? `${item.pessoa.nome} - ${item.pessoa.nome_fantasia}` : item.pessoa?.nome || item.cliente_nome;
                                 return (
                                   <TableRow key={item.id} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
                                     <TableCell data-label="Data">{formattedDate}</TableCell>
-                                    <TableCell data-label="Cliente">{item.pessoa?.nome || item.cliente_nome}</TableCell>
+                                    <TableCell data-label="Cliente">{clientDisplayName}</TableCell>
                                     <TableCell data-label="Usuário">{item.usuario?.full_name || 'N/A'}</TableCell>
                                     <TableCell data-label="Local">{item.municipio}, {item.estado}</TableCell>
                                     <TableCell data-label="Tipo">{item.tipo_coleta}</TableCell>
                                     <TableCell data-label="Qtd. (kg)" className="text-right">{formatNumber(item.quantidade_coletada)}</TableCell>
-                                    <TableCell data-label="Valor/Entregue" className="text-right">{(item.tipo_coleta === 'Troca' || item.tipo_coleta === 'Doação') ? `${formatNumber(item.quantidade_entregue, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} Unidades` : formatCurrency(item.total_pago)}</TableCell> {/* Alterado para Unidades */}
+                                    <TableCell data-label="Valor/Entregue" className="text-right">{(item.tipo_coleta === 'Troca' || item.tipo_coleta === 'Doação') ? `${formatNumber(item.quantidade_entregue, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} Unidades` : formatCurrency(item.total_pago)}</TableCell>
                                   </TableRow>
                                 );
                               })}
@@ -346,7 +348,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
                                 <TableRow className="hover:bg-transparent border-t-2 border-emerald-500 font-bold hidden md:table-row">
                                     <TableCell colSpan={5}>Totais (Página)</TableCell>
                                     <TableCell className="text-right">{formatNumber(summary.totalMassa)} kg</TableCell>
-                                    <TableCell className="text-right">{`${formatCurrency(summary.totalPago)} / ${formatNumber(summary.totalEntregue, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} Unidades`}</TableCell> {/* Alterado para Unidades */}
+                                    <TableCell className="text-right">{`${formatCurrency(summary.totalPago)} / ${formatNumber(summary.totalEntregue, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} Unidades`}</TableCell>
                                 </TableRow>
                             </TableFooter>
                           </Table>
@@ -357,7 +359,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
                             </div>
                             <div className="flex justify-between items-center">
                               <span>Total Pago/Entregue (Página):</span>
-                              <span>{`${formatCurrency(summary.totalPago)} / ${formatNumber(summary.totalEntregue, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} Unidades`}</span> {/* Alterado para Unidades */}
+                              <span>{`${formatCurrency(summary.totalPago)} / ${formatNumber(summary.totalEntregue, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} Unidades`}</span>
                             </div>
                           </div>
                         </div>

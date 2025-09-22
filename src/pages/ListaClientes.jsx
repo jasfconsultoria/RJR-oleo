@@ -247,10 +247,7 @@ const ListaClientes = ({ personType = 'pessoa' }) => { // Accept personType prop
                   <TableHeader>
                     <TableRow className="hover:bg-white/10 border-b border-white/20 text-xs">
                       <th onClick={() => requestSort('nome')} className="cursor-pointer text-white p-2 text-left">
-                        <div className="flex items-center">Razão Social {getSortIcon('nome')}</div> {/* Changed to Razão Social */}
-                      </th>
-                      <th onClick={() => requestSort('nome_fantasia')} className="cursor-pointer text-white p-2 text-left">
-                        <div className="flex items-center">Nome Fantasia {getSortIcon('nome_fantasia')}</div> {/* New column */}
+                        <div className="flex items-center">Razão Social / Nome Fantasia {getSortIcon('nome')}</div>
                       </th>
                       <th onClick={() => requestSort('cnpj_cpf')} className="cursor-pointer text-white p-2 text-left">
                         <div className="flex items-center">CNPJ/CPF {getSortIcon('cnpj_cpf')}</div>
@@ -265,8 +262,9 @@ const ListaClientes = ({ personType = 'pessoa' }) => { // Accept personType prop
                   <TableBody>
                     {clientes.length > 0 ? clientes.map((cliente) => (
                       <TableRow key={cliente.id} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
-                        <TableCell data-label="Razão Social" className="font-medium p-2">{cliente.nome}</TableCell> {/* Display nome as Razão Social */}
-                        <TableCell data-label="Nome Fantasia" className="p-2">{cliente.nome_fantasia || 'N/A'}</TableCell> {/* Display nome_fantasia */}
+                        <TableCell data-label="Razão Social / Nome Fantasia" className="font-medium p-2">
+                          {cliente.nome_fantasia ? `${cliente.nome} - ${cliente.nome_fantasia}` : cliente.nome}
+                        </TableCell>
                         <TableCell data-label="CNPJ/CPF" className="p-2">{formatCnpjCpf(cliente.cnpj_cpf)}</TableCell>
                         <TableCell data-label="Localização" className="p-2">{cliente.municipio}, {cliente.estado}</TableCell>
                         <TableCell data-label="Contrato" className="p-2">{getContractStatus(cliente.id)}</TableCell>
@@ -308,7 +306,7 @@ const ListaClientes = ({ personType = 'pessoa' }) => { // Accept personType prop
                       </TableRow>
                     )) : (
                       <TableRow>
-                        <TableCell colSpan={6} className="h-24 text-center text-white/70"> {/* Adjusted colspan */}
+                        <TableCell colSpan={5} className="h-24 text-center text-white/70"> {/* Adjusted colspan */}
                           Nenhum{singularArticle === 'a' ? 'a' : ''} {singularNoun} encontrado{singularArticle === 'a' ? 'a' : ''}.
                         </TableCell>
                       </TableRow>

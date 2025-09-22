@@ -26,8 +26,8 @@ const ClienteSearchableSelect = ({
     const fetchClients = async () => {
       setLoadingClients(true);
       const { data, error } = await supabase
-        .from('clientes') // Change to 'clientes'
-        .select('id, nome, cnpj_cpf, municipio, estado')
+        .from('clientes')
+        .select('id, nome, nome_fantasia, cnpj_cpf, municipio, estado') // Added nome_fantasia
         .order('nome', { ascending: true });
 
       if (error) {
@@ -46,7 +46,7 @@ const ClienteSearchableSelect = ({
     if (value && clients.length > 0) {
       const selected = clients.find(c => c.id === value);
       if (selected) {
-        setSearchTerm(selected.nome);
+        setSearchTerm(selected.nome_fantasia ? `${selected.nome} - ${selected.nome_fantasia}` : selected.nome);
       }
     } else if (!value) {
       setSearchTerm('');
@@ -57,6 +57,7 @@ const ClienteSearchableSelect = ({
     if (!searchTerm) return clients;
     return clients.filter(client =>
       client.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (client.nome_fantasia && client.nome_fantasia.toLowerCase().includes(searchTerm.toLowerCase())) || // Search by nome_fantasia
       (client.cnpj_cpf && formatCnpjCpf(client.cnpj_cpf).toLowerCase().includes(searchTerm.toLowerCase()))
     );
   }, [clients, searchTerm]);
@@ -72,7 +73,7 @@ const ClienteSearchableSelect = ({
 
   const handleSelect = (client) => {
     onChange(client.id);
-    setSearchTerm(client.nome);
+    setSearchTerm(client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome);
     setShowDropdown(false);
   };
 
@@ -92,7 +93,7 @@ const ClienteSearchableSelect = ({
       if (containerRef.current && !containerRef.current.contains(document.activeElement)) {
         setShowDropdown(false);
         // If no client is selected and input is not empty, reset to previous selected or empty
-        if (!value && searchTerm && !clients.some(c => c.nome === searchTerm)) {
+        if (!value && searchTerm && !clients.some(c => (c.nome_fantasia ? `${c.nome} - ${c.nome_fantasia}` : c.nome) === searchTerm)) {
           setSearchTerm('');
         }
       }
@@ -139,7 +140,7 @@ const ClienteSearchableSelect = ({
                 onClick={() => handleSelect(client)}
                 className="p-3 hover:bg-emerald-50 cursor-pointer border-b border-gray-100 last:border-b-0"
               >
-                <div className="font-medium text-gray-900">{client.nome}</div>
+                <div className="font-medium text-gray-900">{client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome}</div>
                 <div className="text-sm text-gray-600">
                   {client.cnpj_cpf ? formatCnpjCpf(client.cnpj_cpf) : 'CNPJ/CPF não informado'} - {client.municipio}/{client.estado}
                 </div>
