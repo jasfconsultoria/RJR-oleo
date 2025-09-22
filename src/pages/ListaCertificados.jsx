@@ -44,16 +44,19 @@ const ListaCertificados = () => {
     const fetchInitialData = async () => {
       if (!profile) return;
       try {
-        const [clientRes, empresaRes] = await Promise.all([
-          supabase.from('clientes').select('id, nome, cnpj_cpf, municipio, estado').order('nome', { ascending: true }),
+        const [clientDataRes, empresaDataRes] = await Promise.all([
+          supabase
+            .from('clientes')
+            .select('id, nome, cnpj_cpf, municipio, estado')
+            .order('nome', { ascending: true }),
           supabase.from('empresa').select('*').single(),
         ]);
 
-        if (clientRes.error) throw clientRes.error;
-        setClients(clientRes.data || []);
+        if (clientDataRes.error) throw clientDataRes.error;
+        setClients(clientDataRes.data || []);
 
-        if (empresaRes.error) throw empresaRes.error;
-        setEmpresa(empresaRes.data);
+        if (empresaDataRes.error) throw empresaDataRes.error;
+        setEmpresa(empresaDataRes.data);
       } catch (error) {
         toast({ title: 'Erro ao carregar dados da página', description: error.message, variant: 'destructive' });
       }
@@ -209,6 +212,7 @@ const ListaCertificados = () => {
             handleShare={handleShare}
             handleEdit={handleEdit}
             handleDelete={handleDelete}
+            timezone={empresa?.timezone} {/* Passando a prop timezone */}
           />
         </motion.div>
         <Pagination

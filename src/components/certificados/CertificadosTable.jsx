@@ -19,7 +19,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Loader2, FileText, Share2, Edit, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
-import { formatDate, formatNumber } from '@/lib/utils';
+import { formatNumber, formatDateWithTimezone } from '@/lib/utils'; // Importar formatDateWithTimezone
 
 export const CertificadosTable = ({
   loading,
@@ -30,6 +30,7 @@ export const CertificadosTable = ({
   handleShare,
   handleEdit,
   handleDelete,
+  timezone, // Adicionado prop timezone
 }) => {
   const getSortIcon = (key) => {
     if (sortConfig.key !== key) return null;
@@ -66,10 +67,10 @@ export const CertificadosTable = ({
         <TableBody>
           {certificados.length > 0 ? certificados.map((cert) => (
             <TableRow key={cert.id} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
-              <TableCell data-label="ID" className="p-2 font-mono text-xs">{cert.id.substring(0, 8)}</TableCell>
-              <TableCell data-label="Data Emissão" className="p-2">{formatDate(cert.data_emissao)}</TableCell>
+              <TableCell data-label="ID" className="p-2 font-mono">{cert.id.substring(0, 8)}</TableCell> {/* Removido text-xs */}
+              <TableCell data-label="Data Emissão" className="p-2">{formatDateWithTimezone(cert.data_emissao, timezone)}</TableCell> {/* Usando formatDateWithTimezone */}
               <TableCell data-label="Cliente" className="font-medium p-2">{cert.cliente_nome}</TableCell>
-              <TableCell data-label="Período" className="p-2">{formatDate(cert.periodo_inicio)} - {formatDate(cert.periodo_fim)}</TableCell>
+              <TableCell data-label="Período" className="p-2">{formatDateWithTimezone(cert.periodo_inicio)} - {formatDateWithTimezone(cert.periodo_fim)}</TableCell>
               <TableCell data-label="Total (kg)" className="text-right p-2">{formatNumber(cert.total_kg)}</TableCell>
               <TableCell className="p-2 actions-cell text-right">
                 <div className="flex items-center justify-end gap-1">
@@ -79,7 +80,7 @@ export const CertificadosTable = ({
                   <Button variant="ghost" size="icon" onClick={() => handleShare(cert)} title="Compartilhar">
                     <Share2 className="h-4 w-4 text-green-400" />
                   </Button>
-                  <Button variant="ghost" size="icon" onClick={() => handleEdit(cert)} title="Editar">
+                  <Button variant="ghost" size="icon" onClick={() => handleEdit(cert)} title="Editar/Visualizar">
                     <Edit className="h-4 w-4 text-yellow-400" />
                   </Button>
                   <AlertDialog>
