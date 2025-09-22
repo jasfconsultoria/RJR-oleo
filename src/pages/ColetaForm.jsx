@@ -9,11 +9,11 @@ import { toast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { parseCurrency } from '@/lib/utils';
-import { format, isValid, parseISO } from 'date-fns'; // Importar isValid e parseISO
+import { format, isValid, parseISO } from 'date-fns';
 import { logAction } from '@/lib/logger';
 import { useAutoSave } from '@/hooks/useAutoSave';
 import { useProfile } from '@/contexts/ProfileContext';
-import { formatInTimeZone, zonedTimeToUtc, utcToZonedTime, toDate } from 'date-fns-tz'; // Importar funções de fuso horário
+import { formatInTimeZone, zonedTimeToUtc, utcToZonedTime, toDate } from 'date-fns-tz';
 
 const ColetaForm = () => {
   const [currentStep, setCurrentStep] = useState(1);
@@ -36,7 +36,6 @@ const ColetaForm = () => {
 
   const autoSaveKey = id ? `autoSave_coletaForm_${id}` : 'autoSave_coletaForm_new';
 
-  // Define initial state for new forms, considering the company timezone
   const getInitialColetaData = useCallback((currentEmpresaTimezone) => {
     const nowInEmpresaTimezone = utcToZonedTime(new Date(), currentEmpresaTimezone);
     return {
@@ -48,7 +47,7 @@ const ColetaForm = () => {
       municipio: '',
       estado: '',
       telefone: '',
-      data_coleta: nowInEmpresaTimezone, // Armazenar como objeto Date no fuso horário da empresa
+      data_coleta: nowInEmpresaTimezone,
       hora_coleta: format(nowInEmpresaTimezone, 'HH:mm'),
       fator: '6',
       tipo_coleta: 'Troca',
@@ -61,52 +60,71 @@ const ColetaForm = () => {
     };
   }, [user]);
 
-  const [coletaData, setColetaData, clearSavedData] = useAutoSave(
+  // Helper to process date values from auto-save or defaults
+  const processDateValue = useCallback((dateValue, defaultValue) => {
+    if (typeof dateValue === 'string') {
+      const parsed = parseISO(dateValue);
+      return isValid(parsed) ? parsed : defaultValue;
+    }
+    return (dateValue instanceof Date && isValid(dateValue)) ? dateValue : defaultValue;
+  }, []);
+
+  // Use rawColetaData for auto-save storage
+  const [rawColetaData, setRawColetaData, clearSavedData] = useAutoSave(
     autoSaveKey,
-    isEditing ? {} : getInitialColetaData('America/Sao_Paulo'), // Default para a primeira renderização
+    isEditing ? {} : getInitialColetaData('America/Sao_Paulo'),
     !isEditing
   );
 
-  // Efeito para re-hidratar data_coleta se for uma string (do localStorage)
+  // Processed coletaData for component usage, ensuring Date objects
+  const [coletaData, setColetaData] = useState(() => {
+    const initialData = isEditing ? {} : getInitialColetaData('America/Sao_Paulo');
+    const saved = rawColetaData;
+    
+    return {
+      ...initialData,
+      ...saved,
+      data_coleta: processDateValue(saved.data_coleta, initialData.data_coleta),
+    };
+  });
+
+  // Effect to synchronize rawColetaData with processed coletaData
   useEffect(() => {
-    if (typeof coletaData.data_coleta === 'string') {
-      const parsedDate = parseISO(coletaData.data_coleta); // Usar parseISO
-      if (isValid(parsedDate)) { // Use isValid from date-fns
-        setColetaData(prev => ({ ...prev, data_coleta: parsedDate }));
-      } else {
-        console.warn("ColetaForm - Auto-saved data_coleta string is invalid:", coletaData.data_coleta);
-        // Se for inválido, resetar para um estado válido conhecido
-        setColetaData(prev => ({ ...prev, data_coleta: getInitialColetaData(empresaTimezone).data_coleta }));
-      }
-    }
-  }, [coletaData.data_coleta, setColetaData, empresaTimezone, getInitialColetaData]);
+    const initialDataForDefault = getInitialColetaData(empresaTimezone);
+
+    setColetaData(prev => ({
+      ...rawColetaData,
+      data_coleta: processDateValue(rawColetaData.data_coleta, initialDataForDefault.data_coleta),
+    }));
+  }, [rawColetaData, empresaTimezone, getInitialColetaData, processDateValue]);
 
 
   useEffect(() => {
     if (user?.id && coletaData.user_id !== user.id) {
       setColetaData(prev => ({ ...prev, user_id: user.id }));
+      setRawColetaData(prev => ({ ...prev, user_id: user.id })); // Also update raw for auto-save
     }
-  }, [user, coletaData.user_id, setColetaData]);
+  }, [user, coletaData.user_id, setColetaData, setRawColetaData]);
 
   useEffect(() => {
-    // Este useEffect garante que, se o empresaTimezone for carregado assincronamente,
-    // ou se for um novo formulário, a data e a hora sejam definidas corretamente
-    // para o fuso horário da empresa.
     if (empresaTimezone && !isEditing) {
       const nowInEmpresaTimezone = utcToZonedTime(new Date(), empresaTimezone);
       const currentFormattedTime = format(nowInEmpresaTimezone, 'HH:mm');
 
-      // Atualiza apenas se os valores atuais não corresponderem ao tempo atual da empresa
-      // ou se os campos de data/hora não estiverem definidos (indicando um formulário novo sem auto-save)
       if (!coletaData.data_coleta || format(coletaData.data_coleta, 'yyyy-MM-dd') !== format(nowInEmpresaTimezone, 'yyyy-MM-dd') || coletaData.hora_coleta !== currentFormattedTime) {
         setColetaData(prev => ({
           ...prev,
-          data_coleta: nowInEmpresaTimezone, // Objeto Date
+          data_coleta: nowInEmpresaTimezone,
+          hora_coleta: currentFormattedTime
+        }));
+        setRawColetaData(prev => ({ // Update raw for auto-save
+          ...prev,
+          data_coleta: nowInEmpresaTimezone.toISOString(), // Store as ISO string
           hora_coleta: currentFormattedTime
         }));
       }
     }
-  }, [empresaTimezone, isEditing, setColetaData, coletaData.data_coleta, coletaData.hora_coleta]);
+  }, [empresaTimezone, isEditing, setColetaData, setRawColetaData, coletaData.data_coleta, coletaData.hora_coleta]);
 
 
   useEffect(() => {
@@ -122,14 +140,11 @@ const ColetaForm = () => {
           toast({ title: "Erro", description: "Coleta não encontrada.", variant: "destructive" });
           navigate('/app/coletas');
         } else {
-          // Converte a data UTC do DB para o fuso horário da empresa para preencher o formulário
-          const fullDateUTC = new Date(data.data_coleta); // Data do DB é UTC
-          const zonedDate = utcToZonedTime(fullDateUTC, empresaTimezone); // Converte para o fuso da empresa
-          // A hora_coleta agora é lida diretamente do novo campo do DB
-          const formattedTime = data.hora_coleta || format(zonedDate, 'HH:mm'); // Fallback se o campo ainda não existir no DB
+          const fullDateUTC = new Date(data.data_coleta);
+          const zonedDate = utcToZonedTime(fullDateUTC, empresaTimezone);
+          const formattedTime = data.hora_coleta || format(zonedDate, 'HH:mm');
 
-          setColetaData((prev) => ({
-            ...prev,
+          const updatedColetaData = {
             ...data,
             cliente: data.pessoa?.nome || data.cliente_nome,
             cliente_id: data.cliente_id,
@@ -140,16 +155,22 @@ const ColetaForm = () => {
             estado: data.pessoa?.estado,
             telefone: data.pessoa?.telefone,
             tipo_coleta: data.tipo_coleta,
-            data_coleta: zonedDate, // Armazenar como objeto Date
-            hora_coleta: formattedTime, // Hora separada (do novo campo do DB)
+            data_coleta: zonedDate,
+            hora_coleta: formattedTime,
             valor_compra: String(data.valor_compra || '0').replace('.', ','),
             quantidade_coletada: String(data.quantidade_coletada || '').replace('.', ','),
+          };
+          setColetaData(updatedColetaData);
+          setRawColetaData(prev => ({ // Update raw for auto-save
+            ...prev,
+            ...updatedColetaData,
+            data_coleta: updatedColetaData.data_coleta.toISOString(), // Store as ISO string
           }));
         }
       }
     };
     fetchColeta();
-  }, [id, isEditing, navigate, setColetaData, toast, empresaTimezone]); // Adicionado empresaTimezone como dependência
+  }, [id, isEditing, navigate, setColetaData, setRawColetaData, toast, empresaTimezone]);
 
   const nextStep = () => {
     setCurrentStep(prev => prev < 3 ? prev + 1 : prev);
@@ -160,7 +181,17 @@ const ColetaForm = () => {
   };
 
   const updateColetaData = (newData) => {
-    setColetaData(prev => ({ ...prev, ...newData }));
+    setColetaData(prev => {
+      const updated = { ...prev, ...newData };
+      setRawColetaData(rawPrev => { // Update raw for auto-save
+        const rawUpdated = { ...rawPrev, ...newData };
+        if (updated.data_coleta instanceof Date) {
+          rawUpdated.data_coleta = updated.data_coleta.toISOString();
+        }
+        return rawUpdated;
+      });
+      return updated;
+    });
   };
 
   const handleSave = async (finalData, returnData = false) => {
@@ -174,7 +205,7 @@ const ColetaForm = () => {
         .upsert({
             id: clienteId,
             nome: finalColetaData.cliente,
-            nome_fantasia: finalColetaData.nome_fantasia, // Adicionado nome_fantasia
+            nome_fantasia: finalColetaData.nome_fantasia,
             cnpj_cpf: finalColetaData.cnpj_cpf,
             email: finalColetaData.email,
             endereco: finalColetaData.endereco,
@@ -194,10 +225,8 @@ const ColetaForm = () => {
         clienteId = cliente.id;
     }
     
-    // Combinar data_coleta (objeto Date no fuso horário da empresa) e hora_coleta (string HH:mm)
-    // para criar um objeto Date que representa a data e hora no fuso horário da empresa.
     let combinedDateTimeString;
-    if (finalColetaData.data_coleta instanceof Date && isValid(finalColetaData.data_coleta)) { // Usar isValid
+    if (finalColetaData.data_coleta instanceof Date && isValid(finalColetaData.data_coleta)) {
         combinedDateTimeString = `${format(finalColetaData.data_coleta, 'yyyy-MM-dd')} ${finalColetaData.hora_coleta}`;
     } else {
         console.error("ColetaForm.jsx - finalColetaData.data_coleta is invalid:", finalColetaData.data_coleta);
@@ -208,21 +237,20 @@ const ColetaForm = () => {
     
     const dateInCompanyTimezone = toDate(combinedDateTimeString, { timeZone: empresaTimezone });
     
-    // Converter para ISO string (UTC) para salvar na coluna data_coleta do banco de dados
     const utcDateISOString = dateInCompanyTimezone.toISOString();
 
     const coletaToSave = {
       id: isEditing ? finalColetaData.id : undefined,
       cliente_id: clienteId,
       cliente_nome: finalColetaData.cliente,
-      data_coleta: utcDateISOString, // Salvar como ISO string UTC
-      hora_coleta: finalColetaData.hora_coleta, // Salvar a string HH:mm exata
+      data_coleta: utcDateISOString,
+      hora_coleta: finalColetaData.hora_coleta,
       fator: parseInt(finalColetaData.fator, 10),
       tipo_coleta: finalColetaData.tipo_coleta,
       quantidade_coletada: parseCurrency(finalColetaData.quantidade_coletada),
-      quantidade_entregue: finalColetaData.tipo_coleta === 'Troca' || finalColetaData.tipo_coleta === 'Doação' ? parseFloat(finalColetaData.quantidade_entregue) : null, // Ajustado para Doação
-      valor_compra: finalColetaData.tipo_coleta === 'Compra' ? parseCurrency(finalColetaData.valor_compra) : null, // Ajustado para Doação
-      total_pago: finalColetaData.tipo_coleta === 'Compra' ? parseCurrency(finalColetaData.total_pago) : null, // Ajustado para Doação
+      quantidade_entregue: finalColetaData.tipo_coleta === 'Troca' || finalColetaData.tipo_coleta === 'Doação' ? parseFloat(finalColetaData.quantidade_entregue) : null,
+      valor_compra: finalColetaData.tipo_coleta === 'Compra' ? parseCurrency(finalColetaData.valor_compra) : null,
+      total_pago: finalColetaData.tipo_coleta === 'Compra' ? parseCurrency(finalColetaData.total_pago) : null,
       data_lancamento: finalColetaData.data_lancamento,
       user_id: user.id,
       estado: finalColetaData.estado,
@@ -237,13 +265,11 @@ const ColetaForm = () => {
       return;
     }
 
-    // Após salvar a coleta, crie ou atualize a entrada na tabela 'recibos'
-    // Se estiver editando, a assinatura_url deve ser explicitamente definida como null
     const { data: reciboEntry, error: reciboError } = await supabase
       .from('recibos')
       .upsert({ 
         coleta_id: savedData.id,
-        assinatura_url: isEditing ? null : undefined // Se estiver editando, reseta a assinatura
+        assinatura_url: isEditing ? null : undefined
       }, { onConflict: 'coleta_id' })
       .select()
       .single();
@@ -265,7 +291,7 @@ const ColetaForm = () => {
         ...savedData,
         cnpj_cpf: cliente?.cnpj_cpf,
         endereco: cliente?.endereco,
-        assinatura_url: reciboEntry.assinatura_url // Inclui a URL da assinatura do recibo, que pode ser null agora
+        assinatura_url: reciboEntry.assinatura_url
       };
       return { data: fullSavedData, error: null };
     }
@@ -336,7 +362,7 @@ const ColetaForm = () => {
               onUpdate={updateColetaData}
               isEditing={isEditing}
               profile={profile}
-              empresaTimezone={empresaTimezone} // Passar o fuso horário
+              empresaTimezone={empresaTimezone}
             />
           )}
           {currentStep === 2 && (
@@ -346,7 +372,7 @@ const ColetaForm = () => {
               onNext={nextStep}
               onBack={prevStep}
               onUpdate={updateColetaData}
-              empresaTimezone={empresaTimezone} // Passar o fuso horário
+              empresaTimezone={empresaTimezone}
             />
           )}
           {currentStep === 3 && (
@@ -357,8 +383,8 @@ const ColetaForm = () => {
               onSave={handleSave}
               onUpdate={updateColetaData}
               clearSavedData={clearSavedData}
-              empresaTimezone={empresaTimezone} // Passar o fuso horário
-              collectorName={profile?.full_name || user?.email} // Passar o nome do coletor
+              empresaTimezone={empresaTimezone}
+              collectorName={profile?.full_name || user?.email}
             />
           )}
         </AnimatePresence>

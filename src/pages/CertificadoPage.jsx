@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Helmet } from 'react-helmet';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -15,7 +15,7 @@ import { logAction } from '@/lib/logger';
 import { formatToISODate, formatCnpjCpf } from '@/lib/utils';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import { format } from 'date-fns';
+import { format, isValid, parseISO } from 'date-fns';
 import CertificadoPDF from '@/components/CertificadoPDF';
 import { Progress } from '@/components/ui/progress';
 import { useAutoSave } from '@/hooks/useAutoSave';
@@ -29,9 +29,9 @@ const getFirstDayOfMonth = () => {
 
 const initialFormState = {
   selectedClientId: '',
-  periodoInicio: getFirstDayOfMonth(),
-  periodoFim: getTodayDate(),
-  data_emissao: new Date(),
+  periodoInicio: undefined, // Default to undefined
+  periodoFim: undefined,    // Default to undefined
+  data_emissao: undefined,  // Default to undefined
 };
 
 const CertificadoPage = () => {
@@ -56,30 +56,30 @@ const CertificadoPage = () => {
     !isEditMode 
   );
 
+  // Helper to process date values from auto-save or defaults
+  const processDateValue = useCallback((dateValue, defaultValueFn) => {
+    if (typeof dateValue === 'string') {
+      const parsed = parseISO(dateValue);
+      return isValid(parsed) ? parsed : defaultValueFn();
+    }
+    return (dateValue instanceof Date && isValid(dateValue)) ? dateValue : defaultValueFn();
+  }, []);
+
   useEffect(() => {
     if (isEditMode) {
       setLocalFormData(initialFormState);
     } else {
-      // Adiciona um fallback para savedData caso seja null ou undefined
       const currentSavedData = savedData || {}; 
       const dataToLoad = {
         ...currentSavedData,
-        periodoInicio: currentSavedData.periodoInicio ? new Date(currentSavedData.periodoInicio) : getFirstDayOfMonth(),
-        periodoFim: currentSavedData.periodoFim ? new Date(currentSavedData.periodoFim) : getTodayDate(),
-        data_emissao: currentSavedData.data_emissao ? new Date(currentSavedData.data_emissao) : new Date(),
+        selectedClientId: currentSavedData.selectedClientId || '',
+        periodoInicio: processDateValue(currentSavedData.periodoInicio, getFirstDayOfMonth),
+        periodoFim: processDateValue(currentSavedData.periodoFim, getTodayDate),
+        data_emissao: processDateValue(currentSavedData.data_emissao, () => new Date()),
       };
       setLocalFormData(dataToLoad);
     }
-  }, [isEditMode, savedData, setLocalFormData]);
-
-  // Removido o wrapper setFormData. Agora use setLocalFormData diretamente.
-  // const setFormData = (updater) => {
-  //   const updateFn = typeof updater === 'function' ? updater : () => updater;
-  //   setLocalFormData(prev => {
-  //     const newState = updateFn(prev);
-  //     return newState;
-  //   });
-  // };
+  }, [isEditMode, savedData, setLocalFormData, processDateValue]);
 
   const { selectedClientId, periodoInicio, periodoFim, data_emissao } = localFormData;
 
@@ -90,7 +90,6 @@ const CertificadoPage = () => {
 
   useEffect(() => {
     const fetchInitialData = async () => {
-      console.log("CertificadoPage: fetchInitialData - START");
       setLoading(true);
       try {
         const [clientDataRes, empresaDataRes] = await Promise.all([
@@ -103,11 +102,9 @@ const CertificadoPage = () => {
 
         if (clientDataRes.error) throw clientDataRes.error;
         setClients(clientDataRes.data || []);
-        console.log("CertificadoPage: Clients fetched:", clientDataRes.data);
 
         if (empresaDataRes.error) throw empresaDataRes.error;
         setEmpresa(empresaDataRes.data);
-        console.log("CertificadoPage: Empresa fetched:", empresaDataRes.data);
 
         if (isEditMode) {
           const { data: certData, error: certError } = await supabase
@@ -117,29 +114,26 @@ const CertificadoPage = () => {
             .single();
           
           if (certError) throw certError;
-          console.log("CertificadoPage: Cert data fetched:", certData);
 
-          setLocalFormData({ // Usando setLocalFormData diretamente
+          setLocalFormData(prev => ({
+            ...prev,
             selectedClientId: certData.cliente_id,
-            periodoInicio: new Date(certData.periodo_inicio.replace(/-/g, '/')),
-            periodoFim: new Date(certData.periodo_fim.replace(/-/g, '/')),
-            data_emissao: certData.data_emissao ? new Date(certData.data_emissao) : new Date(),
-          });
+            periodoInicio: processDateValue(certData.periodo_inicio, getFirstDayOfMonth),
+            periodoFim: processDateValue(certData.periodo_fim, getTodayDate),
+            data_emissao: processDateValue(certData.data_emissao, () => new Date()),
+          }));
         }
       } catch (error) {
-        console.error("CertificadoPage: Error in fetchInitialData:", error);
         toast({ title: 'Erro ao carregar dados', description: error.message, variant: 'destructive' });
         if (isEditMode) navigate('/app/certificados');
       } finally {
         setLoading(false);
-        console.log("CertificadoPage: fetchInitialData - END, loading set to false");
       }
     };
     fetchInitialData();
-  }, [id, isEditMode, toast, navigate, setLocalFormData]); // Usando setLocalFormData aqui
+  }, [id, isEditMode, toast, navigate, setLocalFormData, processDateValue]);
 
   const handleSubmit = async () => {
-    // Adicionando validação para selectedClient
     if (!selectedClientId || !periodoInicio || !periodoFim || !data_emissao || !selectedClient) {
       toast({ title: 'Campos obrigatórios', description: 'Por favor, selecione um cliente e preencha todas as datas.', variant: 'destructive' });
       return;
@@ -329,7 +323,11 @@ const CertificadoPage = () => {
                     type="date"
                     id="data_emissao"
                     value={data_emissao ? formatToISODate(data_emissao) : ''}
-                    onChange={(e) => setLocalFormData(prev => ({ ...prev, data_emissao: new Date(e.target.value.replace(/-/g, '/')) }))}
+                    onChange={(e) => {
+                      const dateString = e.target.value;
+                      const newDate = dateString ? new Date(dateString.replace(/-/g, '/')) : undefined;
+                      setLocalFormData(prev => ({ ...prev, data_emissao: isValid(newDate) ? newDate : undefined }));
+                    }}
                     disabled={profile?.role !== 'administrador'}
                     className="bg-white/20 border-white/30"
                   />
@@ -363,7 +361,11 @@ const CertificadoPage = () => {
                       type="date"
                       id="periodo-inicio"
                       value={periodoInicio ? formatToISODate(periodoInicio) : ''}
-                      onChange={(e) => setLocalFormData(prev => ({ ...prev, periodoInicio: new Date(e.target.value.replace(/-/g, '/')) }))}
+                      onChange={(e) => {
+                        const dateString = e.target.value;
+                        const newDate = dateString ? new Date(dateString.replace(/-/g, '/')) : undefined;
+                        setLocalFormData(prev => ({ ...prev, periodoInicio: isValid(newDate) ? newDate : undefined }));
+                      }}
                       className="bg-white/20 border-white/30"
                     />
                   </div>
@@ -373,7 +375,11 @@ const CertificadoPage = () => {
                       type="date"
                       id="periodo-fim"
                       value={periodoFim ? formatToISODate(periodoFim) : ''}
-                      onChange={(e) => setLocalFormData(prev => ({ ...prev, periodoFim: new Date(e.target.value.replace(/-/g, '/')) }))}
+                      onChange={(e) => {
+                        const dateString = e.target.value;
+                        const newDate = dateString ? new Date(dateString.replace(/-/g, '/')) : undefined;
+                        setLocalFormData(prev => ({ ...prev, periodoFim: isValid(newDate) ? newDate : undefined }));
+                      }}
                       className="bg-white/20 border-white/30"
                     />
                   </div>
