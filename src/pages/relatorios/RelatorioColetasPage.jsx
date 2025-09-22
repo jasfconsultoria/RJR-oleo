@@ -8,7 +8,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
     import { Loader2, FileDown, Droplets, Truck, DollarSign, Repeat, BarChart2 } from 'lucide-react';
     import { Table, TableBody, TableCell, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
     import { estados, getMunicipios } from '@/lib/location';
-    import { useProfile } from '@/contexts/Profile/ProfileContext';
+    import { useProfile } from '@/contexts/ProfileContext'; // Corrigido o caminho de importação
     import { format, subDays, endOfDay, parseISO, isValid } from 'date-fns';
     import { ptBR } from 'date-fns/locale';
     import * as XLSX from 'xlsx';
