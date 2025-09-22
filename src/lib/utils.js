@@ -2,7 +2,7 @@ import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { format, parseISO, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { formatInTimeZone, toZonedTime } from 'date-fns-tz';
+import { formatInTimeZone, toZonedTime, toDate } from 'date-fns-tz'; // Importar toDate
 
 export function cn(...inputs) {
   return twMerge(clsx(inputs));
@@ -55,15 +55,14 @@ export const formatDateWithTimezone = (dateInput, timezone = 'America/Sao_Paulo'
     dateObj = dateInput;
   } else if (typeof dateInput === 'string') {
     // Se a string for apenas 'YYYY-MM-DD' (de uma coluna DATE do DB),
-    // precisamos interpretá-la como uma data local no fuso horário da empresa
-    // para evitar que o parseISO a trate como UTC e desloque o dia.
+    // interpretá-la como meia-noite daquele dia no fuso horário especificado.
     if (dateInput.match(/^\d{4}-\d{2}-\d{2}$/)) {
-      const [year, month, day] = dateInput.split('-').map(Number);
-      // Cria um objeto Date no fuso horário local do navegador, depois converte para o fuso da empresa
-      dateObj = toZonedTime(new Date(year, month - 1, day), timezone);
+      // Usa toDate com a opção de fuso horário para criar o objeto Date diretamente no fuso horário alvo
+      dateObj = toDate(`${dateInput}T00:00:00`, { timeZone: timezone });
     } else {
-      // Para strings ISO completas (com hora e fuso), parseISO funciona bem
-      dateObj = parseISO(dateInput);
+      // Para strings ISO completas (com hora e fuso), parseISO funciona bem.
+      // Em seguida, converte para o fuso horário alvo para tratamento consistente.
+      dateObj = toZonedTime(parseISO(dateInput), timezone);
     }
   } else {
     return 'N/A';
