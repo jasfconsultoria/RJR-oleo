@@ -212,7 +212,7 @@ const ListaCertificados = () => {
             handleShare={handleShare}
             handleEdit={handleEdit}
             handleDelete={handleDelete}
-            timezone={empresa?.timezone} {/* Passando a prop timezone */}
+            timezone={empresa?.timezone} 
           />
         </motion.div>
         <Pagination
