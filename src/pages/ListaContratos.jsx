@@ -15,7 +15,7 @@ import { logAction } from '@/lib/logger';
 import { formatDateWithTimezone } from '@/lib/utils';
 import ContratoViewModal from '@/components/contratos/ContratoViewModal';
 import { motion } from 'framer-motion';
-import ClienteSearchableSelect from '@/components/ui/ClienteSearchableSelect';
+// Removido: import ClienteSearchableSelect from '@/components/ui/ClienteSearchableSelect';
 
 const ListaContratos = () => {
   const navigate = useNavigate();
@@ -25,30 +25,29 @@ const ListaContratos = () => {
   const [contratos, setContratos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [contratoSearchTerm, setContratoSearchTerm] = useState('');
-  const [selectedClienteId, setSelectedClienteId] = useState(null);
+  const [clientSearchTerm, setClientSearchTerm] = useState(''); // Novo estado para busca de cliente
   const debouncedContratoSearchTerm = useDebounce(contratoSearchTerm, 500);
+  const debouncedClientSearchTerm = useDebounce(clientSearchTerm, 500); // Debounce para busca de cliente
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [empresa, setEmpresa] = useState(null);
   const [selectedContrato, setSelectedContrato] = useState(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-  const [clientesMap, setClientesMap] = useState({});
+  // Removido: [clientesMap, setClientesMap] = useState({});
 
   const pageSize = useMemo(() => empresa?.items_per_page || 25, [empresa]);
   const empresaTimezone = useMemo(() => empresa?.timezone || 'America/Sao_Paulo', [empresa]);
 
-  // Initialize selectedClienteId from URL query param
+  // Initialize clientSearchTerm from URL query param
   useEffect(() => {
     const queryParams = new URLSearchParams(location.search);
     const clienteIdFromUrl = queryParams.get('clienteId');
     if (clienteIdFromUrl) {
-      setSelectedClienteId(clienteIdFromUrl);
-      // Optionally, fetch client name to display in the search box
+      // Fetch client name to pre-fill the search input
       const fetchClientName = async () => {
         const { data, error } = await supabase.from('clientes').select('nome, nome_fantasia').eq('id', clienteIdFromUrl).single();
         if (data) {
-          // This would require updating the ClienteSearchableSelect to accept an initial display value
-          // For now, just setting the ID is enough to filter.
+          setClientSearchTerm(data.nome_fantasia ? `${data.nome} - ${data.nome_fantasia}` : data.nome);
         }
       };
       fetchClientName();
@@ -56,21 +55,22 @@ const ListaContratos = () => {
   }, [location.search]);
 
 
-  useEffect(() => {
-    const fetchClientes = async () => {
-        const { data, error } = await supabase.from('clientes').select('id, nome, nome_fantasia');
-        if (error) {
-            toast({ title: 'Erro ao buscar clientes', variant: 'destructive' });
-        } else {
-            const map = (data || []).reduce((acc, cliente) => {
-                acc[cliente.id] = cliente.nome_fantasia ? `${cliente.nome} - ${cliente.nome_fantasia}` : cliente.nome;
-                return acc;
-            }, {});
-            setClientesMap(map);
-        }
-    };
-    fetchClientes();
-  }, [toast]);
+  // Removido: useEffect para fetchClientes, pois agora a busca é direta na query principal
+  // useEffect(() => {
+  //   const fetchClientes = async () => {
+  //       const { data, error } = await supabase.from('clientes').select('id, nome, nome_fantasia');
+  //       if (error) {
+  //           toast({ title: 'Erro ao buscar clientes', variant: 'destructive' });
+  //       } else {
+  //           const map = (data || []).reduce((acc, cliente) => {
+  //               acc[cliente.id] = cliente.nome_fantasia ? `${cliente.nome} - ${cliente.nome_fantasia}` : cliente.nome;
+  //               return acc;
+  //           }, {});
+  //           setClientesMap(map);
+  //       }
+  //   };
+  //   fetchClientes();
+  // }, [toast]);
 
   const fetchContratos = useCallback(async () => {
     setLoading(true);
@@ -79,15 +79,15 @@ const ListaContratos = () => {
 
     let query = supabase
       .from('contratos')
-      .select('*, pdf_url', { count: 'exact' })
+      .select('*, pdf_url, cliente:clientes(nome, nome_fantasia)', { count: 'exact' }) // Incluir dados do cliente
       .order('created_at', { ascending: false })
       .range(from, to);
 
     if (debouncedContratoSearchTerm) {
       query = query.ilike('numero_contrato', `%${debouncedContratoSearchTerm}%`);
     }
-    if (selectedClienteId) {
-      query = query.eq('cliente_id', selectedClienteId);
+    if (debouncedClientSearchTerm) { // Filtrar por nome do cliente
+      query = query.or(`cliente.nome.ilike.%${debouncedClientSearchTerm}%,cliente.nome_fantasia.ilike.%${debouncedClientSearchTerm}%`);
     }
 
     const { data, error, count } = await query;
@@ -101,7 +101,7 @@ const ListaContratos = () => {
       setTotalCount(count || 0);
     }
     setLoading(false);
-  }, [toast, currentPage, pageSize, debouncedContratoSearchTerm, selectedClienteId, empresa]);
+  }, [toast, currentPage, pageSize, debouncedContratoSearchTerm, debouncedClientSearchTerm, empresa]);
 
   useEffect(() => {
     const fetchEmpresa = async () => {
@@ -120,7 +120,7 @@ const ListaContratos = () => {
   
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedContratoSearchTerm, selectedClienteId, pageSize]);
+  }, [debouncedContratoSearchTerm, debouncedClientSearchTerm, pageSize]); // Atualizado para debouncedClientSearchTerm
 
   const handleDelete = async (id, numeroContrato) => {
     const { error } = await supabase.from('contratos').delete().eq('id', id);
@@ -195,12 +195,7 @@ const ListaContratos = () => {
     }
   };
 
-  const handleClienteSelectChange = (value) => {
-    setSelectedClienteId(value);
-    // Clear the contract search term when a client is selected
-    // to ensure the filter is purely by client.
-    setContratoSearchTerm(''); 
-  };
+  // Removido: handleClienteSelectChange, pois agora é um input de texto direto
 
   const totalPages = Math.ceil(totalCount / pageSize);
 
@@ -252,11 +247,18 @@ const ListaContratos = () => {
               </div>
             </div>
             <div>
-              <ClienteSearchableSelect
-                labelText="Cliente"
-                value={selectedClienteId}
-                onChange={handleClienteSelectChange}
-              />
+              <Label htmlFor="clientSearch" className="block text-white mb-1 text-sm">Cliente</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/70" />
+                <Input
+                  id="clientSearch"
+                  type="search"
+                  placeholder="Buscar por nome do cliente..."
+                  value={clientSearchTerm}
+                  onChange={(e) => setClientSearchTerm(e.target.value)}
+                  className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60 rounded-xl"
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -288,7 +290,7 @@ const ListaContratos = () => {
                             {contrato.numero_contrato}
                           </Button>
                         </TableCell>
-                        <TableCell data-label="Cliente">{clientesMap[contrato.cliente_id] || 'Carregando...'}</TableCell>
+                        <TableCell data-label="Cliente">{contrato.cliente?.nome_fantasia ? `${contrato.cliente.nome} - ${contrato.cliente.nome_fantasia}` : contrato.cliente?.nome || 'N/A'}</TableCell>
                         <TableCell data-label="Início">{formatDateWithTimezone(contrato.data_inicio, empresaTimezone)}</TableCell>
                         <TableCell data-label="Fim">{formatDateWithTimezone(contrato.data_fim, empresaTimezone)}</TableCell>
                         <TableCell data-label="Status" className="text-center">

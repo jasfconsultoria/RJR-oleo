@@ -15,7 +15,7 @@ import { Pagination } from '@/components/ui/pagination';
 import { logAction } from '@/lib/logger';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import ClienteSearchableSelect from '@/components/ui/ClienteSearchableSelect';
+// Removido: import ClienteSearchableSelect from '@/components/ui/ClienteSearchableSelect';
 import ProdutoSearchableSelect from '@/components/estoque/ProdutoSearchableSelect';
 import { formatNumber } from '@/lib/utils';
 import MovimentacaoViewDialog from '@/components/estoque/MovimentacaoViewDialog';
@@ -27,7 +27,7 @@ const ListaSaidasPage = () => {
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
     searchTerm: '',
-    selectedClienteId: null,
+    clientSearchTerm: '', // Alterado de selectedClienteId para clientSearchTerm
     selectedProdutoId: null,
     startDate: '',
     endDate: '',
@@ -64,11 +64,11 @@ const ListaSaidasPage = () => {
         origem,
         document_number,
         observacao,
-        cliente:clientes(nome),
+        cliente:clientes(nome, nome_fantasia),
         itens_entrada_saida(
           id,
           quantidade,
-          produto:produtos(nome, unidade)
+          produto:produtos(id, nome, unidade)
         )
       `, { count: 'exact' })
       .eq('tipo', 'saida')
@@ -79,8 +79,8 @@ const ListaSaidasPage = () => {
     if (debouncedFilters.searchTerm) {
       query = query.or(`observacao.ilike.%${debouncedFilters.searchTerm}%,document_number.ilike.%${debouncedFilters.searchTerm}%`);
     }
-    if (debouncedFilters.selectedClienteId) {
-      query = query.eq('cliente_id', debouncedFilters.selectedClienteId);
+    if (debouncedFilters.clientSearchTerm) { // Filtrar por nome do cliente
+      query = query.or(`cliente.nome.ilike.%${debouncedFilters.clientSearchTerm}%,cliente.nome_fantasia.ilike.%${debouncedFilters.clientSearchTerm}%`);
     }
     if (debouncedFilters.startDate) {
       query = query.gte('data', debouncedFilters.startDate);
@@ -98,7 +98,7 @@ const ListaSaidasPage = () => {
       let filteredData = data || [];
       if (debouncedFilters.selectedProdutoId) {
         filteredData = filteredData.filter(mov =>
-          mov.itens_entrada_saida.some(item => item.produto_id === debouncedFilters.selectedProdutoId)
+          mov.itens_entrada_saida.some(item => item.produto.id === debouncedFilters.selectedProdutoId)
         );
       }
       setMovimentacoes(filteredData);
@@ -171,11 +171,18 @@ const ListaSaidasPage = () => {
               </div>
             </div>
             <div>
-              <ClienteSearchableSelect
-                labelText="Cliente"
-                value={filters.selectedClienteId}
-                onChange={(value) => handleFilterChange('selectedClienteId', value)}
-              />
+              <Label htmlFor="clientSearch" className="block text-white mb-1 text-sm">Cliente</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/70" />
+                <Input
+                  id="clientSearch"
+                  type="search"
+                  placeholder="Buscar por nome do cliente..."
+                  value={filters.clientSearchTerm}
+                  onChange={(e) => handleFilterChange('clientSearchTerm', e.target.value)}
+                  className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60 rounded-xl"
+                />
+              </div>
             </div>
             <div>
               <ProdutoSearchableSelect
@@ -220,7 +227,7 @@ const ListaSaidasPage = () => {
                         <TableCell data-label="Data">{format(parseISO(mov.data), 'dd/MM/yyyy HH:mm', { locale: ptBR })}</TableCell>
                         <TableCell data-label="Nº Documento">{mov.document_number || 'N/A'}</TableCell> {/* New cell */}
                         <TableCell data-label="Origem" className="capitalize">{mov.origem}</TableCell>
-                        <TableCell data-label="Cliente">{mov.cliente?.nome || 'N/A'}</TableCell>
+                        <TableCell data-label="Cliente">{mov.cliente?.nome_fantasia ? `${mov.cliente.nome} - ${mov.cliente.nome_fantasia}` : mov.cliente?.nome || 'N/A'}</TableCell>
                         <TableCell data-label="Itens">
                           {mov.itens_entrada_saida.map((item, idx) => (
                             <div key={idx} className="text-xs">

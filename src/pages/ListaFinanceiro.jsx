@@ -13,7 +13,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Pagination } from '@/components/ui/pagination';
 import { logAction } from '@/lib/logger';
 import { formatCnpjCpf, formatCurrency, formatNumber, formatDateWithTimezone } from '@/lib/utils';
-import ClienteSearchableSelect from '@/components/ui/ClienteSearchableSelect';
+// Removido: import ClienteSearchableSelect from '@/components/ui/ClienteSearchableSelect';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { format, parseISO, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -26,11 +26,12 @@ const ListaFinanceiro = ({ type }) => {
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedClienteId, setSelectedClienteId] = useState(null);
+  const [clientSearchTerm, setClientSearchTerm] = useState(''); // Novo estado para busca de cliente
   const [statusFilter, setStatusFilter] = useState('all');
   const [startDate, setStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
+  const debouncedClientSearchTerm = useDebounce(clientSearchTerm, 500); // Debounce para busca de cliente
   const debouncedStartDate = useDebounce(startDate, 500);
   const debouncedEndDate = useDebounce(endDate, 500);
   const [currentPage, setCurrentPage] = useState(1);
@@ -73,8 +74,8 @@ const ListaFinanceiro = ({ type }) => {
     if (debouncedSearchTerm) {
       query = query.or(`document_number.ilike.%${debouncedSearchTerm}%,description.ilike.%${debouncedSearchTerm}%,cliente_fornecedor_name.ilike.%${debouncedSearchTerm}%,cliente_fornecedor_name_fantasia.ilike.%${debouncedSearchTerm}%`); // Added nome_fantasia to search
     }
-    if (selectedClienteId) {
-      query = query.eq('pessoa_id', selectedClienteId);
+    if (debouncedClientSearchTerm) { // Filtrar por nome do cliente/fornecedor
+      query = query.or(`cliente_fornecedor_name.ilike.%${debouncedClientSearchTerm}%,cliente_fornecedor_name_fantasia.ilike.%${debouncedClientSearchTerm}%`);
     }
     if (statusFilter !== 'all') {
       query = query.eq('status', statusFilter);
@@ -96,7 +97,7 @@ const ListaFinanceiro = ({ type }) => {
       setTotalCount(count || 0);
     }
     setLoading(false);
-  }, [toast, currentPage, pageSize, type, debouncedSearchTerm, selectedClienteId, statusFilter, debouncedStartDate, debouncedEndDate, empresa, title]);
+  }, [toast, currentPage, pageSize, type, debouncedSearchTerm, debouncedClientSearchTerm, statusFilter, debouncedStartDate, debouncedEndDate, empresa, title]);
 
   const fetchSummary = useCallback(async () => {
     if (!empresa) return;
@@ -105,8 +106,8 @@ const ListaFinanceiro = ({ type }) => {
       p_end_date: debouncedEndDate || null,
       p_type: type,
       p_status: statusFilter === 'all' ? null : statusFilter,
-      p_cliente_id: selectedClienteId || null,
-      p_search_term: debouncedSearchTerm || null,
+      p_cliente_id: null, // Removido filtro por ID, agora é por termo de busca
+      p_search_term: debouncedSearchTerm || debouncedClientSearchTerm || null, // Usar termo de busca geral ou de cliente
     });
 
     if (error) {
@@ -115,7 +116,7 @@ const ListaFinanceiro = ({ type }) => {
     } else {
       setSummary(data || { total_value: 0, total_paid: 0, total_balance: 0 });
     }
-  }, [type, statusFilter, debouncedStartDate, debouncedEndDate, empresa, selectedClienteId, debouncedSearchTerm]);
+  }, [type, statusFilter, debouncedStartDate, debouncedEndDate, empresa, debouncedSearchTerm, debouncedClientSearchTerm]);
 
   useEffect(() => {
     if (empresa) {
@@ -126,7 +127,7 @@ const ListaFinanceiro = ({ type }) => {
   
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearchTerm, selectedClienteId, statusFilter, debouncedStartDate, debouncedEndDate, pageSize]);
+  }, [debouncedSearchTerm, debouncedClientSearchTerm, statusFilter, debouncedStartDate, debouncedEndDate, pageSize]); // Atualizado para debouncedClientSearchTerm
 
   const handleDelete = async (id, description) => {
     const { error } = await supabase.from('credito_debito').delete().eq('id', id);
@@ -210,7 +211,7 @@ const ListaFinanceiro = ({ type }) => {
                 <Input
                   id="searchTerm"
                   type="search"
-                  placeholder="Nº Doc, descrição, nome..."
+                  placeholder="Nº Doc, descrição..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60 rounded-xl"
@@ -218,11 +219,18 @@ const ListaFinanceiro = ({ type }) => {
               </div>
             </div>
             <div>
-              <ClienteSearchableSelect
-                labelText={entityLabel}
-                value={selectedClienteId}
-                onChange={(value) => setSelectedClienteId(value)}
-              />
+              <Label htmlFor="clientSearch" className="block text-white mb-1 text-sm">{entityLabel}</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/70" />
+                <Input
+                  id="clientSearch"
+                  type="search"
+                  placeholder={`Buscar por nome d${entityLabel.toLowerCase()}...`}
+                  value={clientSearchTerm}
+                  onChange={(e) => setClientSearchTerm(e.target.value)}
+                  className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60 rounded-xl"
+                />
+              </div>
             </div>
             <div>
               <Label htmlFor="statusFilter" className="block text-white mb-1 text-sm">Status</Label>

@@ -25,11 +25,11 @@ const ListaCertificados = () => {
   const [filters, setFilters] = useState({ 
     startDate: getFirstDayOfMonth(),
     endDate: getTodayDate(),
-    selectedClientId: '',
+    clientSearchTerm: '', // Alterado de selectedClientId para clientSearchTerm
   });
   const [sortConfig, setSortConfig] = useState({ key: 'data_emissao', direction: 'desc' });
   const { profile, loading: profileLoading } = useProfile();
-  const [clients, setClients] = useState([]);
+  // Removido: [clients, setClients] = useState([]);
   const [empresa, setEmpresa] = useState(null);
   const { toast } = useToast();
   const [currentPage, setCurrentPage] = useState(1);
@@ -44,16 +44,13 @@ const ListaCertificados = () => {
     const fetchInitialData = async () => {
       if (!profile) return;
       try {
-        const [clientDataRes, empresaDataRes] = await Promise.all([
-          supabase
-            .from('clientes')
-            .select('id, nome, cnpj_cpf, municipio, estado')
-            .order('nome', { ascending: true }),
+        const [empresaDataRes] = await Promise.all([
+          // Removido: supabase.from('clientes').select(...)
           supabase.from('empresa').select('*').single(),
         ]);
 
-        if (clientDataRes.error) throw clientDataRes.error;
-        setClients(clientDataRes.data || []);
+        // Removido: if (clientDataRes.error) throw clientDataRes.error;
+        // Removido: setClients(clientDataRes.data || []);
 
         if (empresaDataRes.error) throw empresaDataRes.error;
         setEmpresa(empresaDataRes.data);
@@ -86,8 +83,8 @@ const ListaCertificados = () => {
       .gte('data_emissao', startDate.toISOString())
       .lte('data_emissao', endDate.toISOString());
 
-    if (debouncedFilters.selectedClientId) {
-      query = query.eq('cliente_id', debouncedFilters.selectedClientId);
+    if (debouncedFilters.clientSearchTerm) { // Filtrar por nome do cliente
+      query = query.ilike('cliente_nome', `%${debouncedFilters.clientSearchTerm}%`);
     }
     
     query = query.order(sortConfig.key, { ascending: sortConfig.direction === 'asc' }).range(from, to);
@@ -134,7 +131,7 @@ const ListaCertificados = () => {
       const url = `${cert.pdf_url}?t=${new Date().getTime()}`;
       window.open(url, '_blank');
     } else {
-      toast({ title: 'PDF não gerado', description: 'Redirecionando para gerar o PDF...' });
+      toast({ title: 'PDF não gerado', description: 'Redirecionando para gerar o PDF...', variant: 'default' });
       navigate(`/app/certificados/view/${cert.id}`, { state: { autoGenerate: true } });
     }
   };
@@ -194,9 +191,9 @@ const ListaCertificados = () => {
           endDate={filters.endDate ? formatToISODate(filters.endDate) : ''} 
         />
         <CertificadosFilters 
-          clients={clients}
-          selectedClientId={filters.selectedClientId}
-          setSelectedClientId={(value) => handleFilterChange('selectedClientId', value)}
+          // Removido: clients={clients}
+          clientSearchTerm={filters.clientSearchTerm} // Passar o novo estado
+          setClientSearchTerm={(value) => handleFilterChange('clientSearchTerm', value)} // Passar o novo setter
           startDate={filters.startDate}
           setStartDate={(value) => handleFilterChange('startDate', value)}
           endDate={filters.endDate}

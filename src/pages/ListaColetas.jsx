@@ -19,7 +19,7 @@ const ListaColetas = () => {
   const [coletas, setColetas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [coletaSearchTerm, setColetaSearchTerm] = useState('');
-  const [selectedClienteId, setSelectedClienteId] = useState(null);
+  const [clientSearchTerm, setClientSearchTerm] = useState(''); // Novo estado para busca de cliente
   
   const [sortConfig, setSortConfig] = useState({ key: 'numero_coleta', direction: 'desc' });
   const { profile, loading: profileLoading } = useProfile();
@@ -36,6 +36,7 @@ const ListaColetas = () => {
   const [periodTotals, setPeriodTotals] = useState({ coletado: 0, compras: 0, entregue: 0 });
 
   const debouncedColetaSearchTerm = useDebounce(coletaSearchTerm, 500);
+  const debouncedClientSearchTerm = useDebounce(clientSearchTerm, 500); // Debounce para busca de cliente
   const debouncedStartDate = useDebounce(startDate, 500);
   const debouncedEndDate = useDebounce(endDate, 500);
   const { toast } = useToast();
@@ -60,8 +61,9 @@ const ListaColetas = () => {
     let query = supabase.rpc('get_coletas_totals', {
         p_start_date: debouncedColetaSearchTerm ? null : (debouncedStartDate || null),
         p_end_date: debouncedColetaSearchTerm ? null : (debouncedEndDate || null),
-        p_cliente_id: debouncedColetaSearchTerm ? null : (selectedClienteId || null),
+        p_cliente_id: null, // Removido filtro por ID
         p_numero_coleta_term: debouncedColetaSearchTerm || null,
+        p_cliente_nome_term: debouncedClientSearchTerm || null, // Novo parâmetro para busca por nome do cliente
     });
 
     const { data, error } = await query.single();
@@ -76,7 +78,7 @@ const ListaColetas = () => {
         entregue: data.total_entregue || 0,
       });
     }
-  }, [profile, profileLoading, empresa, debouncedStartDate, debouncedEndDate, selectedClienteId, debouncedColetaSearchTerm]);
+  }, [profile, profileLoading, empresa, debouncedStartDate, debouncedEndDate, debouncedColetaSearchTerm, debouncedClientSearchTerm]);
 
   const fetchColetas = useCallback(async () => {
     if (profileLoading || !profile || !empresa) return;
@@ -91,8 +93,8 @@ const ListaColetas = () => {
         // Aplica a busca diretamente na view
         query = query.or(`numero_coleta::text.ilike.%${debouncedColetaSearchTerm}%,cliente_nome.ilike.%${debouncedColetaSearchTerm}%`);
     } else {
-        if (selectedClienteId) {
-            query = query.eq('cliente_id', selectedClienteId);
+        if (debouncedClientSearchTerm) { // Filtrar por nome do cliente
+            query = query.ilike('cliente_nome', `%${debouncedClientSearchTerm}%`);
         }
         if (debouncedStartDate) {
             query = query.gte('data_coleta', debouncedStartDate);
@@ -116,7 +118,7 @@ const ListaColetas = () => {
         setTotalCount(count || 0);
     }
     setLoading(false);
-  }, [profile, profileLoading, sortConfig, debouncedColetaSearchTerm, selectedClienteId, debouncedStartDate, debouncedEndDate, empresa, toast, currentPage, pageSize]);
+  }, [profile, profileLoading, sortConfig, debouncedColetaSearchTerm, debouncedClientSearchTerm, debouncedStartDate, debouncedEndDate, empresa, toast, currentPage, pageSize]);
 
   useEffect(() => {
     fetchColetas();
@@ -126,9 +128,9 @@ const ListaColetas = () => {
   useEffect(() => {
     setCurrentPage(1);
     if(coletaSearchTerm) {
-      setSelectedClienteId(null);
+      setClientSearchTerm(''); // Limpa o filtro de cliente se estiver buscando por número de coleta
     }
-  }, [debouncedColetaSearchTerm, selectedClienteId, debouncedStartDate, debouncedEndDate, pageSize, coletaSearchTerm]);
+  }, [debouncedColetaSearchTerm, debouncedClientSearchTerm, debouncedStartDate, debouncedEndDate, pageSize, coletaSearchTerm]); // Atualizado para debouncedClientSearchTerm
 
   const handleDelete = async (coletaId) => {
     const coletaToDelete = coletas.find(c => c.id === coletaId);
@@ -192,8 +194,8 @@ const ListaColetas = () => {
         <ColetasFilters
           coletaSearchTerm={coletaSearchTerm}
           setColetaSearchTerm={setColetaSearchTerm}
-          selectedClienteId={selectedClienteId}
-          setSelectedClienteId={setSelectedClienteId}
+          clientSearchTerm={clientSearchTerm} // Passar o novo estado
+          setClientSearchTerm={setClientSearchTerm} // Passar o novo setter
           startDate={startDate}
           setStartDate={setStartDate}
           endDate={endDate}
