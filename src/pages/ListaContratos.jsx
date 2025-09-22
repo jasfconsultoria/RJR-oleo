@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Helmet } from 'react-helmet';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,8 @@ import ClienteSearchableSelect from '@/components/ui/ClienteSearchableSelect';
 const ListaContratos = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const location = useLocation();
+
   const [contratos, setContratos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [contratoSearchTerm, setContratoSearchTerm] = useState('');
@@ -35,14 +37,33 @@ const ListaContratos = () => {
   const pageSize = useMemo(() => empresa?.items_per_page || 25, [empresa]);
   const empresaTimezone = useMemo(() => empresa?.timezone || 'America/Sao_Paulo', [empresa]);
 
+  // Initialize selectedClienteId from URL query param
+  useEffect(() => {
+    const queryParams = new URLSearchParams(location.search);
+    const clienteIdFromUrl = queryParams.get('clienteId');
+    if (clienteIdFromUrl) {
+      setSelectedClienteId(clienteIdFromUrl);
+      // Optionally, fetch client name to display in the search box
+      const fetchClientName = async () => {
+        const { data, error } = await supabase.from('clientes').select('nome, nome_fantasia').eq('id', clienteIdFromUrl).single();
+        if (data) {
+          // This would require updating the ClienteSearchableSelect to accept an initial display value
+          // For now, just setting the ID is enough to filter.
+        }
+      };
+      fetchClientName();
+    }
+  }, [location.search]);
+
+
   useEffect(() => {
     const fetchClientes = async () => {
-        const { data, error } = await supabase.from('clientes').select('id, nome, nome_fantasia'); // Added nome_fantasia
+        const { data, error } = await supabase.from('clientes').select('id, nome, nome_fantasia');
         if (error) {
             toast({ title: 'Erro ao buscar clientes', variant: 'destructive' });
         } else {
             const map = (data || []).reduce((acc, cliente) => {
-                acc[cliente.id] = cliente.nome_fantasia ? `${cliente.nome} - ${cliente.nome_fantasia}` : cliente.nome; // Concatenate name
+                acc[cliente.id] = cliente.nome_fantasia ? `${cliente.nome} - ${cliente.nome_fantasia}` : cliente.nome;
                 return acc;
             }, {});
             setClientesMap(map);
@@ -80,7 +101,7 @@ const ListaContratos = () => {
       setTotalCount(count || 0);
     }
     setLoading(false);
-  }, [toast, currentPage, pageSize, debouncedContratoSearchTerm, selectedClienteId]);
+  }, [toast, currentPage, pageSize, debouncedContratoSearchTerm, selectedClienteId, empresa]);
 
   useEffect(() => {
     const fetchEmpresa = async () => {
@@ -174,6 +195,13 @@ const ListaContratos = () => {
     }
   };
 
+  const handleClienteSelectChange = (value) => {
+    setSelectedClienteId(value);
+    // Clear the contract search term when a client is selected
+    // to ensure the filter is purely by client.
+    setContratoSearchTerm(''); 
+  };
+
   const totalPages = Math.ceil(totalCount / pageSize);
 
   const getStatusBadge = (status) => {
@@ -227,7 +255,7 @@ const ListaContratos = () => {
               <ClienteSearchableSelect
                 labelText="Cliente"
                 value={selectedClienteId}
-                onChange={(value) => setSelectedClienteId(value)}
+                onChange={handleClienteSelectChange}
               />
             </div>
           </div>
