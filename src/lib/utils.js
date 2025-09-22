@@ -1,7 +1,8 @@
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { format, parseISO, isValid, differenceInMonths } from 'date-fns';
+import { format, parseISO, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { formatInTimeZone, toZonedTime } from 'date-fns-tz';
 
 export function cn(...inputs) {
   return twMerge(clsx(inputs));
@@ -24,63 +25,59 @@ export const unmask = (value) => {
   return String(value).replace(/\D/g, '');
 };
 
-export const parseCurrency = (value) => {
-  if (typeof value === 'number') return value;
-  if (!value) return 0;
-  const cleaned = String(value).replace(/\./g, '').replace(',', '.');
-  return parseFloat(cleaned);
+export const formatCurrency = (value) => {
+  if (value === null || value === undefined || isNaN(value)) return 'R$ 0,00';
+  return `R$ ${parseFloat(value).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 
-export const formatCurrency = (value) => {
-  if (typeof value !== 'number') {
-    value = parseCurrency(value);
-  }
-  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+export const parseCurrency = (value) => {
+  if (typeof value !== 'string') return parseFloat(value) || 0;
+  const cleaned = value.replace(/[R$.]/g, '').replace(',', '.');
+  return parseFloat(cleaned) || 0;
 };
 
 export const formatNumber = (value, options = { minimumFractionDigits: 2, maximumFractionDigits: 2 }) => {
-  if (typeof value !== 'number') {
-    value = parseFloat(value);
-  }
-  if (isNaN(value)) return '0,00';
-  return value.toLocaleString('pt-BR', options);
+  if (value === null || value === undefined || isNaN(value)) return '0,00';
+  return parseFloat(value).toLocaleString('pt-BR', options);
 };
 
 export const formatToISODate = (date) => {
   if (!date) return '';
-  const d = new Date(date);
-  return d.toISOString().split('T')[0];
+  return format(date, 'yyyy-MM-dd');
 };
 
-export const formatDate = (dateString) => {
-  if (!dateString) return 'N/A';
-  try {
-    const date = new Date(dateString + 'T00:00:00'); // Ensure it's treated as UTC to avoid timezone issues
-    return format(date, 'dd/MM/yyyy', { locale: ptBR });
-  } catch (error) {
-    return 'Data inválida';
-  }
-};
+// Função para formatar datas com base no fuso horário da empresa
+export const formatDateWithTimezone = (dateInput, timezone = 'America/Sao_Paulo', formatStr = 'dd/MM/yyyy') => {
+  if (!dateInput) return 'N/A';
 
-export const formatDateWithTimezone = (dateString, timezone = 'America/Sao_Paulo') => {
-  if (!dateString) return 'N/A';
-  try {
-    // date-fns-tz is not directly used here, but the principle is to handle dates carefully.
-    // For simple display, we assume the dateString is already in the correct local date.
-    const date = parseISO(dateString);
-    if (!isValid(date)) {
-      // Fallback for simple 'YYYY-MM-DD' strings without time
-      const [year, month, day] = dateString.split('-').map(Number);
-      return format(new Date(year, month - 1, day), 'dd/MM/yyyy', { locale: ptBR });
+  let dateObj;
+  if (dateInput instanceof Date) {
+    dateObj = dateInput;
+  } else if (typeof dateInput === 'string') {
+    // Se a string for apenas 'YYYY-MM-DD' (de uma coluna DATE do DB),
+    // precisamos interpretá-la como uma data local no fuso horário da empresa
+    // para evitar que o parseISO a trate como UTC e desloque o dia.
+    if (dateInput.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      const [year, month, day] = dateInput.split('-').map(Number);
+      // Cria um objeto Date no fuso horário local do navegador, depois converte para o fuso da empresa
+      dateObj = toZonedTime(new Date(year, month - 1, day), timezone);
+    } else {
+      // Para strings ISO completas (com hora e fuso), parseISO funciona bem
+      dateObj = parseISO(dateInput);
     }
-    return format(date, 'dd/MM/yyyy', { locale: ptBR });
-  } catch (error) {
-    console.error("Failed to format date with timezone:", error);
+  } else {
+    return 'N/A';
+  }
+
+  if (!isValid(dateObj)) {
+    console.error("Data inválida para formatação:", dateInput, timezone);
     return 'Data inválida';
   }
+
+  return formatInTimeZone(dateObj, timezone, formatStr, { locale: ptBR });
 };
 
-// Function to convert number to extenso (Portuguese)
+// Função para converter valor numérico em extenso
 const unidades = ['', 'um', 'dois', 'três', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove'];
 const dezenas = ['', 'dez', 'vinte', 'trinta', 'quarenta', 'cinquenta', 'sessenta', 'setenta', 'oitenta', 'noventa'];
 const centenas = ['', 'cento', 'duzentos', 'trezentos', 'quatrocentos', 'quinhentos', 'seiscentos', 'setecentos', 'oitocentos', 'novecentos'];
@@ -149,31 +146,29 @@ function numeroParaExtenso(num) {
 }
 
 export const valorPorExtenso = (valor) => {
-  if (typeof valor !== 'number') {
-    valor = parseCurrency(valor);
-  }
-  if (isNaN(valor)) return 'zero reais';
+  if (valor === null || valor === undefined || isNaN(valor)) return '';
 
-  const inteiro = Math.floor(valor);
-  const centavos = Math.round((valor - inteiro) * 100);
+  const partes = valor.toFixed(2).split('.');
+  const inteiros = parseInt(partes[0], 10);
+  const decimais = parseInt(partes[1], 10);
 
-  let extenso = numeroParaExtenso(inteiro);
-  extenso += (inteiro === 1) ? ' real' : ' reais';
+  let extenso = numeroParaExtenso(inteiros);
+  extenso += (inteiros === 1) ? ' real' : ' reais';
 
-  if (centavos > 0) {
-    extenso += ' e ' + numeroParaExtenso(centavos);
-    extenso += (centavos === 1) ? ' centavo' : ' centavos';
+  if (decimais > 0) {
+    extenso += ' e ' + numeroParaExtenso(decimais);
+    extenso += (decimais === 1) ? ' centavo' : ' centavos';
   }
 
   return extenso;
 };
 
-export const getMonthsDifference = (startDate, endDate) => {
-  if (!startDate || !endDate) return 0;
-  const start = isValid(startDate) ? startDate : parseISO(startDate);
-  const end = isValid(endDate) ? endDate : parseISO(endDate);
-
-  if (!isValid(start) || !isValid(end)) return 0;
-
-  return differenceInMonths(end, start);
+export const getMonthsDifference = (date1, date2) => {
+  if (!date1 || !date2) return 0;
+  const d1 = new Date(date1);
+  const d2 = new Date(date2);
+  let months = (d2.getFullYear() - d1.getFullYear()) * 12;
+  months -= d1.getMonth();
+  months += d2.getMonth();
+  return months <= 0 ? 0 : months;
 };
