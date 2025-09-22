@@ -120,7 +120,7 @@ const ContratoPDF = React.forwardRef(({ contrato, empresa, showSignature }, ref)
         <p className="mb-4">
           <strong>CLÁUSULA SEGUNDA - DA TROCA</strong>
           <br />
-          A cada {contrato.fator_troca || '____'} kg de óleo coletado, a <strong>CONTRATANTE</strong> receberá 1 (uma) garrafa de óleo de soja de 900ml. A entrega do produto será realizada no ato da coleta.
+          A cada {contrato.fator_troca || '____'} kg de óleo coletado, a <strong>CONTRATANTE</strong> receberá 1 (uma) unidade garrafa de óleo de soja de 900ml. A entrega do produto será realizada no ato da coleta.
         </p>
       );
     }
