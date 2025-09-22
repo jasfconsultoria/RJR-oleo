@@ -13,7 +13,6 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Pagination } from '@/components/ui/pagination';
 import { logAction } from '@/lib/logger';
 import { formatCnpjCpf, formatCurrency, formatNumber, formatDateWithTimezone } from '@/lib/utils';
-// Removido: import ClienteSearchableSelect from '@/components/ui/ClienteSearchableSelect';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { format, parseISO, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -26,12 +25,12 @@ const ListaFinanceiro = ({ type }) => {
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [clientSearchTerm, setClientSearchTerm] = useState(''); // Novo estado para busca de cliente
+  const [clientSearchTerm, setClientSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [startDate, setStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
-  const debouncedClientSearchTerm = useDebounce(clientSearchTerm, 500); // Debounce para busca de cliente
+  const debouncedClientSearchTerm = useDebounce(clientSearchTerm, 500);
   const debouncedStartDate = useDebounce(startDate, 500);
   const debouncedEndDate = useDebounce(endDate, 500);
   const [currentPage, setCurrentPage] = useState(1);
@@ -72,9 +71,9 @@ const ListaFinanceiro = ({ type }) => {
       .range(from, to);
 
     if (debouncedSearchTerm) {
-      query = query.or(`document_number.ilike.%${debouncedSearchTerm}%,description.ilike.%${debouncedSearchTerm}%,cliente_fornecedor_name.ilike.%${debouncedSearchTerm}%,cliente_fornecedor_name_fantasia.ilike.%${debouncedSearchTerm}%`); // Added nome_fantasia to search
+      query = query.or(`document_number.ilike.%${debouncedSearchTerm}%,description.ilike.%${debouncedSearchTerm}%`);
     }
-    if (debouncedClientSearchTerm) { // Filtrar por nome do cliente/fornecedor
+    if (debouncedClientSearchTerm) {
       query = query.or(`cliente_fornecedor_name.ilike.%${debouncedClientSearchTerm}%,cliente_fornecedor_name_fantasia.ilike.%${debouncedClientSearchTerm}%`);
     }
     if (statusFilter !== 'all') {
@@ -106,8 +105,8 @@ const ListaFinanceiro = ({ type }) => {
       p_end_date: debouncedEndDate || null,
       p_type: type,
       p_status: statusFilter === 'all' ? null : statusFilter,
-      p_cliente_id: null, // Removido filtro por ID, agora é por termo de busca
-      p_search_term: debouncedSearchTerm || debouncedClientSearchTerm || null, // Usar termo de busca geral ou de cliente
+      p_cliente_id: null,
+      p_search_term: debouncedSearchTerm || debouncedClientSearchTerm || null,
     });
 
     if (error) {
@@ -127,7 +126,7 @@ const ListaFinanceiro = ({ type }) => {
   
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearchTerm, debouncedClientSearchTerm, statusFilter, debouncedStartDate, debouncedEndDate, pageSize]); // Atualizado para debouncedClientSearchTerm
+  }, [debouncedSearchTerm, debouncedClientSearchTerm, statusFilter, debouncedStartDate, debouncedEndDate, pageSize]);
 
   const handleDelete = async (id, description) => {
     const { error } = await supabase.from('credito_debito').delete().eq('id', id);
@@ -183,7 +182,11 @@ const ListaFinanceiro = ({ type }) => {
   };
 
   const getClientDisplayName = (entry) => {
-    return entry.cliente_fornecedor_name_fantasia ? `${entry.cliente_fornecedor_name} - ${entry.cliente_fornecedor_name_fantasia}` : entry.cliente_fornecedor_name;
+    // Now, cliente_fornecedor_name is Razão Social and cliente_fornecedor_name_fantasia is Nome Fantasia
+    if (entry.cliente_fornecedor_name_fantasia) {
+      return `${entry.cliente_fornecedor_name} - ${entry.cliente_fornecedor_name_fantasia}`;
+    }
+    return entry.cliente_fornecedor_name;
   };
 
   return (

@@ -12,8 +12,10 @@ const ClientOrManualInput = ({
   labelText,
   selectedClientId, // Controlled prop from parent
   onSelectClient,   // Callback for when a client is selected (id)
-  clientName,       // Controlled prop for manual name input
-  onClientNameChange, // Callback for manual name input
+  clientName,       // Controlled prop for manual name input (should be Razão Social)
+  onClientNameChange, // Callback for manual name input (for Razão Social)
+  clientFantasyName, // NEW: Controlled prop for fantasy name
+  onClientFantasyNameChange, // NEW: Callback for fantasy name
   cnpjCpf,          // Controlled prop for cnpj_cpf
   onCnpjCpfChange,  // Callback for cnpj_cpf change (manual input)
   refetchTrigger = 0,
@@ -32,7 +34,7 @@ const ClientOrManualInput = ({
       setLoadingClients(true);
       const { data, error } = await supabase
         .from('clientes')
-        .select('id, nome, nome_fantasia, cnpj_cpf, municipio, estado') // Added nome_fantasia
+        .select('id, nome, nome_fantasia, cnpj_cpf, municipio, estado')
         .order('nome', { ascending: true });
 
       if (error) {
@@ -54,6 +56,7 @@ const ClientOrManualInput = ({
         setSearchTerm(selected.nome_fantasia ? `${selected.nome} - ${selected.nome_fantasia}` : selected.nome);
       }
     } else {
+      // If no client is selected, use the manual clientName (Razão Social)
       setSearchTerm(clientName || '');
     }
   }, [selectedClientId, clientName, clients]);
@@ -62,7 +65,7 @@ const ClientOrManualInput = ({
     if (!searchTerm) return clients;
     return clients.filter(client =>
       client.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (client.nome_fantasia && client.nome_fantasia.toLowerCase().includes(searchTerm.toLowerCase())) || // Search by nome_fantasia
+      (client.nome_fantasia && client.nome_fantasia.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (client.cnpj_cpf && formatCnpjCpf(client.cnpj_cpf).toLowerCase().includes(searchTerm.toLowerCase()))
     );
   }, [clients, searchTerm]);
@@ -70,17 +73,21 @@ const ClientOrManualInput = ({
   const handleInputChange = (e) => {
     const value = e.target.value;
     setSearchTerm(value);
-    onClientNameChange(value); // Always update parent's clientName
+    
+    // If typing, clear selected client and fantasy name
     if (selectedClientId) {
-      onSelectClient(null); // Deselect client if typing
-      onCnpjCpfChange(''); // Clear CNPJ/CPF if deselecting
+      onSelectClient(null);
+      onClientFantasyNameChange('');
     }
+    onClientNameChange(value); // Always update parent's clientName (Razão Social)
+    onCnpjCpfChange(''); // Clear CNPJ/CPF if deselecting or typing manually
     setShowDropdown(true);
   };
 
   const handleSelect = (client) => {
     onSelectClient(client.id);
-    onClientNameChange(client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome);
+    onClientNameChange(client.nome); // Pass only the 'nome' (Razão Social)
+    onClientFantasyNameChange(client.nome_fantasia || ''); // Pass 'nome_fantasia'
     onCnpjCpfChange(client.cnpj_cpf || '');
     setSearchTerm(client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome);
     setShowDropdown(false);
@@ -89,6 +96,7 @@ const ClientOrManualInput = ({
   const handleClear = () => {
     onSelectClient(null);
     onClientNameChange('');
+    onClientFantasyNameChange('');
     onCnpjCpfChange('');
     setSearchTerm('');
     setShowDropdown(false);
