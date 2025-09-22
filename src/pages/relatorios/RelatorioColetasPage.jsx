@@ -9,7 +9,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
     import { Table, TableBody, TableCell, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
     import { estados, getMunicipios } from '@/lib/location';
     import { useProfile } from '@/contexts/ProfileContext';
-    import { format, subDays, endOfDay, parseISO } from 'date-fns';
+    import { format, subDays, endOfDay, parseISO, isValid } from 'date-fns'; // Importar isValid
     import { ptBR } from 'date-fns/locale';
     import * as XLSX from 'xlsx';
     import { formatCurrency, formatNumber } from '@/lib/utils';
@@ -174,17 +174,21 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
         }
         setLoading(false);
 
-        const dataToExport = allData.map(item => ({
-          'Data Coleta': format(new Date(`${item.data_coleta}T00:00:00`), 'dd/MM/yyyy', { locale: ptBR }),
-          'Cliente': item.pessoa?.nome || item.cliente_nome,
-          'Usuário': item.usuario?.full_name || 'N/A',
-          'Estado': item.estado,
-          'Município': item.municipio,
-          'Tipo Coleta': item.tipo_coleta,
-          'Qtd Coletada (kg)': formatNumber(item.quantidade_coletada),
-          'Qtd Entregue (Unidades)': (item.tipo_coleta === 'Troca' || item.tipo_coleta === 'Doação') ? formatNumber(item.quantidade_entregue, { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : 'N/A', // Alterado para Unidades
-          'Total Pago (R$)': item.tipo_coleta === 'Compra' ? formatCurrency(item.total_pago) : 'N/A',
-        }));
+        const dataToExport = allData.map(item => {
+          const dateObj = parseISO(item.data_coleta);
+          const formattedDate = isValid(dateObj) ? format(dateObj, 'dd/MM/yyyy', { locale: ptBR }) : 'N/A';
+          return {
+            'Data Coleta': formattedDate,
+            'Cliente': item.pessoa?.nome || item.cliente_nome,
+            'Usuário': item.usuario?.full_name || 'N/A',
+            'Estado': item.estado,
+            'Município': item.municipio,
+            'Tipo Coleta': item.tipo_coleta,
+            'Qtd Coletada (kg)': formatNumber(item.quantidade_coletada),
+            'Qtd Entregue (Unidades)': (item.tipo_coleta === 'Troca' || item.tipo_coleta === 'Doação') ? formatNumber(item.quantidade_entregue, { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : 'N/A', // Alterado para Unidades
+            'Total Pago (R$)': item.tipo_coleta === 'Compra' ? formatCurrency(item.total_pago) : 'N/A',
+          };
+        });
         const worksheet = XLSX.utils.json_to_sheet(dataToExport);
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, 'RelatorioColetas');
@@ -322,17 +326,21 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {reportData.map(item => (
-                                <TableRow key={item.id} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
-                                  <TableCell data-label="Data">{format(new Date(`${item.data_coleta}T00:00:00`), 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
-                                  <TableCell data-label="Cliente">{item.pessoa?.nome || item.cliente_nome}</TableCell>
-                                  <TableCell data-label="Usuário">{item.usuario?.full_name || 'N/A'}</TableCell>
-                                  <TableCell data-label="Local">{item.municipio}, {item.estado}</TableCell>
-                                  <TableCell data-label="Tipo">{item.tipo_coleta}</TableCell>
-                                  <TableCell data-label="Qtd. (kg)" className="text-right">{formatNumber(item.quantidade_coletada)}</TableCell>
-                                  <TableCell data-label="Valor/Entregue" className="text-right">{(item.tipo_coleta === 'Troca' || item.tipo_coleta === 'Doação') ? `${formatNumber(item.quantidade_entregue, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} Unidades` : formatCurrency(item.total_pago)}</TableCell> {/* Alterado para Unidades */}
-                                </TableRow>
-                              ))}
+                              {reportData.map(item => {
+                                const dateObj = parseISO(item.data_coleta);
+                                const formattedDate = isValid(dateObj) ? format(dateObj, 'dd/MM/yyyy', { locale: ptBR }) : 'N/A';
+                                return (
+                                  <TableRow key={item.id} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
+                                    <TableCell data-label="Data">{formattedDate}</TableCell>
+                                    <TableCell data-label="Cliente">{item.pessoa?.nome || item.cliente_nome}</TableCell>
+                                    <TableCell data-label="Usuário">{item.usuario?.full_name || 'N/A'}</TableCell>
+                                    <TableCell data-label="Local">{item.municipio}, {item.estado}</TableCell>
+                                    <TableCell data-label="Tipo">{item.tipo_coleta}</TableCell>
+                                    <TableCell data-label="Qtd. (kg)" className="text-right">{formatNumber(item.quantidade_coletada)}</TableCell>
+                                    <TableCell data-label="Valor/Entregue" className="text-right">{(item.tipo_coleta === 'Troca' || item.tipo_coleta === 'Doação') ? `${formatNumber(item.quantidade_entregue, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} Unidades` : formatCurrency(item.total_pago)}</TableCell> {/* Alterado para Unidades */}
+                                  </TableRow>
+                                );
+                              })}
                             </TableBody>
                              <TableFooter>
                                 <TableRow className="hover:bg-transparent border-t-2 border-emerald-500 font-bold hidden md:table-row">
