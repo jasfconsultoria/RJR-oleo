@@ -49,8 +49,7 @@ const FinanceiroForm = ({ type }) => {
     issue_date: new Date(),
     model: 'Recibo',
     pessoa_id: null,
-    cliente_fornecedor_name: '', // Razão Social
-    cliente_fornecedor_fantasy_name: '', // NEW: Nome Fantasia
+    cliente_fornecedor_name: '',
     cnpj_cpf: '',
     description: '',
     total_value: '',
@@ -149,10 +148,6 @@ const FinanceiroForm = ({ type }) => {
     setFormData((prev) => ({ ...prev, cliente_fornecedor_name: name }));
   };
 
-  const handleClientFantasyNameChange = (name) => { // NEW: Handler for fantasy name
-    setFormData((prev) => ({ ...prev, cliente_fornecedor_fantasy_name: name }));
-  };
-
   const handleCnpjCpfChange = (cnpjCpfValue) => {
     setFormData((prev) => ({ ...prev, cnpj_cpf: cnpjCpfValue }));
   };
@@ -176,8 +171,7 @@ const FinanceiroForm = ({ type }) => {
     setFormData(prev => ({
       ...prev,
       pessoa_id: newClient.id,
-      cliente_fornecedor_name: newClient.nome, // Razão Social
-      cliente_fornecedor_fantasy_name: newClient.nome_fantasia, // Nome Fantasia
+      cliente_fornecedor_name: newClient.nome,
       cnpj_cpf: newClient.cnpj_cpf,
     }));
     // ClientOrManualInput will update its internal state based on these props
@@ -251,8 +245,7 @@ const FinanceiroForm = ({ type }) => {
         p_document_number: formData.document_number || null,
         p_model: formData.model,
         p_pessoa_id: formData.pessoa_id,
-        p_cliente_fornecedor_name: formData.cliente_fornecedor_name, // Razão Social
-        p_cliente_fornecedor_fantasy_name: formData.cliente_fornecedor_fantasy_name || null, // NEW: Nome Fantasia
+        p_cliente_fornecedor_name: formData.cliente_fornecedor_name,
         p_cnpj_cpf: unmask(formData.cnpj_cpf) || null,
         p_description: formData.description,
         p_payment_method: formData.payment_method,
@@ -318,16 +311,14 @@ const FinanceiroForm = ({ type }) => {
                     setDate={handleDateChange}
                   />
                 </div>
-                <div className="md:col-span-2 relative z-10 flex items-end gap-2">
-                  <div className="flex-grow">
+                <div className="md:col-span-2 relative z-10 flex items-end gap-2"> {/* Added flex and gap */}
+                  <div className="flex-grow"> {/* Make ClientOrManualInput take available space */}
                     <ClientOrManualInput
                       labelText={entityLabel}
                       selectedClientId={formData.pessoa_id}
                       onSelectClient={handleClientSelectId}
                       clientName={formData.cliente_fornecedor_name}
                       onClientNameChange={handleClientNameChange}
-                      clientFantasyName={formData.cliente_fornecedor_fantasy_name} // NEW: Pass fantasy name
-                      onClientFantasyNameChange={handleClientFantasyNameChange} // NEW: Pass fantasy name handler
                       cnpjCpf={formData.cnpj_cpf}
                       onCnpjCpfChange={handleCnpjCpfChange}
                       refetchTrigger={clientListVersion}
@@ -394,8 +385,8 @@ const FinanceiroForm = ({ type }) => {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="flex items-end gap-2">
-                  <div className="flex-grow">
+                <div className="flex items-end gap-2"> {/* Added flex and gap */}
+                  <div className="flex-grow"> {/* Make Select take available space */}
                     <Label htmlFor="cost_center" className="text-lg">Centro de Custo</Label>
                     <Select value={formData.cost_center} onValueChange={(value) => handleSelectChange('cost_center', value)}>
                       <SelectTrigger className="bg-white/5 border-white/20 rounded-xl">
