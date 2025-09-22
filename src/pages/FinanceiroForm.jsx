@@ -14,6 +14,7 @@ import { format, addDays } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
 import { FinanceiroFormFields } from '@/components/financeiro/FinanceiroFormFields';
 import { InstallmentDetails } from '@/components/financeiro/InstallmentDetails';
+import { FinanceiroFormActions } from '@/components/financeiro/FinanceiroFormActions'; // NEW: Import actions component
 
 const FinanceiroForm = ({ type }) => {
   const { id } = useParams();
@@ -28,13 +29,13 @@ const FinanceiroForm = ({ type }) => {
     issue_date: new Date(),
     model: 'Recibo',
     pessoa_id: null,
-    cliente_fornecedor_name: '',
-    cliente_fornecedor_fantasy_name: '',
+    cliente_fornecedor_name: '', // Razão Social
+    cliente_fornecedor_fantasy_name: '', // Nome Fantasia
     cnpj_cpf: '',
     description: '',
     total_value: '',
     payment_method: 'pix',
-    cost_center: 'ADMINISTRAÇÃO',
+    cost_center: 'ADMINISTRAÇÃO', // Default, will be updated by fetched data
     notes: '',
     down_payment: '0,00',
     installments_number: 1,
@@ -46,13 +47,14 @@ const FinanceiroForm = ({ type }) => {
   const [saving, setSaving] = useState(false);
   const [existingInstallments, setExistingInstallments] = useState([]);
   const [downPaymentError, setDownPaymentError] = useState('');
-  const [costCenters, setCostCenters] = useState([]);
+  const [costCenters, setCostCenters] = useState([]); // State for dynamic cost centers
   const [isNewClientModalOpen, setIsNewClientModalOpen] = useState(false);
   const [isNewCostCenterModalOpen, setIsNewCostCenterModalOpen] = useState(false);
   const [clientListVersion, setClientListVersion] = useState(0);
 
   const title = type === 'credito' ? 'Crédito' : 'Débito';
   const entityLabel = type === 'credito' ? 'Cliente' : 'Fornecedor';
+  const onBackPath = `/app/financeiro/${type}`;
 
   const parsedTotalValue = parseCurrency(formData.total_value);
   const parsedDownPayment = parseCurrency(formData.down_payment);
@@ -68,6 +70,7 @@ const FinanceiroForm = ({ type }) => {
       setCostCenters([]);
     } else {
       setCostCenters(data.map(cc => ({ value: cc.nome, label: cc.nome })));
+      // Set default cost center if not already set and data exists
       if (!formData.cost_center && data.length > 0) {
         setFormData(prev => ({ ...prev, cost_center: data[0].nome }));
       }
@@ -318,16 +321,11 @@ const FinanceiroForm = ({ type }) => {
                 isEditing={isEditing}
               />
 
-              <div className="flex justify-between items-center pt-6">
-                <Button type="button" onClick={() => navigate(`/app/financeiro/${type}`)} variant="outline" className="rounded-xl">
-                  <ArrowLeft className="w-5 h-5 mr-2" />
-                  Voltar
-                </Button>
-                <Button type="submit" disabled={saving} className="bg-emerald-600 hover:bg-emerald-700 rounded-xl">
-                  {saving ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Save className="w-5 h-5 mr-2" />}
-                  {saving ? 'Salvando...' : 'Salvar'}
-                </Button>
-              </div>
+              <FinanceiroFormActions 
+                onBackPath={onBackPath} 
+                isSaving={saving} 
+                isEditing={isEditing} 
+              />
             </form>
           </CardContent>
         </Card>

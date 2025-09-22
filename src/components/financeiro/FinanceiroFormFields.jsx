@@ -29,7 +29,7 @@ export const FinanceiroFormFields = ({
   handleDateChange,
   handleClientSelectId,
   handleClientNameChange,
-  handleClientFantasyNameChange,
+  handleClientFantasyNameChange, // NEW: Pass fantasy name handler
   handleCnpjCpfChange,
   costCenters,
   entityLabel,
@@ -63,8 +63,8 @@ export const FinanceiroFormFields = ({
             onSelectClient={handleClientSelectId}
             clientName={formData.cliente_fornecedor_name}
             onClientNameChange={handleClientNameChange}
-            clientFantasyName={formData.cliente_fornecedor_fantasy_name}
-            onClientFantasyNameChange={handleClientFantasyNameChange}
+            clientFantasyName={formData.cliente_fornecedor_fantasy_name} // NEW: Pass fantasy name
+            onClientFantasyNameChange={handleClientFantasyNameChange} // NEW: Pass fantasy name handler
             cnpjCpf={formData.cnpj_cpf}
             onCnpjCpfChange={handleCnpjCpfChange}
             refetchTrigger={clientListVersion}
