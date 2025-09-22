@@ -70,7 +70,7 @@ export const CertificadosTable = ({
               <TableCell data-label="ID" className="p-2 font-mono">{cert.id.substring(0, 8)}</TableCell> {/* Removido text-xs */}
               <TableCell data-label="Data Emissão" className="p-2">{formatDateWithTimezone(cert.data_emissao, timezone)}</TableCell> {/* Usando formatDateWithTimezone */}
               <TableCell data-label="Cliente" className="font-medium p-2">{cert.cliente_nome}</TableCell>
-              <TableCell data-label="Período" className="p-2">{formatDateWithTimezone(cert.periodo_inicio)} - {formatDateWithTimezone(cert.periodo_fim)}</TableCell>
+              <TableCell data-label="Período" className="p-2">{formatDateWithTimezone(cert.periodo_inicio, timezone)} - {formatDateWithTimezone(cert.periodo_fim, timezone)}</TableCell>
               <TableCell data-label="Total (kg)" className="text-right p-2">{formatNumber(cert.total_kg)}</TableCell>
               <TableCell className="p-2 actions-cell text-right">
                 <div className="flex items-center justify-end gap-1">

@@ -1,7 +1,7 @@
 import React from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { formatDate as formatUtilDate, formatCnpjCpf, formatNumber } from '@/lib/utils';
+import { formatDateWithTimezone, formatCnpjCpf, formatNumber } from '@/lib/utils'; // Alterado de formatDate para formatDateWithTimezone
 import { QRCodeSVG as QRCode } from 'qrcode.react';
 
 const CertificadoPDF = ({ data }) => {
@@ -46,7 +46,7 @@ const CertificadoPDF = ({ data }) => {
           <div className="grid grid-cols-2 gap-4">
             <div className="text-center">
               <p className="text-sm text-gray-600">Período da Coleta</p>
-              <p className="font-bold text-lg">{formatUtilDate(periodo?.inicio)} - {formatUtilDate(periodo?.fim)}</p>
+              <p className="font-bold text-lg">{formatDateWithTimezone(periodo?.inicio, empresa?.timezone)} - {formatDateWithTimezone(periodo?.fim, empresa?.timezone)}</p>
             </div>
             <div className="text-center">
               <p className="text-sm text-gray-600">Quantidade Total Coletada</p>
