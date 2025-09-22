@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Pagination } from '@/components/ui/pagination';
 import { logAction } from '@/lib/logger';
-import { formatCnpjCpf, formatCurrency, formatNumber } from '@/lib/utils';
+import { formatCnpjCpf, formatCurrency, formatNumber, formatDateWithTimezone } from '@/lib/utils'; // Importado formatDateWithTimezone
 import ClienteSearchableSelect from '@/components/ui/ClienteSearchableSelect';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { format, parseISO, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
@@ -83,8 +83,10 @@ const ListaFinanceiro = ({ type }) => {
       query = query.gte('issue_date', debouncedStartDate);
     }
     if (debouncedEndDate) {
-      const endOfDayDate = format(endOfDay(parseISO(debouncedEndDate)), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx");
-      query = query.lte('issue_date', endOfDayDate);
+      // A coluna issue_date é do tipo DATE no DB, então a comparação é feita por dia.
+      // O `lte` com a data final já formatada para o final do dia (UTC) funciona para o filtro de calendário.
+      // O problema de "vencido" é na lógica do DB, não no filtro aqui.
+      query = query.lte('issue_date', debouncedEndDate); // Comparar apenas a data, sem o componente de tempo
     }
 
     const { data, error, count } = await query;
@@ -284,7 +286,7 @@ const ListaFinanceiro = ({ type }) => {
                           <TableCell data-label="Parcela" className="text-center">
                             {entry.installment_number === 0 ? 'Entrada' : `${entry.installment_number}/${installmentDenominator}`}
                           </TableCell>
-                          <TableCell data-label="Vencimento">{format(parseISO(entry.issue_date), 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
+                          <TableCell data-label="Vencimento">{formatDateWithTimezone(entry.issue_date, empresa?.timezone)}</TableCell> {/* Usando formatDateWithTimezone */}
                           <TableCell data-label="Valor" className="text-right">{formatCurrency(entry.total_value)}</TableCell>
                           <TableCell data-label="Pago" className="text-right">{formatCurrency(entry.paid_amount)}</TableCell>
                           <TableCell data-label="Saldo" className="text-right font-bold">{formatCurrency(entry.amount_balance)}</TableCell>
