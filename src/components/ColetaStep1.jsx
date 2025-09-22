@@ -13,7 +13,7 @@ import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { useIMask } from 'react-imask';
 import { formatCnpjCpf, unmask, formatToISODate } from '@/lib/utils';
 import { DatePicker } from '@/components/ui/date-picker';
-import { format, isValid } from 'date-fns'; // Importar isValid
+import { format, isValid, parseISO } from 'date-fns'; // Importar isValid e parseISO
 import { formatInTimeZone, utcToZonedTime, toDate } from 'date-fns-tz'; // Importar formatInTimeZone
 
 const tiposColeta = [
@@ -63,7 +63,7 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
     // Garante que data_coleta seja um objeto Date válido
     let validDataColeta = data.data_coleta;
     if (typeof data.data_coleta === 'string') {
-      const parsedDate = new Date(data.data_coleta);
+      const parsedDate = parseISO(data.data_coleta); // Usar parseISO
       validDataColeta = isValid(parsedDate) ? parsedDate : utcToZonedTime(new Date(), empresaTimezone);
     } else if (!(data.data_coleta instanceof Date) || !isValid(data.data_coleta)) {
       validDataColeta = utcToZonedTime(new Date(), empresaTimezone);
@@ -77,52 +77,6 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
     setTelefoneValue(data.telefone || '');
     setIsClienteSelected(!!data.cliente_id);
   }, [data, setCnpjCpfValue, setTelefoneValue, empresaTimezone]);
-
-  useEffect(() => {
-    const fetchClientesComContratoAtivo = async () => {
-      const { data: activeContracts, error: contractsError } = await supabase
-        .from('contratos')
-        .select('cliente_id, tipo_coleta, valor_coleta, fator_troca')
-        .eq('status', 'Ativo');
-
-      if (contractsError) {
-        toast({ title: "Erro ao buscar contratos ativos", description: contractsError.message, variant: "destructive" });
-        return;
-      }
-
-      if (!activeContracts || activeContracts.length === 0) {
-        setClientes([]);
-        setFilteredClientes([]);
-        return;
-      }
-
-      const clienteIds = activeContracts.map(c => c.cliente_id).filter(id => id != null);
-
-      if (clienteIds.length === 0) {
-        setClientes([]);
-        setFilteredClientes([]);
-        return;
-      }
-
-      const { data: fetchedClientes, error: clientesError } = await supabase
-        .from('clientes')
-        .select('*')
-        .in('id', clienteIds)
-        .order('nome', { ascending: true }); // Adicionado ordenação por nome
-
-      if (clientesError) {
-        toast({ title: "Erro ao buscar clientes", description: clientesError.message, variant: "destructive" });
-      } else {
-        const clientesComContrato = (fetchedClientes || []).map(cliente => {
-            const contrato = activeContracts.find(c => c.cliente_id === cliente.id);
-            return { ...cliente, contratos: contrato ? [contrato] : [] };
-        });
-        setClientes(clientesComContrato);
-        setFilteredClientes(clientesComContrato);
-      }
-    };
-    fetchClientesComContratoAtivo();
-  }, [toast]);
 
   useEffect(() => {
     if (formData.cliente) {

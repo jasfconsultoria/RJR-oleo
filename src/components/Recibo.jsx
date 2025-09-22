@@ -1,5 +1,5 @@
 import React from 'react';
-import { format, isValid } from 'date-fns';
+import { format, isValid, parseISO } from 'date-fns'; // Importar parseISO
 import { ptBR } from 'date-fns/locale';
 import { formatCurrency, parseCurrency, formatCnpjCpf } from '@/lib/utils';
 import { utcToZonedTime } from 'date-fns-tz';
@@ -14,7 +14,7 @@ const formatDisplayDate = (dateInput, timezone) => {
     if (dateInput instanceof Date) {
         baseDate = dateInput;
     } else if (typeof dateInput === 'string') {
-        const parsedDate = new Date(dateInput);
+        const parsedDate = parseISO(dateInput); // Usar parseISO
         if (!isValid(parsedDate)) {
             console.error("Recibo.jsx - Invalid date string provided:", dateInput);
             return 'Data inválida';

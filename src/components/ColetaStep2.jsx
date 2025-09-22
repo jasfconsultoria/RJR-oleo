@@ -6,8 +6,8 @@ import { Label } from '@/components/ui/label';
 import { ArrowLeft, Droplets, Scale, RefreshCw } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { parseCurrency, formatCurrency } from '@/lib/utils';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { format, isValid } from 'date-fns'; // Importar isValid
+import { ptBR } from 'date-fns/locale'; // Importar ptBR
 import { formatInTimeZone, utcToZonedTime } from 'date-fns-tz'; // Importar formatInTimeZone e utcToZonedTime
 
 export function ColetaStep2({ data, onBack, onNext, onUpdate, empresaTimezone }) {
@@ -47,6 +47,8 @@ export function ColetaStep2({ data, onBack, onNext, onUpdate, empresaTimezone })
     }
   };
 
+  console.log('ColetaStep2 - data.data_coleta:', data.data_coleta, 'Type:', typeof data.data_coleta, 'isValid:', isValid(data.data_coleta));
+
   return (
     <motion.div
       initial={{ opacity: 0, x: 50 }}
@@ -67,7 +69,7 @@ export function ColetaStep2({ data, onBack, onNext, onUpdate, empresaTimezone })
         <h3 className="text-lg font-semibold text-white mb-4">Resumo da Coleta</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
           <div><span className="text-emerald-300">Cliente:</span><span className="text-white ml-2">{data.cliente || 'N/A'}</span></div>
-          <div><span className="text-emerald-300">Data:</span><span className="text-white ml-2">{data.data_coleta instanceof Date && !isNaN(data.data_coleta.getTime()) ? format(data.data_coleta, 'dd/MM/yyyy', { locale: ptBR }) : 'N/A'}</span></div>
+          <div><span className="text-emerald-300">Data:</span><span className="text-white ml-2">{data.data_coleta instanceof Date && isValid(data.data_coleta) ? format(data.data_coleta, 'dd/MM/yyyy', { locale: ptBR }) : 'N/A'}</span></div>
           <div><span className="text-emerald-300">Hora:</span><span className="text-white ml-2">{data.hora_coleta || 'N/A'}</span></div>
           <div><span className="text-emerald-300">Tipo:</span><span className="text-white ml-2 font-bold">{data.tipo_coleta || 'N/A'}</span></div>
           {!isCompra && <div><span className="text-emerald-300">Fator:</span><span className="text-white ml-2">{data.fator || 'N/A'}</span></div>}

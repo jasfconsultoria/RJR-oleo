@@ -9,7 +9,7 @@ import { toast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { parseCurrency } from '@/lib/utils';
-import { format, isValid } from 'date-fns'; // Importar isValid
+import { format, isValid, parseISO } from 'date-fns'; // Importar isValid e parseISO
 import { logAction } from '@/lib/logger';
 import { useAutoSave } from '@/hooks/useAutoSave';
 import { useProfile } from '@/contexts/ProfileContext';
@@ -70,7 +70,7 @@ const ColetaForm = () => {
   // Efeito para re-hidratar data_coleta se for uma string (do localStorage)
   useEffect(() => {
     if (typeof coletaData.data_coleta === 'string') {
-      const parsedDate = new Date(coletaData.data_coleta);
+      const parsedDate = parseISO(coletaData.data_coleta); // Usar parseISO
       if (isValid(parsedDate)) { // Use isValid from date-fns
         setColetaData(prev => ({ ...prev, data_coleta: parsedDate }));
       } else {
@@ -174,6 +174,7 @@ const ColetaForm = () => {
         .upsert({
             id: clienteId,
             nome: finalColetaData.cliente,
+            nome_fantasia: finalColetaData.nome_fantasia, // Adicionado nome_fantasia
             cnpj_cpf: finalColetaData.cnpj_cpf,
             email: finalColetaData.email,
             endereco: finalColetaData.endereco,
