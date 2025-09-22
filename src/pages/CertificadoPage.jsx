@@ -36,20 +36,20 @@ const initialFormState = {
 
 const CertificadoPage = () => {
   const { id } = useParams();
-  isEditMode = !!id;
-  const [clients, setClients] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [progress, setProgress] = useState(0);
   const navigate = useNavigate();
   const { toast } = useToast();
   const { profile } = useProfile();
 
+  const isEditMode = !!id; // Declarado com const aqui
+
   const pdfContainerRef = useRef(null);
   const [pdfData, setPdfData] = useState(null);
-  const [empresa, setEmpresa] = useState(null); // Adicionado estado para dados da empresa
+  const [empresa, setEmpresa] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [progress, setProgress] = useState(0);
 
-  const [localFormData, setLocalFormData, clearSavedData] = useAutoSave(
+  const [localFormData, setLocalFormData, clearSavedData, savedData, setSavedData] = useAutoSave(
     'certificado-form-data',
     initialFormState,
     !isEditMode 
@@ -67,7 +67,7 @@ const CertificadoPage = () => {
       };
       setLocalFormData(dataToLoad);
     }
-  }, [isEditMode, savedData]);
+  }, [isEditMode, savedData, setLocalFormData]);
 
   const setFormData = (updater) => {
     const updateFn = typeof updater === 'function' ? updater : () => updater;
@@ -129,7 +129,7 @@ const CertificadoPage = () => {
       }
     };
     fetchInitialData();
-  }, [id, isEditMode, toast, navigate]);
+  }, [id, isEditMode, toast, navigate, setFormData]);
 
   const handleSubmit = async () => {
     if (!selectedClientId || !periodoInicio || !periodoFim || !data_emissao) {
