@@ -101,7 +101,7 @@ export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData, em
             dateObject = dateInput;
         } else if (typeof dateInput === 'string') {
             // Se for uma string, tenta converter para Date
-            dateObject = new Date(dateInput);
+            dateObject = parseISO(dateInput);
         } else {
             return 'Data/Hora inválida';
         }

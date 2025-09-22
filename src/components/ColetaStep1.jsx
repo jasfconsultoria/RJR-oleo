@@ -165,7 +165,7 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
             </Label>
             <DatePicker
               date={formData.data_coleta} // Agora é um objeto Date
-              setDate={(date) => handleInputChange('data_coleta', date)} // Passa o objeto Date
+              setDate={(date) => handleInputChange('data_coleta', date || null)} // Passa o objeto Date ou null
               className="w-full"
               disabled={profile?.role !== 'administrador'}
             />
