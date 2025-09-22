@@ -66,7 +66,8 @@ const SaldoEstoquePage = () => {
                     <TableRow className="hover:bg-transparent border-b border-white/20 text-xs">
                       <th className="p-2 text-left text-white">Produto</th>
                       <th className="p-2 text-left text-white">Tipo</th>
-                      <th className="p-2 text-left text-white">Movimentações</th> {/* Coluna combinada */}
+                      <th className="p-2 text-left text-white whitespace-nowrap">Entradas</th> {/* Coluna separada */}
+                      <th className="p-2 text-left text-white whitespace-nowrap">Saídas</th> {/* Coluna separada */}
                       <th className="p-2 text-right text-white">Saldo Atual</th>
                     </TableRow>
                   </TableHeader>
@@ -74,26 +75,25 @@ const SaldoEstoquePage = () => {
                     {saldoProdutos.length > 0 ? (
                       saldoProdutos.map(produto => (
                         <TableRow key={produto.produto_id} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
-                          <TableCell data-label="Produto" className="font-medium">{produto.produto_nome}</TableCell>
-                          <TableCell data-label="Tipo" className="capitalize">{produto.produto_tipo}</TableCell>
-                          <TableCell data-label="Movimentações" className="text-left"> {/* Conteúdo combinado */}
-                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-start sm:gap-2">
-                              <span className="flex items-center gap-1 text-green-400 whitespace-nowrap">
-                                <ArrowDownSquare className="h-4 w-4" /> {formatNumber(produto.total_entradas)} {produto.unidade}
-                              </span>
-                              <span className="hidden sm:inline text-white/50">/</span>
-                              <span className="flex items-center gap-1 text-red-400 whitespace-nowrap">
-                                <ArrowUpSquare className="h-4 w-4" /> {formatNumber(produto.total_saidas)} {produto.unidade}
-                              </span>
-                            </div>
+                          <TableCell data-label="Produto" className="font-medium whitespace-nowrap">{produto.produto_nome}</TableCell>
+                          <TableCell data-label="Tipo" className="capitalize whitespace-nowrap">{produto.produto_tipo}</TableCell>
+                          <TableCell data-label="Entradas" className="text-left whitespace-nowrap"> {/* Conteúdo em uma linha */}
+                            <span className="flex items-center gap-1 text-green-400">
+                              <ArrowDownSquare className="h-4 w-4" /> {formatNumber(produto.total_entradas)} {produto.unidade}
+                            </span>
                           </TableCell>
-                          <TableCell data-label="Saldo Atual" className={`text-right font-bold ${getSaldoColor(produto.saldo_atual)}`}>
+                          <TableCell data-label="Saídas" className="text-left whitespace-nowrap"> {/* Conteúdo em uma linha */}
+                            <span className="flex items-center gap-1 text-red-400">
+                              <ArrowUpSquare className="h-4 w-4" /> {formatNumber(produto.total_saidas)} {produto.unidade}
+                            </span>
+                          </TableCell>
+                          <TableCell data-label="Saldo Atual" className={`text-right font-bold whitespace-nowrap ${getSaldoColor(produto.saldo_atual)}`}>
                             {formatNumber(produto.saldo_atual)} {produto.unidade}
                           </TableCell>
                         </TableRow>
                       ))
                     ) : (
-                      <TableRow><TableCell colSpan="4" className="text-center text-gray-400 py-10">Nenhum produto encontrado ou sem movimentações.</TableCell></TableRow>
+                      <TableRow><TableCell colSpan="5" className="text-center text-gray-400 py-10">Nenhum produto encontrado ou sem movimentações.</TableCell></TableRow>
                     )}
                   </TableBody>
                 </Table>
