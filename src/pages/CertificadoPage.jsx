@@ -40,7 +40,7 @@ const CertificadoPage = () => {
   const { toast } = useToast();
   const { profile } = useProfile();
 
-  const isEditMode = !!id; // Declarado com const aqui
+  const isEditMode = !!id;
 
   const pdfContainerRef = useRef(null);
   const [pdfData, setPdfData] = useState(null);
@@ -48,6 +48,7 @@ const CertificadoPage = () => {
   const [loading, setLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [clients, setClients] = useState([]); // Adicionado o estado 'clients'
 
   const [localFormData, setLocalFormData, clearSavedData, savedData, setSavedData] = useAutoSave(
     'certificado-form-data',
@@ -100,7 +101,7 @@ const CertificadoPage = () => {
         ]);
 
         if (clientDataRes.error) throw clientDataRes.error;
-        setClients(clientDataRes.data || []);
+        setClients(clientDataRes.data || []); // Atualiza o estado 'clients'
 
         if (empresaDataRes.error) throw empresaDataRes.error; // Lidar com erro da empresa
         setEmpresa(empresaDataRes.data); // Salvar dados da empresa
