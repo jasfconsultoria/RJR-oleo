@@ -325,7 +325,8 @@ const CertificadoPage = () => {
                     value={data_emissao ? formatToISODate(data_emissao) : ''}
                     onChange={(e) => {
                       const dateString = e.target.value;
-                      const newDate = dateString ? new Date(dateString.replace(/-/g, '/')) : undefined;
+                      // Use parseISO para analisar a string e isValid para verificar
+                      const newDate = dateString ? parseISO(dateString) : undefined;
                       setLocalFormData(prev => ({ ...prev, data_emissao: isValid(newDate) ? newDate : undefined }));
                     }}
                     disabled={profile?.role !== 'administrador'}
@@ -363,7 +364,8 @@ const CertificadoPage = () => {
                       value={periodoInicio ? formatToISODate(periodoInicio) : ''}
                       onChange={(e) => {
                         const dateString = e.target.value;
-                        const newDate = dateString ? new Date(dateString.replace(/-/g, '/')) : undefined;
+                        // Use parseISO para analisar a string e isValid para verificar
+                        const newDate = dateString ? parseISO(dateString) : undefined;
                         setLocalFormData(prev => ({ ...prev, periodoInicio: isValid(newDate) ? newDate : undefined }));
                       }}
                       className="bg-white/20 border-white/30"
@@ -377,7 +379,8 @@ const CertificadoPage = () => {
                       value={periodoFim ? formatToISODate(periodoFim) : ''}
                       onChange={(e) => {
                         const dateString = e.target.value;
-                        const newDate = dateString ? new Date(dateString.replace(/-/g, '/')) : undefined;
+                        // Use parseISO para analisar a string e isValid para verificar
+                        const newDate = dateString ? parseISO(dateString) : undefined;
                         setLocalFormData(prev => ({ ...prev, periodoFim: isValid(newDate) ? newDate : undefined }));
                       }}
                       className="bg-white/20 border-white/30"
