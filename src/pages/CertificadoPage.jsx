@@ -50,7 +50,7 @@ const CertificadoPage = () => {
   const [progress, setProgress] = useState(0);
   const [clients, setClients] = useState([]);
 
-  const [localFormData, setLocalFormData, clearSavedData, savedData] = useAutoSave( // Removido setSavedData daqui
+  const [localFormData, setLocalFormData, clearSavedData, savedData] = useAutoSave(
     'certificado-form-data',
     initialFormState,
     !isEditMode 
@@ -72,15 +72,14 @@ const CertificadoPage = () => {
     }
   }, [isEditMode, savedData, setLocalFormData]);
 
-  const setFormData = (updater) => {
-    const updateFn = typeof updater === 'function' ? updater : () => updater;
-    setLocalFormData(prev => {
-      const newState = updateFn(prev);
-      // A função setLocalFormData do useAutoSave já deve lidar com a persistência.
-      // A chamada explícita a setSavedData(newState) foi removida.
-      return newState;
-    });
-  };
+  // Removido o wrapper setFormData. Agora use setLocalFormData diretamente.
+  // const setFormData = (updater) => {
+  //   const updateFn = typeof updater === 'function' ? updater : () => updater;
+  //   setLocalFormData(prev => {
+  //     const newState = updateFn(prev);
+  //     return newState;
+  //   });
+  // };
 
   const { selectedClientId, periodoInicio, periodoFim, data_emissao } = localFormData;
 
@@ -91,6 +90,7 @@ const CertificadoPage = () => {
 
   useEffect(() => {
     const fetchInitialData = async () => {
+      console.log("CertificadoPage: fetchInitialData - START");
       setLoading(true);
       try {
         const [clientDataRes, empresaDataRes] = await Promise.all([
@@ -103,9 +103,11 @@ const CertificadoPage = () => {
 
         if (clientDataRes.error) throw clientDataRes.error;
         setClients(clientDataRes.data || []);
+        console.log("CertificadoPage: Clients fetched:", clientDataRes.data);
 
         if (empresaDataRes.error) throw empresaDataRes.error;
         setEmpresa(empresaDataRes.data);
+        console.log("CertificadoPage: Empresa fetched:", empresaDataRes.data);
 
         if (isEditMode) {
           const { data: certData, error: certError } = await supabase
@@ -115,8 +117,9 @@ const CertificadoPage = () => {
             .single();
           
           if (certError) throw certError;
+          console.log("CertificadoPage: Cert data fetched:", certData);
 
-          setFormData({
+          setLocalFormData({ // Usando setLocalFormData diretamente
             selectedClientId: certData.cliente_id,
             periodoInicio: new Date(certData.periodo_inicio.replace(/-/g, '/')),
             periodoFim: new Date(certData.periodo_fim.replace(/-/g, '/')),
@@ -124,17 +127,20 @@ const CertificadoPage = () => {
           });
         }
       } catch (error) {
+        console.error("CertificadoPage: Error in fetchInitialData:", error);
         toast({ title: 'Erro ao carregar dados', description: error.message, variant: 'destructive' });
         if (isEditMode) navigate('/app/certificados');
       } finally {
         setLoading(false);
+        console.log("CertificadoPage: fetchInitialData - END, loading set to false");
       }
     };
     fetchInitialData();
-  }, [id, isEditMode, toast, navigate, setFormData]);
+  }, [id, isEditMode, toast, navigate, setLocalFormData]); // Usando setLocalFormData aqui
 
   const handleSubmit = async () => {
-    if (!selectedClientId || !periodoInicio || !periodoFim || !data_emissao) {
+    // Adicionando validação para selectedClient
+    if (!selectedClientId || !periodoInicio || !periodoFim || !data_emissao || !selectedClient) {
       toast({ title: 'Campos obrigatórios', description: 'Por favor, selecione um cliente e preencha todas as datas.', variant: 'destructive' });
       return;
     }
@@ -323,7 +329,7 @@ const CertificadoPage = () => {
                     type="date"
                     id="data_emissao"
                     value={data_emissao ? formatToISODate(data_emissao) : ''}
-                    onChange={(e) => setFormData(prev => ({ ...prev, data_emissao: new Date(e.target.value.replace(/-/g, '/')) }))}
+                    onChange={(e) => setLocalFormData(prev => ({ ...prev, data_emissao: new Date(e.target.value.replace(/-/g, '/')) }))}
                     disabled={profile?.role !== 'administrador'}
                     className="bg-white/20 border-white/30"
                   />
@@ -332,7 +338,7 @@ const CertificadoPage = () => {
                   <Label htmlFor="cliente" className="block mb-2">Cliente *</Label>
                   <ClienteSearchableSelect
                     value={selectedClientId}
-                    onChange={(value) => setFormData(prev => ({ ...prev, selectedClientId: value }))}
+                    onChange={(value) => setLocalFormData(prev => ({ ...prev, selectedClientId: value }))}
                     loading={loading}
                   />
                 </div>
@@ -357,7 +363,7 @@ const CertificadoPage = () => {
                       type="date"
                       id="periodo-inicio"
                       value={periodoInicio ? formatToISODate(periodoInicio) : ''}
-                      onChange={(e) => setFormData(prev => ({ ...prev, periodoInicio: new Date(e.target.value.replace(/-/g, '/')) }))}
+                      onChange={(e) => setLocalFormData(prev => ({ ...prev, periodoInicio: new Date(e.target.value.replace(/-/g, '/')) }))}
                       className="bg-white/20 border-white/30"
                     />
                   </div>
@@ -367,7 +373,7 @@ const CertificadoPage = () => {
                       type="date"
                       id="periodo-fim"
                       value={periodoFim ? formatToISODate(periodoFim) : ''}
-                      onChange={(e) => setFormData(prev => ({ ...prev, periodoFim: new Date(e.target.value.replace(/-/g, '/')) }))}
+                      onChange={(e) => setLocalFormData(prev => ({ ...prev, periodoFim: new Date(e.target.value.replace(/-/g, '/')) }))}
                       className="bg-white/20 border-white/30"
                     />
                   </div>
