@@ -2,7 +2,7 @@ import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { format, parseISO, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { formatInTimeZone, toZonedTime, toDate } from 'date-fns-tz'; // Importar toDate
+import { formatInTimeZone, toDate } from 'date-fns-tz'; // Removido toZonedTime da importação direta
 
 export function cn(...inputs) {
   return twMerge(clsx(inputs));
@@ -61,8 +61,8 @@ export const formatDateWithTimezone = (dateInput, timezone = 'America/Sao_Paulo'
       dateObj = toDate(`${dateInput}T00:00:00`, { timeZone: timezone });
     } else {
       // Para strings ISO completas (com hora e fuso), parseISO funciona bem.
-      // Em seguida, converte para o fuso horário alvo para tratamento consistente.
-      dateObj = toZonedTime(parseISO(dateInput), timezone);
+      // toDate também pode ser usado para converter para o fuso horário alvo.
+      dateObj = toDate(parseISO(dateInput), { timeZone: timezone });
     }
   } else {
     return 'N/A';
