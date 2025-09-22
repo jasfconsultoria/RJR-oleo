@@ -48,7 +48,7 @@ const CertificadoPage = () => {
   const [loading, setLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [clients, setClients] = useState([]); // Adicionado o estado 'clients'
+  const [clients, setClients] = useState([]);
 
   const [localFormData, setLocalFormData, clearSavedData, savedData, setSavedData] = useAutoSave(
     'certificado-form-data',
@@ -60,11 +60,13 @@ const CertificadoPage = () => {
     if (isEditMode) {
       setLocalFormData(initialFormState);
     } else {
+      // Adiciona um fallback para savedData caso seja null ou undefined
+      const currentSavedData = savedData || {}; 
       const dataToLoad = {
-        ...savedData,
-        periodoInicio: savedData.periodoInicio ? new Date(savedData.periodoInicio) : getFirstDayOfMonth(),
-        periodoFim: savedData.periodoFim ? new Date(savedData.periodoFim) : getTodayDate(),
-        data_emissao: savedData.data_emissao ? new Date(savedData.data_emissao) : new Date(),
+        ...currentSavedData,
+        periodoInicio: currentSavedData.periodoInicio ? new Date(currentSavedData.periodoInicio) : getFirstDayOfMonth(),
+        periodoFim: currentSavedData.periodoFim ? new Date(currentSavedData.periodoFim) : getTodayDate(),
+        data_emissao: currentSavedData.data_emissao ? new Date(currentSavedData.data_emissao) : new Date(),
       };
       setLocalFormData(dataToLoad);
     }
@@ -92,19 +94,19 @@ const CertificadoPage = () => {
     const fetchInitialData = async () => {
       setLoading(true);
       try {
-        const [clientDataRes, empresaDataRes] = await Promise.all([ // Buscar dados da empresa
+        const [clientDataRes, empresaDataRes] = await Promise.all([
           supabase
             .from('clientes')
             .select('id, nome, cnpj_cpf, municipio, estado, endereco')
             .order('nome', { ascending: true }),
-          supabase.from('empresa').select('*').single(), // Buscar dados da empresa
+          supabase.from('empresa').select('*').single(),
         ]);
 
         if (clientDataRes.error) throw clientDataRes.error;
-        setClients(clientDataRes.data || []); // Atualiza o estado 'clients'
+        setClients(clientDataRes.data || []);
 
-        if (empresaDataRes.error) throw empresaDataRes.error; // Lidar com erro da empresa
-        setEmpresa(empresaDataRes.data); // Salvar dados da empresa
+        if (empresaDataRes.error) throw empresaDataRes.error;
+        setEmpresa(empresaDataRes.data);
 
         if (isEditMode) {
           const { data: certData, error: certError } = await supabase
