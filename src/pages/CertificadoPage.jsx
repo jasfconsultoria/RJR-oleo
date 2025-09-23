@@ -32,7 +32,7 @@ const initialFormState = {
   periodoInicio: undefined,
   periodoFim: undefined,
   data_emissao: undefined,
-  clientSearchTerm: '', // Estado para o termo de busca do cliente
+  clientInputText: '', // Renomeado de clientSearchTerm para clientInputText
 };
 
 const CertificadoPage = () => {
@@ -72,11 +72,8 @@ const CertificadoPage = () => {
 
   useEffect(() => {
     if (isEditMode) {
-      // When in edit mode, we don't want to load from auto-save initially,
-      // but rather from the fetched certificate data.
-      // Clear auto-save for this key to prevent conflicts.
       clearSavedData(); 
-      setLocalFormData(initialFormState); // Reset to initial state, then fetch will populate
+      setLocalFormData(initialFormState); 
     } else {
       const currentSavedData = savedData || {}; 
       const dataToLoad = {
@@ -86,44 +83,35 @@ const CertificadoPage = () => {
         periodoInicio: processDateValue(currentSavedData.periodoInicio, getFirstDayOfMonth),
         periodoFim: processDateValue(currentSavedData.periodoFim, getTodayDate),
         data_emissao: processDateValue(currentSavedData.data_emissao, () => new Date()),
-        clientSearchTerm: currentSavedData.clientSearchTerm || '',
+        clientInputText: currentSavedData.clientInputText || '', // Usar clientInputText
       };
       setLocalFormData(dataToLoad);
     }
   }, [isEditMode, savedData, setLocalFormData, processDateValue, clearSavedData]);
 
-  const { selectedClientId, selectedClientData, periodoInicio, periodoFim, data_emissao, clientSearchTerm } = localFormData;
+  const { selectedClientId, selectedClientData, periodoInicio, periodoFim, data_emissao, clientInputText } = localFormData; // Usar clientInputText
 
-  // Fetch all clients
+  // Fetch all clients with active contracts
   useEffect(() => {
     const fetchAllClients = async () => {
       const { data, error } = await supabase
         .from('clientes')
-        .select('id, nome, nome_fantasia, cnpj_cpf, municipio, estado, endereco')
+        .select('*, contratos(status)') // Select contracts to filter active ones
         .order('nome', { ascending: true });
 
       if (error) {
         toast({ title: 'Erro ao buscar clientes', description: error.message, variant: 'destructive' });
         setAllClients([]);
       } else {
-        setAllClients(data || []);
+        // Filter clients with at least one active contract
+        const activeClients = (data || []).filter(client => 
+          client.contratos && client.contratos.some(contract => contract.status === 'Ativo')
+        );
+        setAllClients(activeClients);
       }
     };
     fetchAllClients();
   }, [toast]);
-
-  // REMOVED THE PROBLEMATIC useEffect HERE
-  // useEffect(() => {
-  //   if (selectedClientData) {
-  //     setLocalFormData(prev => ({
-  //       ...prev,
-  //       clientSearchTerm: selectedClientData.nome_fantasia ? `${selectedClientData.nome} - ${selectedClientData.nome_fantasia}` : selectedClientData.nome
-  //     }));
-  //   } else if (!selectedClientId) {
-  //     setLocalFormData(prev => ({ ...prev, clientSearchTerm: '' }));
-  //   }
-  // }, [selectedClientData, selectedClientId, setLocalFormData]);
-
 
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -157,7 +145,7 @@ const CertificadoPage = () => {
             periodoInicio: processDateValue(certData.periodo_inicio, getFirstDayOfMonth),
             periodoFim: processDateValue(certData.periodo_fim, getTodayDate),
             data_emissao: processDateValue(certData.data_emissao, () => new Date()),
-            clientSearchTerm: clientData.nome_fantasia ? `${clientData.nome} - ${clientData.nome_fantasia}` : clientData.nome,
+            clientInputText: clientData.nome_fantasia ? `${clientData.nome} - ${clientData.nome_fantasia}` : clientData.nome, // Usar clientInputText
           }));
         }
       } catch (error) {
@@ -170,20 +158,20 @@ const CertificadoPage = () => {
     fetchInitialData();
   }, [id, isEditMode, toast, navigate, setLocalFormData, processDateValue]);
 
-  const filteredClients = useMemo(() => { // Esta é a declaração correta
-    if (!clientSearchTerm) return allClients;
+  const filteredClients = useMemo(() => { 
+    if (!clientInputText) return allClients; // Filtrar por clientInputText
     return allClients.filter(client =>
-      client.nome.toLowerCase().includes(clientSearchTerm.toLowerCase()) ||
-      (client.nome_fantasia && client.nome_fantasia.toLowerCase().includes(clientSearchTerm.toLowerCase())) ||
-      (client.cnpj_cpf && formatCnpjCpf(client.cnpj_cpf).toLowerCase().includes(clientSearchTerm.toLowerCase()))
+      client.nome.toLowerCase().includes(clientInputText.toLowerCase()) ||
+      (client.nome_fantasia && client.nome_fantasia.toLowerCase().includes(clientInputText.toLowerCase())) ||
+      (client.cnpj_cpf && formatCnpjCpf(client.cnpj_cpf).toLowerCase().includes(clientInputText.toLowerCase()))
     );
-  }, [allClients, clientSearchTerm]);
+  }, [allClients, clientInputText]); // Dependência de clientInputText
 
   const handleClientSearchInputChange = (e) => {
     const val = e.target.value;
-    setLocalFormData(prev => ({ ...prev, clientSearchTerm: val }));
-    // If user starts typing, clear selected client data
-    if (selectedClientData) {
+    setLocalFormData(prev => ({ ...prev, clientInputText: val })); // Atualiza clientInputText
+    // Se o usuário começar a digitar, desmarcar o cliente selecionado
+    if (localFormData.selectedClientId) {
       setLocalFormData(prev => ({ ...prev, selectedClientId: null, selectedClientData: null }));
     }
     setShowClienteDropdown(true);
@@ -194,7 +182,7 @@ const CertificadoPage = () => {
       ...prev,
       selectedClientId: client.id,
       selectedClientData: client,
-      clientSearchTerm: client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome,
+      clientInputText: client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome, // Atualiza clientInputText
     }));
     setShowClienteDropdown(false);
   };
@@ -208,15 +196,15 @@ const CertificadoPage = () => {
       if (clientDropdownRef.current && !clientDropdownRef.current.contains(document.activeElement) &&
           clientSearchInputRef.current && !clientSearchInputRef.current.contains(document.activeElement)) {
         setShowClienteDropdown(false);
-        // If no client is currently selected (by ID) AND the input field has text
-        // AND that text does not exactly match a known client's display name,
-        // then clear the input.
-        if (!localFormData.selectedClientId && localFormData.clientSearchTerm) {
+        // Se nenhum cliente estiver selecionado (pelo ID) E houver texto no campo de entrada
+        // E esse texto não corresponder exatamente a um nome de cliente conhecido,
+        // então limpa o campo de entrada.
+        if (!localFormData.selectedClientId && localFormData.clientInputText) {
           const isMatch = allClients.some(c => 
-            (c.nome_fantasia ? `${c.nome} - ${c.nome_fantasia}` : c.nome) === localFormData.clientSearchTerm
+            (c.nome_fantasia ? `${c.nome} - ${c.nome_fantasia}` : c.nome) === localFormData.clientInputText
           );
           if (!isMatch) {
-            setLocalFormData(prev => ({ ...prev, clientSearchTerm: '' }));
+            setLocalFormData(prev => ({ ...prev, clientInputText: '' }));
           }
         }
       }
@@ -427,7 +415,7 @@ const CertificadoPage = () => {
                     <Input
                       id="cliente-search"
                       ref={clientSearchInputRef}
-                      value={clientSearchTerm}
+                      value={clientInputText} // Usar clientInputText
                       onChange={handleClientSearchInputChange}
                       onFocus={handleFocus}
                       onBlur={handleBlur}
