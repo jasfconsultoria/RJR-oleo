@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Loader2, X, Search } from 'lucide-react';
+import { Loader2, X, Search, User } from 'lucide-react'; // Adicionado User icon
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
 import { formatCnpjCpf } from '@/lib/utils';
@@ -15,8 +15,9 @@ const CertificadoClientSearch = ({
   loading: parentLoading = false,
   disabled = false,
 }) => {
-  const [inputValue, setInputValue] = useState(''); // Estado interno para o texto do input
+  const [searchTerm, setSearchTerm] = useState(''); // Estado interno para o texto do input
   const [allClients, setAllClients] = useState([]); // Todos os clientes do DB
+  const [filteredClients, setFilteredClients] = useState([]); // Clientes filtrados pela busca
   const [loadingClients, setLoadingClients] = useState(true);
   const [showDropdown, setShowDropdown] = useState(false);
   const { toast } = useToast();
@@ -42,32 +43,32 @@ const CertificadoClientSearch = ({
     fetchClients();
   }, [toast]);
 
-  // Sincroniza o inputValue com o cliente selecionado (vindo do pai)
+  // Sincroniza o searchTerm com o cliente selecionado (vindo do pai)
   useEffect(() => {
     if (selectedClientData) {
-      setInputValue(selectedClientData.nome_fantasia ? `${selectedClientData.nome} - ${selectedClientData.nome_fantasia}` : selectedClientData.nome);
+      setSearchTerm(selectedClientData.nome_fantasia ? `${selectedClientData.nome} - ${selectedClientData.nome_fantasia}` : selectedClientData.nome);
     } else {
-      setInputValue(''); // Limpa o input se nenhum cliente estiver selecionado
+      setSearchTerm(''); // Limpa o input se nenhum cliente estiver selecionado
     }
   }, [selectedClientData]);
 
-  // Filtra os clientes com base no inputValue
-  const filteredClients = useMemo(() => {
-    if (!inputValue) {
-      return allClients;
+  // Filtra os clientes com base no searchTerm
+  useEffect(() => {
+    if (!searchTerm) {
+      setFilteredClients(allClients);
     } else {
       const filtered = allClients.filter(client =>
-        client.nome.toLowerCase().includes(inputValue.toLowerCase()) ||
-        (client.nome_fantasia && client.nome_fantasia.toLowerCase().includes(inputValue.toLowerCase())) ||
-        (client.cnpj_cpf && formatCnpjCpf(client.cnpj_cpf).toLowerCase().includes(inputValue.toLowerCase()))
+        client.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (client.nome_fantasia && client.nome_fantasia.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (client.cnpj_cpf && formatCnpjCpf(client.cnpj_cpf).toLowerCase().includes(searchTerm.toLowerCase()))
       );
-      return filtered;
+      setFilteredClients(filtered);
     }
-  }, [inputValue, allClients]);
+  }, [searchTerm, allClients]);
 
   const handleInputChange = (e) => {
     const val = e.target.value;
-    setInputValue(val); // Atualiza o estado interno do input
+    setSearchTerm(val); // Atualiza o estado interno do input
     if (selectedClientData) {
       onSelectClient(null); // Desseleciona o cliente no pai se o usuário começar a digitar
     }
@@ -76,13 +77,7 @@ const CertificadoClientSearch = ({
 
   const handleSelect = (client) => {
     onSelectClient(client); // Passa o objeto completo do cliente para o pai
-    setInputValue(client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome);
-    setShowDropdown(false);
-  };
-
-  const handleClear = () => {
-    onSelectClient(null); // Limpa o cliente no pai
-    setInputValue(''); // Limpa o input
+    setSearchTerm(client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome);
     setShowDropdown(false);
   };
 
@@ -97,8 +92,8 @@ const CertificadoClientSearch = ({
         setShowDropdown(false);
         // Se não houver cliente selecionado no pai e o input não estiver vazio,
         // e o texto não corresponder a um cliente existente, limpa o input.
-        if (!selectedClientData && inputValue && !allClients.some(c => (c.nome_fantasia ? `${c.nome} - ${c.nome_fantasia}` : c.nome) === inputValue)) {
-          setInputValue('');
+        if (!selectedClientData && searchTerm && !allClients.some(c => (c.nome_fantasia ? `${c.nome} - ${c.nome_fantasia}` : c.nome) === searchTerm)) {
+          setSearchTerm('');
         }
       }
     }, 100);
@@ -108,34 +103,34 @@ const CertificadoClientSearch = ({
 
   return (
     <div className="relative" ref={containerRef}>
-      <Label htmlFor="certificado-client-search" className="block text-white mb-1 text-sm">{labelText}</Label>
+      <Label htmlFor="certificado-client-search" className="text-white flex items-center gap-2">
+        <User className="w-4 h-4" /> {/* Ícone de usuário */}
+        {labelText} <span className="text-red-500">*</span> {/* Título verde com asterisco */}
+      </Label>
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/70" />
         <Input
           id="certificado-client-search"
           type="text"
-          value={inputValue} // Controlado pelo estado interno
+          value={searchTerm} // Controlado pelo estado interno
           onChange={handleInputChange}
           onFocus={handleFocus}
           onBlur={handleBlur}
-          placeholder={isLoading ? "Carregando..." : `Buscar ${labelText.toLowerCase()}...`}
-          className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60 rounded-xl pr-10"
+          placeholder={isLoading ? "Carregando..." : `Digite para buscar...`}
+          className="pl-10 w-full bg-white/5 border-white/20 text-white placeholder:text-white/60 rounded-xl"
           autoComplete="off"
           disabled={disabled || isLoading}
+          required // Campo obrigatório
         />
         {isLoading && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 animate-spin" />}
-        {!isLoading && inputValue && (
-          <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-white/70 hover:text-white rounded-full" onClick={handleClear}>
-            <X className="h-4 w-4" />
-          </Button>
-        )}
+        {/* Removido o botão "X" para limpar, seguindo o comportamento da ColetaStep1 */}
       </div>
 
       {showDropdown && !isLoading && (
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="absolute z-50 w-full bg-white rounded-xl shadow-lg max-h-60 overflow-y-auto mt-1"
+          className="absolute z-50 w-full bg-white rounded-xl shadow-lg max-h-48 overflow-y-auto mt-1"
         >
           {filteredClients.length > 0 ? (
             filteredClients.map(client => (

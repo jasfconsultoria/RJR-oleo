@@ -337,9 +337,9 @@ const CertificadoPage = () => {
                   />
                 </div>
                 <div className="md:col-span-2">
-                  {/* Removido o Label duplicado aqui */}
+                  {/* O Label agora é renderizado dentro do CertificadoClientSearch */}
                   <CertificadoClientSearch // Usar o novo componente
-                    selectedClientData={selectedClientData} // Passar o objeto completo
+                    selectedClientId={selectedClientId}
                     onSelectClient={handleClientSelect}
                     loading={loading}
                   />
