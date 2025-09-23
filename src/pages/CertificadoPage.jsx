@@ -56,6 +56,7 @@ const CertificadoPage = () => {
   const pdfContainerRef = useRef(null);
   const clientSearchInputRef = useRef(null); // Ref para o input de busca de cliente
   const clientDropdownRef = useRef(null); // Ref para o dropdown de clientes
+  const selectionMadeRef = useRef(false); // Novo ref para controlar a seleção
 
   const [pdfData, setPdfData] = useState(null);
   const [empresa, setEmpresa] = useState(null);
@@ -201,7 +202,7 @@ const CertificadoPage = () => {
     const val = e.target.value;
     setLocalFormData(prev => ({ ...prev, clientSearchTerm: val }));
     // Se o usuário começar a digitar, desmarcar o cliente selecionado
-    if (localFormData.cliente_id) { // Corrigido: usar localFormData.cliente_id
+    if (prev.cliente_id) { // Corrigido: usar prev.cliente_id para o estado mais recente
       setLocalFormData(prev => ({ 
         ...prev, 
         cliente_id: '', 
@@ -233,6 +234,7 @@ const CertificadoPage = () => {
       clientSearchTerm: client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome,
     }));
     setShowClienteDropdown(false);
+    selectionMadeRef.current = true; // Sinaliza que uma seleção foi feita
   };
 
   const handleFocus = () => {
@@ -243,28 +245,35 @@ const CertificadoPage = () => {
     // Use setTimeout para permitir que o evento onClick do item do dropdown seja disparado primeiro
     setTimeout(() => {
       // Verifica se o elemento para o qual o foco se moveu (relatedTarget) está dentro do dropdown
-      // ou se o foco ainda está no input (o que não deveria acontecer no blur, mas é uma salvaguarda)
       if (clientDropdownRef.current && clientDropdownRef.current.contains(e.relatedTarget)) {
-        // Se o foco se moveu para um item do dropdown, não faça nada,
-        // a função handleClientSelect será responsável por atualizar o estado.
+        return; // Foco moveu para um item do dropdown, não faça nada
+      }
+
+      setShowClienteDropdown(false);
+
+      // Se uma seleção foi feita, reseta a flag e não limpa o input
+      if (selectionMadeRef.current) {
+        selectionMadeRef.current = false; // Reseta a flag
         return;
       }
 
-      // Se o foco saiu do input e não foi para um item do dropdown,
-      // esconde o dropdown.
-      setShowClienteDropdown(false);
-
-      // Se nenhum cliente foi selecionado (cliente_id é vazio) E há texto no campo de busca
-      // E esse texto não corresponde exatamente a um nome de cliente conhecido,
-      // então limpa o campo de busca.
-      if (!localFormData.cliente_id && localFormData.clientSearchTerm) {
-        const isMatch = allClients.some(c => 
-          (c.nome_fantasia ? `${c.nome} - ${c.nome_fantasia}` : c.nome) === localFormData.clientSearchTerm
-        );
-        if (!isMatch) {
-          setLocalFormData(prev => ({ ...prev, clientSearchTerm: '' }));
+      // Lógica de limpeza original para quando nenhuma seleção foi feita
+      setLocalFormData(prev => {
+        // Se um cliente foi selecionado (cliente_id não é vazio), não limpa o termo de busca
+        if (prev.cliente_id) {
+          return prev;
         }
-      }
+        // Caso contrário, se há um termo de busca mas nenhum cliente selecionado, limpa-o
+        if (prev.clientSearchTerm) {
+          const isMatch = allClients.some(c => 
+            (c.nome_fantasia ? `${c.nome} - ${c.nome_fantasia}` : c.nome) === prev.clientSearchTerm
+          );
+          if (!isMatch) {
+            return { ...prev, clientSearchTerm: '' };
+          }
+        }
+        return prev;
+      });
     }, 100); // Pequeno atraso para permitir que o clique no item do dropdown seja registrado
   };
 
