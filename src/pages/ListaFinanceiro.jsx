@@ -15,7 +15,7 @@ import { logAction } from '@/lib/logger';
 import { formatCnpjCpf, formatCurrency, formatNumber, formatDateWithTimezone } from '@/lib/utils';
 // Removido: import ClienteSearchableSelect from '@/components/ui/ClienteSearchableSelect';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { format, parseISO, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
+import { format, parseISO, endOfDay, startOfMonth, endOfMonth, subYears, addYears } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import PaymentDialog from '@/components/financeiro/PaymentDialog';
 import PaymentHistoryDialog from '@/components/financeiro/PaymentHistoryDialog';
@@ -28,8 +28,9 @@ const ListaFinanceiro = ({ type }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [clientSearchTerm, setClientSearchTerm] = useState(''); // Novo estado para busca de cliente
   const [statusFilter, setStatusFilter] = useState('all');
-  const [startDate, setStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
-  const [endDate, setEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
+  // Ajustado os filtros de data padrão para um período mais amplo
+  const [startDate, setStartDate] = useState(format(subYears(new Date(), 1), 'yyyy-MM-dd'));
+  const [endDate, setEndDate] = useState(format(addYears(new Date(), 1), 'yyyy-MM-dd'));
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
   const debouncedClientSearchTerm = useDebounce(clientSearchTerm, 500); // Debounce para busca de cliente
   const debouncedStartDate = useDebounce(startDate, 500);
