@@ -13,7 +13,7 @@ import { ArrowLeft, Loader2, FileText, CheckCircle, User } from 'lucide-react';
 import { logAction } from '@/lib/logger';
 import { formatToISODate, formatCnpjCpf } from '@/lib/utils';
 import jsPDF from 'jspdf';
-import html22canvas from 'html2canvas';
+import html2canvas from 'html2canvas'; // Corrigido de html22canvas para html2canvas
 import { format, isValid, parseISO, endOfDay } from 'date-fns';
 import CertificadoPDF from '@/components/CertificadoPDF';
 import { Progress } from '@/components/ui/progress';
@@ -251,7 +251,7 @@ const CertificadoPage = () => {
     setLocalFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  // Handler para seleção de cliente (IGUAL AO COLETASTEP1)
+  // Handler para seleção de cliente (IDÊNTICO AO COLETASTEP1)
   const handleClientSelect = (client) => {
     const newFormData = {
       cliente_id: client.id,
