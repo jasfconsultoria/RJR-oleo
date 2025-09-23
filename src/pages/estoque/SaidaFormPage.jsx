@@ -29,9 +29,9 @@ const SaidaFormPage = () => {
     origem: 'manual',
     document_number: '', // New field
     cliente_id: null,
-    cliente_nome: '', // Novo campo para o nome do cliente
-    cliente_nome_fantasia: '', // Novo campo para o nome fantasia do cliente
-    cnpj_cpf: '', // Novo campo para o CNPJ/CPF do cliente
+    cliente_nome: '', // Nome principal do cliente
+    cliente_nome_fantasia: '', // Nome fantasia do cliente
+    cnpj_cpf: '', // CNPJ/CPF do cliente
     coleta_id: null, // New field
     observacao: '',
     itens: [],
@@ -42,6 +42,7 @@ const SaidaFormPage = () => {
   const [filteredClients, setFilteredClients] = useState([]);
   const [showClienteDropdown, setShowClienteDropdown] = useState(false);
   const [isClienteSelected, setIsClienteSelected] = useState(false);
+  const [clientSearchInput, setClientSearchInput] = useState(''); // Novo estado para o input de busca
   const clientInputRef = useRef(null);
   const dropdownRef = useRef(null);
 
@@ -65,8 +66,8 @@ const SaidaFormPage = () => {
 
   // Filter clients based on search term
   useEffect(() => {
-    if (formData.cliente_nome && formData.cliente_nome.trim()) {
-      const searchTerm = formData.cliente_nome.toLowerCase();
+    if (clientSearchInput && clientSearchInput.trim()) {
+      const searchTerm = clientSearchInput.toLowerCase();
       const filtered = allClients.filter(client =>
         client.nome.toLowerCase().includes(searchTerm) ||
         (client.nome_fantasia && client.nome_fantasia.toLowerCase().includes(searchTerm)) ||
@@ -76,7 +77,21 @@ const SaidaFormPage = () => {
     } else {
       setFilteredClients(allClients);
     }
-  }, [formData.cliente_nome, allClients]);
+  }, [clientSearchInput, allClients]);
+
+  // Sync clientSearchInput with formData.cliente_nome when formData.cliente_id changes
+  useEffect(() => {
+    if (formData.cliente_id && allClients.length > 0) {
+      const selected = allClients.find(c => c.id === formData.cliente_id);
+      if (selected) {
+        setClientSearchInput(selected.nome_fantasia ? `${selected.nome} - ${selected.nome_fantasia}` : selected.nome);
+        setIsClienteSelected(true);
+      }
+    } else if (!formData.cliente_id && !isEditing) { // Only clear if not editing and no client selected
+      setClientSearchInput('');
+      setIsClienteSelected(false);
+    }
+  }, [formData.cliente_id, allClients, isEditing]);
 
   const fetchMovimentacao = useCallback(async () => {
     if (!id) {
@@ -87,7 +102,7 @@ const SaidaFormPage = () => {
     try {
       const { data: movimentacaoData, error: movimentacaoError } = await supabase
         .from('entrada_saida')
-        .select('*, cliente:clientes(nome, nome_fantasia, cnpj_cpf)') // Fetch client details
+        .select('*, cliente:clientes(id, nome, nome_fantasia, cnpj_cpf)') // Fetch client details
         .eq('id', id)
         .single();
 
@@ -103,6 +118,7 @@ const SaidaFormPage = () => {
       setFormData({
         ...movimentacaoData,
         data: new Date(movimentacaoData.data),
+        cliente_id: movimentacaoData.cliente?.id || null,
         cliente_nome: movimentacaoData.cliente?.nome || '',
         cliente_nome_fantasia: movimentacaoData.cliente?.nome_fantasia || '',
         cnpj_cpf: movimentacaoData.cliente?.cnpj_cpf || '',
@@ -117,6 +133,9 @@ const SaidaFormPage = () => {
         })),
       });
       setIsClienteSelected(!!movimentacaoData.cliente_id);
+      if (movimentacaoData.cliente?.id) {
+        setClientSearchInput(movimentacaoData.cliente.nome_fantasia ? `${movimentacaoData.cliente.nome} - ${movimentacaoData.cliente.nome_fantasia}` : movimentacaoData.cliente.nome);
+      }
     } catch (error) {
       toast({ title: 'Erro ao carregar movimentação', description: error.message, variant: 'destructive' });
       navigate('/app/estoque/movimentacoes');
@@ -137,6 +156,7 @@ const SaidaFormPage = () => {
     setFormData((prev) => ({ ...prev, [name]: value }));
     if (name === 'origem' && value !== 'coleta') {
       setFormData((prev) => ({ ...prev, coleta_id: null, cliente_id: null, cliente_nome: '', cliente_nome_fantasia: '', cnpj_cpf: '' }));
+      setClientSearchInput('');
       setIsClienteSelected(false);
     }
   };
@@ -153,6 +173,7 @@ const SaidaFormPage = () => {
         cliente_nome_fantasia: coleta.cliente_nome_fantasia,
         cnpj_cpf: coleta.cliente_cnpj_cpf,
       }));
+      setClientSearchInput(coleta.cliente_nome_fantasia ? `${coleta.cliente_nome} - ${coleta.cliente_nome_fantasia}` : coleta.cliente_nome);
       setIsClienteSelected(true);
     } else {
       setFormData((prev) => ({
@@ -165,6 +186,7 @@ const SaidaFormPage = () => {
         cliente_nome_fantasia: '',
         cnpj_cpf: '',
       }));
+      setClientSearchInput('');
       setIsClienteSelected(false);
     }
   };
@@ -173,12 +195,12 @@ const SaidaFormPage = () => {
     setFormData((prev) => ({ ...prev, itens: newItems }));
   };
 
-  const handleClientSearchChange = (e) => {
+  const handleClientSearchInputChange = (e) => {
     const value = e.target.value;
-    setFormData(prev => ({ ...prev, cliente_nome: value }));
+    setClientSearchInput(value);
     if (isClienteSelected && value !== (formData.cliente_nome_fantasia ? `${formData.cliente_nome} - ${formData.cliente_nome_fantasia}` : formData.cliente_nome)) {
       setIsClienteSelected(false);
-      setFormData(prev => ({ ...prev, cliente_id: null, cnpj_cpf: '', cliente_nome_fantasia: '' }));
+      setFormData(prev => ({ ...prev, cliente_id: null, cliente_nome: '', cliente_nome_fantasia: '', cnpj_cpf: '' }));
     }
     setShowClienteDropdown(true);
   };
@@ -191,6 +213,7 @@ const SaidaFormPage = () => {
       cliente_nome_fantasia: client.nome_fantasia,
       cnpj_cpf: client.cnpj_cpf,
     }));
+    setClientSearchInput(client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome);
     setIsClienteSelected(true);
     setShowClienteDropdown(false);
   };
@@ -203,6 +226,7 @@ const SaidaFormPage = () => {
       cliente_nome_fantasia: '',
       cnpj_cpf: '',
     }));
+    setClientSearchInput('');
     setIsClienteSelected(false);
     setShowClienteDropdown(false);
   };
@@ -215,12 +239,13 @@ const SaidaFormPage = () => {
     setTimeout(() => {
       if (dropdownRef.current && !dropdownRef.current.contains(document.activeElement)) {
         setShowClienteDropdown(false);
-        if (!isClienteSelected && formData.cliente_nome) {
+        if (!isClienteSelected && clientSearchInput) {
           const isMatch = allClients.some(client =>
-            (client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome) === formData.cliente_nome
+            (client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome) === clientSearchInput
           );
           if (!isMatch) {
-            setFormData(prev => ({ ...prev, cliente_nome: '', cliente_id: null, cnpj_cpf: '', cliente_nome_fantasia: '' }));
+            setClientSearchInput('');
+            setFormData(prev => ({ ...prev, cliente_id: null, cliente_nome: '', cliente_nome_fantasia: '', cnpj_cpf: '' }));
           }
         }
       }
@@ -278,7 +303,7 @@ const SaidaFormPage = () => {
 
     setSaving(true);
     try {
-      const { itens, cliente_nome, cliente_nome_fantasia, cnpj_cpf, ...movimentacaoHeader } = formData; // Excluir campos de cliente temporários
+      const { itens, ...movimentacaoHeader } = formData; // Excluir itens para inserção separada
       movimentacaoHeader.user_id = user?.id;
 
       let savedMovimentacao;
@@ -385,8 +410,8 @@ const SaidaFormPage = () => {
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/70" />
                     <Input
                       id="cliente_nome"
-                      value={formData.cliente_nome}
-                      onChange={handleClientSearchChange}
+                      value={clientSearchInput} // Usar o novo estado para o input
+                      onChange={handleClientSearchInputChange}
                       onFocus={handleFocus}
                       onBlur={handleBlur}
                       placeholder="Digite para buscar ou adicionar cliente..."
@@ -396,7 +421,7 @@ const SaidaFormPage = () => {
                       disabled={isEditing}
                       ref={clientInputRef}
                     />
-                    {formData.cliente_nome && (
+                    {clientSearchInput && (
                       <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-white/70 hover:text-white rounded-full" onClick={handleClearClient}>
                         <X className="h-4 w-4" />
                       </Button>
