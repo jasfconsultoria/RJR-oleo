@@ -156,11 +156,21 @@ const UserFormPage = () => {
         className="max-w-4xl mx-auto p-4 md:p-8"
       >
         <Card className="bg-white/10 backdrop-blur-sm border-white/10 text-white rounded-xl shadow-lg">
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between pb-4"> {/* Adjusted CardHeader for flex layout */}
             <CardTitle className="text-2xl md:text-3xl font-bold flex items-center gap-3">
               <UserPlus className="w-8 h-8 text-emerald-400" />
               {isEditing ? 'Editar Usuário' : 'Novo Usuário'}
             </CardTitle>
+            {isEditing && ( // Show "Vincular Contas Correntes" button only in edit mode
+              <Button
+                type="button"
+                onClick={handleOpenAccountLinkDialog}
+                className="w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-xl flex items-center justify-center gap-2"
+              >
+                <Link className="w-5 h-5" />
+                Vincular Contas Correntes
+              </Button>
+            )}
           </CardHeader>
           <CardContent className="p-4 md:p-6">
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -183,16 +193,6 @@ const UserFormPage = () => {
                   <ArrowLeft className="w-5 h-5 mr-2" />
                   Voltar
                 </Button>
-                {isEditing && ( // Show "Vincular Contas Correntes" button only in edit mode
-                  <Button
-                    type="button"
-                    onClick={handleOpenAccountLinkDialog}
-                    className="w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-xl flex items-center justify-center gap-2"
-                  >
-                    <Link className="w-5 h-5" />
-                    Vincular Contas Correntes
-                  </Button>
-                )}
                 <Button
                   type="submit"
                   disabled={loading}
