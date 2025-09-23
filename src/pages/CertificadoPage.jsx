@@ -9,13 +9,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import ClienteSearchableSelect from '@/components/ui/ClienteSearchableSelect';
+import CertificadoClientSearch from '@/components/certificados/CertificadoClientSearch'; // Importar o novo componente
 import { ArrowLeft, Loader2, FileText, CheckCircle } from 'lucide-react';
 import { logAction } from '@/lib/logger';
 import { formatToISODate, formatCnpjCpf } from '@/lib/utils';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import { format, isValid, parseISO, endOfDay } from 'date-fns'; // Adicionado 'endOfDay'
+import { format, isValid, parseISO, endOfDay } from 'date-fns';
 import CertificadoPDF from '@/components/CertificadoPDF';
 import { Progress } from '@/components/ui/progress';
 import { useAutoSave } from '@/hooks/useAutoSave';
@@ -29,6 +29,7 @@ const getFirstDayOfMonth = () => {
 
 const initialFormState = {
   selectedClientId: '',
+  selectedClientData: null, // Novo estado para armazenar o objeto completo do cliente
   periodoInicio: undefined, // Default to undefined
   periodoFim: undefined,    // Default to undefined
   data_emissao: undefined,  // Default to undefined
@@ -48,7 +49,6 @@ const CertificadoPage = () => {
   const [loading, setLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [clients, setClients] = useState([]);
 
   const [localFormData, setLocalFormData, clearSavedData, savedData] = useAutoSave(
     'certificado-form-data',
@@ -73,6 +73,7 @@ const CertificadoPage = () => {
       const dataToLoad = {
         ...currentSavedData,
         selectedClientId: currentSavedData.selectedClientId || '',
+        selectedClientData: currentSavedData.selectedClientData || null, // Carregar dados do cliente
         periodoInicio: processDateValue(currentSavedData.periodoInicio, getFirstDayOfMonth),
         periodoFim: processDateValue(currentSavedData.periodoFim, getTodayDate),
         data_emissao: processDateValue(currentSavedData.data_emissao, () => new Date()),
@@ -81,30 +82,15 @@ const CertificadoPage = () => {
     }
   }, [isEditMode, savedData, setLocalFormData, processDateValue]);
 
-  const { selectedClientId, periodoInicio, periodoFim, data_emissao } = localFormData;
-
-  const selectedClient = useMemo(() => {
-    if (!selectedClientId) return null;
-    return clients.find(c => c.id === selectedClientId);
-  }, [selectedClientId, clients]);
+  const { selectedClientId, selectedClientData, periodoInicio, periodoFim, data_emissao } = localFormData;
 
   useEffect(() => {
     const fetchInitialData = async () => {
       setLoading(true);
       try {
-        const [clientDataRes, empresaDataRes] = await Promise.all([
-          supabase
-            .from('clientes')
-            .select('id, nome, cnpj_cpf, municipio, estado, endereco')
-            .order('nome', { ascending: true }),
-          supabase.from('empresa').select('*').single(),
-        ]);
-
-        if (clientDataRes.error) throw clientDataRes.error;
-        setClients(clientDataRes.data || []);
-
-        if (empresaDataRes.error) throw empresaDataRes.error;
-        setEmpresa(empresaDataRes.data);
+        const { data: empresaData, error: empresaError } = await supabase.from('empresa').select('*').single();
+        if (empresaError) throw empresaError;
+        setEmpresa(empresaData);
 
         if (isEditMode) {
           const { data: certData, error: certError } = await supabase
@@ -115,9 +101,19 @@ const CertificadoPage = () => {
           
           if (certError) throw certError;
 
+          // Buscar dados completos do cliente para preencher selectedClientData
+          const { data: clientData, error: clientError } = await supabase
+            .from('clientes')
+            .select('id, nome, cnpj_cpf, municipio, estado, endereco, nome_fantasia')
+            .eq('id', certData.cliente_id)
+            .single();
+
+          if (clientError) throw clientError;
+
           setLocalFormData(prev => ({
             ...prev,
             selectedClientId: certData.cliente_id,
+            selectedClientData: clientData, // Preencher com os dados completos
             periodoInicio: processDateValue(certData.periodo_inicio, getFirstDayOfMonth),
             periodoFim: processDateValue(certData.periodo_fim, getTodayDate),
             data_emissao: processDateValue(certData.data_emissao, () => new Date()),
@@ -133,8 +129,16 @@ const CertificadoPage = () => {
     fetchInitialData();
   }, [id, isEditMode, toast, navigate, setLocalFormData, processDateValue]);
 
+  const handleClientSelect = (client) => {
+    setLocalFormData(prev => ({
+      ...prev,
+      selectedClientId: client ? client.id : null,
+      selectedClientData: client, // Armazenar o objeto completo do cliente
+    }));
+  };
+
   const handleSubmit = async () => {
-    if (!selectedClientId || !periodoInicio || !periodoFim || !data_emissao || !selectedClient) {
+    if (!selectedClientId || !periodoInicio || !periodoFim || !data_emissao || !selectedClientData) {
       toast({ title: 'Campos obrigatórios', description: 'Por favor, selecione um cliente e preencha todas as datas.', variant: 'destructive' });
       return;
     }
@@ -174,7 +178,7 @@ const CertificadoPage = () => {
 
       const certificateData = {
         cliente_id: selectedClientId,
-        cliente_nome: selectedClient.nome,
+        cliente_nome: selectedClientData.nome, // Usar nome do selectedClientData
         periodo_inicio: formatToISODate(periodoInicio),
         periodo_fim: formatToISODate(periodoFim),
         total_kg: totalKg,
@@ -194,19 +198,11 @@ const CertificadoPage = () => {
       if (certError) throw certError;
       setProgress(40);
 
-      const [clienteRes, empresaRes] = await Promise.all([
-        supabase.from('clientes').select('*').eq('id', certData.cliente_id).single(),
-        supabase.from('empresa').select('*').single(),
-      ]);
-
-      if (clienteRes.error) throw new Error('Dados do cliente não encontrados.');
-      if (empresaRes.error) throw new Error('Dados da empresa não encontrados.');
-      setProgress(50);
-
+      // Reutilizar selectedClientData e empresa que já estão no estado
       setPdfData({
         id: certData.id,
-        cliente: clienteRes.data,
-        empresa: empresaRes.data,
+        cliente: selectedClientData, // Passar o objeto completo do cliente
+        empresa: empresa,
         periodo: { inicio: certData.periodo_inicio, fim: certData.periodo_fim },
         totalKg: certData.total_kg,
         data_emissao: certData.data_emissao,
@@ -342,18 +338,18 @@ const CertificadoPage = () => {
                 </div>
                 <div className="md:col-span-2">
                   <Label htmlFor="cliente" className="block mb-2">Cliente *</Label>
-                  <ClienteSearchableSelect
-                    value={selectedClientId}
-                    onChange={(value) => setLocalFormData(prev => ({ ...prev, selectedClientId: value }))}
+                  <CertificadoClientSearch // Usar o novo componente
+                    selectedClientId={selectedClientId}
+                    onSelectClient={handleClientSelect}
                     loading={loading}
                   />
                 </div>
-                {selectedClient && (
+                {selectedClientData && ( // Usar selectedClientData
                   <div className="md:col-span-2">
                     <Label htmlFor="cnpj_cpf">CNPJ/CPF</Label>
                     <Input
                       id="cnpj_cpf"
-                      value={formatCnpjCpf(selectedClient.cnpj_cpf)}
+                      value={formatCnpjCpf(selectedClientData.cnpj_cpf)}
                       disabled
                       className="bg-white/20 border-white/30 mt-2"
                     />

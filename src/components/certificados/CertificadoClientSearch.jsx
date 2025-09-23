@@ -8,78 +8,85 @@ import { useToast } from '@/components/ui/use-toast';
 import { formatCnpjCpf } from '@/lib/utils';
 import { motion } from 'framer-motion';
 
-const ClienteSearchableSelect = ({
+const CertificadoClientSearch = ({
   labelText = "Cliente",
-  value, // selected client ID
-  onChange, // callback for when a client is selected (id)
+  selectedClientId, // ID do cliente selecionado (vindo do formulário pai)
+  onSelectClient,   // Callback para atualizar o cliente selecionado no formulário pai
   loading: parentLoading = false,
   disabled = false,
 }) => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [clients, setClients] = useState([]);
+  const [inputValue, setInputValue] = useState(''); // Estado interno para o texto do input
+  const [allClients, setAllClients] = useState([]); // Todos os clientes do DB
+  const [filteredClients, setFilteredClients] = useState([]); // Clientes filtrados pela busca
   const [loadingClients, setLoadingClients] = useState(true);
   const [showDropdown, setShowDropdown] = useState(false);
   const { toast } = useToast();
   const containerRef = useRef(null);
 
+  // Busca todos os clientes
   useEffect(() => {
     const fetchClients = async () => {
       setLoadingClients(true);
       const { data, error } = await supabase
         .from('clientes')
-        .select('id, nome, nome_fantasia, cnpj_cpf, municipio, estado') // Added nome_fantasia
+        .select('id, nome, nome_fantasia, cnpj_cpf, municipio, estado')
         .order('nome', { ascending: true });
 
       if (error) {
         toast({ title: 'Erro ao buscar clientes', description: error.message, variant: 'destructive' });
-        setClients([]);
+        setAllClients([]);
       } else {
-        setClients(data || []);
+        setAllClients(data || []);
       }
       setLoadingClients(false);
     };
     fetchClients();
   }, [toast]);
 
+  // Sincroniza o inputValue com o cliente selecionado (vindo do pai)
   useEffect(() => {
-    // Set initial input value if a client is already selected
-    if (value && clients.length > 0) {
-      const selected = clients.find(c => c.id === value);
+    if (selectedClientId && allClients.length > 0) {
+      const selected = allClients.find(c => c.id === selectedClientId);
       if (selected) {
-        setSearchTerm(selected.nome_fantasia ? `${selected.nome} - ${selected.nome_fantasia}` : selected.nome);
+        setInputValue(selected.nome_fantasia ? `${selected.nome} - ${selected.nome_fantasia}` : selected.nome);
       }
-    } else if (!value) {
-      setSearchTerm('');
+    } else if (!selectedClientId) {
+      setInputValue(''); // Limpa o input se nenhum cliente estiver selecionado
     }
-  }, [value, clients]);
+  }, [selectedClientId, allClients]);
 
-  const filteredClients = useMemo(() => {
-    if (!searchTerm) return clients;
-    return clients.filter(client =>
-      client.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (client.nome_fantasia && client.nome_fantasia.toLowerCase().includes(searchTerm.toLowerCase())) || // Search by nome_fantasia
-      (client.cnpj_cpf && formatCnpjCpf(client.cnpj_cpf).toLowerCase().includes(searchTerm.toLowerCase()))
-    );
-  }, [clients, searchTerm]);
+  // Filtra os clientes com base no inputValue
+  useEffect(() => {
+    if (!inputValue) {
+      setFilteredClients(allClients);
+    } else {
+      const filtered = allClients.filter(client =>
+        client.nome.toLowerCase().includes(inputValue.toLowerCase()) ||
+        (client.nome_fantasia && client.nome_fantasia.toLowerCase().includes(inputValue.toLowerCase())) ||
+        (client.cnpj_cpf && formatCnpjCpf(client.cnpj_cpf).toLowerCase().includes(inputValue.toLowerCase()))
+      );
+      setFilteredClients(filtered);
+    }
+  }, [inputValue, allClients]);
 
   const handleInputChange = (e) => {
     const val = e.target.value;
-    setSearchTerm(val);
-    if (!val) {
-      onChange(null); // Clear selected client if input is empty
+    setInputValue(val); // Atualiza o estado interno do input
+    if (selectedClientId) {
+      onSelectClient(null); // Desseleciona o cliente no pai se o usuário começar a digitar
     }
     setShowDropdown(true);
   };
 
   const handleSelect = (client) => {
-    onChange(client.id);
-    setSearchTerm(client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome);
+    onSelectClient(client); // Passa o objeto completo do cliente para o pai
+    setInputValue(client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome);
     setShowDropdown(false);
   };
 
   const handleClear = () => {
-    onChange(null);
-    setSearchTerm('');
+    onSelectClient(null); // Limpa o cliente no pai
+    setInputValue(''); // Limpa o input
     setShowDropdown(false);
   };
 
@@ -87,14 +94,15 @@ const ClienteSearchableSelect = ({
     setShowDropdown(true);
   };
 
-  const handleBlur = (e) => {
-    // Delay hiding dropdown to allow click on item
+  const handleBlur = () => {
+    // Pequeno atraso para permitir cliques nos itens do dropdown
     setTimeout(() => {
       if (containerRef.current && !containerRef.current.contains(document.activeElement)) {
         setShowDropdown(false);
-        // If no client is selected and input is not empty, reset to previous selected or empty
-        if (!value && searchTerm && !clients.some(c => (c.nome_fantasia ? `${c.nome} - ${c.nome_fantasia}` : c.nome) === searchTerm)) {
-          setSearchTerm('');
+        // Se não houver cliente selecionado no pai e o input não estiver vazio,
+        // e o texto não corresponder a um cliente existente, limpa o input.
+        if (!selectedClientId && inputValue && !allClients.some(c => (c.nome_fantasia ? `${c.nome} - ${c.nome_fantasia}` : c.nome) === inputValue)) {
+          setInputValue('');
         }
       }
     }, 100);
@@ -104,13 +112,13 @@ const ClienteSearchableSelect = ({
 
   return (
     <div className="relative" ref={containerRef}>
-      <Label htmlFor="client-search-select" className="block text-white mb-1 text-sm">{labelText}</Label>
+      <Label htmlFor="certificado-client-search" className="block text-white mb-1 text-sm">{labelText}</Label>
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/70" />
         <Input
-          id="client-search-select"
+          id="certificado-client-search"
           type="text"
-          value={searchTerm}
+          value={inputValue} // Controlado pelo estado interno
           onChange={handleInputChange}
           onFocus={handleFocus}
           onBlur={handleBlur}
@@ -120,7 +128,7 @@ const ClienteSearchableSelect = ({
           disabled={disabled || isLoading}
         />
         {isLoading && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 animate-spin" />}
-        {!isLoading && searchTerm && (
+        {!isLoading && inputValue && (
           <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-white/70 hover:text-white rounded-full" onClick={handleClear}>
             <X className="h-4 w-4" />
           </Button>
@@ -155,4 +163,4 @@ const ClienteSearchableSelect = ({
   );
 };
 
-export default ClienteSearchableSelect;
+export default CertificadoClientSearch;
