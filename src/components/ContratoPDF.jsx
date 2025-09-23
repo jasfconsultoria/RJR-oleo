@@ -1,7 +1,7 @@
 import React from 'react';
 import { format, parseISO, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { formatCnpjCpf, formatCurrency, valorPorExtenso, getMonthsDifference } from '@/lib/utils';
+import { formatCnpjCpf, formatCurrency, valorPorExtenso, getMonthsDifference, parseCurrency } from '@/lib/utils'; // Adicionado parseCurrency
 
 // Função para converter número para extenso (copiada de utils para evitar circular dependency se utils importar ContratoPDF)
 const unidades = ['', 'um', 'dois', 'três', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove'];
