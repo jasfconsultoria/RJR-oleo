@@ -119,10 +119,13 @@ const ContratoFields = ({ formData, setFormData, loading, errors, empresaTimezon
                 signed: false,
               },
             }}
+            // Exibe o valor formatado com vírgula, ou '0,00' se for nulo/indefinido
             value={formData.valor_coleta !== null && formData.valor_coleta !== undefined 
                      ? String(formData.valor_coleta).replace('.', ',') 
                      : '0,00'} 
-            onAccept={(value, mask) => handleInputChange('valor_coleta', mask.typedValue)} // Usar mask.typedValue para obter o número
+            // Ao aceitar, converte o valor formatado (com vírgula) para um número (com ponto)
+            // e armazena no estado. Se o campo estiver vazio, armazena 0.
+            onAccept={(value) => handleInputChange('valor_coleta', value ? parseCurrency(value) : 0)} 
             placeholder="0,00"
             className="w-full flex h-10 rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           />
