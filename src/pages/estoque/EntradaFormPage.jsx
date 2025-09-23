@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Helmet } from 'react-helmet';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -29,55 +29,44 @@ const EntradaFormPage = () => {
     origem: 'manual',
     document_number: '',
     cliente_id: null,
-    cliente_nome: '',
+    cliente_nome: '', // Usado para o valor do input e nome de exibição
     cliente_nome_fantasia: '',
     cnpj_cpf: '',
     coleta_id: null,
     observacao: '',
     itens: [],
-    cliente: '', // Campo único para busca igual ao modelo
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-
-  // === CLIENTE AUTOCOMPLETE STATES (mesma lógica do CertificadoPage) ===
   const [allClients, setAllClients] = useState([]);
   const [filteredClients, setFilteredClients] = useState([]);
   const [showClienteDropdown, setShowClienteDropdown] = useState(false);
-  const [isClienteSelected, setIsClienteSelected] = useState(false);
+  const [isClienteSelected, setIsClienteSelected] = useState(false); // Indica se um cliente foi *selecionado* do dropdown
+  const clientInputRef = useRef(null);
   const dropdownRef = useRef(null);
 
-  // Fetch all clients (com contratos), igual ao CertificadoPage
+  // Fetch all clients
   useEffect(() => {
     const fetchClients = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('clientes')
-          .select('*, contratos(status)')
-          .order('nome', { ascending: true });
+      const { data, error } = await supabase
+        .from('clientes')
+        .select('id, nome, nome_fantasia, cnpj_cpf, municipio, estado')
+        .order('nome', { ascending: true });
 
-        if (error) throw error;
-
-        const activeClients = (data || []).filter(client =>
-          client.contratos && client.contratos.some(contract => contract.status === 'Ativo')
-        );
-
-        setAllClients(activeClients);
-        setFilteredClients(activeClients);
-      } catch (error) {
+      if (error) {
         toast({ title: 'Erro ao buscar clientes', description: error.message, variant: 'destructive' });
         setAllClients([]);
-        setFilteredClients([]);
+      } else {
+        setAllClients(data || []);
       }
     };
-
     fetchClients();
   }, [toast]);
 
-  // FILTRO: nome | nome_fantasia | cnpj (formatado)
+  // Filter clients based on search term (formData.cliente_nome)
   useEffect(() => {
-    if (formData.cliente && formData.cliente.trim()) {
-      const searchTerm = formData.cliente.toLowerCase();
+    if (formData.cliente_nome && formData.cliente_nome.trim()) {
+      const searchTerm = formData.cliente_nome.toLowerCase();
       const filtered = allClients.filter(client =>
         client.nome.toLowerCase().includes(searchTerm) ||
         (client.nome_fantasia && client.nome_fantasia.toLowerCase().includes(searchTerm)) ||
@@ -87,9 +76,8 @@ const EntradaFormPage = () => {
     } else {
       setFilteredClients(allClients);
     }
-  }, [formData.cliente, allClients]);
+  }, [formData.cliente_nome, allClients]);
 
-  // === Fetch movimentacao quando editar ===
   const fetchMovimentacao = useCallback(async () => {
     if (!id) {
       setLoading(false);
@@ -112,18 +100,13 @@ const EntradaFormPage = () => {
 
       if (itensError) throw itensError;
 
-      const clienteDisplay = movimentacaoData.cliente?.nome_fantasia 
-        ? `${movimentacaoData.cliente.nome} - ${movimentacaoData.cliente.nome_fantasia}` 
-        : movimentacaoData.cliente?.nome || '';
-
       setFormData({
         ...movimentacaoData,
         data: new Date(movimentacaoData.data),
         cliente_id: movimentacaoData.cliente?.id || null,
-        cliente_nome: movimentacaoData.cliente?.nome || '',
+        cliente_nome: movimentacaoData.cliente?.nome_fantasia ? `${movimentacaoData.cliente.nome} - ${movimentacaoData.cliente.nome_fantasia}` : movimentacaoData.cliente?.nome || '', // Set full display name
         cliente_nome_fantasia: movimentacaoData.cliente?.nome_fantasia || '',
         cnpj_cpf: movimentacaoData.cliente?.cnpj_cpf || '',
-        cliente: clienteDisplay, // Campo de busca
         itens: itensData.map(item => ({
           id: item.id,
           produto_id: item.produto_id,
@@ -147,54 +130,29 @@ const EntradaFormPage = () => {
     fetchMovimentacao();
   }, [fetchMovimentacao]);
 
-  // === Handlers ===
   const handleFormChange = (name, value) => {
     setFormData((prev) => ({ ...prev, [name]: value }));
-    
-    // Mostrar dropdown quando começar a digitar no campo cliente
-    if (name === 'cliente') {
-      if (value.trim() !== '') {
-        setShowClienteDropdown(true);
-      } else {
-        setShowClienteDropdown(false);
-      }
-      // Importante: sinaliza que o usuário está digitando (não é mais um cliente selecionado)
-      setIsClienteSelected(false);
-    }
   };
 
   const handleSelectChange = (name, value) => {
     setFormData((prev) => ({ ...prev, [name]: value }));
     if (name === 'origem' && value !== 'coleta') {
-      setFormData((prev) => ({ 
-        ...prev, 
-        coleta_id: null, 
-        cliente_id: null, 
-        cliente_nome: '', 
-        cliente_nome_fantasia: '', 
-        cnpj_cpf: '',
-        cliente: '' 
-      }));
+      setFormData((prev) => ({ ...prev, coleta_id: null, cliente_id: null, cliente_nome: '', cliente_nome_fantasia: '', cnpj_cpf: '' }));
       setIsClienteSelected(false);
     }
   };
 
   const handleColetaSelect = (coleta) => {
     if (coleta) {
-      const clienteDisplay = coleta.cliente_nome_fantasia 
-        ? `${coleta.cliente_nome} - ${coleta.cliente_nome_fantasia}` 
-        : coleta.cliente_nome;
-
       setFormData((prev) => ({
         ...prev,
         coleta_id: coleta.id,
         cliente_id: coleta.cliente_id,
         document_number: coleta.numero_coleta?.toString().padStart(6, '0'),
         observacao: `Movimentação referente à coleta Nº ${coleta.numero_coleta?.toString().padStart(6, '0')} do cliente ${coleta.cliente_nome}.`,
-        cliente_nome: coleta.cliente_nome,
+        cliente_nome: coleta.cliente_nome_fantasia ? `${coleta.cliente_nome} - ${coleta.cliente_nome_fantasia}` : coleta.cliente_nome,
         cliente_nome_fantasia: coleta.cliente_nome_fantasia,
         cnpj_cpf: coleta.cliente_cnpj_cpf,
-        cliente: clienteDisplay,
       }));
       setIsClienteSelected(true);
     } else {
@@ -207,29 +165,36 @@ const EntradaFormPage = () => {
         cliente_nome: '',
         cliente_nome_fantasia: '',
         cnpj_cpf: '',
-        cliente: '',
       }));
       setIsClienteSelected(false);
     }
   };
 
-  // === HANDLE CLIENT SELECT (igual ao CertificadoPage) ===
-  const handleClientSelect = (client) => {
-    const clienteDisplay = client.nome_fantasia 
-      ? `${client.nome} - ${client.nome_fantasia}` 
-      : client.nome;
+  const handleItemsChange = (newItems) => {
+    setFormData((prev) => ({ ...prev, itens: newItems }));
+  };
 
+  const handleClientSearchChange = (e) => {
+    const value = e.target.value;
+    setFormData(prev => ({ ...prev, cliente_nome: value })); // Atualiza formData.cliente_nome diretamente
+    if (isClienteSelected && value !== (formData.cliente_nome_fantasia ? `${formData.cliente_nome} - ${formData.cliente_nome_fantasia}` : formData.cliente_nome)) {
+      // Se um cliente estava selecionado e o input muda, deseleciona
+      setIsClienteSelected(false);
+      setFormData(prev => ({ ...prev, cliente_id: null, cliente_nome_fantasia: '', cnpj_cpf: '' }));
+    }
+    setShowClienteDropdown(true);
+  };
+
+  const handleClientSelectFromDropdown = (client) => {
     setFormData(prev => ({
       ...prev,
       cliente_id: client.id,
-      cliente_nome: client.nome,
-      cliente_nome_fantasia: client.nome_fantasia || '',
-      cnpj_cpf: client.cnpj_cpf || '',
-      cliente: clienteDisplay,
+      cliente_nome: client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome, // Define o nome completo para exibição
+      cliente_nome_fantasia: client.nome_fantasia,
+      cnpj_cpf: client.cnpj_cpf,
     }));
-    setShowClienteDropdown(false);
-    // marca como selecionado — importante para o blur não limpar o valor
     setIsClienteSelected(true);
+    setShowClienteDropdown(false);
   };
 
   const handleClearClient = () => {
@@ -239,7 +204,6 @@ const EntradaFormPage = () => {
       cliente_nome: '',
       cliente_nome_fantasia: '',
       cnpj_cpf: '',
-      cliente: '',
     }));
     setIsClienteSelected(false);
     setShowClienteDropdown(false);
@@ -249,38 +213,22 @@ const EntradaFormPage = () => {
     setShowClienteDropdown(true);
   };
 
-  // BLUR ajustado para esperar o clique no dropdown setar isClienteSelected(true)
-  const handleBlur = () => {
+  const handleBlur = (e) => {
     setTimeout(() => {
-      // sempre fecha o dropdown
-      setShowClienteDropdown(false);
-      
-      // Validar se o texto digitado corresponde a um cliente existente apenas se não houver seleção
-      if (!isClienteSelected && formData.cliente.trim() !== '') {
-        const isMatch = allClients.some(client => {
-          const clientDisplayName = client.nome_fantasia 
-            ? `${client.nome} - ${client.nome_fantasia}` 
-            : client.nome;
-          return clientDisplayName === formData.cliente;
-        });
-        
-        if (!isMatch) {
-          setFormData(prev => ({ 
-            ...prev, 
-            cliente_id: null, 
-            cliente_nome: '', 
-            cliente_nome_fantasia: '', 
-            cnpj_cpf: '',
-            cliente: '' 
-          }));
-          setIsClienteSelected(false);
+      if (dropdownRef.current && !dropdownRef.current.contains(document.activeElement)) {
+        setShowClienteDropdown(false);
+        // Se nenhum cliente foi selecionado E o valor atual do input não corresponde a um cliente selecionado
+        if (!isClienteSelected && formData.cliente_nome) {
+          const isMatch = allClients.some(client =>
+            (client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome) === formData.cliente_nome
+          );
+          if (!isMatch) {
+            // Se não for uma correspondência, limpa o input e os dados do cliente selecionado
+            setFormData(prev => ({ ...prev, cliente_id: null, cliente_nome: '', cliente_nome_fantasia: '', cnpj_cpf: '' }));
+          }
         }
       }
     }, 200);
-  };
-
-  const handleItemsChange = (newItems) => {
-    setFormData((prev) => ({ ...prev, itens: newItems }));
   };
 
   const validateForm = () => {
@@ -315,7 +263,7 @@ const EntradaFormPage = () => {
 
     setSaving(true);
     try {
-      const { itens, cliente, ...movimentacaoHeader } = formData; // Remover campo de busca temporário
+      const { itens, ...movimentacaoHeader } = formData;
       movimentacaoHeader.user_id = user?.id;
 
       let savedMovimentacao;
@@ -414,63 +362,49 @@ const EntradaFormPage = () => {
 
               {formData.origem === 'manual' && (
                 <div className="space-y-2 relative" ref={dropdownRef}>
-                  <Label htmlFor="cliente" className="text-white flex items-center gap-2">
+                  <Label htmlFor="cliente_nome" className="text-white flex items-center gap-2">
                     <User className="w-4 h-4" />
                     Cliente *
                   </Label>
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/70" />
                     <Input
-                      id="cliente"
-                      value={formData.cliente} // Usar campo único igual ao modelo
-                      onChange={(e) => handleFormChange('cliente', e.target.value)}
+                      id="cliente_nome"
+                      value={formData.cliente_nome} // Usar formData.cliente_nome diretamente
+                      onChange={handleClientSearchChange}
                       onFocus={handleFocus}
                       onBlur={handleBlur}
-                      placeholder="Digite para buscar cliente..."
+                      placeholder="Digite para buscar ou adicionar cliente..."
                       className="pl-10 w-full bg-white/5 border-white/20 text-white placeholder:text-white/60 rounded-xl pr-10"
                       autoComplete="off"
                       required={formData.origem === 'manual'}
                       disabled={isEditing}
+                      ref={clientInputRef}
                     />
-                    {formData.cliente && (
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-white/70 hover:text-white rounded-full" 
-                        onClick={handleClearClient}
-                        type="button"
-                      >
+                    {formData.cliente_nome && (
+                      <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-white/70 hover:text-white rounded-full" onClick={handleClearClient}>
                         <X className="h-4 w-4" />
                       </Button>
                     )}
                   </div>
                   
-                  {/* DROPDOWN IDÊNTICO AO MODELO QUE FUNCIONA */}
                   {showClienteDropdown && (
                     <motion.div
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="absolute z-10 w-full bg-white rounded-lg shadow-lg max-h-48 overflow-y-auto mt-1 border border-gray-200"
+                      className="absolute z-10 w-full bg-white rounded-lg shadow-lg max-h-48 overflow-y-auto mt-1"
                     >
-                      {filteredClients.length > 0 ? (
-                        filteredClients.map((client) => (
-                          <div
-                            key={client.id}
-                            onMouseDown={() => handleClientSelect(client)} // onMouseDown evita conflito com blur
-                            className="p-3 hover:bg-emerald-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors duration-150"
-                          >
-                            <div className="font-medium text-gray-900">
-                              {client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome}
-                            </div>
-                            <div className="text-sm text-gray-600">
-                              {formatCnpjCpf(client.cnpj_cpf)} - {client.municipio}/{client.estado}
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="p-3 text-center text-gray-500">
-                          {formData.cliente ? 'Nenhum cliente encontrado.' : 'Nenhum cliente cadastrado.'}
+                      {filteredClients.length > 0 ? filteredClients.map((client) => (
+                        <div
+                          key={client.id}
+                          onClick={() => handleClientSelectFromDropdown(client)}
+                          className="p-3 hover:bg-emerald-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                        >
+                          <div className="font-medium text-gray-900">{client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome}</div>
+                          <div className="text-sm text-gray-600">{formatCnpjCpf(client.cnpj_cpf)} - {client.municipio}/{client.estado}</div>
                         </div>
+                      )) : (
+                        <div className="p-3 text-center text-gray-500">Nenhum cliente encontrado.</div>
                       )}
                     </motion.div>
                   )}
