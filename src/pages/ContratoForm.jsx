@@ -8,7 +8,6 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import ContratoFields from '@/components/contratos/ContratoFields';
 import { ArrowLeft, Save, Loader2, CheckCircle } from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { logAction } from '@/lib/logger';
 import { formatToISODate } from '@/lib/utils';
 import jsPDF from 'jspdf';
@@ -38,7 +37,7 @@ const ContratoForm = () => {
         data_fim: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
         status: 'Aguardando Assinatura',
         tipo_coleta: 'Troca',
-        valor_coleta: null,
+        valor_coleta: 0, // Alterado de null para 0
         fator_troca: '6',
         frequencia_coleta: 'Semanal',
         usa_recipiente: false,
@@ -265,7 +264,7 @@ const ContratoForm = () => {
                         </Button>
                         <Button onClick={handleSave} disabled={isSaving} className="bg-emerald-600 hover:bg-emerald-700 text-white">
                             {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                            {isEditing ? 'Salvar Alterações' : 'Salvar'}
+                            {isSaving ? 'Salvando...' : (isEditing ? 'Salvar Alterações' : 'Salvar')}
                         </Button>
                     </CardFooter>
                 </Card>
