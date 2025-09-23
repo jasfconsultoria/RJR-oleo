@@ -27,12 +27,22 @@ const getFirstDayOfMonth = () => {
 };
 
 const initialFormState = {
-  selectedClientId: '',
-  selectedClientData: null, // Objeto completo do cliente selecionado
   periodoInicio: undefined,
   periodoFim: undefined,
   data_emissao: undefined,
-  clientSearchTerm: '', // Variável de estado para o termo de busca do cliente
+  
+  // Campos do cliente, replicando a estrutura de ColetaStep1.jsx
+  cliente_id: '',
+  cliente_nome: '', // Nome principal do cliente
+  cliente_nome_fantasia: '', // Nome fantasia do cliente
+  cnpj_cpf: '',
+  endereco: '',
+  email: '',
+  municipio: '',
+  estado: '',
+  telefone: '',
+
+  clientSearchTerm: '', // Termo de busca para o input
 };
 
 const CertificadoPage = () => {
@@ -78,18 +88,31 @@ const CertificadoPage = () => {
       const currentSavedData = savedData || {}; 
       const dataToLoad = {
         ...currentSavedData,
-        selectedClientId: currentSavedData.selectedClientId || '',
-        selectedClientData: currentSavedData.selectedClientData || null,
         periodoInicio: processDateValue(currentSavedData.periodoInicio, getFirstDayOfMonth),
         periodoFim: processDateValue(currentSavedData.periodoFim, getTodayDate),
         data_emissao: processDateValue(currentSavedData.data_emissao, () => new Date()),
+        
+        // Carregar dados do cliente do auto-save
+        cliente_id: currentSavedData.cliente_id || '',
+        cliente_nome: currentSavedData.cliente_nome || '',
+        cliente_nome_fantasia: currentSavedData.cliente_nome_fantasia || '',
+        cnpj_cpf: currentSavedData.cnpj_cpf || '',
+        endereco: currentSavedData.endereco || '',
+        email: currentSavedData.email || '',
+        municipio: currentSavedData.municipio || '',
+        estado: currentSavedData.estado || '',
+        telefone: currentSavedData.telefone || '',
+
         clientSearchTerm: currentSavedData.clientSearchTerm || '',
       };
       setLocalFormData(dataToLoad);
     }
   }, [isEditMode, savedData, setLocalFormData, processDateValue, clearSavedData]);
 
-  const { selectedClientId, selectedClientData, periodoInicio, periodoFim, data_emissao, clientSearchTerm } = localFormData;
+  const { 
+    cliente_id, cliente_nome, cliente_nome_fantasia, cnpj_cpf, endereco, email, municipio, estado, telefone,
+    periodoInicio, periodoFim, data_emissao, clientSearchTerm 
+  } = localFormData;
 
   // Fetch all clients with active contracts
   useEffect(() => {
@@ -132,7 +155,7 @@ const CertificadoPage = () => {
 
           const { data: clientData, error: clientError } = await supabase
             .from('clientes')
-            .select('id, nome, cnpj_cpf, municipio, estado, endereco, nome_fantasia')
+            .select('id, nome, cnpj_cpf, municipio, estado, endereco, nome_fantasia, telefone, email')
             .eq('id', certData.cliente_id)
             .single();
 
@@ -140,8 +163,15 @@ const CertificadoPage = () => {
 
           setLocalFormData(prev => ({
             ...prev,
-            selectedClientId: certData.cliente_id,
-            selectedClientData: clientData,
+            cliente_id: clientData.id,
+            cliente_nome: clientData.nome,
+            cliente_nome_fantasia: clientData.nome_fantasia,
+            cnpj_cpf: clientData.cnpj_cpf,
+            endereco: clientData.endereco,
+            email: clientData.email,
+            municipio: clientData.municipio,
+            estado: clientData.estado,
+            telefone: clientData.telefone,
             periodoInicio: processDateValue(certData.periodo_inicio, getFirstDayOfMonth),
             periodoFim: processDateValue(certData.periodo_fim, getTodayDate),
             data_emissao: processDateValue(certData.data_emissao, () => new Date()),
@@ -171,8 +201,19 @@ const CertificadoPage = () => {
     const val = e.target.value;
     setLocalFormData(prev => ({ ...prev, clientSearchTerm: val }));
     // Se o usuário começar a digitar, desmarcar o cliente selecionado
-    if (localFormData.selectedClientId) {
-      setLocalFormData(prev => ({ ...prev, selectedClientId: null, selectedClientData: null }));
+    if (prev.cliente_id) {
+      setLocalFormData(prev => ({ 
+        ...prev, 
+        cliente_id: '', 
+        cliente_nome: '',
+        cliente_nome_fantasia: '',
+        cnpj_cpf: '', 
+        endereco: '', 
+        email: '', 
+        municipio: '', 
+        estado: '', 
+        telefone: '' 
+      }));
     }
     setShowClienteDropdown(true);
   };
@@ -180,8 +221,15 @@ const CertificadoPage = () => {
   const handleClientSelect = (client) => {
     setLocalFormData(prev => ({
       ...prev,
-      selectedClientId: client.id,
-      selectedClientData: client,
+      cliente_id: client.id,
+      cliente_nome: client.nome,
+      cliente_nome_fantasia: client.nome_fantasia,
+      cnpj_cpf: client.cnpj_cpf,
+      endereco: client.endereco,
+      email: client.email,
+      municipio: client.municipio,
+      estado: client.estado,
+      telefone: client.telefone,
       clientSearchTerm: client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome,
     }));
     setShowClienteDropdown(false);
@@ -206,10 +254,10 @@ const CertificadoPage = () => {
       // esconde o dropdown.
       setShowClienteDropdown(false);
 
-      // Se nenhum cliente foi selecionado (selectedClientId é null) E há texto no campo de busca
+      // Se nenhum cliente foi selecionado (cliente_id é vazio) E há texto no campo de busca
       // E esse texto não corresponde exatamente a um nome de cliente conhecido,
       // então limpa o campo de busca.
-      if (!localFormData.selectedClientId && localFormData.clientSearchTerm) {
+      if (!localFormData.cliente_id && localFormData.clientSearchTerm) {
         const isMatch = allClients.some(c => 
           (c.nome_fantasia ? `${c.nome} - ${c.nome_fantasia}` : c.nome) === localFormData.clientSearchTerm
         );
@@ -221,7 +269,7 @@ const CertificadoPage = () => {
   };
 
   const handleSubmit = async () => {
-    if (!selectedClientId || !periodoInicio || !periodoFim || !data_emissao || !selectedClientData) {
+    if (!cliente_id || !periodoInicio || !periodoFim || !data_emissao || !cliente_nome) {
       toast({ title: 'Campos obrigatórios', description: 'Por favor, selecione um cliente e preencha todas as datas.', variant: 'destructive' });
       return;
     }
@@ -241,7 +289,7 @@ const CertificadoPage = () => {
       const { data: coletas, error: coletasError } = await supabase
         .from('coletas')
         .select('quantidade_coletada')
-        .eq('cliente_id', selectedClientId)
+        .eq('cliente_id', cliente_id)
         .gte('data_coleta', startDateISO)
         .lte('data_coleta', endDateWithTime);
 
@@ -257,8 +305,8 @@ const CertificadoPage = () => {
       }
 
       const certificateData = {
-        cliente_id: selectedClientId,
-        cliente_nome: selectedClientData.nome,
+        cliente_id: cliente_id,
+        cliente_nome: cliente_nome,
         periodo_inicio: formatToISODate(periodoInicio),
         periodo_fim: formatToISODate(periodoFim),
         total_kg: totalKg,
@@ -280,7 +328,17 @@ const CertificadoPage = () => {
 
       setPdfData({
         id: certData.id,
-        cliente: selectedClientData,
+        cliente: { // Reconstruir objeto cliente para o PDF
+          id: cliente_id,
+          nome: cliente_nome,
+          cnpj_cpf: cnpj_cpf,
+          municipio: municipio,
+          estado: estado,
+          endereco: endereco,
+          nome_fantasia: cliente_nome_fantasia,
+          telefone: telefone,
+          email: email,
+        },
         empresa: empresa,
         periodo: { inicio: certData.periodo_inicio, fim: certData.periodo_fim },
         totalKg: certData.total_kg,
@@ -322,9 +380,9 @@ const CertificadoPage = () => {
       setProgress(100);
 
       if (isEditMode) {
-        await logAction('update_certificate', { certificate_id: certData.id, client_id: selectedClientId });
+        await logAction('update_certificate', { certificate_id: certData.id, client_id: cliente_id });
       } else {
-        await logAction('generate_certificate', { certificate_id: certData.id, client_id: selectedClientId });
+        await logAction('generate_certificate', { certificate_id: certData.id, client_id: cliente_id });
         clearSavedData();
       }
       
@@ -457,12 +515,12 @@ const CertificadoPage = () => {
                     </motion.div>
                   )}
                 </div>
-                {selectedClientData && (
+                {cliente_id && ( // Exibir CNPJ/CPF apenas se um cliente estiver selecionado
                   <div className="md:col-span-2">
                     <Label htmlFor="cnpj_cpf">CNPJ/CPF</Label>
                     <Input
                       id="cnpj_cpf"
-                      value={formatCnpjCpf(selectedClientData.cnpj_cpf)}
+                      value={formatCnpjCpf(cnpj_cpf)}
                       disabled
                       className="bg-white/20 border-white/30 mt-2"
                     />
