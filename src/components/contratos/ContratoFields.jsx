@@ -119,11 +119,10 @@ const ContratoFields = ({ formData, setFormData, loading, errors, empresaTimezon
                 signed: false,
               },
             }}
-            // Ensure value is always a string, defaulting to '0,00' if null/undefined
             value={formData.valor_coleta !== null && formData.valor_coleta !== undefined 
                      ? String(formData.valor_coleta).replace('.', ',') 
                      : '0,00'} 
-            onAccept={(value) => handleInputChange('valor_coleta', value)} // Pass the numeric value directly
+            onAccept={(value, mask) => handleInputChange('valor_coleta', mask.typedValue)} // Usar mask.typedValue para obter o número
             placeholder="0,00"
             className="w-full flex h-10 rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           />
