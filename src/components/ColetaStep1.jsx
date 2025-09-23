@@ -78,7 +78,31 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
   };
 
   const handleTipoColetaChange = (value) => {
-    setFormData(prev => ({ ...prev, tipo_coleta: value }));
+    setFormData(prev => {
+      let newValorCompra = prev.valor_compra;
+      let newFator = prev.fator;
+
+      if (value === 'Compra') {
+        // If changing to 'Compra', set a default value if it's currently 0 or empty
+        if (parseCurrency(newValorCompra) === 0 || !newValorCompra) {
+          newValorCompra = '1,20';
+        }
+        newFator = '6'; // Default factor for 'Compra' (can be adjusted by user later if needed)
+      } else if (value === 'Troca') {
+        newValorCompra = '0,00'; // No purchase value for 'Troca'
+        newFator = '6'; // Default factor for 'Troca'
+      } else if (value === 'Doação') {
+        newValorCompra = '0,00'; // No purchase value for 'Doação'
+        newFator = '6'; // Default factor for 'Doação'
+      }
+
+      return {
+        ...prev,
+        tipo_coleta: value,
+        valor_compra: newValorCompra,
+        fator: newFator,
+      };
+    });
   };
 
   useEffect(() => {
@@ -137,7 +161,7 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
       // Se não houver contrato ativo, resetar para valores padrão
       newTipoColeta = 'Troca';
       newFator = '6';
-      newValorCompra = '0,00';
+      newValorCompra = '0,00'; // This is the potential culprit!
     }
 
     const newFormData = {
