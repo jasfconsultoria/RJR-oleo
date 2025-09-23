@@ -136,7 +136,8 @@ const EntradaFormPage = () => {
   const handleSelectChange = (name, value) => {
     setFormData((prev) => ({ ...prev, [name]: value }));
     if (name === 'origem' && value !== 'coleta') {
-      setFormData((prev) => ({ ...prev, coleta_id: null }));
+      setFormData((prev) => ({ ...prev, coleta_id: null, cliente_id: null, cliente_nome: '', cliente_nome_fantasia: '', cnpj_cpf: '' }));
+      setIsClienteSelected(false);
     }
   };
 

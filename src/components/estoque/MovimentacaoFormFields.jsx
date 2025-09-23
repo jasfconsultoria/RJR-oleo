@@ -4,7 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar, Info, User, Tag } from 'lucide-react';
-import ClienteSearchableSelect from '@/components/ui/ClienteSearchableSelect';
+// Removido: import ClienteSearchableSelect from '@/components/ui/ClienteSearchableSelect';
 import ColetaSearchableSelect from '@/components/ui/ColetaSearchableSelect'; // New import
 import { format } from 'date-fns';
 
@@ -64,7 +64,7 @@ const MovimentacaoFormFields = ({ formData, handleChange, handleSelectChange, ha
         />
       </div>
 
-      {formData.origem === 'coleta' ? (
+      {formData.origem === 'coleta' && (
         <div className="md:col-span-2">
           <ColetaSearchableSelect
             labelText="Selecionar Coleta *"
@@ -73,18 +73,8 @@ const MovimentacaoFormFields = ({ formData, handleChange, handleSelectChange, ha
             disabled={isEditing}
           />
         </div>
-      ) : (
-        <div className="md:col-span-2">
-          <ClienteSearchableSelect
-            labelText="Cliente *"
-            value={formData.cliente_id}
-            onChange={(value) => handleSelectChange('cliente_id', value)}
-            loading={loadingClients}
-            disabled={isEditing}
-            required // Making it required
-          />
-        </div>
       )}
+      {/* O campo de cliente para origem 'manual' será renderizado no componente pai (EntradaFormPage/SaidaFormPage) */}
     </div>
   );
 };
