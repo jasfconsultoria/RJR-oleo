@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { formatNumber, parseCurrency, formatCurrency } from '@/lib/utils'; // Import formatCurrency
+// Removido: import { IMaskInput } from 'react-imask'; 
 
 const frequenciaOptions = [
   { value: 'Diária', label: 'Diária' },
