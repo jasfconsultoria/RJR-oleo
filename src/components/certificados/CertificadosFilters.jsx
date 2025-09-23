@@ -3,13 +3,9 @@ import { motion } from 'framer-motion';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { DateInput } from '@/components/ui/date-input';
-// Removido: import { formatCnpjCpf, formatToISODate } from '@/lib/utils';
-import { Loader2, X, Search } from 'lucide-react'; // Adicionado Search
-
-// Removido: ClienteDropdown
+import { Loader2, X, Search } from 'lucide-react';
 
 export function CertificadosFilters({
-  // Removido: clients,
   clientSearchTerm, // Novo prop
   setClientSearchTerm, // Novo prop
   startDate,
@@ -17,15 +13,6 @@ export function CertificadosFilters({
   endDate,
   setEndDate,
 }) {
-  // Removido: [loadingClients, setLoadingClients] = useState(!clients || clients.length === 0);
-  // Removido: [inputValue, setInputValue] = useState('');
-  // Removido: [showDropdown, setShowDropdown] = useState(false);
-  // Removido: containerRef = useRef(null);
-  // Removido: [filteredClients, setFilteredClients] = useState([]);
-
-  // Removido: useEffect para clients e selectedClientId
-  // Removido: useEffect para handleClickOutside
-
   const handleInputChange = (e) => {
     const value = e.target.value;
     setClientSearchTerm(value); // Atualiza o termo de busca diretamente

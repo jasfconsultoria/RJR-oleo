@@ -9,8 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import CertificadoClientSearch from '@/components/certificados/CertificadoClientSearch'; // Importar o novo componente
-import { ArrowLeft, Loader2, FileText, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Loader2, FileText, CheckCircle, User, Search } from 'lucide-react'; // Adicionado User e Search icons
 import { logAction } from '@/lib/logger';
 import { formatToISODate, formatCnpjCpf } from '@/lib/utils';
 import jsPDF from 'jspdf';
@@ -29,10 +28,11 @@ const getFirstDayOfMonth = () => {
 
 const initialFormState = {
   selectedClientId: '',
-  selectedClientData: null, // Novo estado para armazenar o objeto completo do cliente
-  periodoInicio: undefined, // Default to undefined
-  periodoFim: undefined,    // Default to undefined
-  data_emissao: undefined,  // Default to undefined
+  selectedClientData: null, // Objeto completo do cliente selecionado
+  periodoInicio: undefined,
+  periodoFim: undefined,
+  data_emissao: undefined,
+  clientSearchTerm: '', // Estado para o termo de busca do cliente
 };
 
 const CertificadoPage = () => {
@@ -44,11 +44,16 @@ const CertificadoPage = () => {
   const isEditMode = !!id;
 
   const pdfContainerRef = useRef(null);
+  const clientSearchInputRef = useRef(null); // Ref para o input de busca de cliente
+  const clientDropdownRef = useRef(null); // Ref para o dropdown de clientes
+
   const [pdfData, setPdfData] = useState(null);
   const [empresa, setEmpresa] = useState(null);
   const [loading, setLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [allClients, setAllClients] = useState([]); // Todos os clientes do DB
+  const [showClienteDropdown, setShowClienteDropdown] = useState(false); // Controla a visibilidade do dropdown
 
   const [localFormData, setLocalFormData, clearSavedData, savedData] = useAutoSave(
     'certificado-form-data',
@@ -73,16 +78,48 @@ const CertificadoPage = () => {
       const dataToLoad = {
         ...currentSavedData,
         selectedClientId: currentSavedData.selectedClientId || '',
-        selectedClientData: currentSavedData.selectedClientData || null, // Carregar dados do cliente
+        selectedClientData: currentSavedData.selectedClientData || null,
         periodoInicio: processDateValue(currentSavedData.periodoInicio, getFirstDayOfMonth),
         periodoFim: processDateValue(currentSavedData.periodoFim, getTodayDate),
         data_emissao: processDateValue(currentSavedData.data_emissao, () => new Date()),
+        clientSearchTerm: currentSavedData.clientSearchTerm || '',
       };
       setLocalFormData(dataToLoad);
     }
   }, [isEditMode, savedData, setLocalFormData, processDateValue]);
 
-  const { selectedClientId, selectedClientData, periodoInicio, periodoFim, data_emissao } = localFormData;
+  const { selectedClientId, selectedClientData, periodoInicio, periodoFim, data_emissao, clientSearchTerm } = localFormData;
+
+  // Fetch all clients
+  useEffect(() => {
+    const fetchAllClients = async () => {
+      const { data, error } = await supabase
+        .from('clientes')
+        .select('id, nome, nome_fantasia, cnpj_cpf, municipio, estado, endereco')
+        .order('nome', { ascending: true });
+
+      if (error) {
+        toast({ title: 'Erro ao buscar clientes', description: error.message, variant: 'destructive' });
+        setAllClients([]);
+      } else {
+        setAllClients(data || []);
+      }
+    };
+    fetchAllClients();
+  }, [toast]);
+
+  // Sync clientSearchTerm with selectedClientData
+  useEffect(() => {
+    if (selectedClientData) {
+      setLocalFormData(prev => ({
+        ...prev,
+        clientSearchTerm: selectedClientData.nome_fantasia ? `${selectedClientData.nome} - ${selectedClientData.nome_fantasia}` : selectedClientData.nome
+      }));
+    } else if (!selectedClientId) {
+      setLocalFormData(prev => ({ ...prev, clientSearchTerm: '' }));
+    }
+  }, [selectedClientData, selectedClientId, setLocalFormData]);
+
 
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -101,7 +138,6 @@ const CertificadoPage = () => {
           
           if (certError) throw certError;
 
-          // Buscar dados completos do cliente para preencher selectedClientData
           const { data: clientData, error: clientError } = await supabase
             .from('clientes')
             .select('id, nome, cnpj_cpf, municipio, estado, endereco, nome_fantasia')
@@ -113,10 +149,11 @@ const CertificadoPage = () => {
           setLocalFormData(prev => ({
             ...prev,
             selectedClientId: certData.cliente_id,
-            selectedClientData: clientData, // Preencher com os dados completos
+            selectedClientData: clientData,
             periodoInicio: processDateValue(certData.periodo_inicio, getFirstDayOfMonth),
             periodoFim: processDateValue(certData.periodo_fim, getTodayDate),
             data_emissao: processDateValue(certData.data_emissao, () => new Date()),
+            clientSearchTerm: clientData.nome_fantasia ? `${clientData.nome} - ${clientData.nome_fantasia}` : clientData.nome,
           }));
         }
       } catch (error) {
@@ -129,12 +166,48 @@ const CertificadoPage = () => {
     fetchInitialData();
   }, [id, isEditMode, toast, navigate, setLocalFormData, processDateValue]);
 
+  const filteredClients = useMemo(() => {
+    if (!clientSearchTerm) return allClients;
+    return allClients.filter(client =>
+      client.nome.toLowerCase().includes(clientSearchTerm.toLowerCase()) ||
+      (client.nome_fantasia && client.nome_fantasia.toLowerCase().includes(clientSearchTerm.toLowerCase())) ||
+      (client.cnpj_cpf && formatCnpjCpf(client.cnpj_cpf).toLowerCase().includes(clientSearchTerm.toLowerCase()))
+    );
+  }, [allClients, clientSearchTerm]);
+
+  const handleClientSearchInputChange = (e) => {
+    const val = e.target.value;
+    setLocalFormData(prev => ({ ...prev, clientSearchTerm: val }));
+    if (selectedClientData) {
+      setLocalFormData(prev => ({ ...prev, selectedClientId: null, selectedClientData: null }));
+    }
+    setShowClienteDropdown(true);
+  };
+
   const handleClientSelect = (client) => {
     setLocalFormData(prev => ({
       ...prev,
-      selectedClientId: client ? client.id : null,
-      selectedClientData: client, // Armazenar o objeto completo do cliente
+      selectedClientId: client.id,
+      selectedClientData: client,
+      clientSearchTerm: client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome,
     }));
+    setShowClienteDropdown(false);
+  };
+
+  const handleFocus = () => {
+    setShowClienteDropdown(true);
+  };
+
+  const handleBlur = () => {
+    setTimeout(() => {
+      if (clientDropdownRef.current && !clientDropdownRef.current.contains(document.activeElement) &&
+          clientSearchInputRef.current && !clientSearchInputRef.current.contains(document.activeElement)) {
+        setShowClienteDropdown(false);
+        if (!selectedClientData && clientSearchTerm && !allClients.some(c => (c.nome_fantasia ? `${c.nome} - ${c.nome_fantasia}` : c.nome) === clientSearchTerm)) {
+          setLocalFormData(prev => ({ ...prev, clientSearchTerm: '' }));
+        }
+      }
+    }, 100);
   };
 
   const handleSubmit = async () => {
@@ -151,11 +224,8 @@ const CertificadoPage = () => {
     setProgress(10);
 
     try {
-      const startDateISO = formatToISODate(periodoInicio); // Ex: '2025-09-01'
-      
-      // Garante que periodoFim é um objeto Date válido antes de usar endOfDay
+      const startDateISO = formatToISODate(periodoInicio);
       const actualPeriodoFim = periodoFim instanceof Date && isValid(periodoFim) ? periodoFim : new Date();
-      // Formata a data final para incluir o final do dia no fuso horário da empresa
       const endDateWithTime = format(endOfDay(actualPeriodoFim), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx");
 
       const { data: coletas, error: coletasError } = await supabase
@@ -163,7 +233,7 @@ const CertificadoPage = () => {
         .select('quantidade_coletada')
         .eq('cliente_id', selectedClientId)
         .gte('data_coleta', startDateISO)
-        .lte('data_coleta', endDateWithTime); // Usar a data final formatada corretamente
+        .lte('data_coleta', endDateWithTime);
 
       if (coletasError) throw coletasError;
       setProgress(20);
@@ -178,7 +248,7 @@ const CertificadoPage = () => {
 
       const certificateData = {
         cliente_id: selectedClientId,
-        cliente_nome: selectedClientData.nome, // Usar nome do selectedClientData
+        cliente_nome: selectedClientData.nome,
         periodo_inicio: formatToISODate(periodoInicio),
         periodo_fim: formatToISODate(periodoFim),
         total_kg: totalKg,
@@ -198,10 +268,9 @@ const CertificadoPage = () => {
       if (certError) throw certError;
       setProgress(40);
 
-      // Reutilizar selectedClientData e empresa que já estão no estado
       setPdfData({
         id: certData.id,
-        cliente: selectedClientData, // Passar o objeto completo do cliente
+        cliente: selectedClientData,
         empresa: empresa,
         periodo: { inicio: certData.periodo_inicio, fim: certData.periodo_fim },
         totalKg: certData.total_kg,
@@ -328,7 +397,6 @@ const CertificadoPage = () => {
                     value={data_emissao ? formatToISODate(data_emissao) : ''}
                     onChange={(e) => {
                       const dateString = e.target.value;
-                      // Use parseISO para analisar a string e isValid para verificar
                       const newDate = dateString ? parseISO(dateString) : undefined;
                       setLocalFormData(prev => ({ ...prev, data_emissao: isValid(newDate) ? newDate : undefined }));
                     }}
@@ -336,15 +404,50 @@ const CertificadoPage = () => {
                     className="bg-white/20 border-white/30"
                   />
                 </div>
-                <div className="md:col-span-2">
-                  {/* O Label agora é renderizado dentro do CertificadoClientSearch */}
-                  <CertificadoClientSearch // Usar o novo componente
-                    selectedClientId={selectedClientId}
-                    onSelectClient={handleClientSelect}
-                    loading={loading}
-                  />
+                <div className="md:col-span-2 space-y-2 relative">
+                  <Label htmlFor="cliente-search" className="text-white flex items-center gap-2">
+                    <User className="w-4 h-4 text-emerald-400" />
+                    Cliente <span className="text-red-500">*</span>
+                  </Label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/70" />
+                    <Input
+                      id="cliente-search"
+                      ref={clientSearchInputRef}
+                      value={clientSearchTerm}
+                      onChange={handleClientSearchInputChange}
+                      onFocus={handleFocus}
+                      onBlur={handleBlur}
+                      placeholder="Digite para buscar..."
+                      className="pl-10 w-full bg-white/5 border-white/20 text-white placeholder:text-white/60 rounded-xl"
+                      autoComplete="off"
+                      required
+                    />
+                  </div>
+                  
+                  {showClienteDropdown && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="absolute z-10 w-full bg-white rounded-lg shadow-lg max-h-48 overflow-y-auto mt-1"
+                      ref={clientDropdownRef}
+                    >
+                      {filteredClients.length > 0 ? filteredClients.map((client) => (
+                        <div
+                          key={client.id}
+                          onClick={() => handleClientSelect(client)}
+                          className="p-3 hover:bg-emerald-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                        >
+                          <div className="font-medium text-gray-900">{client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome}</div>
+                          <div className="text-sm text-gray-600">{formatCnpjCpf(client.cnpj_cpf)} - {client.municipio}/{client.estado}</div>
+                        </div>
+                      )) : (
+                        <div className="p-3 text-center text-gray-500">Nenhum cliente encontrado.</div>
+                      )}
+                    </motion.div>
+                  )}
                 </div>
-                {selectedClientData && ( // Usar selectedClientData
+                {selectedClientData && (
                   <div className="md:col-span-2">
                     <Label htmlFor="cnpj_cpf">CNPJ/CPF</Label>
                     <Input
@@ -367,7 +470,6 @@ const CertificadoPage = () => {
                       value={periodoInicio ? formatToISODate(periodoInicio) : ''}
                       onChange={(e) => {
                         const dateString = e.target.value;
-                        // Use parseISO para analisar a string e isValid para verificar
                         const newDate = dateString ? parseISO(dateString) : undefined;
                         setLocalFormData(prev => ({ ...prev, periodoInicio: isValid(newDate) ? newDate : undefined }));
                       }}
@@ -382,7 +484,6 @@ const CertificadoPage = () => {
                       value={periodoFim ? formatToISODate(periodoFim) : ''}
                       onChange={(e) => {
                         const dateString = e.target.value;
-                        // Use parseISO para analisar a string e isValid para verificar
                         const newDate = dateString ? parseISO(dateString) : undefined;
                         setLocalFormData(prev => ({ ...prev, periodoFim: isValid(newDate) ? newDate : undefined }));
                       }}
