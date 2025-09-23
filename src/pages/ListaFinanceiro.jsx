@@ -29,8 +29,8 @@ const ListaFinanceiro = ({ type }) => {
   const [clientSearchTerm, setClientSearchTerm] = useState(''); // Novo estado para busca de cliente
   const [statusFilter, setStatusFilter] = useState('all');
   // Ajustado os filtros de data padrão para um período mais amplo
-  const [startDate, setStartDate] = useState(format(subYears(new Date(), 1), 'yyyy-MM-dd'));
-  const [endDate, setEndDate] = useState(format(addYears(new Date(), 1), 'yyyy-MM-dd'));
+  const [startDate, setStartDate] = useState('2025-09-22'); // Alterado para a data específica
+  const [endDate, setEndDate] = useState('2025-09-22');   // Alterado para a data específica
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
   const debouncedClientSearchTerm = useDebounce(clientSearchTerm, 500); // Debounce para busca de cliente
   const debouncedStartDate = useDebounce(startDate, 500);
@@ -68,8 +68,7 @@ const ListaFinanceiro = ({ type }) => {
       .from('v_financeiro_completo')
       .select('*', { count: 'exact' })
       .eq('type', type)
-      .order('issue_date', { ascending: false })
-      .order('created_at', { ascending: false })
+      .order('created_at', { ascending: false }) // Alterado para ordenar por created_at decrescente
       .range(from, to);
 
     if (debouncedSearchTerm) {
