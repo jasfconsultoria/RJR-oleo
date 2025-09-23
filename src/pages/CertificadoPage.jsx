@@ -191,11 +191,33 @@ const CertificadoPage = () => {
     setShowClienteDropdown(true);
   };
 
-  const handleBlur = () => {
-    // Apenas esconde o dropdown após um pequeno atraso para permitir o clique no item
+  const handleBlur = (e) => {
+    // Use setTimeout para permitir que o evento onClick do item do dropdown seja disparado primeiro
     setTimeout(() => {
+      // Verifica se o elemento para o qual o foco se moveu (relatedTarget) está dentro do dropdown
+      // ou se o foco ainda está no input (o que não deveria acontecer no blur, mas é uma salvaguarda)
+      if (clientDropdownRef.current && clientDropdownRef.current.contains(e.relatedTarget)) {
+        // Se o foco se moveu para um item do dropdown, não faça nada,
+        // a função handleClientSelect será responsável por atualizar o estado.
+        return;
+      }
+
+      // Se o foco saiu do input e não foi para um item do dropdown,
+      // esconde o dropdown.
       setShowClienteDropdown(false);
-    }, 100);
+
+      // Se nenhum cliente foi selecionado (selectedClientId é null) E há texto no campo de busca
+      // E esse texto não corresponde exatamente a um nome de cliente conhecido,
+      // então limpa o campo de busca.
+      if (!localFormData.selectedClientId && localFormData.clientSearchTerm) {
+        const isMatch = allClients.some(c => 
+          (c.nome_fantasia ? `${c.nome} - ${c.nome_fantasia}` : c.nome) === localFormData.clientSearchTerm
+        );
+        if (!isMatch) {
+          setLocalFormData(prev => ({ ...prev, clientSearchTerm: '' }));
+        }
+      }
+    }, 100); // Pequeno atraso para permitir que o clique no item do dropdown seja registrado
   };
 
   const handleSubmit = async () => {
