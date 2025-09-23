@@ -35,6 +35,18 @@ const ContratoFields = ({ formData, setFormData, loading, errors, empresaTimezon
     setFormData(prev => ({ ...prev, [field]: date }));
   };
 
+  // Helper para garantir que o valor numérico seja armazenado corretamente
+  const getNumericValue = (input) => {
+    if (typeof input === 'number') return input; // Já é um número
+    if (typeof input === 'string') {
+      // Remove separadores de milhares (pontos) e substitui vírgula por ponto para decimal
+      const cleaned = input.replace(/\./g, '').replace(',', '.');
+      const parsed = parseFloat(cleaned);
+      return isNaN(parsed) ? 0 : parsed; // Retorna 0 para string vazia ou inválida
+    }
+    return 0; // Valor padrão para outros tipos
+  };
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-white">
       <div className="md:col-span-2">
@@ -125,7 +137,7 @@ const ContratoFields = ({ formData, setFormData, loading, errors, empresaTimezon
                      : '0,00'} 
             // Ao aceitar, converte o valor formatado (com vírgula) para um número (com ponto)
             // e armazena no estado. Se o campo estiver vazio, armazena 0.
-            onAccept={(value) => handleInputChange('valor_coleta', value ? parseCurrency(value) : 0)} 
+            onAccept={(value) => handleInputChange('valor_coleta', getNumericValue(value))} 
             placeholder="0,00"
             className="w-full flex h-10 rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           />
