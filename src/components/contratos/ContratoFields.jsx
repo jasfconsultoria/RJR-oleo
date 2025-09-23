@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { formatNumber, parseCurrency } from '@/lib/utils'; // Import formatNumber and parseCurrency
+import { IMaskInput } from 'react-imask'; // Import IMaskInput
 
 const frequenciaOptions = [
   { value: 'Diária', label: 'Diária' },
@@ -95,7 +96,7 @@ const ContratoFields = ({ formData, setFormData, loading, errors, empresaTimezon
           <SelectContent className="bg-gray-800 text-white">
             <SelectItem value="Compra">Compra</SelectItem>
             <SelectItem value="Troca">Troca</SelectItem>
-            <SelectItem value="Doação">Doação</SelectItem> {/* Adicionado 'Doação' */}
+            <SelectItem value="Doação">Doação</SelectItem>
           </SelectContent>
         </Select>
         {errors.tipo_coleta && <p className="text-red-400 text-sm mt-1">{errors.tipo_coleta}</p>}
@@ -103,12 +104,25 @@ const ContratoFields = ({ formData, setFormData, loading, errors, empresaTimezon
       
       {formData.tipo_coleta === 'Compra' && (
         <div>
-          <Label htmlFor="valor_coleta">Valor da Compra (R$ por kg)</Label>
-          <Input
-            id="valor_coleta"
-            type="text" // Changed to text to allow custom formatting
-            value={formatNumber(formData.valor_coleta)} // Format for display
-            onChange={(e) => handleInputChange('valor_coleta', parseCurrency(e.target.value))} // Parse input
+          <Label htmlFor="valor_coleta">Valor da Compra (R$ por Kg)</Label>
+          <IMaskInput
+            mask="num"
+            blocks={{
+              num: {
+                mask: Number,
+                thousandsSeparator: '.',
+                radix: ',',
+                mapToRadix: ['.'],
+                scale: 2,
+                padFractionalZeros: true,
+                normalizeZeros: true,
+                signed: false,
+              },
+            }}
+            value={String(formData.valor_coleta).replace('.', ',')} // Display with comma
+            onAccept={(value) => handleInputChange('valor_coleta', parseCurrency(value))} // Parse to number with dot
+            placeholder="0,00"
+            className="w-full flex h-10 rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           />
         </div>
       )}
