@@ -14,7 +14,7 @@ import { parseCurrency, formatCnpjCpf } from '@/lib/utils';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input'; // Importar Input
+import { Input } from '@/components/ui/input';
 
 const EntradaFormPage = () => {
   const { id } = useParams();
@@ -27,12 +27,12 @@ const EntradaFormPage = () => {
     data: new Date(),
     tipo: 'entrada',
     origem: 'manual',
-    document_number: '', // New field
+    document_number: '',
     cliente_id: null,
-    cliente_nome: '', // Nome principal do cliente
-    cliente_nome_fantasia: '', // Nome fantasia do cliente
-    cnpj_cpf: '', // CNPJ/CPF do cliente
-    coleta_id: null, // New field
+    cliente_nome: '', // Usado para o valor do input e nome de exibição
+    cliente_nome_fantasia: '',
+    cnpj_cpf: '',
+    coleta_id: null,
     observacao: '',
     itens: [],
   });
@@ -41,8 +41,7 @@ const EntradaFormPage = () => {
   const [allClients, setAllClients] = useState([]);
   const [filteredClients, setFilteredClients] = useState([]);
   const [showClienteDropdown, setShowClienteDropdown] = useState(false);
-  const [isClienteSelected, setIsClienteSelected] = useState(false);
-  const [clientSearchInput, setClientSearchInput] = useState(''); // Novo estado para o input de busca
+  const [isClienteSelected, setIsClienteSelected] = useState(false); // Indica se um cliente foi *selecionado* do dropdown
   const clientInputRef = useRef(null);
   const dropdownRef = useRef(null);
 
@@ -64,10 +63,10 @@ const EntradaFormPage = () => {
     fetchClients();
   }, [toast]);
 
-  // Filter clients based on search term
+  // Filter clients based on search term (formData.cliente_nome)
   useEffect(() => {
-    if (clientSearchInput && clientSearchInput.trim()) {
-      const searchTerm = clientSearchInput.toLowerCase();
+    if (formData.cliente_nome && formData.cliente_nome.trim()) {
+      const searchTerm = formData.cliente_nome.toLowerCase();
       const filtered = allClients.filter(client =>
         client.nome.toLowerCase().includes(searchTerm) ||
         (client.nome_fantasia && client.nome_fantasia.toLowerCase().includes(searchTerm)) ||
@@ -77,22 +76,7 @@ const EntradaFormPage = () => {
     } else {
       setFilteredClients(allClients);
     }
-  }, [clientSearchInput, allClients]);
-
-  // Sync clientSearchInput with formData.cliente_nome when formData.cliente_id changes
-  useEffect(() => {
-    if (formData.cliente_id && allClients.length > 0) {
-      const selected = allClients.find(c => c.id === formData.cliente_id);
-      if (selected) {
-        setClientSearchInput(selected.nome_fantasia ? `${selected.nome} - ${selected.nome_fantasia}` : selected.nome);
-        setIsClienteSelected(true);
-      }
-    } else if (!formData.cliente_id && !isEditing) { // Only clear if not editing and no client selected
-      setClientSearchInput('');
-      setIsClienteSelected(false);
-    }
-  }, [formData.cliente_id, allClients, isEditing]);
-
+  }, [formData.cliente_nome, allClients]);
 
   const fetchMovimentacao = useCallback(async () => {
     if (!id) {
@@ -103,7 +87,7 @@ const EntradaFormPage = () => {
     try {
       const { data: movimentacaoData, error: movimentacaoError } = await supabase
         .from('entrada_saida')
-        .select('*, cliente:clientes(id, nome, nome_fantasia, cnpj_cpf)') // Fetch client details
+        .select('*, cliente:clientes(id, nome, nome_fantasia, cnpj_cpf)')
         .eq('id', id)
         .single();
 
@@ -111,7 +95,7 @@ const EntradaFormPage = () => {
 
       const { data: itensData, error: itensError } = await supabase
         .from('itens_entrada_saida')
-        .select('*, produto:produtos(nome, unidade, tipo, codigo)') // Incluir 'codigo'
+        .select('*, produto:produtos(nome, unidade, tipo, codigo)')
         .eq('entrada_saida_id', id);
 
       if (itensError) throw itensError;
@@ -120,7 +104,7 @@ const EntradaFormPage = () => {
         ...movimentacaoData,
         data: new Date(movimentacaoData.data),
         cliente_id: movimentacaoData.cliente?.id || null,
-        cliente_nome: movimentacaoData.cliente?.nome || '',
+        cliente_nome: movimentacaoData.cliente?.nome_fantasia ? `${movimentacaoData.cliente.nome} - ${movimentacaoData.cliente.nome_fantasia}` : movimentacaoData.cliente?.nome || '', // Set full display name
         cliente_nome_fantasia: movimentacaoData.cliente?.nome_fantasia || '',
         cnpj_cpf: movimentacaoData.cliente?.cnpj_cpf || '',
         itens: itensData.map(item => ({
@@ -129,14 +113,11 @@ const EntradaFormPage = () => {
           produto_nome: item.produto.nome,
           unidade: item.produto.unidade,
           tipo: item.produto.tipo,
-          codigo: item.produto.codigo, // Adicionar código
+          codigo: item.produto.codigo,
           quantidade: String(item.quantidade).replace('.', ','),
         })),
       });
       setIsClienteSelected(!!movimentacaoData.cliente_id);
-      if (movimentacaoData.cliente?.id) {
-        setClientSearchInput(movimentacaoData.cliente.nome_fantasia ? `${movimentacaoData.cliente.nome} - ${movimentacaoData.cliente.nome_fantasia}` : movimentacaoData.cliente.nome);
-      }
     } catch (error) {
       toast({ title: 'Erro ao carregar movimentação', description: error.message, variant: 'destructive' });
       navigate('/app/estoque/movimentacoes');
@@ -157,7 +138,6 @@ const EntradaFormPage = () => {
     setFormData((prev) => ({ ...prev, [name]: value }));
     if (name === 'origem' && value !== 'coleta') {
       setFormData((prev) => ({ ...prev, coleta_id: null, cliente_id: null, cliente_nome: '', cliente_nome_fantasia: '', cnpj_cpf: '' }));
-      setClientSearchInput('');
       setIsClienteSelected(false);
     }
   };
@@ -170,11 +150,10 @@ const EntradaFormPage = () => {
         cliente_id: coleta.cliente_id,
         document_number: coleta.numero_coleta?.toString().padStart(6, '0'),
         observacao: `Movimentação referente à coleta Nº ${coleta.numero_coleta?.toString().padStart(6, '0')} do cliente ${coleta.cliente_nome}.`,
-        cliente_nome: coleta.cliente_nome,
+        cliente_nome: coleta.cliente_nome_fantasia ? `${coleta.cliente_nome} - ${coleta.cliente_nome_fantasia}` : coleta.cliente_nome,
         cliente_nome_fantasia: coleta.cliente_nome_fantasia,
         cnpj_cpf: coleta.cliente_cnpj_cpf,
       }));
-      setClientSearchInput(coleta.cliente_nome_fantasia ? `${coleta.cliente_nome} - ${coleta.cliente_nome_fantasia}` : coleta.cliente_nome);
       setIsClienteSelected(true);
     } else {
       setFormData((prev) => ({
@@ -187,7 +166,6 @@ const EntradaFormPage = () => {
         cliente_nome_fantasia: '',
         cnpj_cpf: '',
       }));
-      setClientSearchInput('');
       setIsClienteSelected(false);
     }
   };
@@ -196,12 +174,13 @@ const EntradaFormPage = () => {
     setFormData((prev) => ({ ...prev, itens: newItems }));
   };
 
-  const handleClientSearchInputChange = (e) => {
+  const handleClientSearchChange = (e) => {
     const value = e.target.value;
-    setClientSearchInput(value);
+    setFormData(prev => ({ ...prev, cliente_nome: value })); // Atualiza formData.cliente_nome diretamente
     if (isClienteSelected && value !== (formData.cliente_nome_fantasia ? `${formData.cliente_nome} - ${formData.cliente_nome_fantasia}` : formData.cliente_nome)) {
+      // Se um cliente estava selecionado e o input muda, deseleciona
       setIsClienteSelected(false);
-      setFormData(prev => ({ ...prev, cliente_id: null, cliente_nome: '', cliente_nome_fantasia: '', cnpj_cpf: '' }));
+      setFormData(prev => ({ ...prev, cliente_id: null, cliente_nome_fantasia: '', cnpj_cpf: '' }));
     }
     setShowClienteDropdown(true);
   };
@@ -210,11 +189,10 @@ const EntradaFormPage = () => {
     setFormData(prev => ({
       ...prev,
       cliente_id: client.id,
-      cliente_nome: client.nome,
+      cliente_nome: client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome, // Define o nome completo para exibição
       cliente_nome_fantasia: client.nome_fantasia,
       cnpj_cpf: client.cnpj_cpf,
     }));
-    setClientSearchInput(client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome);
     setIsClienteSelected(true);
     setShowClienteDropdown(false);
   };
@@ -227,7 +205,6 @@ const EntradaFormPage = () => {
       cliente_nome_fantasia: '',
       cnpj_cpf: '',
     }));
-    setClientSearchInput('');
     setIsClienteSelected(false);
     setShowClienteDropdown(false);
   };
@@ -240,12 +217,13 @@ const EntradaFormPage = () => {
     setTimeout(() => {
       if (dropdownRef.current && !dropdownRef.current.contains(document.activeElement)) {
         setShowClienteDropdown(false);
-        if (!isClienteSelected && clientSearchInput) {
+        // Se nenhum cliente foi selecionado E o valor atual do input não corresponde a um cliente selecionado
+        if (!isClienteSelected && formData.cliente_nome) {
           const isMatch = allClients.some(client =>
-            (client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome) === clientSearchInput
+            (client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome) === formData.cliente_nome
           );
           if (!isMatch) {
-            setClientSearchInput('');
+            // Se não for uma correspondência, limpa o input e os dados do cliente selecionado
             setFormData(prev => ({ ...prev, cliente_id: null, cliente_nome: '', cliente_nome_fantasia: '', cnpj_cpf: '' }));
           }
         }
@@ -285,7 +263,7 @@ const EntradaFormPage = () => {
 
     setSaving(true);
     try {
-      const { itens, ...movimentacaoHeader } = formData; // Excluir itens para inserção separada
+      const { itens, ...movimentacaoHeader } = formData;
       movimentacaoHeader.user_id = user?.id;
 
       let savedMovimentacao;
@@ -392,8 +370,8 @@ const EntradaFormPage = () => {
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/70" />
                     <Input
                       id="cliente_nome"
-                      value={clientSearchInput} // Usar o novo estado para o input
-                      onChange={handleClientSearchInputChange}
+                      value={formData.cliente_nome} // Usar formData.cliente_nome diretamente
+                      onChange={handleClientSearchChange}
                       onFocus={handleFocus}
                       onBlur={handleBlur}
                       placeholder="Digite para buscar ou adicionar cliente..."
@@ -403,7 +381,7 @@ const EntradaFormPage = () => {
                       disabled={isEditing}
                       ref={clientInputRef}
                     />
-                    {clientSearchInput && (
+                    {formData.cliente_nome && (
                       <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-white/70 hover:text-white rounded-full" onClick={handleClearClient}>
                         <X className="h-4 w-4" />
                       </Button>
