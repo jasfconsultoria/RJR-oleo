@@ -192,22 +192,9 @@ const CertificadoPage = () => {
   };
 
   const handleBlur = () => {
+    // Apenas esconde o dropdown. A lógica de limpar o campo será tratada pela seleção explícita.
     setTimeout(() => {
-      if (clientDropdownRef.current && !clientDropdownRef.current.contains(document.activeElement) &&
-          clientSearchInputRef.current && !clientSearchInputRef.current.contains(document.activeElement)) {
-        setShowClienteDropdown(false);
-        // Se nenhum cliente estiver selecionado (pelo ID) E houver texto no campo de entrada
-        // E esse texto não corresponder exatamente a um nome de cliente conhecido,
-        // então limpa o campo de entrada.
-        if (!localFormData.selectedClientId && localFormData.clientInputText) {
-          const isMatch = allClients.some(c => 
-            (c.nome_fantasia ? `${c.nome} - ${c.nome_fantasia}` : c.nome) === localFormData.clientInputText
-          );
-          if (!isMatch) {
-            setLocalFormData(prev => ({ ...prev, clientInputText: '' }));
-          }
-        }
-      }
+      setShowClienteDropdown(false);
     }, 100);
   };
 
