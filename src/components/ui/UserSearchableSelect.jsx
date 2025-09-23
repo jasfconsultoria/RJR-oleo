@@ -1,94 +1,83 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { motion } from 'framer-motion';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import React, { useState } from 'react';
+import { Check, ChevronsUpDown } from 'lucide-react';
+
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+} from '@/components/ui/command';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { Loader2 } from 'lucide-react';
 
-export const UserSearchableSelect = ({ value, onChange, users, disabled = false, loading = false, labelText = "Usuário" }) => {
-  const [inputValue, setInputValue] = useState('');
-  const [showDropdown, setShowDropdown] = useState(false);
-  const containerRef = useRef(null);
+export function UserSearchableSelect({ labelText = "Usuário", value, onChange, users = [], loading = false }) {
+  const [open, setOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
-  useEffect(() => {
-    const selectedUser = users.find(u => u.id === value);
-    setInputValue(selectedUser ? selectedUser.full_name : '');
-  }, [value, users]);
+  const options = [
+    { value: 'all', label: `Todos os ${labelText}s` },
+    ...users.map(u => ({ value: u.id, label: u.full_name || u.email }))
+  ];
 
-  const filteredUsers = useMemo(() => {
-    if (!inputValue) {
-      return users;
-    }
-    return users.filter(user =>
-      user.full_name.toLowerCase().includes(inputValue.toLowerCase()) ||
-      (user.email && user.email.toLowerCase().includes(inputValue.toLowerCase()))
-    );
-  }, [inputValue, users]);
-
-  const handleSelect = (user) => {
-    onChange(user.id);
-    setInputValue(user.full_name);
-    setShowDropdown(false);
-  };
-
-  const handleInputChange = (e) => {
-    setInputValue(e.target.value);
-    if (!e.target.value) {
-      onChange(null);
-    }
-  };
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (containerRef.current && !containerRef.current.contains(event.target)) {
-        setShowDropdown(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
+  const selectedOption = options.find((option) => option.value === value);
 
   return (
-    <div className="relative w-full" ref={containerRef}>
-      <Label className="block text-lg mb-2">{labelText}</Label>
-      <div className="relative">
-        <Input
-          value={inputValue}
-          onChange={handleInputChange}
-          onFocus={() => setShowDropdown(true)}
-          placeholder={loading ? "Carregando usuários..." : "Digite para buscar..."}
-          className="bg-white/20 border-white/30 text-white placeholder:text-white/60 rounded-xl"
-          autoComplete="off"
-          disabled={disabled || loading}
-        />
-        {loading && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 animate-spin" />}
-      </div>
-      
-      {showDropdown && !disabled && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="absolute z-50 w-full bg-white rounded-xl shadow-lg max-h-60 overflow-y-auto mt-1"
-        >
-          {filteredUsers.length > 0 ? filteredUsers.map((user) => (
-            <div
-              key={user.id}
-              onClick={() => handleSelect(user)}
-              className="p-3 hover:bg-emerald-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-            >
-              <div className="font-medium text-gray-900">{user.full_name}</div>
-              <div className="text-sm text-gray-600 capitalize">
-                {user.role}
-              </div>
-            </div>
-          )) : (
-            <div className="p-3 text-center text-gray-500">
-              {loading ? "Carregando..." : "Nenhum usuário encontrado."}
-            </div>
-          )}
-        </motion.div>
-      )}
+    <div className="space-y-2">
+      <label className="block text-white mb-1 text-sm">{labelText}</label>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            className="w-full justify-between bg-white/10 border-white/30 text-white hover:bg-white/20"
+            disabled={loading}
+          >
+            {loading ? (
+              <span className="flex items-center"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Carregando...</span>
+            ) : (
+              selectedOption ? selectedOption.label : `Selecione ${labelText.toLowerCase()}...`
+            )}
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[--radix-popover-trigger-width] p-0 bg-gray-800 text-white border-gray-700">
+          <Command>
+            <CommandInput placeholder="Buscar usuário..." value={searchTerm} onValueChange={setSearchTerm} />
+            <CommandEmpty>Nenhum usuário encontrado.</CommandEmpty>
+            <CommandGroup className="max-h-60 overflow-y-auto">
+              {options.map((option) => (
+                <CommandItem
+                  key={option.value}
+                  value={option.label}
+                  onSelect={(currentValue) => {
+                    const selected = options.find(o => o.label.toLowerCase() === currentValue.toLowerCase());
+                    onChange(selected ? selected.value : null);
+                    setOpen(false);
+                    setSearchTerm('');
+                  }}
+                  className="hover:bg-emerald-700"
+                >
+                  <Check
+                    className={cn(
+                      'mr-2 h-4 w-4',
+                      value === option.value ? 'opacity-100' : 'opacity-0'
+                    )}
+                  />
+                  {option.label}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </Command>
+        </PopoverContent>
+      </Popover>
     </div>
   );
-};
+}
