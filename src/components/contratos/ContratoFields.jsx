@@ -5,8 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { formatNumber, parseCurrency } from '@/lib/utils'; // Import formatNumber and parseCurrency
-import { IMaskInput } from 'react-imask'; // Import IMaskInput
+import { formatNumber, parseCurrency, formatCurrency } from '@/lib/utils'; // Import formatCurrency
+// Removido: import { IMaskInput } from 'react-imask'; 
 
 const frequenciaOptions = [
   { value: 'Diária', label: 'Diária' },
@@ -105,24 +105,13 @@ const ContratoFields = ({ formData, setFormData, loading, errors, empresaTimezon
       {formData.tipo_coleta === 'Compra' && (
         <div>
           <Label htmlFor="valor_coleta">Valor da Compra (R$ por Kg)</Label>
-          <IMaskInput
-            mask="num"
-            blocks={{
-              num: {
-                mask: Number,
-                thousandsSeparator: '.',
-                radix: ',',
-                mapToRadix: ['.'],
-                scale: 2,
-                padFractionalZeros: true,
-                normalizeZeros: true,
-                signed: false,
-              },
-            }}
-            // Garante que o valor passado para o IMaskInput é uma string com ponto decimal
-            value={String(parseCurrency(formData.valor_coleta) || 0)} 
-            // onAccept retorna o valor não mascarado (com ponto decimal)
-            onAccept={(value) => handleInputChange('valor_coleta', value)} 
+          <Input
+            id="valor_coleta"
+            type="text" // Alterado para tipo text para permitir vírgula
+            // Exibe o valor formatado para o usuário (ex: "0,75")
+            value={formatCurrency(parseCurrency(formData.valor_coleta) || 0).replace('R$ ', '')} 
+            // Armazena o valor como string (ex: "0,75")
+            onChange={(e) => handleInputChange('valor_coleta', e.target.value)} 
             placeholder="0,00"
             className="w-full flex h-10 rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             required={formData.tipo_coleta === 'Compra'} // Make it required
