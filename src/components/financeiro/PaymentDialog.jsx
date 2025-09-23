@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, CalendarIcon } from 'lucide-react';
+import { Loader2, CalendarIcon, Banknote } from 'lucide-react'; // Adicionado Banknote icon
 import { formatCurrency, parseCurrency, formatToISODate } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -35,13 +35,66 @@ const PaymentDialog = ({ isOpen, onClose, entry, onSuccess }) => {
     payment_date: new Date(),
     payment_method: entry?.payment_method || 'pix',
     notes: '',
+    conta_corrente_id: '', // Novo estado para a conta corrente selecionada
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [linkedAccounts, setLinkedAccounts] = useState([]); // Estado para as contas vinculadas
+  const [loadingAccounts, setLoadingAccounts] = useState(true);
 
   const balance = entry ? entry.amount_balance : 0;
   const currentPaidAmount = parseCurrency(paymentData.paid_amount);
   const newTotalPaid = (entry?.paid_amount || 0) + currentPaidAmount;
   const newBalance = balance - currentPaidAmount;
+
+  // Função para buscar as contas correntes vinculadas ao usuário
+  const fetchLinkedAccounts = useCallback(async () => {
+    if (!user?.id) {
+      setLinkedAccounts([]);
+      setLoadingAccounts(false);
+      return;
+    }
+    setLoadingAccounts(true);
+    try {
+      // Busca os IDs das contas vinculadas ao usuário
+      const { data: links, error: linksError } = await supabase
+        .from('conta_usuario')
+        .select('conta_corrente_id')
+        .eq('user_id', user.id);
+
+      if (linksError) throw linksError;
+
+      const accountIds = links.map(link => link.conta_corrente_id);
+
+      if (accountIds.length > 0) {
+        // Busca os detalhes completos das contas
+        const { data: accounts, error: accountsError } = await supabase
+          .from('conta_corrente')
+          .select('*')
+          .in('id', accountIds)
+          .order('banco', { ascending: true });
+
+        if (accountsError) throw accountsError;
+        setLinkedAccounts(accounts || []);
+        // Define a primeira conta como padrão, se houver
+        if (accounts.length > 0 && !paymentData.conta_corrente_id) {
+          setPaymentData(prev => ({ ...prev, conta_corrente_id: accounts[0].id }));
+        }
+      } else {
+        setLinkedAccounts([]);
+      }
+    } catch (error) {
+      toast({ title: 'Erro ao buscar contas vinculadas', description: error.message, variant: 'destructive' });
+      setLinkedAccounts([]);
+    } finally {
+      setLoadingAccounts(false);
+    }
+  }, [user, toast, paymentData.conta_corrente_id]);
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchLinkedAccounts();
+    }
+  }, [isOpen, fetchLinkedAccounts]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -50,6 +103,10 @@ const PaymentDialog = ({ isOpen, onClose, entry, onSuccess }) => {
   
   const handleAmountChange = (value) => {
     setPaymentData(prev => ({ ...prev, paid_amount: value }));
+  };
+
+  const handleAccountSelectChange = (value) => {
+    setPaymentData(prev => ({ ...prev, conta_corrente_id: value }));
   };
 
   const handleSubmit = async (e) => {
@@ -64,6 +121,10 @@ const PaymentDialog = ({ isOpen, onClose, entry, onSuccess }) => {
       toast({ title: 'Valor excede o saldo', description: `O valor máximo para pagamento é ${formatCurrency(balance)}.`, variant: 'destructive' });
       return;
     }
+    if (!paymentData.conta_corrente_id) {
+      toast({ title: 'Conta de Movimento Obrigatória', description: 'Por favor, selecione uma conta para registrar o pagamento.', variant: 'destructive' });
+      return;
+    }
 
     setIsSubmitting(true);
 
@@ -73,6 +134,7 @@ const PaymentDialog = ({ isOpen, onClose, entry, onSuccess }) => {
       p_payment_date: formatToISODate(paymentData.payment_date),
       p_payment_method: paymentData.payment_method,
       p_notes: paymentData.notes,
+      p_conta_corrente_id: paymentData.conta_corrente_id, // Novo parâmetro
     };
 
     const { data, error } = await supabase.rpc('register_payment', rpc_params);
@@ -117,6 +179,31 @@ const PaymentDialog = ({ isOpen, onClose, entry, onSuccess }) => {
                 ))}
               </SelectContent>
             </Select>
+          </div>
+          <div>
+            <Label htmlFor="conta_movimento" className="flex items-center gap-2">
+              <Banknote className="w-4 h-4" /> Conta Movimento *
+            </Label>
+            {loadingAccounts ? (
+              <div className="flex items-center gap-2 text-gray-400">
+                <Loader2 className="h-4 w-4 animate-spin" /> Carregando contas...
+              </div>
+            ) : linkedAccounts.length > 0 ? (
+              <Select value={paymentData.conta_corrente_id} onValueChange={handleAccountSelectChange}>
+                <SelectTrigger className="bg-white/10 border-white/30">
+                  <SelectValue placeholder="Selecione a conta" />
+                </SelectTrigger>
+                <SelectContent className="bg-gray-800 text-white border-gray-700">
+                  {linkedAccounts.map(account => (
+                    <SelectItem key={account.id} value={account.id}>
+                      {account.banco} - Ag: {account.agencia} - Cta: {account.conta}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <p className="text-yellow-400 text-sm">Nenhuma conta corrente vinculada ao seu usuário. Contate o administrador.</p>
+            )}
           </div>
           <div>
             <Label htmlFor="paid_amount">Valor a Pagar (R$)</Label>
