@@ -95,6 +95,7 @@ const ContratoFields = ({ formData, setFormData, loading, errors, empresaTimezon
           <SelectContent className="bg-gray-800 text-white">
             <SelectItem value="Compra">Compra</SelectItem>
             <SelectItem value="Troca">Troca</SelectItem>
+            <SelectItem value="Doação">Doação</SelectItem> {/* Adicionado 'Doação' */}
           </SelectContent>
         </Select>
         {errors.tipo_coleta && <p className="text-red-400 text-sm mt-1">{errors.tipo_coleta}</p>}

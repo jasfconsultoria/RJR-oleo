@@ -124,6 +124,15 @@ const ContratoPDF = React.forwardRef(({ contrato, empresa, showSignature }, ref)
         </p>
       );
     }
+    if (contrato.tipo_coleta === 'Doação') {
+      return (
+        <p className="mb-4">
+          <strong>CLÁUSULA SEGUNDA - DA DOAÇÃO</strong>
+          <br />
+          A <strong>CONTRATANTE</strong> realizará a doação do resíduo óleo/gordura de origem animal e vegetal utilizado em fritura alimentar à <strong>CONTRATADA</strong>, sem qualquer contrapartida financeira ou material.
+        </p>
+      );
+    }
     return null;
   };
 
