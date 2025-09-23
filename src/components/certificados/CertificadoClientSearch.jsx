@@ -10,14 +10,13 @@ import { motion } from 'framer-motion';
 
 const CertificadoClientSearch = ({
   labelText = "Cliente",
-  selectedClientId, // ID do cliente selecionado (vindo do formulário pai)
-  onSelectClient,   // Callback para atualizar o cliente selecionado no formulário pai
+  selectedClientData, // Objeto completo do cliente selecionado (vindo do formulário pai)
+  onSelectClient,   // Callback para atualizar o cliente selecionado no formulário pai (recebe o objeto completo ou null)
   loading: parentLoading = false,
   disabled = false,
 }) => {
   const [inputValue, setInputValue] = useState(''); // Estado interno para o texto do input
   const [allClients, setAllClients] = useState([]); // Todos os clientes do DB
-  const [filteredClients, setFilteredClients] = useState([]); // Clientes filtrados pela busca
   const [loadingClients, setLoadingClients] = useState(true);
   const [showDropdown, setShowDropdown] = useState(false);
   const { toast } = useToast();
@@ -45,34 +44,31 @@ const CertificadoClientSearch = ({
 
   // Sincroniza o inputValue com o cliente selecionado (vindo do pai)
   useEffect(() => {
-    if (selectedClientId && allClients.length > 0) {
-      const selected = allClients.find(c => c.id === selectedClientId);
-      if (selected) {
-        setInputValue(selected.nome_fantasia ? `${selected.nome} - ${selected.nome_fantasia}` : selected.nome);
-      }
-    } else if (!selectedClientId) {
+    if (selectedClientData) {
+      setInputValue(selectedClientData.nome_fantasia ? `${selectedClientData.nome} - ${selectedClientData.nome_fantasia}` : selectedClientData.nome);
+    } else {
       setInputValue(''); // Limpa o input se nenhum cliente estiver selecionado
     }
-  }, [selectedClientId, allClients]);
+  }, [selectedClientData]);
 
   // Filtra os clientes com base no inputValue
-  useEffect(() => {
+  const filteredClients = useMemo(() => {
     if (!inputValue) {
-      setFilteredClients(allClients);
+      return allClients;
     } else {
       const filtered = allClients.filter(client =>
         client.nome.toLowerCase().includes(inputValue.toLowerCase()) ||
         (client.nome_fantasia && client.nome_fantasia.toLowerCase().includes(inputValue.toLowerCase())) ||
         (client.cnpj_cpf && formatCnpjCpf(client.cnpj_cpf).toLowerCase().includes(inputValue.toLowerCase()))
       );
-      setFilteredClients(filtered);
+      return filtered;
     }
   }, [inputValue, allClients]);
 
   const handleInputChange = (e) => {
     const val = e.target.value;
     setInputValue(val); // Atualiza o estado interno do input
-    if (selectedClientId) {
+    if (selectedClientData) {
       onSelectClient(null); // Desseleciona o cliente no pai se o usuário começar a digitar
     }
     setShowDropdown(true);
@@ -101,7 +97,7 @@ const CertificadoClientSearch = ({
         setShowDropdown(false);
         // Se não houver cliente selecionado no pai e o input não estiver vazio,
         // e o texto não corresponder a um cliente existente, limpa o input.
-        if (!selectedClientId && inputValue && !allClients.some(c => (c.nome_fantasia ? `${c.nome} - ${c.nome_fantasia}` : c.nome) === inputValue)) {
+        if (!selectedClientData && inputValue && !allClients.some(c => (c.nome_fantasia ? `${c.nome} - ${c.nome_fantasia}` : c.nome) === inputValue)) {
           setInputValue('');
         }
       }
