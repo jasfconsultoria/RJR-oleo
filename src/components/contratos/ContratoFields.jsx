@@ -6,7 +6,6 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { formatNumber, parseCurrency, formatCurrency } from '@/lib/utils'; // Import formatCurrency
-// Removido: import { IMaskInput } from 'react-imask'; 
 
 const frequenciaOptions = [
   { value: 'Diária', label: 'Diária' },
@@ -107,9 +106,9 @@ const ContratoFields = ({ formData, setFormData, loading, errors, empresaTimezon
           <Label htmlFor="valor_coleta">Valor da Compra (R$ por Kg)</Label>
           <Input
             id="valor_coleta"
-            type="text" // Alterado para tipo text para permitir vírgula
-            // Exibe o valor formatado para o usuário (ex: "0,75")
-            value={formatCurrency(parseCurrency(formData.valor_coleta) || 0).replace('R$ ', '')} 
+            type="text"
+            // Exibe o valor exatamente como está no estado, sem o "R$"
+            value={formData.valor_coleta || ''} 
             // Armazena o valor como string (ex: "0,75")
             onChange={(e) => handleInputChange('valor_coleta', e.target.value)} 
             placeholder="0,00"
