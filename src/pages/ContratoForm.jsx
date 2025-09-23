@@ -127,7 +127,8 @@ const ContratoForm = () => {
                 user_id: user.id,
                 data_inicio: formatToISODate(formData.data_inicio),
                 data_fim: formatToISODate(formData.data_fim),
-                valor_coleta: formData.tipo_coleta === 'Compra' ? (parseFloat(formData.valor_coleta) || null) : null, // Converte para float
+                // Usar parseCurrency para garantir que o valor seja um número correto
+                valor_coleta: formData.tipo_coleta === 'Compra' ? (parseCurrency(formData.valor_coleta) || null) : null, 
                 fator_troca: formData.tipo_coleta === 'Troca' ? (formData.fator_troca || null) : null,
                 qtd_recipiente: formData.usa_recipiente ? (parseInt(formData.qtd_recipiente, 10) || null) : null,
             };
@@ -206,9 +207,8 @@ const ContratoForm = () => {
                 ),
             });
 
-            setTimeout(() => {
-                navigate('/app/cadastro/contratos');
-            }, 800);
+            // Navegar diretamente após o sucesso
+            navigate('/app/cadastro/contratos');
 
         } catch (error) {
             console.error("Erro ao salvar contrato:", error);
