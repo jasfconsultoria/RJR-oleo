@@ -9,7 +9,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import ContratoFields from '@/components/contratos/ContratoFields';
 import { ArrowLeft, Save, Loader2, CheckCircle } from 'lucide-react';
 import { logAction } from '@/lib/logger';
-import { formatToISODate, parseCurrency } from '@/lib/utils';
+import { formatToISODate } from '@/lib/utils';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { format } from 'date-fns';
@@ -105,10 +105,15 @@ const ContratoForm = () => {
             newErrors.data_fim = 'Data de fim não pode ser anterior à data de início.';
         }
         if (!formData.tipo_coleta) newErrors.tipo_coleta = 'Tipo de coleta é obrigatório.';
-        // New validation for valor_coleta if tipo_coleta is 'Compra'
-        if (formData.tipo_coleta === 'Compra' && parseCurrency(formData.valor_coleta) <= 0) {
-            newErrors.valor_coleta = 'O valor da compra deve ser maior que zero.';
+        
+        // Nova validação para valor_coleta
+        if (formData.tipo_coleta === 'Compra') {
+            const valorNumerico = parseFloat(formData.valor_coleta);
+            if (isNaN(valorNumerico) || valorNumerico <= 0) {
+                newErrors.valor_coleta = 'Valor da compra deve ser maior que zero.';
+            }
         }
+
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -127,8 +132,7 @@ const ContratoForm = () => {
                 user_id: user.id,
                 data_inicio: formatToISODate(formData.data_inicio),
                 data_fim: formatToISODate(formData.data_fim),
-                // Usar parseCurrency para garantir que o valor seja um número correto
-                valor_coleta: formData.tipo_coleta === 'Compra' ? (parseCurrency(formData.valor_coleta) || null) : null, 
+                valor_coleta: formData.tipo_coleta === 'Compra' ? (parseFloat(formData.valor_coleta) || null) : null, // Converte para float
                 fator_troca: formData.tipo_coleta === 'Troca' ? (formData.fator_troca || null) : null,
                 qtd_recipiente: formData.usa_recipiente ? (parseInt(formData.qtd_recipiente, 10) || null) : null,
             };
@@ -207,8 +211,9 @@ const ContratoForm = () => {
                 ),
             });
 
-            // Navegar diretamente após o sucesso
-            navigate('/app/cadastro/contratos');
+            setTimeout(() => {
+                navigate('/app/cadastro/contratos');
+            }, 800);
 
         } catch (error) {
             console.error("Erro ao salvar contrato:", error);
