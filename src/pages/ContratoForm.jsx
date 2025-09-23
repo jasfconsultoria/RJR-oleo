@@ -38,7 +38,7 @@ const ContratoForm = () => {
         data_fim: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
         status: 'Aguardando Assinatura',
         tipo_coleta: 'Troca',
-        valor_coleta: 0, // Alterado de null para 0
+        valor_coleta: '0.00', // Alterado de null para '0.00' (string)
         fator_troca: '6',
         frequencia_coleta: 'Semanal',
         usa_recipiente: false,
@@ -69,6 +69,7 @@ const ContratoForm = () => {
                 data_inicio: parseDateWithTimezone(data.data_inicio),
                 data_fim: parseDateWithTimezone(data.data_fim),
                 pessoa: data.pessoa,
+                valor_coleta: String(data.valor_coleta || '0.00'), // Garante que é string com ponto
             };
             setFormData(formDataFromDB);
             setOriginalContrato(data);
@@ -122,7 +123,7 @@ const ContratoForm = () => {
                 user_id: user.id,
                 data_inicio: formatToISODate(formData.data_inicio),
                 data_fim: formatToISODate(formData.data_fim),
-                valor_coleta: formData.tipo_coleta === 'Compra' ? (formData.valor_coleta || null) : null,
+                valor_coleta: formData.tipo_coleta === 'Compra' ? (parseFloat(formData.valor_coleta) || null) : null, // Converte para float
                 fator_troca: formData.tipo_coleta === 'Troca' ? (formData.fator_troca || null) : null,
                 qtd_recipiente: formData.usa_recipiente ? (parseInt(formData.qtd_recipiente, 10) || null) : null,
             };

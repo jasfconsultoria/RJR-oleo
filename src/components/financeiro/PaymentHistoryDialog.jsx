@@ -46,7 +46,7 @@ const PaymentHistoryDialog = ({ isOpen, onClose, entry, onSuccess }) => {
   const handleEditClick = (payment) => {
     setEditingPaymentId(payment.id);
     setEditFormData({
-      paid_amount: payment.paid_amount,
+      paid_amount: String(payment.paid_amount), // Garante que é string
       payment_date: payment.payment_date ? parseISO(payment.payment_date) : new Date(),
     });
   };
@@ -132,7 +132,8 @@ const PaymentHistoryDialog = ({ isOpen, onClose, entry, onSuccess }) => {
                         <IMaskInput
                           mask="num"
                           blocks={{ num: { mask: Number, scale: 2, thousandsSeparator: '.', padFractionalZeros: true, radix: ',', mapToRadix: ['.'] } }}
-                          value={String(editFormData.paid_amount).replace('.', ',')}
+                          // Passa o valor diretamente, o IMaskInput se encarrega de formatar para exibição
+                          value={editFormData.paid_amount}
                           onAccept={(value) => setEditFormData({...editFormData, paid_amount: value})}
                           className="w-32 text-right bg-white/20 border-white/30 h-10 px-3 py-2 rounded-md text-sm"
                         />

@@ -163,7 +163,8 @@ const InstallmentTable = ({
                           signed: false,
                           },
                       }}
-                      value={String(installment.expected_amount).replace('.', ',')}
+                      // Passa o valor diretamente, o IMaskInput se encarrega de formatar para exibição
+                      value={String(installment.expected_amount)}
                       onAccept={(value) => handleInstallmentValueChange(index, value)}
                       placeholder="0,00"
                       className="w-24 bg-white/5 border-white/20 text-white text-right h-10 px-3 py-2 rounded-md text-sm"
