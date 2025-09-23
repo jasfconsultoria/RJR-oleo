@@ -11,7 +11,7 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { estados, getMunicipios } from '@/lib/location';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { useIMask } from 'react-imask';
-import { formatCnpjCpf, unmask, formatToISODate } from '@/lib/utils';
+import { formatCnpjCpf, unmask, formatToISODate, parseCurrency } from '@/lib/utils'; // Importar parseCurrency
 import { DatePicker } from '@/components/ui/date-picker';
 import { format, isValid, parseISO } from 'date-fns';
 import { formatInTimeZone, utcToZonedTime, toDate } from 'date-fns-tz';
@@ -47,7 +47,7 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
     const fetchClients = async () => {
       const { data, error } = await supabase
         .from('clientes')
-        .select('*, contratos(status)') // Select contracts to filter active ones
+        .select('*, contratos(status, tipo_coleta, valor_coleta, fator_troca, data_fim)') // Select contracts to filter active ones
         .order('nome', { ascending: true });
 
       if (error) {
@@ -113,8 +113,33 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
   }, [formData.cliente, allClients]);
 
   const handleClienteSelect = (client) => {
-    const activeContract = client.contratos?.find(contract => contract.status === 'Ativo');
+    // Encontrar o contrato ativo mais recente
+    const activeContracts = client.contratos?.filter(contract => contract.status === 'Ativo');
+    const latestActiveContract = activeContracts?.sort((a, b) => new Date(b.data_fim) - new Date(a.data_fim))[0];
     
+    let newTipoColeta = formData.tipo_coleta;
+    let newFator = formData.fator;
+    let newValorCompra = formData.valor_compra;
+
+    if (latestActiveContract) {
+      newTipoColeta = latestActiveContract.tipo_coleta;
+      if (newTipoColeta === 'Troca') {
+        newFator = String(latestActiveContract.fator_troca || '6');
+        newValorCompra = '0,00'; // Reset valor_compra for Troca
+      } else if (newTipoColeta === 'Compra') {
+        newValorCompra = String(latestActiveContract.valor_coleta || '0,00').replace('.', ','); // Formatar para vírgula
+        newFator = '6'; // Reset fator for Compra
+      } else if (newTipoColeta === 'Doação') {
+        newValorCompra = '0,00'; // Valor da compra é 0 para Doação
+        newFator = '6'; // Reset fator for Doação
+      }
+    } else {
+      // Se não houver contrato ativo, resetar para valores padrão
+      newTipoColeta = 'Troca';
+      newFator = '6';
+      newValorCompra = '0,00';
+    }
+
     const newFormData = {
       ...formData,
       cliente_id: client.id,
@@ -125,9 +150,9 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
       municipio: client.municipio,
       estado: client.estado,
       telefone: client.telefone,
-      tipo_coleta: activeContract?.tipo_coleta || formData.tipo_coleta,
-      fator: activeContract?.tipo_coleta === 'Troca' ? activeContract.fator_troca : formData.fator,
-      valor_compra: activeContract?.tipo_coleta === 'Compra' ? String(activeContract.valor_coleta || '').replace('.', ',') : formData.valor_compra,
+      tipo_coleta: newTipoColeta,
+      fator: newFator,
+      valor_compra: newValorCompra,
     };
     setFormData(newFormData);
     if (client.estado) {

@@ -9,13 +9,13 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import ContratoFields from '@/components/contratos/ContratoFields';
 import { ArrowLeft, Save, Loader2, CheckCircle } from 'lucide-react';
 import { logAction } from '@/lib/logger';
-import { formatToISODate } from '@/lib/utils';
+import { formatToISODate, parseCurrency } from '@/lib/utils'; // Importar parseCurrency
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { format } from 'date-fns';
 import ContratoPDF from '@/components/ContratoPDF';
 import { Progress } from '@/components/ui/progress';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card'; // Importação adicionada CardFooter
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 
 const ContratoForm = () => {
     const { id } = useParams();
@@ -38,7 +38,7 @@ const ContratoForm = () => {
         data_fim: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
         status: 'Aguardando Assinatura',
         tipo_coleta: 'Troca',
-        valor_coleta: '0.00', // Alterado de null para '0.00' (string)
+        valor_coleta: '0,00', // Alterado de null para '0,00' (string)
         fator_troca: '6',
         frequencia_coleta: 'Semanal',
         usa_recipiente: false,
@@ -69,7 +69,7 @@ const ContratoForm = () => {
                 data_inicio: parseDateWithTimezone(data.data_inicio),
                 data_fim: parseDateWithTimezone(data.data_fim),
                 pessoa: data.pessoa,
-                valor_coleta: String(data.valor_coleta || '0.00'), // Garante que é string com ponto
+                valor_coleta: String(data.valor_coleta || '0,00').replace('.', ','), // Garante que é string com vírgula
             };
             setFormData(formDataFromDB);
             setOriginalContrato(data);
@@ -108,7 +108,7 @@ const ContratoForm = () => {
         
         // Nova validação para valor_coleta
         if (formData.tipo_coleta === 'Compra') {
-            const valorNumerico = parseFloat(formData.valor_coleta);
+            const valorNumerico = parseCurrency(formData.valor_coleta); // Usar parseCurrency
             if (isNaN(valorNumerico) || valorNumerico <= 0) {
                 newErrors.valor_coleta = 'Valor da compra deve ser maior que zero.';
             }
@@ -132,7 +132,7 @@ const ContratoForm = () => {
                 user_id: user.id,
                 data_inicio: formatToISODate(formData.data_inicio),
                 data_fim: formatToISODate(formData.data_fim),
-                valor_coleta: formData.tipo_coleta === 'Compra' ? (parseFloat(formData.valor_coleta) || null) : null, // Converte para float
+                valor_coleta: formData.tipo_coleta === 'Compra' ? (parseCurrency(formData.valor_coleta) || null) : null, // Converte para float usando parseCurrency
                 fator_troca: formData.tipo_coleta === 'Troca' ? (formData.fator_troca || null) : null,
                 qtd_recipiente: formData.usa_recipiente ? (parseInt(formData.qtd_recipiente, 10) || null) : null,
             };
@@ -234,7 +234,7 @@ const ContratoForm = () => {
     return (
         <>
             <Helmet>
-                <title>{isEditing ? 'Editar Contrato' : 'Novo Contrato'} - Sistema de Gestão</title>
+                <title>{isEditing ? 'Editar Contrato' : 'Novo Contrato'} - RJR Óleo</title>
             </Helmet>
 
             <div className="relative max-w-4xl mx-auto">
