@@ -32,7 +32,7 @@ const initialFormState = {
   periodoInicio: undefined,
   periodoFim: undefined,
   data_emissao: undefined,
-  clientInputText: '', // Renomeado de clientSearchTerm para clientInputText
+  clientSearchTerm: '', // Variável de estado para o termo de busca do cliente
 };
 
 const CertificadoPage = () => {
@@ -83,13 +83,13 @@ const CertificadoPage = () => {
         periodoInicio: processDateValue(currentSavedData.periodoInicio, getFirstDayOfMonth),
         periodoFim: processDateValue(currentSavedData.periodoFim, getTodayDate),
         data_emissao: processDateValue(currentSavedData.data_emissao, () => new Date()),
-        clientInputText: currentSavedData.clientInputText || '', // Usar clientInputText
+        clientSearchTerm: currentSavedData.clientSearchTerm || '',
       };
       setLocalFormData(dataToLoad);
     }
   }, [isEditMode, savedData, setLocalFormData, processDateValue, clearSavedData]);
 
-  const { selectedClientId, selectedClientData, periodoInicio, periodoFim, data_emissao, clientInputText } = localFormData; // Usar clientInputText
+  const { selectedClientId, selectedClientData, periodoInicio, periodoFim, data_emissao, clientSearchTerm } = localFormData;
 
   // Fetch all clients with active contracts
   useEffect(() => {
@@ -145,7 +145,7 @@ const CertificadoPage = () => {
             periodoInicio: processDateValue(certData.periodo_inicio, getFirstDayOfMonth),
             periodoFim: processDateValue(certData.periodo_fim, getTodayDate),
             data_emissao: processDateValue(certData.data_emissao, () => new Date()),
-            clientInputText: clientData.nome_fantasia ? `${clientData.nome} - ${clientData.nome_fantasia}` : clientData.nome, // Usar clientInputText
+            clientSearchTerm: clientData.nome_fantasia ? `${clientData.nome} - ${clientData.nome_fantasia}` : clientData.nome,
           }));
         }
       } catch (error) {
@@ -159,17 +159,17 @@ const CertificadoPage = () => {
   }, [id, isEditMode, toast, navigate, setLocalFormData, processDateValue]);
 
   const filteredClients = useMemo(() => { 
-    if (!clientInputText) return allClients; // Filtrar por clientInputText
+    if (!clientSearchTerm) return allClients;
     return allClients.filter(client =>
-      client.nome.toLowerCase().includes(clientInputText.toLowerCase()) ||
-      (client.nome_fantasia && client.nome_fantasia.toLowerCase().includes(clientInputText.toLowerCase())) ||
-      (client.cnpj_cpf && formatCnpjCpf(client.cnpj_cpf).toLowerCase().includes(clientInputText.toLowerCase()))
+      client.nome.toLowerCase().includes(clientSearchTerm.toLowerCase()) ||
+      (client.nome_fantasia && client.nome_fantasia.toLowerCase().includes(clientSearchTerm.toLowerCase())) ||
+      (client.cnpj_cpf && formatCnpjCpf(client.cnpj_cpf).toLowerCase().includes(clientSearchTerm.toLowerCase()))
     );
-  }, [allClients, clientInputText]); // Dependência de clientInputText
+  }, [allClients, clientSearchTerm]);
 
   const handleClientSearchInputChange = (e) => {
     const val = e.target.value;
-    setLocalFormData(prev => ({ ...prev, clientInputText: val })); // Atualiza clientInputText
+    setLocalFormData(prev => ({ ...prev, clientSearchTerm: val }));
     // Se o usuário começar a digitar, desmarcar o cliente selecionado
     if (localFormData.selectedClientId) {
       setLocalFormData(prev => ({ ...prev, selectedClientId: null, selectedClientData: null }));
@@ -182,7 +182,7 @@ const CertificadoPage = () => {
       ...prev,
       selectedClientId: client.id,
       selectedClientData: client,
-      clientInputText: client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome, // Atualiza clientInputText
+      clientSearchTerm: client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome,
     }));
     setShowClienteDropdown(false);
   };
@@ -192,7 +192,7 @@ const CertificadoPage = () => {
   };
 
   const handleBlur = () => {
-    // Apenas esconde o dropdown. A lógica de limpar o campo será tratada pela seleção explícita.
+    // Apenas esconde o dropdown após um pequeno atraso para permitir o clique no item
     setTimeout(() => {
       setShowClienteDropdown(false);
     }, 100);
@@ -402,7 +402,7 @@ const CertificadoPage = () => {
                     <Input
                       id="cliente-search"
                       ref={clientSearchInputRef}
-                      value={clientInputText} // Usar clientInputText
+                      value={clientSearchTerm}
                       onChange={handleClientSearchInputChange}
                       onFocus={handleFocus}
                       onBlur={handleBlur}
