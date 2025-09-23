@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-    import { useParams, Link } from 'react-router-dom';
+    import { useParams, Link, useNavigate } from 'react-router-dom'; // Importar useNavigate
     import { Helmet } from 'react-helmet';
     import { supabase } from '@/lib/customSupabaseClient';
     import { useToast } from '@/components/ui/use-toast';
@@ -12,6 +12,7 @@ import React, { useState, useEffect, useRef } from 'react';
     const ContratoAssinadoPage = () => {
       const { id } = useParams();
       const { toast } = useToast();
+      const navigate = useNavigate(); // Inicializar useNavigate
       const [contrato, setContrato] = useState(null);
       const [empresa, setEmpresa] = useState(null);
       const [loading, setLoading] = useState(true);
@@ -132,7 +133,14 @@ import React, { useState, useEffect, useRef } from 'react';
                         <ContratoPDF ref={pdfRef} contrato={contrato} empresa={empresa} showSignature={true} />
                     </div>
                 </div>
-                <div className="mt-6 text-center">
+                <div className="mt-6 flex flex-col sm:flex-row justify-center items-center gap-4"> {/* Adicionado flexbox para alinhar botões */}
+                    <Button 
+                        onClick={() => navigate('/app/cadastro/contratos')} // Navega para a lista de contratos
+                        variant="outline" 
+                        className="text-white border-white/50 hover:bg-white/20 hover:text-white text-lg px-8 py-6"
+                    >
+                        <ArrowLeft className="mr-2 h-5 w-5" /> Voltar para o Sistema
+                    </Button>
                     <Button onClick={handleDownloadPdf} className="bg-emerald-500 hover:bg-emerald-600 text-white text-lg px-8 py-6">
                         <Printer className="mr-2 h-5 w-5" /> Imprimir / Salvar PDF
                     </Button>
