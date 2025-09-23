@@ -7,7 +7,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
     import { Button } from '@/components/ui/button';
     import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
     import ContratoPDF from '@/components/ContratoPDF';
-    import { Loader2, Eraser, CheckCircle, AlertTriangle, XCircle } from 'lucide-react';
+    import { Loader2, Eraser, CheckCircle, AlertTriangle, ArrowLeft } from 'lucide-react'; // Alterado XCircle para ArrowLeft
     import { Label } from '@/components/ui/label';
 
     const AssinaturaPage = () => {
@@ -66,8 +66,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
         sigCanvas.current.clear();
       };
 
-      const handleClose = () => {
-        window.close();
+      const handleGoBack = () => { // Renomeado para handleGoBack
+        navigate(-1); // Navega para a página anterior
       };
 
       const handleSubmit = async () => {
@@ -143,8 +143,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
                 </div>
               </CardContent>
               <CardFooter className="flex flex-col sm:flex-row justify-between items-center gap-4 mt-4">
-                <Button variant="destructive" onClick={handleClose}>
-                    <XCircle className="mr-2 h-4 w-4" /> Fechar
+                <Button variant="destructive" onClick={handleGoBack}> {/* Alterado onClick para handleGoBack */}
+                    <ArrowLeft className="mr-2 h-4 w-4" /> Voltar {/* Alterado texto e ícone */}
                 </Button>
                 <div className="flex flex-col sm:flex-row gap-4">
                     <Button variant="outline" onClick={clearSignature} className="border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black">
