@@ -103,9 +103,13 @@ const ContratoPDF = React.forwardRef(({ contrato, empresa, showSignature }, ref)
 
   const renderClausulaValor = () => {
     if (contrato.tipo_coleta === 'Compra') {
-      const valorColeta = parseFloat(contrato.valor_coleta);
+      // Ensure valor_coleta is treated as a number, handling potential null/undefined/empty string from DB
+      const rawValorColeta = contrato.valor_coleta;
+      // Use parseCurrency from utils to handle potential comma-separated strings if they somehow get through
+      const valorColeta = parseCurrency(rawValorColeta) || 0; // Default to 0 if parsing fails or value is null/undefined
+
       const valorFormatado = formatCurrency(valorColeta);
-      const valorExtenso = valorPorExtenso(valorColeta);
+      const valorExtenso = valorPorExtenso(valorColeta); // valorPorExtenso already handles 0
 
       return (
         <p className="mb-4">

@@ -9,7 +9,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import ContratoFields from '@/components/contratos/ContratoFields';
 import { ArrowLeft, Save, Loader2, CheckCircle } from 'lucide-react';
 import { logAction } from '@/lib/logger';
-import { formatToISODate } from '@/lib/utils';
+import { formatToISODate, parseCurrency } from '@/lib/utils';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { format } from 'date-fns';
@@ -105,6 +105,10 @@ const ContratoForm = () => {
             newErrors.data_fim = 'Data de fim não pode ser anterior à data de início.';
         }
         if (!formData.tipo_coleta) newErrors.tipo_coleta = 'Tipo de coleta é obrigatório.';
+        // New validation for valor_coleta if tipo_coleta is 'Compra'
+        if (formData.tipo_coleta === 'Compra' && parseCurrency(formData.valor_coleta) <= 0) {
+            newErrors.valor_coleta = 'O valor da compra deve ser maior que zero.';
+        }
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
