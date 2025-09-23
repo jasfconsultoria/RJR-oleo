@@ -51,6 +51,7 @@ const MovimentacaoViewDialog = ({ isOpen, onClose, movimentacao }) => {
               <TableHeader>
                 <TableRow className="hover:bg-transparent border-b border-white/20 text-xs">
                   <TableHead className="text-white">Produto</TableHead>
+                  <TableHead className="text-white">Código</TableHead> {/* Nova coluna */}
                   <TableHead className="text-white text-right">Quantidade</TableHead>
                   <TableHead className="text-white text-center">Unidade</TableHead>
                 </TableRow>
@@ -60,12 +61,13 @@ const MovimentacaoViewDialog = ({ isOpen, onClose, movimentacao }) => {
                   movimentacao.itens_entrada_saida.map((item, index) => (
                     <TableRow key={index} className="border-b-0 md:border-b border-white/10 text-white/90 text-sm">
                       <TableCell data-label="Produto" className="font-medium">{item.produto.nome}</TableCell>
+                      <TableCell data-label="Código" className="font-mono">{item.produto.codigo || 'N/A'}</TableCell> {/* Nova célula */}
                       <TableCell data-label="Quantidade" className="text-right">{formatNumber(item.quantidade)}</TableCell>
                       <TableCell data-label="Unidade" className="text-center">{item.produto.unidade}</TableCell>
                     </TableRow>
                   ))
                 ) : (
-                  <TableRow><TableCell colSpan={3} className="text-center text-gray-400 py-4">Nenhum item.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={4} className="text-center text-gray-400 py-4">Nenhum item.</TableCell></TableRow>
                 )}
               </TableBody>
             </Table>

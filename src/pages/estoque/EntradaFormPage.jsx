@@ -53,7 +53,7 @@ const EntradaFormPage = () => {
 
       const { data: itensData, error: itensError } = await supabase
         .from('itens_entrada_saida')
-        .select('*, produto:produtos(nome, unidade, tipo)')
+        .select('*, produto:produtos(nome, unidade, tipo, codigo)') // Incluir 'codigo'
         .eq('entrada_saida_id', id);
 
       if (itensError) throw itensError;
@@ -67,6 +67,7 @@ const EntradaFormPage = () => {
           produto_nome: item.produto.nome,
           unidade: item.produto.unidade,
           tipo: item.produto.tipo,
+          codigo: item.produto.codigo, // Adicionar código
           quantidade: String(item.quantidade).replace('.', ','),
         })),
       });

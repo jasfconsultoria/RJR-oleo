@@ -28,7 +28,7 @@ const ProdutoSearchableSelect = ({
       setLoadingProducts(true);
       let query = supabase
         .from('produtos')
-        .select('id, nome, unidade, tipo')
+        .select('id, nome, unidade, tipo, codigo') // Incluir 'codigo'
         .eq('ativo', true)
         .order('nome', { ascending: true });
 
@@ -54,7 +54,7 @@ const ProdutoSearchableSelect = ({
     if (value && products.length > 0) {
       const selected = products.find(p => p.id === value);
       if (selected) {
-        setSearchTerm(selected.nome);
+        setSearchTerm(selected.codigo ? `${selected.nome} (${selected.codigo})` : selected.nome);
       }
     } else if (!value) {
       setSearchTerm('');
@@ -64,7 +64,8 @@ const ProdutoSearchableSelect = ({
   const filteredProducts = useMemo(() => {
     if (!searchTerm) return products;
     return products.filter(product =>
-      product.nome.toLowerCase().includes(searchTerm.toLowerCase())
+      product.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (product.codigo && product.codigo.toLowerCase().includes(searchTerm.toLowerCase())) // Buscar também por código
     );
   }, [products, searchTerm]);
 
@@ -79,7 +80,7 @@ const ProdutoSearchableSelect = ({
 
   const handleSelect = (product) => {
     onChange(product); // Pass the full product object
-    setSearchTerm(product.nome);
+    setSearchTerm(product.codigo ? `${product.nome} (${product.codigo})` : product.nome);
     setShowDropdown(false);
   };
 
@@ -97,7 +98,7 @@ const ProdutoSearchableSelect = ({
     setTimeout(() => {
       if (containerRef.current && !containerRef.current.contains(document.activeElement)) {
         setShowDropdown(false);
-        if (!value && searchTerm && !products.some(p => p.nome === searchTerm)) {
+        if (!value && searchTerm && !products.some(p => (p.codigo ? `${p.nome} (${p.codigo})` : p.nome) === searchTerm)) {
           setSearchTerm('');
         }
       }
@@ -144,7 +145,7 @@ const ProdutoSearchableSelect = ({
                 onClick={() => handleSelect(product)}
                 className="p-3 hover:bg-emerald-50 cursor-pointer border-b border-gray-100 last:border-b-0"
               >
-                <div className="font-medium text-gray-900">{product.nome}</div>
+                <div className="font-medium text-gray-900">{product.nome} {product.codigo && <span className="text-gray-500 text-xs">({product.codigo})</span>}</div>
                 <div className="text-sm text-gray-600">{product.unidade} ({product.tipo})</div>
               </div>
             ))

@@ -51,7 +51,7 @@ const ListaProdutosPage = () => {
       .select('*', { count: 'exact' });
 
     if (debouncedSearchTerm) {
-      query = query.ilike('nome', `%${debouncedSearchTerm}%`);
+      query = query.or(`nome.ilike.%${debouncedSearchTerm}%,codigo.ilike.%${debouncedSearchTerm}%`); // Incluir busca por código
     }
     if (typeFilter !== 'all') {
       query = query.eq('tipo', typeFilter);
@@ -136,7 +136,7 @@ const ListaProdutosPage = () => {
                 <Input
                   id="searchTerm"
                   type="search"
-                  placeholder="Nome do produto..."
+                  placeholder="Nome ou código do produto..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60 rounded-xl"
@@ -182,6 +182,9 @@ const ListaProdutosPage = () => {
               <Table className="responsive-table">
                 <TableHeader>
                   <TableRow className="hover:bg-transparent border-b border-white/20 text-xs">
+                    <th onClick={() => requestSort('codigo')} className="cursor-pointer p-2 text-left text-white">
+                      <div className="flex items-center">Código {getSortIcon('codigo')}</div>
+                    </th>
                     <th onClick={() => requestSort('nome')} className="cursor-pointer p-2 text-left text-white">
                       <div className="flex items-center">Nome {getSortIcon('nome')}</div>
                     </th>
@@ -201,6 +204,7 @@ const ListaProdutosPage = () => {
                   {produtos.length > 0 ? (
                     produtos.map(produto => (
                       <TableRow key={produto.id} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
+                        <TableCell data-label="Código" className="font-mono">{produto.codigo}</TableCell>
                         <TableCell data-label="Nome" className="font-medium">{produto.nome}</TableCell>
                         <TableCell data-label="Unidade" className="capitalize">{produto.unidade}</TableCell>
                         <TableCell data-label="Tipo" className="capitalize">{produto.tipo}</TableCell>
@@ -232,7 +236,7 @@ const ListaProdutosPage = () => {
                       </TableRow>
                     ))
                   ) : (
-                    <TableRow><TableCell colSpan="5" className="text-center text-gray-400 py-10">Nenhum produto encontrado.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan="6" className="text-center text-gray-400 py-10">Nenhum produto encontrado.</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>

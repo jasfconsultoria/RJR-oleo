@@ -24,6 +24,7 @@ const ProdutoFormPage = () => {
     unidade: '',
     tipo: 'coletado', // Default to 'coletado'
     ativo: true, // Default to active
+    codigo: '', // Novo campo
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -103,6 +104,7 @@ const ProdutoFormPage = () => {
       await logAction(isEditing ? 'update_product' : 'create_product', {
         product_id: result.data.id,
         product_name: result.data.nome,
+        product_code: result.data.codigo,
       });
 
       toast({ title: `Produto ${isEditing ? 'atualizado' : 'cadastrado'} com sucesso!` });
@@ -113,6 +115,7 @@ const ProdutoFormPage = () => {
       await logAction(isEditing ? 'update_product_failed' : 'create_product_failed', {
         error: error.message,
         product_name: formData.nome,
+        product_code: formData.codigo,
       });
     } finally {
       setSaving(false);
@@ -147,6 +150,10 @@ const ProdutoFormPage = () => {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
+              <div>
+                <Label htmlFor="codigo" className="text-lg">Código do Produto</Label>
+                <Input id="codigo" name="codigo" value={formData.codigo || 'Será gerado automaticamente'} disabled className="bg-white/5 border-white/20 rounded-xl" />
+              </div>
               <div>
                 <Label htmlFor="nome" className="text-lg">Nome do Produto <span className="text-red-500">*</span></Label>
                 <Input id="nome" name="nome" value={formData.nome} onChange={handleInputChange} placeholder="Ex: Óleo de Fritura" className="bg-white/5 border-white/20 rounded-xl" required />

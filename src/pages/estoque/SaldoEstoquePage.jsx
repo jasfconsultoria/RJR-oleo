@@ -17,14 +17,14 @@ const SaldoEstoquePage = () => {
     setLoading(true);
     const { data, error } = await supabase
       .from('v_saldo_produtos')
-      .select('*')
+      .select('*, produto_codigo:produtos(codigo)') // Incluir o código do produto
       .order('produto_nome', { ascending: true });
 
     if (error) {
       toast({ title: 'Erro ao buscar saldo de produtos', description: error.message, variant: 'destructive' });
       setSaldoProdutos([]);
     } else {
-      setSaldoProdutos(data || []);
+      setSaldoProdutos(data.map(p => ({ ...p, produto_codigo: p.produto_codigo.codigo })) || []); // Mapear para pegar apenas o código
     }
     setLoading(false);
   }, [toast]);
@@ -65,6 +65,7 @@ const SaldoEstoquePage = () => {
                   <TableHeader>
                     <TableRow className="hover:bg-transparent border-b border-white/20 text-xs">
                       <th className="p-2 text-left text-white">Produto</th>
+                      <th className="p-2 text-left text-white">Código</th> {/* Nova coluna */}
                       <th className="p-2 text-left text-white">Tipo</th>
                       <th className="p-2 text-left text-white whitespace-nowrap">Entradas</th> {/* Coluna separada */}
                       <th className="p-2 text-left text-white whitespace-nowrap">Saídas</th> {/* Coluna separada */}
@@ -76,6 +77,7 @@ const SaldoEstoquePage = () => {
                       saldoProdutos.map(produto => (
                         <TableRow key={produto.produto_id} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
                           <TableCell data-label="Produto" className="font-medium whitespace-nowrap">{produto.produto_nome}</TableCell>
+                          <TableCell data-label="Código" className="font-mono whitespace-nowrap">{produto.produto_codigo || 'N/A'}</TableCell> {/* Nova célula */}
                           <TableCell data-label="Tipo" className="capitalize whitespace-nowrap">{produto.produto_tipo}</TableCell>
                           <TableCell data-label="Entradas" className="text-left whitespace-nowrap"> {/* Conteúdo em uma linha */}
                             <span className="flex items-center gap-1 text-green-400">
@@ -93,7 +95,7 @@ const SaldoEstoquePage = () => {
                         </TableRow>
                       ))
                     ) : (
-                      <TableRow><TableCell colSpan="5" className="text-center text-gray-400 py-10">Nenhum produto encontrado ou sem movimentações.</TableCell></TableRow>
+                      <TableRow><TableCell colSpan="6" className="text-center text-gray-400 py-10">Nenhum produto encontrado ou sem movimentações.</TableCell></TableRow>
                     )}
                   </TableBody>
                 </Table>
