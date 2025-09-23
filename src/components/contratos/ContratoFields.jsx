@@ -119,8 +119,8 @@ const ContratoFields = ({ formData, setFormData, loading, errors, empresaTimezon
                 signed: false,
               },
             }}
-            // Passa o valor numérico para o IMaskInput, ele se encarrega de formatar para exibição
-            value={parseCurrency(formData.valor_coleta)} 
+            // Convertendo o valor numérico para string antes de passar para o IMaskInput
+            value={String(parseCurrency(formData.valor_coleta))} 
             // onAccept retorna o valor não mascarado (com ponto decimal)
             onAccept={(value) => handleInputChange('valor_coleta', value)} 
             placeholder="0,00"
