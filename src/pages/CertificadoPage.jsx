@@ -201,7 +201,7 @@ const CertificadoPage = () => {
     const val = e.target.value;
     setLocalFormData(prev => ({ ...prev, clientSearchTerm: val }));
     // Se o usuário começar a digitar, desmarcar o cliente selecionado
-    if (prev.cliente_id) {
+    if (localFormData.cliente_id) { // Corrigido: usar localFormData.cliente_id
       setLocalFormData(prev => ({ 
         ...prev, 
         cliente_id: '', 
