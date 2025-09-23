@@ -15,6 +15,7 @@ import html2canvas from 'html2canvas';
 import { format } from 'date-fns';
 import ContratoPDF from '@/components/ContratoPDF';
 import { Progress } from '@/components/ui/progress';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'; // Importação adicionada
 
 const ContratoForm = () => {
     const { id } = useParams();
@@ -213,7 +214,11 @@ const ContratoForm = () => {
     };
 
     if (loading) {
-        return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-emerald-400" /></div>;
+        return (
+          <div className="flex justify-center items-center h-full">
+            <Loader2 className="h-8 w-8 animate-spin text-emerald-400" />
+          </div>
+        );
     }
     
     return (
