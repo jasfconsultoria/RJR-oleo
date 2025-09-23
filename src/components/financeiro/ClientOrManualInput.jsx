@@ -10,19 +10,20 @@ import { motion } from 'framer-motion';
 
 const ClientOrManualInput = ({
   labelText,
-  selectedClientId, // Controlled prop from parent
-  onSelectClient,   // Callback for when a client is selected (id)
-  clientName,       // Controlled prop for manual name input
-  onClientNameChange, // Callback for manual name input
-  cnpjCpf,          // Controlled prop for cnpj_cpf
-  onCnpjCpfChange,  // Callback for cnpj_cpf change (manual input)
+  selectedClientId,
+  onSelectClient,
+  clientName,
+  onClientNameChange,
+  cnpjCpf,
+  onCnpjCpfChange,
   refetchTrigger = 0,
   disabled = false,
 }) => {
-  const [inputValue, setInputValue] = useState(''); // Use inputValue for the text input
+  const [inputValue, setInputValue] = useState('');
   const [clients, setClients] = useState([]);
   const [loadingClients, setLoadingClients] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [isClienteSelected, setIsClienteSelected] = useState(false);
   const { toast } = useToast();
   const inputRef = useRef(null);
   const dropdownRef = useRef(null);
@@ -32,7 +33,7 @@ const ClientOrManualInput = ({
       setLoadingClients(true);
       const { data, error } = await supabase
         .from('clientes')
-        .select('id, nome, nome_fantasia, cnpj_cpf, municipio, estado') // Added nome_fantasia
+        .select('id, nome, nome_fantasia, cnpj_cpf, municipio, estado')
         .order('nome', { ascending: true });
 
       if (error) {
@@ -47,19 +48,23 @@ const ClientOrManualInput = ({
   }, [toast, refetchTrigger]);
 
   useEffect(() => {
-    // Update inputValue when selectedClientId or clientName prop changes
+    // Atualizar inputValue quando selectedClientId mudar
     if (selectedClientId && clients.length > 0) {
       const selected = clients.find(c => c.id === selectedClientId);
       if (selected) {
-        setInputValue(selected.nome_fantasia ? `${selected.nome} - ${selected.nome_fantasia}` : selected.nome);
+        const displayName = selected.nome_fantasia ? `${selected.nome} - ${selected.nome_fantasia}` : selected.nome;
+        setInputValue(displayName);
+        setIsClienteSelected(true);
       }
     } else {
-      setInputValue(clientName || ''); // Use clientName prop if no ID selected
+      setInputValue(clientName || '');
+      setIsClienteSelected(false);
     }
   }, [selectedClientId, clientName, clients]);
 
+  // CORREÇÃO: Mostrar TODOS os clientes quando não há filtro (igual ao Crédito/Débito)
   const filteredClients = useMemo(() => {
-    if (!inputValue) return clients;
+    if (!inputValue) return clients; // Mostra todos quando não há filtro
     return clients.filter(client =>
       client.nome.toLowerCase().includes(inputValue.toLowerCase()) ||
       (client.nome_fantasia && client.nome_fantasia.toLowerCase().includes(inputValue.toLowerCase())) ||
@@ -67,23 +72,33 @@ const ClientOrManualInput = ({
     );
   }, [clients, inputValue]);
 
+  // CORREÇÃO: Simplificar a lógica de mudança do input
   const handleInputChange = (e) => {
     const value = e.target.value;
     setInputValue(value);
-    onClientNameChange(value); // Always update parent's clientName
-    if (selectedClientId) {
-      onSelectClient(null); // Deselect client if typing over a selected one
-      onCnpjCpfChange(''); // Clear CNPJ/CPF if deselecting
+    
+    // Se estiver digitando e havia um cliente selecionado, limpar a seleção
+    if (isClienteSelected && value !== inputValue) {
+      onSelectClient(null);
+      onCnpjCpfChange('');
+      setIsClienteSelected(false);
     }
+    
+    // Sempre atualizar o nome no parent
+    onClientNameChange(value);
     setShowDropdown(true);
   };
 
+  // CORREÇÃO: Garantir que todos os dados sejam atualizados corretamente
   const handleSelect = (client) => {
+    const displayName = client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome;
+    
     onSelectClient(client.id);
-    onClientNameChange(client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome);
+    onClientNameChange(displayName);
     onCnpjCpfChange(client.cnpj_cpf || '');
-    setInputValue(client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome);
+    setInputValue(displayName);
     setShowDropdown(false);
+    setIsClienteSelected(true);
   };
 
   const handleClear = () => {
@@ -92,23 +107,32 @@ const ClientOrManualInput = ({
     onCnpjCpfChange('');
     setInputValue('');
     setShowDropdown(false);
+    setIsClienteSelected(false);
   };
 
   const handleFocus = () => {
     setShowDropdown(true);
   };
 
+  // CORREÇÃO: Simplificar o handleBlur
   const handleBlur = (e) => {
     setTimeout(() => {
+      // Verificar se o foco não foi para o dropdown
       if (dropdownRef.current && !dropdownRef.current.contains(document.activeElement)) {
         setShowDropdown(false);
-        // If no client is selected (selectedClientId is null) AND there's text in the input
-        // AND that text doesn't match any client, then revert inputValue to clientName prop.
-        if (!selectedClientId && inputValue && !clients.some(c => (c.nome_fantasia ? `${c.nome} - ${c.nome_fantasia}` : c.nome) === inputValue)) {
-          setInputValue(clientName || '');
+        
+        // Se não há cliente selecionado e o texto não corresponde a nenhum cliente, limpar
+        if (!isClienteSelected && inputValue) {
+          const isMatch = clients.some(client => 
+            (client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome) === inputValue
+          );
+          if (!isMatch) {
+            setInputValue('');
+            onClientNameChange('');
+          }
         }
       }
-    }, 100);
+    }, 200);
   };
 
   return (
@@ -119,7 +143,7 @@ const ClientOrManualInput = ({
         <Input
           id="client-search"
           type="text"
-          value={inputValue} // Always use inputValue for the input field
+          value={inputValue}
           onChange={handleInputChange}
           onFocus={handleFocus}
           onBlur={handleBlur}
@@ -130,7 +154,7 @@ const ClientOrManualInput = ({
           ref={inputRef}
         />
         {loadingClients && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 animate-spin" />}
-        {!loadingClients && inputValue && ( // Use inputValue here
+        {!loadingClients && inputValue && (
           <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-white/70 hover:text-white rounded-full" onClick={handleClear}>
             <X className="h-4 w-4" />
           </Button>
@@ -151,14 +175,18 @@ const ClientOrManualInput = ({
                 onClick={() => handleSelect(client)}
                 className="p-3 hover:bg-emerald-50 cursor-pointer border-b border-gray-100 last:border-b-0"
               >
-                <div className="font-medium text-gray-900">{client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome}</div>
+                <div className="font-medium text-gray-900">
+                  {client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome}
+                </div>
                 <div className="text-sm text-gray-600">
                   {client.cnpj_cpf ? formatCnpjCpf(client.cnpj_cpf) : 'CNPJ/CPF não informado'} - {client.municipio}/{client.estado}
                 </div>
               </div>
             ))
           ) : (
-            <div className="p-3 text-center text-gray-500">Nenhum {labelText.toLowerCase()} encontrado.</div>
+            <div className="p-3 text-center text-gray-500">
+              {inputValue ? `Nenhum ${labelText.toLowerCase()} encontrado.` : `Nenhum ${labelText.toLowerCase()} cadastrado.`}
+            </div>
           )}
         </motion.div>
       )}
