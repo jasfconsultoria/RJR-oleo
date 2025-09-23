@@ -15,7 +15,7 @@ import html2canvas from 'html2canvas';
 import { format } from 'date-fns';
 import ContratoPDF from '@/components/ContratoPDF';
 import { Progress } from '@/components/ui/progress';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'; // Importação adicionada
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card'; // Importação adicionada CardFooter
 
 const ContratoForm = () => {
     const { id } = useParams();
