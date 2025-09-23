@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -91,7 +93,7 @@ const ItensMovimentacaoTable = ({ items, onItemsChange, type, isEditing }) => {
   return (
     <div className="space-y-4">
       <h3 className="text-lg font-semibold text-white">Itens da Movimentação *</h3>
-      <div className="overflow-x-auto overflow-y-auto max-h-[300px] rounded-xl border border-white/20"> {/* Added max-h and overflow-y */}
+      <div className="overflow-x-auto rounded-xl border border-white/20"> {/* Removed overflow-y-auto max-h */}
         <Table className="responsive-table">
           <TableHeader>
             <TableRow className="hover:bg-transparent border-b border-white/20 text-xs">
@@ -101,7 +103,7 @@ const ItensMovimentacaoTable = ({ items, onItemsChange, type, isEditing }) => {
               <TableHead className="text-white w-[15%] text-center">Ações</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody>
+          <TableBody className="max-h-[200px] overflow-y-auto block"> {/* Added max-h, overflow-y-auto, and block */}
             {items.length === 0 && (
               <TableRow>
                 <TableCell colSpan={4} className="text-center text-gray-400 py-4">

@@ -39,42 +39,32 @@ const EntradaFormPage = () => {
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-
-  // === CLIENTE AUTOCOMPLETE STATES (mesma lógica do CertificadoPage) ===
   const [allClients, setAllClients] = useState([]);
   const [filteredClients, setFilteredClients] = useState([]);
   const [showClienteDropdown, setShowClienteDropdown] = useState(false);
   const [isClienteSelected, setIsClienteSelected] = useState(false);
   const dropdownRef = useRef(null);
 
-  // Fetch all clients (com contratos), igual ao CertificadoPage
+  // Fetch all clients
   useEffect(() => {
     const fetchClients = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('clientes')
-          .select('*, contratos(status)')
-          .order('nome', { ascending: true });
+      const { data, error } = await supabase
+        .from('clientes')
+        .select('id, nome, nome_fantasia, cnpj_cpf, municipio, estado')
+        .order('nome', { ascending: true });
 
-        if (error) throw error;
-
-        const activeClients = (data || []).filter(client =>
-          client.contratos && client.contratos.some(contract => contract.status === 'Ativo')
-        );
-
-        setAllClients(activeClients);
-        setFilteredClients(activeClients);
-      } catch (error) {
+      if (error) {
         toast({ title: 'Erro ao buscar clientes', description: error.message, variant: 'destructive' });
         setAllClients([]);
-        setFilteredClients([]);
+      } else {
+        setAllClients(data || []);
+        setFilteredClients(data || []);
       }
     };
-
     fetchClients();
   }, [toast]);
 
-  // FILTRO: nome | nome_fantasia | cnpj (formatado)
+  // FILTRO CORRIGIDO - IGUAL AO MODELO QUE FUNCIONA
   useEffect(() => {
     if (formData.cliente && formData.cliente.trim()) {
       const searchTerm = formData.cliente.toLowerCase();
@@ -89,7 +79,6 @@ const EntradaFormPage = () => {
     }
   }, [formData.cliente, allClients]);
 
-  // === Fetch movimentacao quando editar ===
   const fetchMovimentacao = useCallback(async () => {
     if (!id) {
       setLoading(false);
@@ -147,19 +136,12 @@ const EntradaFormPage = () => {
     fetchMovimentacao();
   }, [fetchMovimentacao]);
 
-  // === Handlers ===
   const handleFormChange = (name, value) => {
     setFormData((prev) => ({ ...prev, [name]: value }));
     
     // Mostrar dropdown quando começar a digitar no campo cliente
-    if (name === 'cliente') {
-      if (value.trim() !== '') {
-        setShowClienteDropdown(true);
-      } else {
-        setShowClienteDropdown(false);
-      }
-      // Importante: sinaliza que o usuário está digitando (não é mais um cliente selecionado)
-      setIsClienteSelected(false);
+    if (name === 'cliente' && value.trim() !== '') {
+      setShowClienteDropdown(true);
     }
   };
 
@@ -213,7 +195,7 @@ const EntradaFormPage = () => {
     }
   };
 
-  // === HANDLE CLIENT SELECT (igual ao CertificadoPage) ===
+  // HANDLER DE SELEÇÃO IDÊNTICO AO MODELO QUE FUNCIONA
   const handleClientSelect = (client) => {
     const clienteDisplay = client.nome_fantasia 
       ? `${client.nome} - ${client.nome_fantasia}` 
@@ -228,7 +210,6 @@ const EntradaFormPage = () => {
       cliente: clienteDisplay,
     }));
     setShowClienteDropdown(false);
-    // marca como selecionado — importante para o blur não limpar o valor
     setIsClienteSelected(true);
   };
 
@@ -249,31 +230,30 @@ const EntradaFormPage = () => {
     setShowClienteDropdown(true);
   };
 
-  // BLUR ajustado para esperar o clique no dropdown setar isClienteSelected(true)
-  const handleBlur = () => {
+  const handleBlur = (e) => {
     setTimeout(() => {
-      // sempre fecha o dropdown
-      setShowClienteDropdown(false);
-      
-      // Validar se o texto digitado corresponde a um cliente existente apenas se não houver seleção
-      if (!isClienteSelected && formData.cliente.trim() !== '') {
-        const isMatch = allClients.some(client => {
-          const clientDisplayName = client.nome_fantasia 
-            ? `${client.nome} - ${client.nome_fantasia}` 
-            : client.nome;
-          return clientDisplayName === formData.cliente;
-        });
+      if (dropdownRef.current && !dropdownRef.current.contains(document.activeElement)) {
+        setShowClienteDropdown(false);
         
-        if (!isMatch) {
-          setFormData(prev => ({ 
-            ...prev, 
-            cliente_id: null, 
-            cliente_nome: '', 
-            cliente_nome_fantasia: '', 
-            cnpj_cpf: '',
-            cliente: '' 
-          }));
-          setIsClienteSelected(false);
+        // Validar se o texto digitado corresponde a um cliente existente
+        if (!isClienteSelected && formData.cliente.trim() !== '') {
+          const isMatch = allClients.some(client => {
+            const clientDisplayName = client.nome_fantasia 
+              ? `${client.nome} - ${client.nome_fantasia}` 
+              : client.nome;
+            return clientDisplayName === formData.cliente;
+          });
+          
+          if (!isMatch) {
+            setFormData(prev => ({ 
+              ...prev, 
+              cliente_id: null, 
+              cliente_nome: '', 
+              cliente_nome_fantasia: '', 
+              cnpj_cpf: '',
+              cliente: '' 
+            }));
+          }
         }
       }
     }, 200);
@@ -456,7 +436,7 @@ const EntradaFormPage = () => {
                         filteredClients.map((client) => (
                           <div
                             key={client.id}
-                            onMouseDown={() => handleClientSelect(client)} // onMouseDown evita conflito com blur
+                            onClick={() => handleClientSelect(client)}
                             className="p-3 hover:bg-emerald-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors duration-150"
                           >
                             <div className="font-medium text-gray-900">
