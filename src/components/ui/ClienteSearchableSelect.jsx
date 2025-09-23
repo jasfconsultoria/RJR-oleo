@@ -41,26 +41,31 @@ const ClienteSearchableSelect = ({
     fetchClients();
   }, [toast]);
 
+  // Effect to synchronize internal searchTerm with the external 'value' prop
   useEffect(() => {
-    // Set initial input value if a client is already selected
     if (value && clients.length > 0) {
       const selected = clients.find(c => c.id === value);
       if (selected) {
-        setSearchTerm(selected.nome_fantasia ? `${selected.nome} - ${selected.nome_fantasia}` : selected.nome);
+        const displayName = selected.nome_fantasia ? `${selected.nome} - ${selected.nome_fantasia}` : selected.nome;
+        if (searchTerm !== displayName) { // Only update if different to avoid unnecessary re-renders
+          setSearchTerm(displayName);
+        }
+      } else {
+        // If value is set but client not found (e.g., client deleted), clear search term and notify parent
+        setSearchTerm('');
+        onChange(null); 
       }
-    } else if (!value) {
+    } else if (!value && searchTerm !== '') {
+      // If value is null (no client selected) and searchTerm is not empty, clear it.
       setSearchTerm('');
     }
-  }, [value, clients]);
-
-  const getClientDisplayName = (client) => {
-    return client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome;
-  };
+  }, [value, clients, onChange]);
 
   const filteredClients = useMemo(() => {
     if (!searchTerm) return clients;
     return clients.filter(client =>
-      getClientDisplayName(client).toLowerCase().includes(searchTerm.toLowerCase()) ||
+      client.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (client.nome_fantasia && client.nome_fantasia.toLowerCase().includes(searchTerm.toLowerCase())) || // Search by nome_fantasia
       (client.cnpj_cpf && formatCnpjCpf(client.cnpj_cpf).toLowerCase().includes(searchTerm.toLowerCase()))
     );
   }, [clients, searchTerm]);
@@ -68,21 +73,25 @@ const ClienteSearchableSelect = ({
   const handleInputChange = (e) => {
     const val = e.target.value;
     setSearchTerm(val);
-    if (!val) {
-      onChange(null); // Clear selected client if input is empty
+    // If there's a selected client (value is not null) and the input value
+    // is no longer the display name of that selected client, then clear the selection in the parent.
+    const selectedClientDisplayName = value ? (clients.find(c => c.id === value)?.nome_fantasia ? `${clients.find(c => c.id === value).nome} - ${clients.find(c => c.id === value).nome_fantasia}` : clients.find(c => c.id === value)?.nome) : '';
+    if (value && val !== selectedClientDisplayName) {
+      onChange(null); 
     }
     setShowDropdown(true);
   };
 
   const handleSelect = (client) => {
-    onChange(client.id);
-    setSearchTerm(getClientDisplayName(client));
+    onChange(client.id); // Update parent's state
+    const displayName = client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome;
+    setSearchTerm(displayName); // Update internal state immediately for responsiveness
     setShowDropdown(false);
   };
 
   const handleClear = () => {
-    onChange(null);
-    setSearchTerm('');
+    onChange(null); // Clear parent's state
+    setSearchTerm(''); // Clear internal state immediately
     setShowDropdown(false);
   };
 
@@ -90,13 +99,19 @@ const ClienteSearchableSelect = ({
     setShowDropdown(true);
   };
 
-  const handleBlur = (e) => {
+  const handleBlur = () => {
     // Delay hiding dropdown to allow click on item
     setTimeout(() => {
       if (containerRef.current && !containerRef.current.contains(document.activeElement)) {
         setShowDropdown(false);
-        // If no client is selected and input is not empty, reset to previous selected or empty
-        if (!value && searchTerm && !clients.some(c => getClientDisplayName(c) === searchTerm)) {
+        const selectedClient = clients.find(c => c.id === value);
+        const selectedClientDisplayName = selectedClient ? (selectedClient.nome_fantasia ? `${selectedClient.nome} - ${selectedClient.nome_fantasia}` : selectedClient.nome) : '';
+
+        if (value && searchTerm !== selectedClientDisplayName) {
+          // If a client is selected but the input text doesn't match, revert to selected client's name
+          setSearchTerm(selectedClientDisplayName);
+        } else if (!value && searchTerm !== '') {
+          // If no client is selected and there's text in the input, clear it
           setSearchTerm('');
         }
       }
@@ -143,7 +158,7 @@ const ClienteSearchableSelect = ({
                 onClick={() => handleSelect(client)}
                 className="p-3 hover:bg-emerald-50 cursor-pointer border-b border-gray-100 last:border-b-0"
               >
-                <div className="font-medium text-gray-900">{getClientDisplayName(client)}</div>
+                <div className="font-medium text-gray-900">{client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome}</div>
                 <div className="text-sm text-gray-600">
                   {client.cnpj_cpf ? formatCnpjCpf(client.cnpj_cpf) : 'CNPJ/CPF não informado'} - {client.municipio}/{client.estado}
                 </div>
