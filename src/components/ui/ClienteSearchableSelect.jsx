@@ -15,7 +15,7 @@ const ClienteSearchableSelect = ({
   loading: parentLoading = false,
   disabled = false,
 }) => {
-  const [searchTerm, setSearchTerm] = useState('');
+  const [inputValue, setInputValue] = useState(''); // Use inputValue for the text input
   const [clients, setClients] = useState([]);
   const [loadingClients, setLoadingClients] = useState(true);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -41,57 +41,45 @@ const ClienteSearchableSelect = ({
     fetchClients();
   }, [toast]);
 
-  // Effect to synchronize internal searchTerm with the external 'value' prop
   useEffect(() => {
+    // Set inputValue based on the 'value' prop (selected client ID)
     if (value && clients.length > 0) {
       const selected = clients.find(c => c.id === value);
       if (selected) {
-        const displayName = selected.nome_fantasia ? `${selected.nome} - ${selected.nome_fantasia}` : selected.nome;
-        if (searchTerm !== displayName) { // Only update if different to avoid unnecessary re-renders
-          setSearchTerm(displayName);
-        }
-      } else {
-        // If value is set but client not found (e.g., client deleted), clear search term and notify parent
-        setSearchTerm('');
-        onChange(null); 
+        setInputValue(selected.nome_fantasia ? `${selected.nome} - ${selected.nome_fantasia}` : selected.nome);
       }
-    } else if (!value && searchTerm !== '') {
-      // If value is null (no client selected) and searchTerm is not empty, clear it.
-      setSearchTerm('');
+    } else if (!value) {
+      setInputValue('');
     }
-  }, [value, clients, onChange]);
+  }, [value, clients]);
 
   const filteredClients = useMemo(() => {
-    if (!searchTerm) return clients;
+    if (!inputValue) return clients; // Filter based on inputValue
     return clients.filter(client =>
-      client.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (client.nome_fantasia && client.nome_fantasia.toLowerCase().includes(searchTerm.toLowerCase())) || // Search by nome_fantasia
-      (client.cnpj_cpf && formatCnpjCpf(client.cnpj_cpf).toLowerCase().includes(searchTerm.toLowerCase()))
+      client.nome.toLowerCase().includes(inputValue.toLowerCase()) ||
+      (client.nome_fantasia && client.nome_fantasia.toLowerCase().includes(inputValue.toLowerCase())) || // Search by nome_fantasia
+      (client.cnpj_cpf && formatCnpjCpf(client.cnpj_cpf).toLowerCase().includes(inputValue.toLowerCase()))
     );
-  }, [clients, searchTerm]);
+  }, [clients, inputValue]);
 
   const handleInputChange = (e) => {
     const val = e.target.value;
-    setSearchTerm(val);
-    // If there's a selected client (value is not null) and the input value
-    // is no longer the display name of that selected client, then clear the selection in the parent.
-    const selectedClientDisplayName = value ? (clients.find(c => c.id === value)?.nome_fantasia ? `${clients.find(c => c.id === value).nome} - ${clients.find(c => c.id === value).nome_fantasia}` : clients.find(c => c.id === value)?.nome) : '';
-    if (value && val !== selectedClientDisplayName) {
-      onChange(null); 
+    setInputValue(val); // Update inputValue
+    if (value) { // If a client was previously selected, clear it when typing
+      onChange(null);
     }
     setShowDropdown(true);
   };
 
   const handleSelect = (client) => {
-    onChange(client.id); // Update parent's state
-    const displayName = client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome;
-    setSearchTerm(displayName); // Update internal state immediately for responsiveness
+    onChange(client.id); // Update parent's selectedClientId
+    setInputValue(client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome); // Update inputValue to selected client's name
     setShowDropdown(false);
   };
 
   const handleClear = () => {
-    onChange(null); // Clear parent's state
-    setSearchTerm(''); // Clear internal state immediately
+    onChange(null); // Clear parent's selectedClientId
+    setInputValue(''); // Clear inputValue
     setShowDropdown(false);
   };
 
@@ -99,20 +87,15 @@ const ClienteSearchableSelect = ({
     setShowDropdown(true);
   };
 
-  const handleBlur = () => {
+  const handleBlur = (e) => {
     // Delay hiding dropdown to allow click on item
     setTimeout(() => {
       if (containerRef.current && !containerRef.current.contains(document.activeElement)) {
         setShowDropdown(false);
-        const selectedClient = clients.find(c => c.id === value);
-        const selectedClientDisplayName = selectedClient ? (selectedClient.nome_fantasia ? `${selectedClient.nome} - ${selectedClient.nome_fantasia}` : selectedClient.nome) : '';
-
-        if (value && searchTerm !== selectedClientDisplayName) {
-          // If a client is selected but the input text doesn't match, revert to selected client's name
-          setSearchTerm(selectedClientDisplayName);
-        } else if (!value && searchTerm !== '') {
-          // If no client is selected and there's text in the input, clear it
-          setSearchTerm('');
+        // If no client is selected (value is null) AND there's text in the input
+        // AND that text doesn't match any client, then clear the input.
+        if (!value && inputValue && !clients.some(c => (c.nome_fantasia ? `${c.nome} - ${c.nome_fantasia}` : c.nome) === inputValue)) {
+          setInputValue('');
         }
       }
     }, 100);
@@ -128,7 +111,7 @@ const ClienteSearchableSelect = ({
         <Input
           id="client-search-select"
           type="text"
-          value={searchTerm}
+          value={inputValue} // Always use inputValue for the input field
           onChange={handleInputChange}
           onFocus={handleFocus}
           onBlur={handleBlur}
@@ -138,7 +121,7 @@ const ClienteSearchableSelect = ({
           disabled={disabled || isLoading}
         />
         {isLoading && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 animate-spin" />}
-        {!isLoading && searchTerm && (
+        {!isLoading && inputValue && ( // Use inputValue here
           <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-white/70 hover:text-white rounded-full" onClick={handleClear}>
             <X className="h-4 w-4" />
           </Button>

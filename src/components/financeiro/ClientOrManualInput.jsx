@@ -19,7 +19,7 @@ const ClientOrManualInput = ({
   refetchTrigger = 0,
   disabled = false,
 }) => {
-  const [searchTerm, setSearchTerm] = useState('');
+  const [inputValue, setInputValue] = useState(''); // Use inputValue for the text input
   const [clients, setClients] = useState([]);
   const [loadingClients, setLoadingClients] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -47,32 +47,32 @@ const ClientOrManualInput = ({
   }, [toast, refetchTrigger]);
 
   useEffect(() => {
-    // Update internal searchTerm when clientName prop changes (e.g., on edit mode load)
-    if (selectedClientId) {
+    // Update inputValue when selectedClientId or clientName prop changes
+    if (selectedClientId && clients.length > 0) {
       const selected = clients.find(c => c.id === selectedClientId);
       if (selected) {
-        setSearchTerm(selected.nome_fantasia ? `${selected.nome} - ${selected.nome_fantasia}` : selected.nome);
+        setInputValue(selected.nome_fantasia ? `${selected.nome} - ${selected.nome_fantasia}` : selected.nome);
       }
     } else {
-      setSearchTerm(clientName || '');
+      setInputValue(clientName || ''); // Use clientName prop if no ID selected
     }
   }, [selectedClientId, clientName, clients]);
 
   const filteredClients = useMemo(() => {
-    if (!searchTerm) return clients;
+    if (!inputValue) return clients;
     return clients.filter(client =>
-      client.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (client.nome_fantasia && client.nome_fantasia.toLowerCase().includes(searchTerm.toLowerCase())) || // Search by nome_fantasia
-      (client.cnpj_cpf && formatCnpjCpf(client.cnpj_cpf).toLowerCase().includes(searchTerm.toLowerCase()))
+      client.nome.toLowerCase().includes(inputValue.toLowerCase()) ||
+      (client.nome_fantasia && client.nome_fantasia.toLowerCase().includes(inputValue.toLowerCase())) ||
+      (client.cnpj_cpf && formatCnpjCpf(client.cnpj_cpf).toLowerCase().includes(inputValue.toLowerCase()))
     );
-  }, [clients, searchTerm]);
+  }, [clients, inputValue]);
 
   const handleInputChange = (e) => {
     const value = e.target.value;
-    setSearchTerm(value);
+    setInputValue(value);
     onClientNameChange(value); // Always update parent's clientName
     if (selectedClientId) {
-      onSelectClient(null); // Deselect client if typing
+      onSelectClient(null); // Deselect client if typing over a selected one
       onCnpjCpfChange(''); // Clear CNPJ/CPF if deselecting
     }
     setShowDropdown(true);
@@ -82,7 +82,7 @@ const ClientOrManualInput = ({
     onSelectClient(client.id);
     onClientNameChange(client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome);
     onCnpjCpfChange(client.cnpj_cpf || '');
-    setSearchTerm(client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome);
+    setInputValue(client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome);
     setShowDropdown(false);
   };
 
@@ -90,7 +90,7 @@ const ClientOrManualInput = ({
     onSelectClient(null);
     onClientNameChange('');
     onCnpjCpfChange('');
-    setSearchTerm('');
+    setInputValue('');
     setShowDropdown(false);
   };
 
@@ -99,10 +99,14 @@ const ClientOrManualInput = ({
   };
 
   const handleBlur = (e) => {
-    // Delay hiding dropdown to allow click on item
     setTimeout(() => {
       if (dropdownRef.current && !dropdownRef.current.contains(document.activeElement)) {
         setShowDropdown(false);
+        // If no client is selected (selectedClientId is null) AND there's text in the input
+        // AND that text doesn't match any client, then revert inputValue to clientName prop.
+        if (!selectedClientId && inputValue && !clients.some(c => (c.nome_fantasia ? `${c.nome} - ${c.nome_fantasia}` : c.nome) === inputValue)) {
+          setInputValue(clientName || '');
+        }
       }
     }, 100);
   };
@@ -115,7 +119,7 @@ const ClientOrManualInput = ({
         <Input
           id="client-search"
           type="text"
-          value={searchTerm}
+          value={inputValue} // Always use inputValue for the input field
           onChange={handleInputChange}
           onFocus={handleFocus}
           onBlur={handleBlur}
@@ -126,7 +130,7 @@ const ClientOrManualInput = ({
           ref={inputRef}
         />
         {loadingClients && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 animate-spin" />}
-        {!loadingClients && searchTerm && (
+        {!loadingClients && inputValue && ( // Use inputValue here
           <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-white/70 hover:text-white rounded-full" onClick={handleClear}>
             <X className="h-4 w-4" />
           </Button>
