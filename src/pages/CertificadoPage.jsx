@@ -31,16 +31,18 @@ const initialFormState = {
   periodoFim: undefined,
   data_emissao: undefined,
   
-  // Campos do cliente, agora preenchidos diretamente ou manualmente
-  cliente_id: '', // Será preenchido em edição, ou vazio para novos (manual)
-  cliente_nome: '',
-  cliente_nome_fantasia: '',
+  // Campos do cliente, replicando a estrutura de ColetaStep1.jsx
+  cliente_id: '',
+  cliente_nome: '', // Nome principal do cliente
+  cliente_nome_fantasia: '', // Nome fantasia do cliente
   cnpj_cpf: '',
   endereco: '',
   email: '',
   municipio: '',
   estado: '',
   telefone: '',
+
+  clientSearchTerm: '', // Termo de busca para o input
 };
 
 const CertificadoPage = () => {
@@ -52,12 +54,16 @@ const CertificadoPage = () => {
   const isEditMode = !!id;
 
   const pdfContainerRef = useRef(null);
+  const clientSearchInputRef = useRef(null); // Ref para o input de busca de cliente
+  const clientDropdownRef = useRef(null); // Ref para o dropdown de clientes
 
   const [pdfData, setPdfData] = useState(null);
   const [empresa, setEmpresa] = useState(null);
   const [loading, setLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [allClients, setAllClients] = useState([]); // Todos os clientes do DB
+  const [showClienteDropdown, setShowClienteDropdown] = useState(false); // Controla a visibilidade do dropdown
 
   const [localFormData, setLocalFormData, clearSavedData, savedData] = useAutoSave(
     'certificado-form-data',
@@ -96,6 +102,8 @@ const CertificadoPage = () => {
         municipio: currentSavedData.municipio || '',
         estado: currentSavedData.estado || '',
         telefone: currentSavedData.telefone || '',
+
+        clientSearchTerm: currentSavedData.clientSearchTerm || '',
       };
       setLocalFormData(dataToLoad);
     }
@@ -103,8 +111,30 @@ const CertificadoPage = () => {
 
   const { 
     cliente_id, cliente_nome, cliente_nome_fantasia, cnpj_cpf, endereco, email, municipio, estado, telefone,
-    periodoInicio, periodoFim, data_emissao
+    periodoInicio, periodoFim, data_emissao, clientSearchTerm 
   } = localFormData;
+
+  // Fetch all clients with active contracts
+  useEffect(() => {
+    const fetchAllClients = async () => {
+      const { data, error } = await supabase
+        .from('clientes')
+        .select('*, contratos(status)') // Select contracts to filter active ones
+        .order('nome', { ascending: true });
+
+      if (error) {
+        toast({ title: 'Erro ao buscar clientes', description: error.message, variant: 'destructive' });
+        setAllClients([]);
+      } else {
+        // Filter clients with at least one active contract
+        const activeClients = (data || []).filter(client => 
+          client.contratos && client.contratos.some(contract => contract.status === 'Ativo')
+        );
+        setAllClients(activeClients);
+      }
+    };
+    fetchAllClients();
+  }, [toast]);
 
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -145,6 +175,7 @@ const CertificadoPage = () => {
             periodoInicio: processDateValue(certData.periodo_inicio, getFirstDayOfMonth),
             periodoFim: processDateValue(certData.periodo_fim, getTodayDate),
             data_emissao: processDateValue(certData.data_emissao, () => new Date()),
+            clientSearchTerm: clientData.nome_fantasia ? `${clientData.nome} - ${clientData.nome_fantasia}` : clientData.nome,
           }));
         }
       } catch (error) {
@@ -157,13 +188,89 @@ const CertificadoPage = () => {
     fetchInitialData();
   }, [id, isEditMode, toast, navigate, setLocalFormData, processDateValue]);
 
-  const handleInputChange = (field, value) => {
-    setLocalFormData(prev => ({ ...prev, [field]: value }));
+  const filteredClients = useMemo(() => { 
+    if (!clientSearchTerm) return allClients;
+    return allClients.filter(client =>
+      client.nome.toLowerCase().includes(clientSearchTerm.toLowerCase()) ||
+      (client.nome_fantasia && client.nome_fantasia.toLowerCase().includes(clientSearchTerm.toLowerCase())) ||
+      (client.cnpj_cpf && formatCnpjCpf(client.cnpj_cpf).toLowerCase().includes(clientSearchTerm.toLowerCase()))
+    );
+  }, [allClients, clientSearchTerm]);
+
+  const handleClientSearchInputChange = (e) => {
+    const val = e.target.value;
+    setLocalFormData(prev => ({ ...prev, clientSearchTerm: val }));
+    // Se o usuário começar a digitar, desmarcar o cliente selecionado
+    if (prev.cliente_id) {
+      setLocalFormData(prev => ({ 
+        ...prev, 
+        cliente_id: '', 
+        cliente_nome: '',
+        cliente_nome_fantasia: '',
+        cnpj_cpf: '', 
+        endereco: '', 
+        email: '', 
+        municipio: '', 
+        estado: '', 
+        telefone: '' 
+      }));
+    }
+    setShowClienteDropdown(true);
+  };
+
+  const handleClientSelect = (client) => {
+    setLocalFormData(prev => ({
+      ...prev,
+      cliente_id: client.id,
+      cliente_nome: client.nome,
+      cliente_nome_fantasia: client.nome_fantasia,
+      cnpj_cpf: client.cnpj_cpf,
+      endereco: client.endereco,
+      email: client.email,
+      municipio: client.municipio,
+      estado: client.estado,
+      telefone: client.telefone,
+      clientSearchTerm: client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome,
+    }));
+    setShowClienteDropdown(false);
+  };
+
+  const handleFocus = () => {
+    setShowClienteDropdown(true);
+  };
+
+  const handleBlur = (e) => {
+    // Use setTimeout para permitir que o evento onClick do item do dropdown seja disparado primeiro
+    setTimeout(() => {
+      // Verifica se o elemento para o qual o foco se moveu (relatedTarget) está dentro do dropdown
+      // ou se o foco ainda está no input (o que não deveria acontecer no blur, mas é uma salvaguarda)
+      if (clientDropdownRef.current && clientDropdownRef.current.contains(e.relatedTarget)) {
+        // Se o foco se moveu para um item do dropdown, não faça nada,
+        // a função handleClientSelect será responsável por atualizar o estado.
+        return;
+      }
+
+      // Se o foco saiu do input e não foi para um item do dropdown,
+      // esconde o dropdown.
+      setShowClienteDropdown(false);
+
+      // Se nenhum cliente foi selecionado (cliente_id é vazio) E há texto no campo de busca
+      // E esse texto não corresponde exatamente a um nome de cliente conhecido,
+      // então limpa o campo de busca.
+      if (!localFormData.cliente_id && localFormData.clientSearchTerm) {
+        const isMatch = allClients.some(c => 
+          (c.nome_fantasia ? `${c.nome} - ${c.nome_fantasia}` : c.nome) === localFormData.clientSearchTerm
+        );
+        if (!isMatch) {
+          setLocalFormData(prev => ({ ...prev, clientSearchTerm: '' }));
+        }
+      }
+    }, 100); // Pequeno atraso para permitir que o clique no item do dropdown seja registrado
   };
 
   const handleSubmit = async () => {
-    if (!cliente_nome || !cnpj_cpf || !periodoInicio || !periodoFim || !data_emissao) {
-      toast({ title: 'Campos obrigatórios', description: 'Por favor, preencha o Nome do Cliente, CNPJ/CPF e todas as datas.', variant: 'destructive' });
+    if (!cliente_id || !periodoInicio || !periodoFim || !data_emissao || !cliente_nome) {
+      toast({ title: 'Campos obrigatórios', description: 'Por favor, selecione um cliente e preencha todas as datas.', variant: 'destructive' });
       return;
     }
     if (new Date(periodoInicio) > new Date(periodoFim)) {
@@ -179,53 +286,10 @@ const CertificadoPage = () => {
       const actualPeriodoFim = periodoFim instanceof Date && isValid(periodoFim) ? periodoFim : new Date();
       const endDateWithTime = format(endOfDay(actualPeriodoFim), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx");
 
-      // Buscar cliente pelo CNPJ/CPF para obter o ID, se existir
-      let currentClienteId = cliente_id;
-      let currentClienteNome = cliente_nome;
-      let currentClienteNomeFantasia = cliente_nome_fantasia;
-      let currentCnpjCpf = cnpj_cpf;
-      let currentEndereco = endereco;
-      let currentEmail = email;
-      let currentMunicipio = municipio;
-      let currentEstado = estado;
-      let currentTelefone = telefone;
-
-      if (!isEditMode) { // Apenas para novos certificados, tentar encontrar ou criar cliente
-        const { data: existingClient, error: clientSearchError } = await supabase
-          .from('clientes')
-          .select('id, nome, nome_fantasia, cnpj_cpf, endereco, email, municipio, estado, telefone')
-          .eq('cnpj_cpf', cnpj_cpf)
-          .single();
-
-        if (clientSearchError && clientSearchError.code !== 'PGRST116') { // PGRST116 means no rows found
-          throw new Error(`Erro ao buscar cliente existente: ${clientSearchError.message}`);
-        }
-
-        if (existingClient) {
-          currentClienteId = existingClient.id;
-          currentClienteNome = existingClient.nome;
-          currentClienteNomeFantasia = existingClient.nome_fantasia;
-          currentCnpjCpf = existingClient.cnpj_cpf;
-          currentEndereco = existingClient.endereco;
-          currentEmail = existingClient.email;
-          currentMunicipio = existingClient.municipio;
-          currentEstado = existingClient.estado;
-          currentTelefone = existingClient.telefone;
-        } else {
-          // Se não encontrou, o cliente é "novo" para este certificado (mesmo que não seja salvo na tabela clientes)
-          // O ID será nulo, e os dados virão do formulário
-          toast({
-            title: 'Cliente não encontrado',
-            description: 'O cliente com este CNPJ/CPF não foi encontrado. Os dados serão usados apenas para o certificado.',
-            variant: 'default',
-          });
-        }
-      }
-
       const { data: coletas, error: coletasError } = await supabase
         .from('coletas')
         .select('quantidade_coletada')
-        .eq('cliente_id', currentClienteId) // Usar o ID encontrado ou o que já estava
+        .eq('cliente_id', cliente_id)
         .gte('data_coleta', startDateISO)
         .lte('data_coleta', endDateWithTime);
 
@@ -241,8 +305,8 @@ const CertificadoPage = () => {
       }
 
       const certificateData = {
-        cliente_id: currentClienteId || null, // Pode ser nulo se o cliente não existir no DB
-        cliente_nome: currentClienteNome,
+        cliente_id: cliente_id,
+        cliente_nome: cliente_nome,
         periodo_inicio: formatToISODate(periodoInicio),
         periodo_fim: formatToISODate(periodoFim),
         total_kg: totalKg,
@@ -265,15 +329,15 @@ const CertificadoPage = () => {
       setPdfData({
         id: certData.id,
         cliente: { // Reconstruir objeto cliente para o PDF
-          id: currentClienteId,
-          nome: currentClienteNome,
-          cnpj_cpf: currentCnpjCpf,
-          municipio: currentMunicipio,
-          estado: currentEstado,
-          endereco: currentEndereco,
-          nome_fantasia: currentClienteNomeFantasia,
-          telefone: currentTelefone,
-          email: currentEmail,
+          id: cliente_id,
+          nome: cliente_nome,
+          cnpj_cpf: cnpj_cpf,
+          municipio: municipio,
+          estado: estado,
+          endereco: endereco,
+          nome_fantasia: cliente_nome_fantasia,
+          telefone: telefone,
+          email: email,
         },
         empresa: empresa,
         periodo: { inicio: certData.periodo_inicio, fim: certData.periodo_fim },
@@ -289,17 +353,17 @@ const CertificadoPage = () => {
       const canvas = await html2canvas(input, { scale: 2, useCORS: true, allowTaint: true, backgroundColor: '#ffffff' });
       setProgress(70);
       
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF('l', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-      const ratio = Math.min(pdfWidth / canvas.width, pdfHeight / canvas.height);
-      const imgWidth = canvas.width * ratio;
-      const imgHeight = canvas.height * ratio;
-      const x = (pdfWidth - imgWidth) / 2;
-      const y = (pdfHeight - imgHeight) / 2;
+  const imgData = canvas.toDataURL('image/png');
+  const pdf = new jsPDF('l', 'mm', 'a4');
+  const pdfWidth = pdf.internal.pageSize.getWidth();
+  const pdfHeight = pdf.internal.pageSize.getHeight();
+  const ratio = Math.min(pdfWidth / canvas.width, pdfHeight / canvas.height);
+  const imgWidth = canvas.width * ratio;
+  const imgHeight = canvas.height * ratio;
+  const x = (pdfWidth - imgWidth) / 2;
+  const y = (pdfHeight - imgHeight) / 2;
 
-      pdf.addImage(imgData, 'PNG', x, y, imgWidth, imgHeight);
+  pdf.addImage(imgData, 'PNG', x, y, imgWidth, imgHeight);
 
       const pdfBlob = pdf.output('blob');
       const dateStr = format(new Date(), 'yyyy-MM-dd');
@@ -316,9 +380,9 @@ const CertificadoPage = () => {
       setProgress(100);
 
       if (isEditMode) {
-        await logAction('update_certificate', { certificate_id: certData.id, client_id: currentClienteId });
+        await logAction('update_certificate', { certificate_id: certData.id, client_id: cliente_id });
       } else {
-        await logAction('generate_certificate', { certificate_id: certData.id, client_id: currentClienteId });
+        await logAction('generate_certificate', { certificate_id: certData.id, client_id: cliente_id });
         clearSavedData();
       }
       
@@ -409,31 +473,59 @@ const CertificadoPage = () => {
                   />
                 </div>
                 <div className="md:col-span-2 space-y-2 relative">
-                  <Label htmlFor="cliente_nome" className="text-white flex items-center gap-2">
+                  <Label htmlFor="cliente-search" className="text-white flex items-center gap-2">
                     <User className="w-4 h-4 text-emerald-400" />
-                    Nome do Cliente <span className="text-red-500">*</span>
+                    Cliente (com contrato ativo) *
                   </Label>
-                  <Input
-                    id="cliente_nome"
-                    value={cliente_nome}
-                    onChange={(e) => handleInputChange('cliente_nome', e.target.value)}
-                    placeholder="Nome completo ou Razão Social do cliente"
-                    className="w-full bg-white/5 border-white/20 text-white placeholder:text-white/60 rounded-xl"
-                    autoComplete="off"
-                    required
-                  />
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/70" />
+                    <Input
+                      id="cliente-search"
+                      ref={clientSearchInputRef}
+                      value={clientSearchTerm}
+                      onChange={handleClientSearchInputChange}
+                      onFocus={handleFocus}
+                      onBlur={handleBlur}
+                      placeholder="Digite para buscar..."
+                      className="pl-10 w-full bg-white/5 border-white/20 text-white placeholder:text-white/60 rounded-xl"
+                      autoComplete="off"
+                      required
+                    />
+                  </div>
+                  
+                  {showClienteDropdown && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="absolute z-10 w-full bg-white rounded-lg shadow-lg max-h-48 overflow-y-auto mt-1"
+                      ref={clientDropdownRef}
+                    >
+                      {filteredClients.length > 0 ? filteredClients.map((client) => (
+                        <div
+                          key={client.id}
+                          onClick={() => handleClientSelect(client)}
+                          className="p-3 hover:bg-emerald-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                        >
+                          <div className="font-medium text-gray-900">{client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome}</div>
+                          <div className="text-sm text-gray-600">{formatCnpjCpf(client.cnpj_cpf)} - {client.municipio}/{client.estado}</div>
+                        </div>
+                      )) : (
+                        <div className="p-3 text-center text-gray-500">Nenhum cliente com contrato ativo encontrado.</div>
+                      )}
+                    </motion.div>
+                  )}
                 </div>
-                <div className="md:col-span-2">
-                  <Label htmlFor="cnpj_cpf">CNPJ/CPF <span className="text-red-500">*</span></Label>
-                  <Input
-                    id="cnpj_cpf"
-                    value={cnpj_cpf}
-                    onChange={(e) => handleInputChange('cnpj_cpf', e.target.value)}
-                    placeholder="CNPJ ou CPF do cliente"
-                    className="bg-white/20 border-white/30 mt-2"
-                    required
-                  />
-                </div>
+                {cliente_id && ( // Exibir CNPJ/CPF apenas se um cliente estiver selecionado
+                  <div className="md:col-span-2">
+                    <Label htmlFor="cnpj_cpf">CNPJ/CPF</Label>
+                    <Input
+                      id="cnpj_cpf"
+                      value={formatCnpjCpf(cnpj_cpf)}
+                      disabled
+                      className="bg-white/20 border-white/30 mt-2"
+                    />
+                  </div>
+                )}
               </div>
               <div className="border border-white/20 rounded-xl p-4">
                 <h3 className="text-lg font-semibold text-emerald-300 mb-4">Período da Coleta</h3>
