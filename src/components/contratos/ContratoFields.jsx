@@ -35,9 +35,6 @@ const ContratoFields = ({ formData, setFormData, loading, errors, empresaTimezon
     setFormData(prev => ({ ...prev, [field]: date }));
   };
 
-  // Log para depuração: verificar o valor que está sendo passado para o IMaskInput
-  console.log('IMaskInput valor_coleta prop:', String(parseCurrency(formData.valor_coleta) || 0));
-
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-white">
       <div className="md:col-span-2">
@@ -122,8 +119,7 @@ const ContratoFields = ({ formData, setFormData, loading, errors, empresaTimezon
                 signed: false,
               },
             }}
-            // Passa o valor numérico (com ponto) convertido para string para o IMaskInput
-            // O '|| 0' garante que sempre será um número (0) se formData.valor_coleta for vazio/inválido
+            // Garante que o valor passado para o IMaskInput é uma string com ponto decimal
             value={String(parseCurrency(formData.valor_coleta) || 0)} 
             // onAccept retorna o valor não mascarado (com ponto decimal)
             onAccept={(value) => handleInputChange('valor_coleta', value)} 
