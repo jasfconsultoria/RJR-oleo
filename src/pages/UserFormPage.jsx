@@ -5,10 +5,12 @@ import { motion } from 'framer-motion';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, UserPlus, Save, Loader2 } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'; // Added CardFooter
+import { ArrowLeft, UserPlus, Save, Loader2, Link } from 'lucide-react'; // Added Link icon
 import { logAction } from '@/lib/logger';
 import UserFormFields from '@/components/users/UserFormFields';
+import { UserAccountLinkModal } from '@/components/users/UserAccountLinkModal'; // Import the new modal
+import { Dialog } from '@/components/ui/dialog'; // Import Dialog for the modal
 
 const UserFormPage = () => {
   const { id } = useParams();
@@ -26,6 +28,7 @@ const UserFormPage = () => {
   const [loading, setLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [selectedEstado, setSelectedEstado] = useState('');
+  const [isAccountLinkDialogOpen, setIsAccountLinkDialogOpen] = useState(false); // State for account link dialog
 
   const fetchUser = useCallback(async (userId) => {
     setLoading(true);
@@ -133,6 +136,10 @@ const UserFormPage = () => {
     setLoading(false);
   };
 
+  const handleOpenAccountLinkDialog = () => {
+    setIsAccountLinkDialogOpen(true);
+  };
+
   if (loading && isEditing) {
     return <div className="flex justify-center items-center h-full"><Loader2 className="h-8 w-8 animate-spin text-emerald-400" /></div>;
   }
@@ -166,7 +173,7 @@ const UserFormPage = () => {
                 handleMunicipioChange={handleMunicipioChange}
                 selectedEstado={selectedEstado}
               />
-              <div className="flex justify-between items-center pt-6 gap-4">
+              <CardFooter className="flex justify-between items-center pt-6 gap-4"> {/* Changed to CardFooter */}
                 <Button
                   type="button"
                   onClick={() => navigate('/app/usuarios')}
@@ -176,6 +183,16 @@ const UserFormPage = () => {
                   <ArrowLeft className="w-5 h-5 mr-2" />
                   Voltar
                 </Button>
+                {isEditing && ( // Show "Vincular Contas Correntes" button only in edit mode
+                  <Button
+                    type="button"
+                    onClick={handleOpenAccountLinkDialog}
+                    className="w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-xl flex items-center justify-center gap-2"
+                  >
+                    <Link className="w-5 h-5" />
+                    Vincular Contas Correntes
+                  </Button>
+                )}
                 <Button
                   type="submit"
                   disabled={loading}
@@ -184,11 +201,19 @@ const UserFormPage = () => {
                   {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
                   {loading ? 'Salvando...' : 'Salvar'}
                 </Button>
-              </div>
+              </CardFooter>
             </form>
           </CardContent>
         </Card>
       </motion.div>
+
+      {isEditing && userFormData.email && ( // Ensure user data is available for the modal
+        <UserAccountLinkModal
+          user={{ id: id, full_name: userFormData.full_name, email: userFormData.email }}
+          isOpen={isAccountLinkDialogOpen}
+          setIsOpen={setIsAccountLinkDialogOpen}
+        />
+      )}
     </>
   );
 };

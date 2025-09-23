@@ -7,10 +7,10 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
     import { Input } from '@/components/ui/input';
     import { Dialog } from '@/components/ui/dialog';
     import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
-    import { Loader2, PlusCircle, Edit, Trash2, ShieldCheck, UserCog, Search, KeyRound, Link } from 'lucide-react'; // Added Link icon
+    import { Loader2, PlusCircle, Edit, Trash2, ShieldCheck, UserCog, Search, KeyRound } from 'lucide-react'; // Removed Link icon
     import { UserPermissionsModal } from '@/components/UserPermissionsModal';
     import { ChangePasswordDialog } from '@/components/ChangePasswordDialog';
-    import { UserAccountLinkModal } from '@/components/users/UserAccountLinkModal'; // New import
+    // Removed UserAccountLinkModal import
     import { motion } from 'framer-motion';
     import { useAuth } from '@/contexts/SupabaseAuthContext';
     import { logAction } from '@/lib/logger';
@@ -33,7 +33,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
       const [loading, setLoading] = useState(true);
       const [isPermsDialogOpen, setIsPermsDialogOpen] = useState(false);
       const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
-      const [isAccountLinkDialogOpen, setIsAccountLinkDialogOpen] = useState(false); // New state for account link dialog
+      // Removed isAccountLinkDialogOpen state
       const [selectedUser, setSelectedUser] = useState(null);
       const [searchTerm, setSearchTerm] = useState('');
       const { toast } = useToast();
@@ -117,10 +117,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
         setIsPasswordDialogOpen(true);
       };
 
-      const handleOpenAccountLinkDialog = (user) => { // New handler
-        setSelectedUser(user);
-        setIsAccountLinkDialogOpen(true);
-      };
+      // Removed handleOpenAccountLinkDialog
 
       const handleDeleteUser = async (userId, userEmail, userRole) => {
         if (userRole === 'administrador') {
@@ -217,11 +214,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
                           <Button variant="ghost" size="icon" onClick={() => handleOpenPermsDialog(user)} disabled={user.role === 'administrador'} title="Permissões">
                             <ShieldCheck className="h-4 w-4" />
                           </Button>
-                          {currentUser?.role === 'administrador' && ( // Only admins can link accounts
-                            <Button variant="ghost" size="icon" onClick={() => handleOpenAccountLinkDialog(user)} title="Vincular Contas Correntes">
-                              <Link className="h-4 w-4" />
-                            </Button>
-                          )}
+                          {/* Removed Account Link Button */}
                           <Button variant="ghost" size="icon" onClick={() => navigate(`/app/usuarios/editar/${user.id}`)} title="Editar">
                             <Edit className="h-4 w-4" />
                           </Button>
@@ -287,13 +280,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
               setIsOpen={setIsPasswordDialogOpen}
             />
           )}
-          {selectedUser && ( // New dialog for account linking
-            <UserAccountLinkModal
-              user={selectedUser}
-              isOpen={isAccountLinkDialogOpen}
-              setIsOpen={setIsAccountLinkDialogOpen}
-            />
-          )}
+          {/* Removed Account Link Dialog */}
         </>
       );
     };
