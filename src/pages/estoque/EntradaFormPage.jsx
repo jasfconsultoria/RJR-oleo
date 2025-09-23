@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Helmet } from 'react-helmet';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -29,44 +29,51 @@ const EntradaFormPage = () => {
     origem: 'manual',
     document_number: '',
     cliente_id: null,
-    cliente_nome: '', // Usado para o valor do input e nome de exibição
+    cliente_nome: '',
     cliente_nome_fantasia: '',
     cnpj_cpf: '',
     coleta_id: null,
     observacao: '',
     itens: [],
+    cliente: '', // Campo único para busca
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  // === CLIENTE AUTOCOMPLETE STATES ===
   const [allClients, setAllClients] = useState([]);
   const [filteredClients, setFilteredClients] = useState([]);
   const [showClienteDropdown, setShowClienteDropdown] = useState(false);
-  const [isClienteSelected, setIsClienteSelected] = useState(false); // Indica se um cliente foi *selecionado* do dropdown
-  const clientInputRef = useRef(null);
+  const [isClienteSelected, setIsClienteSelected] = useState(false);
   const dropdownRef = useRef(null);
 
-  // Fetch all clients
+  // Fetch all clients (SEM filtrar por contratos ativos)
   useEffect(() => {
     const fetchClients = async () => {
-      const { data, error } = await supabase
-        .from('clientes')
-        .select('id, nome, nome_fantasia, cnpj_cpf, municipio, estado')
-        .order('nome', { ascending: true });
+      try {
+        const { data, error } = await supabase
+          .from('clientes')
+          .select('*')
+          .order('nome', { ascending: true });
 
-      if (error) {
+        if (error) throw error;
+
+        setAllClients(data || []);
+        setFilteredClients(data || []);
+      } catch (error) {
         toast({ title: 'Erro ao buscar clientes', description: error.message, variant: 'destructive' });
         setAllClients([]);
-      } else {
-        setAllClients(data || []);
+        setFilteredClients([]);
       }
     };
+
     fetchClients();
   }, [toast]);
 
-  // Filter clients based on search term (formData.cliente_nome)
+  // FILTRO: nome | nome_fantasia | cnpj (formatado)
   useEffect(() => {
-    if (formData.cliente_nome && formData.cliente_nome.trim()) {
-      const searchTerm = formData.cliente_nome.toLowerCase();
+    if (formData.cliente && formData.cliente.trim()) {
+      const searchTerm = formData.cliente.toLowerCase();
       const filtered = allClients.filter(client =>
         client.nome.toLowerCase().includes(searchTerm) ||
         (client.nome_fantasia && client.nome_fantasia.toLowerCase().includes(searchTerm)) ||
@@ -76,8 +83,9 @@ const EntradaFormPage = () => {
     } else {
       setFilteredClients(allClients);
     }
-  }, [formData.cliente_nome, allClients]);
+  }, [formData.cliente, allClients]);
 
+  // === Fetch movimentacao quando editar ===
   const fetchMovimentacao = useCallback(async () => {
     if (!id) {
       setLoading(false);
@@ -100,13 +108,18 @@ const EntradaFormPage = () => {
 
       if (itensError) throw itensError;
 
+      const clienteDisplay = movimentacaoData.cliente?.nome_fantasia 
+        ? `${movimentacaoData.cliente.nome} - ${movimentacaoData.cliente.nome_fantasia}` 
+        : movimentacaoData.cliente?.nome || '';
+
       setFormData({
         ...movimentacaoData,
         data: new Date(movimentacaoData.data),
         cliente_id: movimentacaoData.cliente?.id || null,
-        cliente_nome: movimentacaoData.cliente?.nome_fantasia ? `${movimentacaoData.cliente.nome} - ${movimentacaoData.cliente.nome_fantasia}` : movimentacaoData.cliente?.nome || '', // Set full display name
+        cliente_nome: movimentacaoData.cliente?.nome || '',
         cliente_nome_fantasia: movimentacaoData.cliente?.nome_fantasia || '',
         cnpj_cpf: movimentacaoData.cliente?.cnpj_cpf || '',
+        cliente: clienteDisplay, // Campo de busca
         itens: itensData.map(item => ({
           id: item.id,
           produto_id: item.produto_id,
@@ -130,29 +143,54 @@ const EntradaFormPage = () => {
     fetchMovimentacao();
   }, [fetchMovimentacao]);
 
+  // === Handlers ===
   const handleFormChange = (name, value) => {
     setFormData((prev) => ({ ...prev, [name]: value }));
+    
+    // Mostrar dropdown quando começar a digitar no campo cliente
+    if (name === 'cliente') {
+      if (value.trim() !== '') {
+        setShowClienteDropdown(true);
+      } else {
+        setShowClienteDropdown(false);
+      }
+      // Importante: sinaliza que o usuário está digitando (não é mais um cliente selecionado)
+      setIsClienteSelected(false);
+    }
   };
 
   const handleSelectChange = (name, value) => {
     setFormData((prev) => ({ ...prev, [name]: value }));
     if (name === 'origem' && value !== 'coleta') {
-      setFormData((prev) => ({ ...prev, coleta_id: null, cliente_id: null, cliente_nome: '', cliente_nome_fantasia: '', cnpj_cpf: '' }));
+      setFormData((prev) => ({ 
+        ...prev, 
+        coleta_id: null, 
+        cliente_id: null, 
+        cliente_nome: '', 
+        cliente_nome_fantasia: '', 
+        cnpj_cpf: '',
+        cliente: '' 
+      }));
       setIsClienteSelected(false);
     }
   };
 
   const handleColetaSelect = (coleta) => {
     if (coleta) {
+      const clienteDisplay = coleta.cliente_nome_fantasia 
+        ? `${coleta.cliente_nome} - ${coleta.cliente_nome_fantasia}` 
+        : coleta.cliente_nome;
+
       setFormData((prev) => ({
         ...prev,
         coleta_id: coleta.id,
         cliente_id: coleta.cliente_id,
         document_number: coleta.numero_coleta?.toString().padStart(6, '0'),
         observacao: `Movimentação referente à coleta Nº ${coleta.numero_coleta?.toString().padStart(6, '0')} do cliente ${coleta.cliente_nome}.`,
-        cliente_nome: coleta.cliente_nome_fantasia ? `${coleta.cliente_nome} - ${coleta.cliente_nome_fantasia}` : coleta.cliente_nome,
+        cliente_nome: coleta.cliente_nome,
         cliente_nome_fantasia: coleta.cliente_nome_fantasia,
         cnpj_cpf: coleta.cliente_cnpj_cpf,
+        cliente: clienteDisplay,
       }));
       setIsClienteSelected(true);
     } else {
@@ -165,36 +203,29 @@ const EntradaFormPage = () => {
         cliente_nome: '',
         cliente_nome_fantasia: '',
         cnpj_cpf: '',
+        cliente: '',
       }));
       setIsClienteSelected(false);
     }
   };
 
-  const handleItemsChange = (newItems) => {
-    setFormData((prev) => ({ ...prev, itens: newItems }));
-  };
+  // === HANDLE CLIENT SELECT ===
+  const handleClientSelect = (client) => {
+    const clienteDisplay = client.nome_fantasia 
+      ? `${client.nome} - ${client.nome_fantasia}` 
+      : client.nome;
 
-  const handleClientSearchChange = (e) => {
-    const value = e.target.value;
-    setFormData(prev => ({ ...prev, cliente_nome: value })); // Atualiza formData.cliente_nome diretamente
-    if (isClienteSelected && value !== (formData.cliente_nome_fantasia ? `${formData.cliente_nome} - ${formData.cliente_nome_fantasia}` : formData.cliente_nome)) {
-      // Se um cliente estava selecionado e o input muda, deseleciona
-      setIsClienteSelected(false);
-      setFormData(prev => ({ ...prev, cliente_id: null, cliente_nome_fantasia: '', cnpj_cpf: '' }));
-    }
-    setShowClienteDropdown(true);
-  };
-
-  const handleClientSelectFromDropdown = (client) => {
     setFormData(prev => ({
       ...prev,
       cliente_id: client.id,
-      cliente_nome: client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome, // Define o nome completo para exibição
-      cliente_nome_fantasia: client.nome_fantasia,
-      cnpj_cpf: client.cnpj_cpf,
+      cliente_nome: client.nome,
+      cliente_nome_fantasia: client.nome_fantasia || '',
+      cnpj_cpf: client.cnpj_cpf || '',
+      cliente: clienteDisplay,
     }));
-    setIsClienteSelected(true);
     setShowClienteDropdown(false);
+    // marca como selecionado — importante para o blur não limpar o valor
+    setIsClienteSelected(true);
   };
 
   const handleClearClient = () => {
@@ -204,6 +235,7 @@ const EntradaFormPage = () => {
       cliente_nome: '',
       cliente_nome_fantasia: '',
       cnpj_cpf: '',
+      cliente: '',
     }));
     setIsClienteSelected(false);
     setShowClienteDropdown(false);
@@ -213,22 +245,38 @@ const EntradaFormPage = () => {
     setShowClienteDropdown(true);
   };
 
-  const handleBlur = (e) => {
+  // BLUR ajustado para esperar o clique no dropdown setar isClienteSelected(true)
+  const handleBlur = () => {
     setTimeout(() => {
-      if (dropdownRef.current && !dropdownRef.current.contains(document.activeElement)) {
-        setShowClienteDropdown(false);
-        // Se nenhum cliente foi selecionado E o valor atual do input não corresponde a um cliente selecionado
-        if (!isClienteSelected && formData.cliente_nome) {
-          const isMatch = allClients.some(client =>
-            (client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome) === formData.cliente_nome
-          );
-          if (!isMatch) {
-            // Se não for uma correspondência, limpa o input e os dados do cliente selecionado
-            setFormData(prev => ({ ...prev, cliente_id: null, cliente_nome: '', cliente_nome_fantasia: '', cnpj_cpf: '' }));
-          }
+      // sempre fecha o dropdown
+      setShowClienteDropdown(false);
+      
+      // Validar se o texto digitado corresponde a um cliente existente apenas se não houver seleção
+      if (!isClienteSelected && formData.cliente.trim() !== '') {
+        const isMatch = allClients.some(client => {
+          const clientDisplayName = client.nome_fantasia 
+            ? `${client.nome} - ${client.nome_fantasia}` 
+            : client.nome;
+          return clientDisplayName === formData.cliente;
+        });
+        
+        if (!isMatch) {
+          setFormData(prev => ({ 
+            ...prev, 
+            cliente_id: null, 
+            cliente_nome: '', 
+            cliente_nome_fantasia: '', 
+            cnpj_cpf: '',
+            cliente: '' 
+          }));
+          setIsClienteSelected(false);
         }
       }
     }, 200);
+  };
+
+  const handleItemsChange = (newItems) => {
+    setFormData((prev) => ({ ...prev, itens: newItems }));
   };
 
   const validateForm = () => {
@@ -263,7 +311,7 @@ const EntradaFormPage = () => {
 
     setSaving(true);
     try {
-      const { itens, ...movimentacaoHeader } = formData;
+      const { itens, cliente, ...movimentacaoHeader } = formData; // Remover campo de busca temporário
       movimentacaoHeader.user_id = user?.id;
 
       let savedMovimentacao;
@@ -362,61 +410,78 @@ const EntradaFormPage = () => {
 
               {formData.origem === 'manual' && (
                 <div className="space-y-2 relative" ref={dropdownRef}>
-                  <Label htmlFor="cliente_nome" className="text-white flex items-center gap-2">
+                  <Label htmlFor="cliente" className="text-white flex items-center gap-2">
                     <User className="w-4 h-4" />
                     Cliente *
                   </Label>
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/70" />
                     <Input
-                      id="cliente_nome"
-                      value={formData.cliente_nome} // Usar formData.cliente_nome diretamente
-                      onChange={handleClientSearchChange}
+                      id="cliente"
+                      value={formData.cliente} // Usar campo único igual ao modelo
+                      onChange={(e) => handleFormChange('cliente', e.target.value)}
                       onFocus={handleFocus}
                       onBlur={handleBlur}
-                      placeholder="Digite para buscar ou adicionar cliente..."
+                      placeholder="Digite para buscar cliente..."
                       className="pl-10 w-full bg-white/5 border-white/20 text-white placeholder:text-white/60 rounded-xl pr-10"
                       autoComplete="off"
                       required={formData.origem === 'manual'}
                       disabled={isEditing}
-                      ref={clientInputRef}
                     />
-                    {formData.cliente_nome && (
-                      <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-white/70 hover:text-white rounded-full" onClick={handleClearClient}>
+                    {formData.cliente && (
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-white/70 hover:text-white rounded-full" 
+                        onClick={handleClearClient}
+                        type="button"
+                      >
                         <X className="h-4 w-4" />
                       </Button>
                     )}
                   </div>
                   
+                  {/* DROPDOWN IDÊNTICO AO MODELO QUE FUNCIONA */}
                   {showClienteDropdown && (
                     <motion.div
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="absolute z-10 w-full bg-white rounded-lg shadow-lg max-h-48 overflow-y-auto mt-1"
+                      className="absolute z-10 w-full bg-white rounded-lg shadow-lg max-h-48 overflow-y-auto mt-1 border border-gray-200"
                     >
-                      {filteredClients.length > 0 ? filteredClients.map((client) => (
-                        <div
-                          key={client.id}
-                          onClick={() => handleClientSelectFromDropdown(client)}
-                          className="p-3 hover:bg-emerald-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-                        >
-                          <div className="font-medium text-gray-900">{client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome}</div>
-                          <div className="text-sm text-gray-600">{formatCnpjCpf(client.cnpj_cpf)} - {client.municipio}/{client.estado}</div>
+                      {filteredClients.length > 0 ? (
+                        filteredClients.map((client) => (
+                          <div
+                            key={client.id}
+                            onMouseDown={() => handleClientSelect(client)} // onMouseDown evita conflito com blur
+                            className="p-3 hover:bg-emerald-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors duration-150"
+                          >
+                            <div className="font-medium text-gray-900">
+                              {client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome}
+                            </div>
+                            <div className="text-sm text-gray-600">
+                              {formatCnpjCpf(client.cnpj_cpf)} - {client.municipio}/{client.estado}
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="p-3 text-center text-gray-500">
+                          {formData.cliente ? 'Nenhum cliente encontrado.' : 'Nenhum cliente cadastrado.'}
                         </div>
-                      )) : (
-                        <div className="p-3 text-center text-gray-500">Nenhum cliente encontrado.</div>
                       )}
                     </motion.div>
                   )}
                 </div>
               )}
 
-              <ItensMovimentacaoTable
-                items={formData.itens}
-                onItemsChange={handleItemsChange}
-                type="entrada"
-                isEditing={isEditing}
-              />
+              {/* Componente ItensMovimentacaoTable com altura aumentada */}
+              <div className="min-h-[600px]" style={{ minHeight: '600px' }}> {/* Altura aumentada em 3x */}
+                <ItensMovimentacaoTable
+                  items={formData.itens}
+                  onItemsChange={handleItemsChange}
+                  type="entrada"
+                  isEditing={isEditing}
+                />
+              </div>
               
               <div className="md:col-span-2">
                 <Label htmlFor="observacao" className="text-lg flex items-center gap-2">
