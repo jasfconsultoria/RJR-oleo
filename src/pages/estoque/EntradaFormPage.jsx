@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Helmet } from 'react-helmet';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -6,14 +6,15 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Save, ArrowDownSquare, Loader2, Info } from 'lucide-react';
+import { ArrowLeft, Save, ArrowDownSquare, Loader2, Info, User, Search, X } from 'lucide-react';
 import { logAction } from '@/lib/logger';
 import MovimentacaoFormFields from '@/components/estoque/MovimentacaoFormFields';
 import ItensMovimentacaoTable from '@/components/estoque/ItensMovimentacaoTable';
-import { parseCurrency } from '@/lib/utils';
+import { parseCurrency, formatCnpjCpf } from '@/lib/utils';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input'; // Importar Input
 
 const EntradaFormPage = () => {
   const { id } = useParams();
@@ -28,13 +29,54 @@ const EntradaFormPage = () => {
     origem: 'manual',
     document_number: '', // New field
     cliente_id: null,
+    cliente_nome: '', // Novo campo para o nome do cliente
+    cliente_nome_fantasia: '', // Novo campo para o nome fantasia do cliente
+    cnpj_cpf: '', // Novo campo para o CNPJ/CPF do cliente
     coleta_id: null, // New field
     observacao: '',
     itens: [],
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [loadingClients, setLoadingClients] = useState(false);
+  const [allClients, setAllClients] = useState([]);
+  const [filteredClients, setFilteredClients] = useState([]);
+  const [showClienteDropdown, setShowClienteDropdown] = useState(false);
+  const [isClienteSelected, setIsClienteSelected] = useState(false);
+  const clientInputRef = useRef(null);
+  const dropdownRef = useRef(null);
+
+  // Fetch all clients
+  useEffect(() => {
+    const fetchClients = async () => {
+      const { data, error } = await supabase
+        .from('clientes')
+        .select('id, nome, nome_fantasia, cnpj_cpf, municipio, estado')
+        .order('nome', { ascending: true });
+
+      if (error) {
+        toast({ title: 'Erro ao buscar clientes', description: error.message, variant: 'destructive' });
+        setAllClients([]);
+      } else {
+        setAllClients(data || []);
+      }
+    };
+    fetchClients();
+  }, [toast]);
+
+  // Filter clients based on search term
+  useEffect(() => {
+    if (formData.cliente_nome && formData.cliente_nome.trim()) {
+      const searchTerm = formData.cliente_nome.toLowerCase();
+      const filtered = allClients.filter(client =>
+        client.nome.toLowerCase().includes(searchTerm) ||
+        (client.nome_fantasia && client.nome_fantasia.toLowerCase().includes(searchTerm)) ||
+        (client.cnpj_cpf && formatCnpjCpf(client.cnpj_cpf).toLowerCase().includes(searchTerm))
+      );
+      setFilteredClients(filtered);
+    } else {
+      setFilteredClients(allClients);
+    }
+  }, [formData.cliente_nome, allClients]);
 
   const fetchMovimentacao = useCallback(async () => {
     if (!id) {
@@ -45,7 +87,7 @@ const EntradaFormPage = () => {
     try {
       const { data: movimentacaoData, error: movimentacaoError } = await supabase
         .from('entrada_saida')
-        .select('*')
+        .select('*, cliente:clientes(nome, nome_fantasia, cnpj_cpf)') // Fetch client details
         .eq('id', id)
         .single();
 
@@ -61,6 +103,9 @@ const EntradaFormPage = () => {
       setFormData({
         ...movimentacaoData,
         data: new Date(movimentacaoData.data),
+        cliente_nome: movimentacaoData.cliente?.nome || '',
+        cliente_nome_fantasia: movimentacaoData.cliente?.nome_fantasia || '',
+        cnpj_cpf: movimentacaoData.cliente?.cnpj_cpf || '',
         itens: itensData.map(item => ({
           id: item.id,
           produto_id: item.produto_id,
@@ -71,6 +116,7 @@ const EntradaFormPage = () => {
           quantidade: String(item.quantidade).replace('.', ','),
         })),
       });
+      setIsClienteSelected(!!movimentacaoData.cliente_id);
     } catch (error) {
       toast({ title: 'Erro ao carregar movimentação', description: error.message, variant: 'destructive' });
       navigate('/app/estoque/movimentacoes');
@@ -102,7 +148,11 @@ const EntradaFormPage = () => {
         cliente_id: coleta.cliente_id,
         document_number: coleta.numero_coleta?.toString().padStart(6, '0'),
         observacao: `Movimentação referente à coleta Nº ${coleta.numero_coleta?.toString().padStart(6, '0')} do cliente ${coleta.cliente_nome}.`,
+        cliente_nome: coleta.cliente_nome,
+        cliente_nome_fantasia: coleta.cliente_nome_fantasia,
+        cnpj_cpf: coleta.cliente_cnpj_cpf,
       }));
+      setIsClienteSelected(true);
     } else {
       setFormData((prev) => ({
         ...prev,
@@ -110,7 +160,11 @@ const EntradaFormPage = () => {
         cliente_id: null,
         document_number: '',
         observacao: '',
+        cliente_nome: '',
+        cliente_nome_fantasia: '',
+        cnpj_cpf: '',
       }));
+      setIsClienteSelected(false);
     }
   };
 
@@ -118,17 +172,71 @@ const EntradaFormPage = () => {
     setFormData((prev) => ({ ...prev, itens: newItems }));
   };
 
+  const handleClientSearchChange = (e) => {
+    const value = e.target.value;
+    setFormData(prev => ({ ...prev, cliente_nome: value }));
+    if (isClienteSelected && value !== (formData.cliente_nome_fantasia ? `${formData.cliente_nome} - ${formData.cliente_nome_fantasia}` : formData.cliente_nome)) {
+      setIsClienteSelected(false);
+      setFormData(prev => ({ ...prev, cliente_id: null, cnpj_cpf: '', cliente_nome_fantasia: '' }));
+    }
+    setShowClienteDropdown(true);
+  };
+
+  const handleClientSelectFromDropdown = (client) => {
+    setFormData(prev => ({
+      ...prev,
+      cliente_id: client.id,
+      cliente_nome: client.nome,
+      cliente_nome_fantasia: client.nome_fantasia,
+      cnpj_cpf: client.cnpj_cpf,
+    }));
+    setIsClienteSelected(true);
+    setShowClienteDropdown(false);
+  };
+
+  const handleClearClient = () => {
+    setFormData(prev => ({
+      ...prev,
+      cliente_id: null,
+      cliente_nome: '',
+      cliente_nome_fantasia: '',
+      cnpj_cpf: '',
+    }));
+    setIsClienteSelected(false);
+    setShowClienteDropdown(false);
+  };
+
+  const handleFocus = () => {
+    setShowClienteDropdown(true);
+  };
+
+  const handleBlur = (e) => {
+    setTimeout(() => {
+      if (dropdownRef.current && !dropdownRef.current.contains(document.activeElement)) {
+        setShowClienteDropdown(false);
+        if (!isClienteSelected && formData.cliente_nome) {
+          const isMatch = allClients.some(client =>
+            (client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome) === formData.cliente_nome
+          );
+          if (!isMatch) {
+            setFormData(prev => ({ ...prev, cliente_nome: '', cliente_id: null, cnpj_cpf: '', cliente_nome_fantasia: '' }));
+          }
+        }
+      }
+    }, 200);
+  };
+
   const validateForm = () => {
     if (!formData.data || !formData.tipo || !formData.origem) {
       toast({ title: 'Campos obrigatórios', description: 'Data, Tipo e Origem são obrigatórios.', variant: 'destructive' });
       return false;
     }
-    if (!formData.cliente_id && formData.origem !== 'coleta') { // Cliente is required unless origin is 'coleta'
-      toast({ title: 'Campo obrigatório', description: 'O campo Cliente é obrigatório.', variant: 'destructive' });
+    if (formData.origem === 'manual' && !formData.cliente_id) {
+      toast({ title: 'Campo obrigatório', description: 'O campo Cliente é obrigatório para origem manual.', variant: 'destructive' });
       return false;
     }
-    if (!formData.coleta_id && formData.origem === 'coleta') { // Coleta is required if origin is 'coleta'
-      toast({ title: 'Campo obrigatório', description: 'Selecione uma Coleta.', variant: 'destructive' });
+    if (formData.origem === 'coleta' && !formData.coleta_id) {
+      toast({ title: 'Campo obrigatório', description: 'Selecione uma Coleta para origem de coleta.', variant: 'destructive' });
       return false;
     }
     if (formData.itens.length === 0) {
@@ -150,7 +258,7 @@ const EntradaFormPage = () => {
 
     setSaving(true);
     try {
-      const { itens, ...movimentacaoHeader } = formData;
+      const { itens, cliente_nome, cliente_nome_fantasia, cnpj_cpf, ...movimentacaoHeader } = formData; // Excluir campos de cliente temporários
       movimentacaoHeader.user_id = user?.id;
 
       let savedMovimentacao;
@@ -245,8 +353,58 @@ const EntradaFormPage = () => {
                 handleColetaSelect={handleColetaSelect}
                 isEditing={isEditing}
                 type="entrada"
-                loadingClients={loadingClients}
               />
+
+              {formData.origem === 'manual' && (
+                <div className="space-y-2 relative" ref={dropdownRef}>
+                  <Label htmlFor="cliente_nome" className="text-white flex items-center gap-2">
+                    <User className="w-4 h-4" />
+                    Cliente *
+                  </Label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/70" />
+                    <Input
+                      id="cliente_nome"
+                      value={formData.cliente_nome}
+                      onChange={handleClientSearchChange}
+                      onFocus={handleFocus}
+                      onBlur={handleBlur}
+                      placeholder="Digite para buscar ou adicionar cliente..."
+                      className="pl-10 w-full bg-white/5 border-white/20 text-white placeholder:text-white/60 rounded-xl pr-10"
+                      autoComplete="off"
+                      required={formData.origem === 'manual'}
+                      disabled={isEditing}
+                      ref={clientInputRef}
+                    />
+                    {formData.cliente_nome && (
+                      <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-white/70 hover:text-white rounded-full" onClick={handleClearClient}>
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                  
+                  {showClienteDropdown && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="absolute z-10 w-full bg-white rounded-lg shadow-lg max-h-48 overflow-y-auto mt-1"
+                    >
+                      {filteredClients.length > 0 ? filteredClients.map((client) => (
+                        <div
+                          key={client.id}
+                          onClick={() => handleClientSelectFromDropdown(client)}
+                          className="p-3 hover:bg-emerald-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                        >
+                          <div className="font-medium text-gray-900">{client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome}</div>
+                          <div className="text-sm text-gray-600">{formatCnpjCpf(client.cnpj_cpf)} - {client.municipio}/{client.estado}</div>
+                        </div>
+                      )) : (
+                        <div className="p-3 text-center text-gray-500">Nenhum cliente encontrado.</div>
+                      )}
+                    </motion.div>
+                  )}
+                </div>
+              )}
 
               <ItensMovimentacaoTable
                 items={formData.itens}
