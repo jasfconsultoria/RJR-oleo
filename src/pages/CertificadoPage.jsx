@@ -53,6 +53,7 @@ const CertificadoPage = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [allClients, setAllClients] = useState([]); // Todos os clientes do DB
+  const [filteredClients, setFilteredClients] = useState([]); // Clientes filtrados pela busca
   const [showClienteDropdown, setShowClienteDropdown] = useState(false); // Controla a visibilidade do dropdown
 
   const [localFormData, setLocalFormData, clearSavedData, savedData] = useAutoSave(
@@ -203,6 +204,8 @@ const CertificadoPage = () => {
       if (clientDropdownRef.current && !clientDropdownRef.current.contains(document.activeElement) &&
           clientSearchInputRef.current && !clientSearchInputRef.current.contains(document.activeElement)) {
         setShowClienteDropdown(false);
+        // Se não houver cliente selecionado (selectedClientData é null) E o termo de busca não estiver vazio
+        // E o termo de busca não corresponder a nenhum cliente existente, então limpa o termo de busca.
         if (!selectedClientData && clientSearchTerm && !allClients.some(c => (c.nome_fantasia ? `${c.nome} - ${c.nome_fantasia}` : c.nome) === clientSearchTerm)) {
           setLocalFormData(prev => ({ ...prev, clientSearchTerm: '' }));
         }
@@ -406,8 +409,8 @@ const CertificadoPage = () => {
                 </div>
                 <div className="md:col-span-2 space-y-2 relative">
                   <Label htmlFor="cliente-search" className="text-white flex items-center gap-2">
-                    <User className="w-4 h-4 text-emerald-400" />
-                    Cliente <span className="text-red-500">*</span>
+                    <User className="w-4 h-4 text-emerald-400" /> {/* Ícone verde */}
+                    Cliente <span className="text-red-500">*</span> {/* Asterisco vermelho */}
                   </Label>
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/70" />
