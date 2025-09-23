@@ -6,11 +6,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription } from '@/components/ui/card';
-import { Building, Upload, Save, Loader2, Clock, ListChecks, PenLine } from 'lucide-react'; // Alterado de Signature para PenLine
+import { Building, Upload, Save, Loader2, Clock, ListChecks, PenLine, Banknote } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { brazilianLocations } from '@/lib/brazilian-locations';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
+import { ContaCorrenteManagementDialog } from '@/components/financeiro/ContaCorrenteManagementDialog'; // New import
 
 const timezones = [
   'America/Noronha',
@@ -46,14 +47,15 @@ const EmpresaPage = () => {
     items_per_page: 25,
     estado: '',
     municipio: '',
-    assinatura_responsavel_url: '', // Novo campo
-    nome_responsavel_assinatura: '', // Novo campo
+    assinatura_responsavel_url: '',
+    nome_responsavel_assinatura: '',
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState({ sistema: false, documento: false, assinatura: false }); // Adicionado 'assinatura'
+  const [uploading, setUploading] = useState({ sistema: false, documento: false, assinatura: false });
   const { toast } = useToast();
   const [municipios, setMunicipios] = useState([]);
+  const [showContaCorrenteDialog, setShowContaCorrenteDialog] = useState(false); // New state
 
   const fetchEmpresa = useCallback(async () => {
     setLoading(true);
@@ -73,8 +75,8 @@ const EmpresaPage = () => {
         items_per_page: data.items_per_page || 25,
         estado: data.estado || '',
         municipio: data.municipio || '',
-        assinatura_responsavel_url: data.assinatura_responsavel_url || '', // Carregar novo campo
-        nome_responsavel_assinatura: data.nome_responsavel_assinatura || '', // Carregar novo campo
+        assinatura_responsavel_url: data.assinatura_responsavel_url || '',
+        nome_responsavel_assinatura: data.nome_responsavel_assinatura || '',
       });
       if (data.estado) {
         setMunicipios(brazilianLocations.municipios[data.estado] || []);
@@ -100,11 +102,11 @@ const EmpresaPage = () => {
     }
   };
 
-  const handleLogoUpload = async (event, fileType) => { // Renomeado logoType para fileType
+  const handleLogoUpload = async (event, fileType) => {
     const file = event.target.files[0];
     if (!file) return;
 
-    setUploading(prev => ({ ...prev, [fileType]: true })); // Usar fileType
+    setUploading(prev => ({ ...prev, [fileType]: true }));
     const fileName = `${fileType}_${Date.now()}_${file.name}`;
     const filePath = `${fileName}`;
 
@@ -124,7 +126,7 @@ const EmpresaPage = () => {
         return;
     }
     
-    const urlKey = fileType === 'sistema' ? 'logo_sistema_url' : (fileType === 'documento' ? 'logo_documento_url' : 'assinatura_responsavel_url'); // Lógica para o novo campo
+    const urlKey = fileType === 'sistema' ? 'logo_sistema_url' : (fileType === 'documento' ? 'logo_documento_url' : 'assinatura_responsavel_url');
     setFormData((prev) => ({ ...prev, [urlKey]: publicUrlData.publicUrl }));
     setUploading(prev => ({ ...prev, [fileType]: false }));
     toast({ title: `${fileType === 'assinatura' ? 'Assinatura' : 'Logo'} (${fileType}) enviada com sucesso!` });
@@ -145,10 +147,13 @@ const EmpresaPage = () => {
         .eq('id', empresa.id);
        error = updateError;
     } else {
-       const { error: insertError } = await supabase
+       const { data: insertData, error: insertError } = await supabase
         .from('empresa')
-        .insert(dataToSave);
+        .insert(dataToSave)
+        .select()
+        .single();
        error = insertError;
+       if (insertData) setEmpresa(insertData); // Update empresa state with new ID
     }
 
     if (error) {
@@ -184,6 +189,14 @@ const EmpresaPage = () => {
             </h1>
             <p className="text-emerald-200/80 mt-1">Gerencie as informações e as logos da sua empresa.</p>
           </div>
+          {empresa?.id && ( // Show button only if company is saved
+            <Button 
+              onClick={() => setShowContaCorrenteDialog(true)} 
+              className="bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto rounded-xl"
+            >
+              <Banknote className="mr-2 h-4 w-4" /> Gerenciar Contas Bancárias
+            </Button>
+          )}
         </div>
 
         <Card className="bg-white/10 backdrop-blur-sm border-white/20 text-white">
@@ -299,7 +312,6 @@ const EmpresaPage = () => {
                 </div>
               </div>
 
-              {/* Nova seção para Assinatura do Responsável */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-6 border-t border-white/20">
                 <div className="space-y-4 md:col-span-2">
                   <CardTitle className="text-lg flex items-center gap-2"><PenLine className="w-5 h-5" /> Assinatura do Responsável</CardTitle>
@@ -343,6 +355,15 @@ const EmpresaPage = () => {
           </form>
         </Card>
       </motion.div>
+
+      {empresa?.cnpj && (
+        <ContaCorrenteManagementDialog
+          cnpjEmpresa={empresa.cnpj}
+          empresaNome={empresa.nome_fantasia || empresa.razao_social}
+          isOpen={showContaCorrenteDialog}
+          onClose={() => setShowContaCorrenteDialog(false)}
+        />
+      )}
     </>
   );
 };
