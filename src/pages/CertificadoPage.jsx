@@ -53,7 +53,7 @@ const CertificadoPage = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [allClients, setAllClients] = useState([]); // Todos os clientes do DB
-  const [filteredClients, setFilteredClients] = useState([]); // Clientes filtrados pela busca
+  // REMOVIDO: const [filteredClients, setFilteredClients] = useState([]); // Esta linha foi removida
   const [showClienteDropdown, setShowClienteDropdown] = useState(false); // Controla a visibilidade do dropdown
 
   const [localFormData, setLocalFormData, clearSavedData, savedData] = useAutoSave(
@@ -167,7 +167,7 @@ const CertificadoPage = () => {
     fetchInitialData();
   }, [id, isEditMode, toast, navigate, setLocalFormData, processDateValue]);
 
-  const filteredClients = useMemo(() => {
+  const filteredClients = useMemo(() => { // Esta é a declaração correta
     if (!clientSearchTerm) return allClients;
     return allClients.filter(client =>
       client.nome.toLowerCase().includes(clientSearchTerm.toLowerCase()) ||
@@ -204,8 +204,6 @@ const CertificadoPage = () => {
       if (clientDropdownRef.current && !clientDropdownRef.current.contains(document.activeElement) &&
           clientSearchInputRef.current && !clientSearchInputRef.current.contains(document.activeElement)) {
         setShowClienteDropdown(false);
-        // Se não houver cliente selecionado (selectedClientData é null) E o termo de busca não estiver vazio
-        // E o termo de busca não corresponder a nenhum cliente existente, então limpa o termo de busca.
         if (!selectedClientData && clientSearchTerm && !allClients.some(c => (c.nome_fantasia ? `${c.nome} - ${c.nome_fantasia}` : c.nome) === clientSearchTerm)) {
           setLocalFormData(prev => ({ ...prev, clientSearchTerm: '' }));
         }
