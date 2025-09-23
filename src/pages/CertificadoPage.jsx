@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Loader2, FileText, CheckCircle, User, Search } from 'lucide-react'; // Adicionado User e Search icons
+import { ArrowLeft, Loader2, FileText, CheckCircle, User, Search } from 'lucide-react';
 import { logAction } from '@/lib/logger';
 import { formatToISODate, formatCnpjCpf } from '@/lib/utils';
 import jsPDF from 'jspdf';
@@ -53,7 +53,6 @@ const CertificadoPage = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [allClients, setAllClients] = useState([]); // Todos os clientes do DB
-  // REMOVIDO: const [filteredClients, setFilteredClients] = useState([]); // Esta linha foi removida
   const [showClienteDropdown, setShowClienteDropdown] = useState(false); // Controla a visibilidade do dropdown
 
   const [localFormData, setLocalFormData, clearSavedData, savedData] = useAutoSave(
@@ -73,7 +72,11 @@ const CertificadoPage = () => {
 
   useEffect(() => {
     if (isEditMode) {
-      setLocalFormData(initialFormState);
+      // When in edit mode, we don't want to load from auto-save initially,
+      // but rather from the fetched certificate data.
+      // Clear auto-save for this key to prevent conflicts.
+      clearSavedData(); 
+      setLocalFormData(initialFormState); // Reset to initial state, then fetch will populate
     } else {
       const currentSavedData = savedData || {}; 
       const dataToLoad = {
@@ -87,7 +90,7 @@ const CertificadoPage = () => {
       };
       setLocalFormData(dataToLoad);
     }
-  }, [isEditMode, savedData, setLocalFormData, processDateValue]);
+  }, [isEditMode, savedData, setLocalFormData, processDateValue, clearSavedData]);
 
   const { selectedClientId, selectedClientData, periodoInicio, periodoFim, data_emissao, clientSearchTerm } = localFormData;
 
@@ -109,17 +112,17 @@ const CertificadoPage = () => {
     fetchAllClients();
   }, [toast]);
 
-  // Sync clientSearchTerm with selectedClientData
-  useEffect(() => {
-    if (selectedClientData) {
-      setLocalFormData(prev => ({
-        ...prev,
-        clientSearchTerm: selectedClientData.nome_fantasia ? `${selectedClientData.nome} - ${selectedClientData.nome_fantasia}` : selectedClientData.nome
-      }));
-    } else if (!selectedClientId) {
-      setLocalFormData(prev => ({ ...prev, clientSearchTerm: '' }));
-    }
-  }, [selectedClientData, selectedClientId, setLocalFormData]);
+  // REMOVED THE PROBLEMATIC useEffect HERE
+  // useEffect(() => {
+  //   if (selectedClientData) {
+  //     setLocalFormData(prev => ({
+  //       ...prev,
+  //       clientSearchTerm: selectedClientData.nome_fantasia ? `${selectedClientData.nome} - ${selectedClientData.nome_fantasia}` : selectedClientData.nome
+  //     }));
+  //   } else if (!selectedClientId) {
+  //     setLocalFormData(prev => ({ ...prev, clientSearchTerm: '' }));
+  //   }
+  // }, [selectedClientData, selectedClientId, setLocalFormData]);
 
 
   useEffect(() => {
@@ -179,6 +182,7 @@ const CertificadoPage = () => {
   const handleClientSearchInputChange = (e) => {
     const val = e.target.value;
     setLocalFormData(prev => ({ ...prev, clientSearchTerm: val }));
+    // If user starts typing, clear selected client data
     if (selectedClientData) {
       setLocalFormData(prev => ({ ...prev, selectedClientId: null, selectedClientData: null }));
     }
@@ -204,8 +208,16 @@ const CertificadoPage = () => {
       if (clientDropdownRef.current && !clientDropdownRef.current.contains(document.activeElement) &&
           clientSearchInputRef.current && !clientSearchInputRef.current.contains(document.activeElement)) {
         setShowClienteDropdown(false);
-        if (!selectedClientData && clientSearchTerm && !allClients.some(c => (c.nome_fantasia ? `${c.nome} - ${c.nome_fantasia}` : c.nome) === clientSearchTerm)) {
-          setLocalFormData(prev => ({ ...prev, clientSearchTerm: '' }));
+        // If no client is currently selected (by ID) AND the input field has text
+        // AND that text does not exactly match a known client's display name,
+        // then clear the input.
+        if (!localFormData.selectedClientId && localFormData.clientSearchTerm) {
+          const isMatch = allClients.some(c => 
+            (c.nome_fantasia ? `${c.nome} - ${c.nome_fantasia}` : c.nome) === localFormData.clientSearchTerm
+          );
+          if (!isMatch) {
+            setLocalFormData(prev => ({ ...prev, clientSearchTerm: '' }));
+          }
         }
       }
     }, 100);
