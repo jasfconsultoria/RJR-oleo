@@ -91,7 +91,7 @@ const ItensMovimentacaoTable = ({ items, onItemsChange, type, isEditing }) => {
   return (
     <div className="space-y-4">
       <h3 className="text-lg font-semibold text-white">Itens da Movimentação *</h3>
-      <div className="overflow-x-auto overflow-y-auto rounded-xl border border-white/20"> {/* Removed max-h-[300px] */}
+      <div className="overflow-x-auto overflow-y-auto rounded-xl border border-white/20">
         <Table className="responsive-table">
           <TableHeader>
             <TableRow className="hover:bg-transparent border-b border-white/20 text-xs">
@@ -104,7 +104,7 @@ const ItensMovimentacaoTable = ({ items, onItemsChange, type, isEditing }) => {
           <TableBody>
             {items.length === 0 && (
               <TableRow>
-                <TableCell colSpan={4} className="text-center text-gray-400 py-4">
+                <TableCell colSpan={4} className="text-center text-gray-400 py-4 h-40"> {/* Adicionado h-40 aqui */}
                   Nenhum item adicionado.
                 </TableCell>
               </TableRow>
