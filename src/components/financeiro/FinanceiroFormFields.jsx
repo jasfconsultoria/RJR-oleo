@@ -78,7 +78,7 @@ export const FinanceiroFormFields = ({
               <PlusCircle className="h-4 w-4" /> {/* Reduced icon size */}
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto bg-gray-800 text-white border-gray-700 rounded-xl"> {/* Reduced max-width */}
+          <DialogContent className="sm:max-w-[600px] bg-gray-800 text-white border-gray-700 rounded-xl"> {/* Reduced max-width, removed overflow */}
             <DialogHeader>
               <DialogTitle className="text-emerald-300">Novo {entityLabel}</DialogTitle>
             </DialogHeader>
@@ -99,7 +99,7 @@ export const FinanceiroFormFields = ({
           value={formData.cnpj_cpf}
           onAccept={(value) => handleCnpjCpfChange(String(value))}
           placeholder="Digite o CNPJ ou CPF"
-          className="w-full flex h-9 rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-xs"
+          className="w-full flex h-9 rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-xs" {/* Reduced height and font size */}
           disabled={!!formData.pessoa_id}
           required
         />

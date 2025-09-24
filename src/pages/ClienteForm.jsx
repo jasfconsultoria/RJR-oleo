@@ -292,17 +292,17 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa' }) 
         className={isModal ? "" : "max-w-4xl mx-auto p-4"}
       >
         <Card className="bg-white/10 backdrop-blur-sm border-white/20 text-white rounded-xl shadow-lg">
-          <CardHeader className="pb-4"> {/* Reduced padding */}
-            <CardTitle className="text-xl md:text-2xl font-bold flex items-center gap-2 text-emerald-300"> {/* Reduced font size */}
-              <UserPlus className="w-6 h-6" /> {/* Reduced icon size */}
+          <CardHeader className="pb-2"> {/* Reduced padding */}
+            <CardTitle className="text-xl font-bold flex items-center gap-2 text-emerald-300"> {/* Reduced font size */}
+              <UserPlus className="w-5 h-5" /> {/* Reduced icon size */}
               {pageTitle}
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-4 pt-0 space-y-4"> {/* Reduced padding */}
-            <form onSubmit={handleSubmit} className="space-y-4"> {/* Reduced spacing */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4"> {/* Reduced gap */}
+          <CardContent className="p-3 pt-0 space-y-3"> {/* Reduced padding and spacing */}
+            <form onSubmit={handleSubmit} className="space-y-3"> {/* Reduced spacing */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3"> {/* Reduced gap */}
                 <div>
-                   <Label htmlFor="cnpj_cpf" className="text-sm flex items-center gap-1"> {/* Reduced font size */}
+                   <Label htmlFor="cnpj_cpf" className="text-xs flex items-center gap-1"> {/* Reduced font size */}
                     CNPJ/CPF <span className="text-red-500">*</span>
                     {isCnpjCpfChecking && <Loader2 className="w-3 h-3 animate-spin" />} {/* Reduced icon size */}
                   </Label>
@@ -319,13 +319,13 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa' }) 
                     onAccept={(value) => handleMaskedChange(String(value), 'cnpj_cpf')}
                     onBlur={handleCnpjCpfBlur}
                     placeholder={`Digite o CNPJ ou CPF d${article} ${titleLabel.toLowerCase()}`}
-                    className={`w-full flex h-9 rounded-xl border ${cnpjCpfError ? 'border-red-500' : 'border-white/20'} bg-white/5 px-3 py-2 text-xs ring-offset-background file:border-0 file:bg-transparent file:text-xs file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50`}
+                    className={`w-full flex h-8 rounded-xl border ${cnpjCpfError ? 'border-red-500' : 'border-white/20'} bg-white/5 px-3 py-2 text-xs ring-offset-background file:border-0 file:bg-transparent file:text-xs file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50`}
                     required
                   />
-                   {cnpjCpfError && <p className="text-red-500 text-xs mt-1">{cnpjCnpjCpfError}</p>}
+                   {cnpjCpfError && <p className="text-red-500 text-xs mt-1">{cnpjCpfError}</p>}
                 </div>
                 <div>
-                  <Label htmlFor="telefone" className="text-sm">Telefone <span className="text-red-500">*</span></Label> {/* Reduced font size */}
+                  <Label htmlFor="telefone" className="text-xs">Telefone <span className="text-red-500">*</span></Label> {/* Reduced font size */}
                   <IMaskInput
                     mask={[{ mask: '(00) 0000-0000' }, { mask: '(00) 00000-0000' }]}
                     as={Input}
@@ -336,27 +336,27 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa' }) 
                     onAccept={(value) => handleMaskedChange(String(value), 'telefone')}
                     onBlur={handleTelefoneBlur}
                     placeholder="(00) 00000-0000"
-                    className={`w-full flex h-9 rounded-xl border ${telefoneError ? 'border-red-500' : 'border-white/20'} bg-white/5 px-3 py-2 text-xs ring-offset-background file:border-0 file:bg-transparent file:text-xs file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50`}
+                    className={`w-full flex h-8 rounded-xl border ${telefoneError ? 'border-red-500' : 'border-white/20'} bg-white/5 px-3 py-2 text-xs ring-offset-background file:border-0 file:bg-transparent file:text-xs file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50`}
                     required
                   />
                   {telefoneError && <p className="text-red-500 text-xs mt-1">{telefoneError}</p>}
                 </div>
                 <div className="md:col-span-2">
-                  <Label htmlFor="nome" className="text-sm">Razão Social <span className="text-red-500">*</span></Label> {/* Reduced font size */}
-                  <Input id="nome" name="nome" value={formData.nome} onChange={handleChange} placeholder={`Razão Social d${article} ${titleLabel.toLowerCase()}`} required className="bg-white/5 border-white/20 rounded-xl h-9 text-xs" /> {/* Reduced height and font size */}
+                  <Label htmlFor="nome" className="text-xs">Razão Social <span className="text-red-500">*</span></Label> {/* Reduced font size */}
+                  <Input id="nome" name="nome" value={formData.nome} onChange={handleChange} placeholder={`Razão Social d${article} ${titleLabel.toLowerCase()}`} required className="bg-white/5 border-white/20 rounded-xl h-8 text-xs" /> {/* Reduced height and font size */}
                 </div>
                 <div className="md:col-span-2">
-                  <Label htmlFor="nome_fantasia" className="text-sm">Nome Fantasia</Label> {/* Reduced font size */}
-                  <Input id="nome_fantasia" name="nome_fantasia" value={formData.nome_fantasia} onChange={handleChange} placeholder={`Nome Fantasia d${article} ${titleLabel.toLowerCase()}`} className="bg-white/5 border-white/20 rounded-xl h-9 text-xs" /> {/* Reduced height and font size */}
+                  <Label htmlFor="nome_fantasia" className="text-xs">Nome Fantasia</Label> {/* Reduced font size */}
+                  <Input id="nome_fantasia" name="nome_fantasia" value={formData.nome_fantasia} onChange={handleChange} placeholder={`Nome Fantasia d${article} ${titleLabel.toLowerCase()}`} className="bg-white/5 border-white/20 rounded-xl h-8 text-xs" /> {/* Reduced height and font size */}
                 </div>
                 <div className="md:col-span-2">
-                  <Label htmlFor="email" className="text-sm">Email</Label> {/* Reduced font size */}
-                  <Input id="email" name="email" type="email" value={formData.email} onChange={handleChange} placeholder={`email d${article} ${titleLabel.toLowerCase()}`} className="bg-white/5 border-white/20 rounded-xl h-9 text-xs" /> {/* Reduced height and font size */}
+                  <Label htmlFor="email" className="text-xs">Email</Label> {/* Reduced font size */}
+                  <Input id="email" name="email" type="email" value={formData.email} onChange={handleChange} placeholder={`email d${article} ${titleLabel.toLowerCase()}`} className="bg-white/5 border-white/20 rounded-xl h-8 text-xs" /> {/* Reduced height and font size */}
                 </div>
                 <div>
-                  <Label htmlFor="estado" className="text-sm">Estado <span className="text-red-500">*</span></Label> {/* Reduced font size */}
+                  <Label htmlFor="estado" className="text-xs">Estado <span className="text-red-500">*</span></Label> {/* Reduced font size */}
                   <Select onValueChange={handleStateChange} value={formData.estado} required>
-                    <SelectTrigger className="bg-white/5 border-white/20 rounded-xl h-9 text-xs"> {/* Reduced height and font size */}
+                    <SelectTrigger className="bg-white/5 border-white/20 rounded-xl h-8 text-xs"> {/* Reduced height and font size */}
                       <SelectValue placeholder="Selecione o Estado" />
                     </SelectTrigger>
                     <SelectContent className="bg-gray-800 text-white border-gray-700 rounded-xl text-xs"> {/* Reduced font size */}
@@ -365,36 +365,36 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa' }) 
                   </Select>
                 </div>
                 <div>
-                  <Label htmlFor="municipio" className="text-sm">Município</Label> {/* Reduced font size */}
+                  <Label htmlFor="municipio" className="text-xs">Município</Label> {/* Reduced font size */}
                    <SearchableSelect
                       options={municipiosOptions}
                       value={formData.municipio}
                       onChange={handleMunicipioChange}
                       placeholder="Selecione o Município"
                       disabled={!formData.estado}
-                      inputClassName="h-9 text-xs" // Reduced height and font size
+                      inputClassName="h-8 text-xs" // Reduced height and font size
                       contentClassName="text-xs" // Reduced font size
                     />
                 </div>
                 <div className="md:col-span-2">
-                  <Label htmlFor="endereco" className="text-sm">Endereço</Label> {/* Reduced font size */}
-                  <Input id="endereco" name="endereco" value={formData.endereco} onChange={handleChange} placeholder={`Endereço d${article} ${titleLabel.toLowerCase()}`} className="bg-white/5 border-white/20 rounded-xl h-9 text-xs" /> {/* Reduced height and font size */}
+                  <Label htmlFor="endereco" className="text-xs">Endereço</Label> {/* Reduced font size */}
+                  <Input id="endereco" name="endereco" value={formData.endereco} onChange={handleChange} placeholder={`Endereço d${article} ${titleLabel.toLowerCase()}`} className="bg-white/5 border-white/20 rounded-xl h-8 text-xs" /> {/* Reduced height and font size */}
                 </div>
                 <div className="md:col-span-2">
-                  <Label htmlFor="referencia" className="text-sm">Ponto de Referência</Label> {/* Reduced font size */}
-                  <Input id="referencia" name="referencia" value={formData.referencia} onChange={handleChange} placeholder={`Ex: Próximo à padaria d${article} ${titleLabel.toLowerCase()}`} className="bg-white/5 border-white/20 rounded-xl h-9 text-xs" /> {/* Reduced height and font size */}
+                  <Label htmlFor="referencia" className="text-xs">Ponto de Referência</Label> {/* Reduced font size */}
+                  <Input id="referencia" name="referencia" value={formData.referencia} onChange={handleChange} placeholder={`Ex: Próximo à padaria d${article} ${titleLabel.toLowerCase()}`} className="bg-white/5 border-white/20 rounded-xl h-8 text-xs" /> {/* Reduced height and font size */}
                 </div>
               </div>
 
               <div className="flex justify-between items-center pt-4"> {/* Reduced padding */}
                 {!isModal && (
-                  <Button type="button" onClick={() => navigate(`/app/cadastro/${personType}s`)} variant="outline" className="rounded-xl h-9 px-3 text-xs"> {/* Reduced height, padding, font size */}
-                    <ArrowLeft className="w-4 h-4 mr-1" /> {/* Reduced icon size */}
+                  <Button type="button" onClick={() => navigate(`/app/cadastro/${personType}s`)} variant="outline" className="rounded-xl h-8 px-2 text-xs"> {/* Reduced height, padding, font size */}
+                    <ArrowLeft className="w-3 h-3 mr-1" /> {/* Reduced icon size */}
                     Voltar
                   </Button>
                 )}
-                <Button type="submit" disabled={saving || isCnpjCpfChecking} className="bg-emerald-600 hover:bg-emerald-700 rounded-xl h-9 px-3 text-xs"> {/* Reduced height, padding, font size */}
-                  {saving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Save className="w-4 h-4 mr-1" />} {/* Reduced icon size */}
+                <Button type="submit" disabled={saving || isCnpjCpfChecking} className="bg-emerald-600 hover:bg-emerald-700 rounded-xl h-8 px-2 text-xs"> {/* Reduced height, padding, font size */}
+                  {saving ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Save className="w-3 h-3 mr-1" />} {/* Reduced icon size */}
                   {saving ? 'Salvando...' : 'Salvar'}
                 </Button>
               </div>
