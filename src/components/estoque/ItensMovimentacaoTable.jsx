@@ -116,7 +116,7 @@ const ItensMovimentacaoTable = ({ items, onItemsChange, type, isEditing }) => {
               {items.map((item, index) => {
                 const error = validateItem(item);
                 return (
-                  <TableRow key={index} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
+                  <TableRow key={index} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm overflow-visible"> {/* Adicionado overflow-visible */}
                     <TableCell data-label="Produto" className="py-4 relative z-20">
                     <ProdutoSearchableSelect
                       value={item.produto_id}
