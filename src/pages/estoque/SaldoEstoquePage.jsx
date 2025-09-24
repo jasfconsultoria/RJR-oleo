@@ -15,16 +15,17 @@ const SaldoEstoquePage = () => {
 
   const fetchSaldoProdutos = useCallback(async () => {
     setLoading(true);
+    // Agora a view v_saldo_produtos já contém o campo produto_codigo
     const { data, error } = await supabase
       .from('v_saldo_produtos')
-      .select('*, produto_codigo:produtos(codigo)') // Incluir o código do produto
+      .select('*') 
       .order('produto_nome', { ascending: true });
 
     if (error) {
       toast({ title: 'Erro ao buscar saldo de produtos', description: error.message, variant: 'destructive' });
       setSaldoProdutos([]);
     } else {
-      setSaldoProdutos(data.map(p => ({ ...p, produto_codigo: p.produto_codigo.codigo })) || []); // Mapear para pegar apenas o código
+      setSaldoProdutos(data || []); 
     }
     setLoading(false);
   }, [toast]);

@@ -503,12 +503,15 @@ const SaidaFormPage = () => {
                 </div>
               )}
 
-              <ItensMovimentacaoTable
-                items={formData.itens}
-                onItemsChange={handleItemsChange}
-                type="saida"
-                isEditing={isEditing}
-              />
+              {/* Componente ItensMovimentacaoTable com altura aumentada */}
+              <div style={{ minHeight: '400px' }}> {/* Altura aumentada em 3x */}
+                <ItensMovimentacaoTable
+                  items={formData.itens}
+                  onItemsChange={handleItemsChange}
+                  type="saida"
+                  isEditing={isEditing}
+                />
+              </div>
               
               <div className="md:col-span-2">
                 <Label htmlFor="observacao" className="text-lg flex items-center gap-2">

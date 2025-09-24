@@ -13,6 +13,11 @@ import { logAction } from '@/lib/logger';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 
+const RESTRICTED_PRODUCTS = [
+  "Óleo de fritura",
+  "Óleo de soja novo (900ml)"
+];
+
 const ProdutoFormPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -28,6 +33,7 @@ const ProdutoFormPage = () => {
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [isRestrictedProduct, setIsRestrictedProduct] = useState(false);
 
   const fetchProduto = useCallback(async () => {
     if (!id) {
@@ -45,6 +51,9 @@ const ProdutoFormPage = () => {
       if (error) throw error;
 
       setFormData(data);
+      if (RESTRICTED_PRODUCTS.includes(data.nome)) {
+        setIsRestrictedProduct(true);
+      }
     } catch (error) {
       toast({ title: 'Erro ao carregar produto', description: error.message, variant: 'destructive' });
       navigate('/app/estoque/produtos');
@@ -79,6 +88,10 @@ const ProdutoFormPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isRestrictedProduct) {
+      toast({ title: 'Ação não permitida', description: 'Este produto não pode ser editado.', variant: 'destructive' });
+      return;
+    }
     if (!validateForm()) return;
 
     setSaving(true);
@@ -150,21 +163,27 @@ const ProdutoFormPage = () => {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
+              {isRestrictedProduct && (
+                <div className="bg-red-500/20 text-red-300 border border-red-400/30 p-3 rounded-xl text-sm mb-4">
+                  <p className="font-semibold">Atenção:</p>
+                  <p>Este produto é restrito e não pode ser editado ou excluído.</p>
+                </div>
+              )}
               <div>
                 <Label htmlFor="codigo" className="text-lg">Código do Produto</Label>
                 <Input id="codigo" name="codigo" value={formData.codigo || 'Será gerado automaticamente'} disabled className="bg-white/5 border-white/20 rounded-xl" />
               </div>
               <div>
                 <Label htmlFor="nome" className="text-lg">Nome do Produto <span className="text-red-500">*</span></Label>
-                <Input id="nome" name="nome" value={formData.nome} onChange={handleInputChange} placeholder="Ex: Óleo de Fritura" className="bg-white/5 border-white/20 rounded-xl" required />
+                <Input id="nome" name="nome" value={formData.nome} onChange={handleInputChange} placeholder="Ex: Óleo de Fritura" className="bg-white/5 border-white/20 rounded-xl" required disabled={isRestrictedProduct} />
               </div>
               <div>
                 <Label htmlFor="unidade" className="text-lg">Unidade <span className="text-red-500">*</span></Label>
-                <Input id="unidade" name="unidade" value={formData.unidade} onChange={handleInputChange} placeholder="Ex: kg, litro, unidade" className="bg-white/5 border-white/20 rounded-xl" required />
+                <Input id="unidade" name="unidade" value={formData.unidade} onChange={handleInputChange} placeholder="Ex: kg, litro, unidade" className="bg-white/5 border-white/20 rounded-xl" required disabled={isRestrictedProduct} />
               </div>
               <div>
                 <Label htmlFor="tipo" className="text-lg">Tipo <span className="text-red-500">*</span></Label>
-                <Select value={formData.tipo} onValueChange={(value) => handleSelectChange('tipo', value)} required>
+                <Select value={formData.tipo} onValueChange={(value) => handleSelectChange('tipo', value)} required disabled={isRestrictedProduct}>
                   <SelectTrigger className="bg-white/5 border-white/20 rounded-xl">
                     <SelectValue placeholder="Selecione o tipo" />
                   </SelectTrigger>
@@ -181,6 +200,7 @@ const ProdutoFormPage = () => {
                   checked={formData.ativo}
                   onCheckedChange={(checked) => handleSelectChange('ativo', checked)}
                   className="border-white/50 data-[state=checked]:bg-emerald-500 data-[state=checked]:text-white"
+                  disabled={isRestrictedProduct}
                 />
                 <Label htmlFor="ativo" className="text-lg">Produto Ativo</Label>
               </div>
@@ -190,7 +210,7 @@ const ProdutoFormPage = () => {
                   <ArrowLeft className="w-5 h-5 mr-2" />
                   Voltar
                 </Button>
-                <Button type="submit" disabled={saving} className="bg-emerald-600 hover:bg-emerald-700 rounded-xl">
+                <Button type="submit" disabled={saving || isRestrictedProduct} className="bg-emerald-600 hover:bg-emerald-700 rounded-xl">
                   {saving ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Save className="w-5 h-5 mr-2" />}
                   {saving ? 'Salvando...' : 'Salvar'}
                 </Button>
