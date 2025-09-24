@@ -29,13 +29,26 @@ const FinanceiroForm = ({ type }) => {
 
   // Estado do modal de novo cliente/fornecedor, inicializado de forma lazy do localStorage
   const [isNewClientModalOpen, setIsNewClientModalOpen] = useState(() => {
+    // Inicializa como false no primeiro render do servidor/cliente
+    // O useEffect abaixo irá hidratar com o valor do localStorage
+    if (typeof window === 'undefined') {
+      return false;
+    }
     return localStorage.getItem(localStorageKey) === 'true';
   });
+
+  // Flag para indicar que o componente foi hidratado com o estado do localStorage
+  const [hydrated, setHydrated] = useState(false);
 
   // Efeito para salvar o estado do modal no localStorage sempre que ele mudar
   useEffect(() => {
     localStorage.setItem(localStorageKey, isNewClientModalOpen ? 'true' : 'false');
   }, [localStorageKey, isNewClientModalOpen]);
+
+  // Efeito para definir hydrated como true após a primeira renderização no cliente
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
 
   const [formData, setFormData] = useState({
     document_number: '',
@@ -269,7 +282,8 @@ const FinanceiroForm = ({ type }) => {
     setSaving(false);
   };
 
-  if (loading) {
+  // Renderiza um loader ou nada se não estiver hidratado
+  if (!hydrated || loading) {
     return (
       <div className="flex justify-center items-center h-full">
         <Loader2 className="w-8 h-8 animate-spin text-emerald-400" />
