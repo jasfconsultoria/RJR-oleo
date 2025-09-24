@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -34,14 +34,30 @@ export const FinanceiroFormFields = ({
   costCenters,
   entityLabel,
   clientListVersion,
-  isNewClientModalOpen,
-  setIsNewClientModalOpen,
+  isNewClientModalOpen, // Recebe o estado do pai
+  setIsNewClientModalOpen, // Recebe o setter do pai
   isNewCostCenterModalOpen,
   setIsNewCostCenterModalOpen,
   handleNewClientSuccess,
   handleNewCostCenterSuccess,
   isEditing,
 }) => {
+  // Chave única para o localStorage, dependendo se é cliente ou fornecedor
+  const localStorageKey = `financeiroForm_isNew${entityLabel}ModalOpen`;
+
+  // Efeito para carregar o estado do modal do localStorage ao montar
+  useEffect(() => {
+    const wasOpen = localStorage.getItem(localStorageKey);
+    if (wasOpen === 'true') {
+      setIsNewClientModalOpen(true);
+    }
+  }, [localStorageKey, setIsNewClientModalOpen]);
+
+  // Efeito para salvar o estado do modal no localStorage sempre que ele mudar
+  useEffect(() => {
+    localStorage.setItem(localStorageKey, isNewClientModalOpen ? 'true' : 'false');
+  }, [localStorageKey, isNewClientModalOpen]);
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4"> {/* Reduced gap */}
       <div>
