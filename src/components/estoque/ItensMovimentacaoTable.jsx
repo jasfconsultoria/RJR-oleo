@@ -91,7 +91,7 @@ const ItensMovimentacaoTable = ({ items, onItemsChange, type, isEditing }) => {
   return (
     <div className="space-y-4">
       <h3 className="text-lg font-semibold text-white">Itens da Movimentação *</h3>
-      <div className="overflow-x-auto overflow-y-auto max-h-[300px] rounded-xl border border-white/20"> {/* Added max-h and overflow-y */}
+      <div className="overflow-x-auto overflow-y-auto rounded-xl border border-white/20"> {/* Removed max-h-[300px] */}
         <Table className="responsive-table">
           <TableHeader>
             <TableRow className="hover:bg-transparent border-b border-white/20 text-xs">
