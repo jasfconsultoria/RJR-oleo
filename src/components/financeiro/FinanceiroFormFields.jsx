@@ -29,47 +29,58 @@ export const FinanceiroFormFields = ({
   handleDateChange,
   handleClientSelectId,
   handleClientNameChange,
-  handleClientFantasyNameChange, // NEW: Pass fantasy name handler
+  handleClientFantasyNameChange,
   handleCnpjCpfChange,
   costCenters,
   entityLabel,
   clientListVersion,
-  isNewClientModalOpen, // Recebe o estado do pai
-  setIsNewClientModalOpen, // Recebe o setter do pai
+  isNewClientModalOpen: propIsNewClientModalOpen, // Renomeado para evitar conflito
+  setIsNewClientModalOpen: setPropIsNewClientModalOpen, // Renomeado para evitar conflito
   isNewCostCenterModalOpen,
   setIsNewCostCenterModalOpen,
   handleNewClientSuccess,
   handleNewCostCenterSuccess,
   isEditing,
 }) => {
-  // Chave única para o localStorage, dependendo se é cliente ou fornecedor
   const localStorageKey = `financeiroForm_isNew${entityLabel}ModalOpen`;
 
-  // Efeito para carregar o estado do modal do localStorage ao montar
-  useEffect(() => {
-    const wasOpen = localStorage.getItem(localStorageKey);
-    if (wasOpen === 'true') {
-      setIsNewClientModalOpen(true);
-    }
-  }, [localStorageKey, setIsNewClientModalOpen]);
+  // Inicializa o estado diretamente do localStorage usando a função lazy
+  const [isNewClientModalOpen, setIsNewClientModalOpen] = useState(() => {
+    return localStorage.getItem(localStorageKey) === 'true';
+  });
 
-  // Efeito para salvar o estado do modal no localStorage sempre que ele mudar
+  // Sincroniza o estado interno com a prop externa, se houver
+  useEffect(() => {
+    if (typeof propIsNewClientModalOpen === 'boolean' && propIsNewClientModalOpen !== isNewClientModalOpen) {
+      setIsNewClientModalOpen(propIsNewClientModalOpen);
+    }
+  }, [propIsNewClientModalOpen]);
+
+  // Sincroniza o estado interno com a prop externa, se houver
+  useEffect(() => {
+    if (typeof setPropIsNewClientModalOpen === 'function' && propIsNewClientModalOpen !== isNewClientModalOpen) {
+      setPropIsNewClientModalOpen(isNewClientModalOpen);
+    }
+  }, [isNewClientModalOpen, setPropIsNewClientModalOpen]);
+
+
+  // O useEffect para salvar no localStorage permanece o mesmo
   useEffect(() => {
     localStorage.setItem(localStorageKey, isNewClientModalOpen ? 'true' : 'false');
   }, [localStorageKey, isNewClientModalOpen]);
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4"> {/* Reduced gap */}
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div>
-        <Label htmlFor="document_number" className="text-sm">Nº Doc. <span className="text-red-500">*</span></Label> {/* Reduced font size */}
-        <Input id="document_number" name="document_number" value={formData.document_number} onChange={handleInputChange} placeholder="Ex: 001/2025" className="bg-white/5 border-white/20 rounded-xl h-9 text-xs" required /> {/* Reduced height and font size */}
+        <Label htmlFor="document_number" className="text-sm">Nº Doc. <span className="text-red-500">*</span></Label>
+        <Input id="document_number" name="document_number" value={formData.document_number} onChange={handleInputChange} placeholder="Ex: 001/2025" className="bg-white/5 border-white/20 rounded-xl h-9 text-xs" required />
       </div>
       <div>
-        <Label htmlFor="issue_date" className="text-sm">Emissão <span className="text-red-500">*</span></Label> {/* Reduced font size */}
+        <Label htmlFor="issue_date" className="text-sm">Emissão <span className="text-red-500">*</span></Label>
         <DateInput
           date={formData.issue_date}
           setDate={handleDateChange}
-          inputClassName="h-9 text-xs" // Reduced height and font size
+          inputClassName="h-9 text-xs"
         />
       </div>
       <div className="md:col-span-2 relative z-10 flex items-end gap-2">
@@ -80,30 +91,30 @@ export const FinanceiroFormFields = ({
             onSelectClient={handleClientSelectId}
             clientName={formData.cliente_fornecedor_name}
             onClientNameChange={handleClientNameChange}
-            clientFantasyName={formData.cliente_fornecedor_fantasy_name} // NEW: Pass fantasy name
-            onClientFantasyNameChange={handleClientFantasyNameChange} // NEW: Pass fantasy name handler
+            clientFantasyName={formData.cliente_fornecedor_fantasy_name}
+            onClientFantasyNameChange={handleClientFantasyNameChange}
             cnpjCpf={formData.cnpj_cpf}
             onCnpjCpfChange={handleCnpjCpfChange}
             refetchTrigger={clientListVersion}
-            inputClassName="h-9 text-xs" // Reduced height and font size
+            inputClassName="h-9 text-xs"
           />
         </div>
         <Dialog open={isNewClientModalOpen} onOpenChange={setIsNewClientModalOpen}>
           <DialogTrigger asChild>
-            <Button variant="outline" size="icon" className="h-9 w-9 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white"> {/* Reduced height and width */}
-              <PlusCircle className="h-4 w-4" /> {/* Reduced icon size */}
+            <Button variant="outline" size="icon" className="h-9 w-9 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white">
+              <PlusCircle className="h-4 w-4" />
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[600px] bg-gray-800 text-white border-gray-700 rounded-xl"> {/* Reduced max-width, removed overflow */}
+          <DialogContent className="sm:max-w-[600px] bg-gray-800 text-white border-gray-700 rounded-xl">
             <DialogHeader>
-              {/* <DialogTitle className="text-emerald-300">Novo {entityLabel}</DialogTitle> */} {/* REMOVED TITLE */}
+              {/* <DialogTitle className="text-emerald-300">Novo {entityLabel}</DialogTitle> */}
             </DialogHeader>
             <ClienteForm isModal onSaveSuccess={handleNewClientSuccess} personType={entityLabel.toLowerCase()} />
           </DialogContent>
         </Dialog>
       </div>
       <div>
-        <Label htmlFor="cnpj_cpf" className="text-sm">CNPJ/CPF <span className="text-red-500">*</span></Label> {/* Reduced font size */}
+        <Label htmlFor="cnpj_cpf" className="text-sm">CNPJ/CPF <span className="text-red-500">*</span></Label>
         <IMaskInput
           mask={[
             { mask: '000.000.000-00', maxLength: 11 },
@@ -115,18 +126,18 @@ export const FinanceiroFormFields = ({
           value={formData.cnpj_cpf}
           onAccept={(value) => handleCnpjCpfChange(String(value))}
           placeholder="Digite o CNPJ ou CPF"
-          className="w-full flex h-9 rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-xs" /* Reduced height and font size */
+          className="w-full flex h-9 rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-xs"
           disabled={!!formData.pessoa_id}
           required
         />
       </div>
       <div>
-        <Label htmlFor="model" className="text-sm">Modelo</Label> {/* Reduced font size */}
+        <Label htmlFor="model" className="text-sm">Modelo</Label>
         <Select value={formData.model} onValueChange={(value) => handleSelectChange('model', value)}>
-          <SelectTrigger className="bg-white/5 border-white/20 rounded-xl h-9 text-xs"> {/* Reduced height and font size */}
+          <SelectTrigger className="bg-white/5 border-white/20 rounded-xl h-9 text-xs">
             <SelectValue placeholder="Selecione o modelo" />
           </SelectTrigger>
-          <SelectContent className="bg-gray-800 text-white border-gray-700 rounded-xl text-xs"> {/* Reduced font size */}
+          <SelectContent className="bg-gray-800 text-white border-gray-700 rounded-xl text-xs">
             <SelectItem value="Recibo">Recibo</SelectItem>
             <SelectItem value="NF">Nota Fiscal</SelectItem>
             <SelectItem value="Fatura">Fatura</SelectItem>
@@ -135,36 +146,36 @@ export const FinanceiroFormFields = ({
         </Select>
       </div>
       <div className="md:col-span-2">
-        <Label htmlFor="description" className="text-sm">Descrição <span className="text-red-500">*</span></Label> {/* Reduced font size */}
-        <Textarea id="description" name="description" value={formData.description} onChange={handleInputChange} placeholder="Descrição da obra / evento..." required className="bg-white/5 border-white/20 rounded-xl h-9 text-xs" /> {/* Reduced height and font size */}
+        <Label htmlFor="description" className="text-sm">Descrição <span className="text-red-500">*</span></Label>
+        <Textarea id="description" name="description" value={formData.description} onChange={handleInputChange} placeholder="Descrição da obra / evento..." required className="bg-white/5 border-white/20 rounded-xl h-9 text-xs" />
       </div>
       <div>
-        <Label htmlFor="payment_method" className="text-sm">Forma de Pagamento <span className="text-red-500">*</span></Label> {/* Reduced font size */}
+        <Label htmlFor="payment_method" className="text-sm">Forma de Pagamento <span className="text-red-500">*</span></Label>
         <Select value={formData.payment_method} onValueChange={(value) => handleSelectChange('payment_method', value)}>
-          <SelectTrigger className="bg-white/5 border-white/20 rounded-xl h-9 text-xs"> {/* Reduced height and font size */}
+          <SelectTrigger className="bg-white/5 border-white/20 rounded-xl h-9 text-xs">
             <SelectValue placeholder="Selecione a forma de pagamento" />
           </SelectTrigger>
-          <SelectContent className="bg-gray-800 text-white border-gray-700 rounded-xl text-xs"> {/* Reduced font size */}
+          <SelectContent className="bg-gray-800 text-white border-gray-700 rounded-xl text-xs">
             {paymentMethods.map(method => <SelectItem key={method.value} value={method.value}>{method.label}</SelectItem>)}
           </SelectContent>
         </Select>
       </div>
       <div className="flex items-end gap-2">
         <div className="flex-grow">
-          <Label htmlFor="cost_center" className="text-sm">Centro de Custo</Label> {/* Reduced font size */}
+          <Label htmlFor="cost_center" className="text-sm">Centro de Custo</Label>
           <Select value={formData.cost_center} onValueChange={(value) => handleSelectChange('cost_center', value)}>
-            <SelectTrigger className="bg-white/5 border-white/20 rounded-xl h-9 text-xs"> {/* Reduced height and font size */}
+            <SelectTrigger className="bg-white/5 border-white/20 rounded-xl h-9 text-xs">
               <SelectValue placeholder="Selecione o centro de custo" />
             </SelectTrigger>
-            <SelectContent className="bg-gray-800 text-white border-gray-700 rounded-xl text-xs"> {/* Reduced font size */}
+            <SelectContent className="bg-gray-800 text-white border-gray-700 rounded-xl text-xs">
               {costCenters.map(center => <SelectItem key={center.value} value={center.value}>{center.label}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
         <Dialog open={isNewCostCenterModalOpen} onOpenChange={setIsNewCostCenterModalOpen}>
           <DialogTrigger asChild>
-            <Button variant="outline" size="icon" className="h-9 w-9 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white"> {/* Reduced height and width */}
-              <PlusCircle className="h-4 w-4" /> {/* Reduced icon size */}
+            <Button variant="outline" size="icon" className="h-9 w-9 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white">
+              <PlusCircle className="h-4 w-4" />
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[600px] bg-gray-800 text-white border-gray-700 rounded-xl">
@@ -176,7 +187,7 @@ export const FinanceiroFormFields = ({
         </Dialog>
       </div>
       <div className="md:col-span-2">
-        <Label htmlFor="total_value" className="text-sm">Valor Total (R$) <span className="text-red-500">*</span></Label> {/* Reduced font size */}
+        <Label htmlFor="total_value" className="text-sm">Valor Total (R$) <span className="text-red-500">*</span></Label>
         <IMaskInput
           mask="num"
           blocks={{
@@ -199,8 +210,8 @@ export const FinanceiroFormFields = ({
         />
       </div>
       <div className="md:col-span-2">
-        <Label htmlFor="notes" className="text-sm">Referente / Observação</Label> {/* Reduced font size */}
-        <Textarea id="notes" name="notes" value={formData.notes} onChange={handleInputChange} placeholder="Informações adicionais..." className="bg-white/5 border-white/20 rounded-xl h-9 text-xs" /> {/* Reduced height and font size */}
+        <Label htmlFor="notes" className="text-sm">Referente / Observação</Label>
+        <Textarea id="notes" name="notes" value={formData.notes} onChange={handleInputChange} placeholder="Informações adicionais..." className="bg-white/5 border-white/20 rounded-xl h-9 text-xs" />
       </div>
     </div>
   );
