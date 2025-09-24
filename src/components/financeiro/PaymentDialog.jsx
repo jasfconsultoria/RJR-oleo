@@ -41,10 +41,13 @@ const PaymentDialog = ({ isOpen, onClose, entry, onSuccess }) => {
   const [linkedAccounts, setLinkedAccounts] = useState([]); // Estado para as contas vinculadas
   const [loadingAccounts, setLoadingAccounts] = useState(true);
 
-  const balance = entry ? entry.amount_balance : 0;
-  const currentPaidAmount = parseCurrency(paymentData.paid_amount);
-  const newTotalPaid = (entry?.paid_amount || 0) + currentPaidAmount;
-  const newBalance = balance - currentPaidAmount;
+  // Calcula o saldo restante real da parcela
+  const realRemainingBalance = entry ? (entry.total_value - (entry.paid_amount || 0)) : 0;
+  
+  // Calcula o novo total pago e o novo saldo com base no input do usuário
+  const currentPaidAmountInput = parseCurrency(paymentData.paid_amount);
+  const newTotalPaidDisplay = (entry?.paid_amount || 0) + currentPaidAmountInput;
+  const newBalanceDisplay = realRemainingBalance - currentPaidAmountInput;
 
   // Função para buscar as contas correntes vinculadas ao usuário
   const fetchLinkedAccounts = useCallback(async () => {
@@ -93,8 +96,15 @@ const PaymentDialog = ({ isOpen, onClose, entry, onSuccess }) => {
   useEffect(() => {
     if (isOpen) {
       fetchLinkedAccounts();
+      // Resetar o valor a pagar para o saldo restante ao abrir o modal
+      setPaymentData(prev => ({ 
+        ...prev, 
+        paid_amount: String(realRemainingBalance).replace('.', ','),
+        payment_date: new Date(), // Resetar data para hoje
+        notes: '', // Limpar notas
+      }));
     }
-  }, [isOpen, fetchLinkedAccounts]);
+  }, [isOpen, fetchLinkedAccounts, realRemainingBalance]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -117,8 +127,9 @@ const PaymentDialog = ({ isOpen, onClose, entry, onSuccess }) => {
       toast({ title: 'Valor inválido', description: 'O valor do pagamento deve ser maior que zero.', variant: 'destructive' });
       return;
     }
-    if (parsedPaidAmount > balance + 0.01) { // Add a small tolerance for floating point issues
-      toast({ title: 'Valor excede o saldo', description: `O valor máximo para pagamento é ${formatCurrency(balance)}.`, variant: 'destructive' });
+    // A validação agora usa o saldo restante real
+    if (parsedPaidAmount > realRemainingBalance + 0.01) { // Adiciona uma pequena tolerância para problemas de ponto flutuante
+      toast({ title: 'Valor excede o saldo', description: `O valor máximo para pagamento é ${formatCurrency(realRemainingBalance)}.`, variant: 'destructive' });
       return;
     }
     if (!paymentData.conta_corrente_id) {
@@ -163,8 +174,8 @@ const PaymentDialog = ({ isOpen, onClose, entry, onSuccess }) => {
         </DialogHeader>
         <div className="grid grid-cols-2 gap-4 text-sm">
             <div><span className="text-emerald-300">Valor da Parcela:</span> {formatCurrency(entry.total_value)}</div>
-            <div><span className="text-emerald-300">Valor Pago:</span> {formatCurrency(newTotalPaid)}</div>
-            <div className="col-span-2 font-bold text-lg"><span className="text-emerald-300">Saldo Devedor:</span> {formatCurrency(newBalance)}</div>
+            <div><span className="text-emerald-300">Valor Pago:</span> {formatCurrency(newTotalPaidDisplay)}</div>
+            <div className="col-span-2 font-bold text-lg"><span className="text-emerald-300">Saldo Devedor:</span> {formatCurrency(newBalanceDisplay)}</div>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4 pt-4 border-t border-white/20">
           <div>
