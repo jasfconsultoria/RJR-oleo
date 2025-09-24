@@ -116,7 +116,7 @@ const ItensMovimentacaoTable = ({ items, onItemsChange, type, isEditing }) => {
               const error = validateItem(item);
               return (
                 <TableRow key={index} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
-                  <TableCell data-label="Produto" className="py-2"> {/* Alterado py-4 para py-2 */}
+                  <TableCell data-label="Produto" className="py-4"> {/* Alterado py-2 para py-4 */}
                   <ProdutoSearchableSelect
                     value={item.produto_id}
                     onChange={(product) => handleProductSelect(index, product)}
@@ -126,7 +126,7 @@ const ItensMovimentacaoTable = ({ items, onItemsChange, type, isEditing }) => {
                   />
                     {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
                   </TableCell>
-                  <TableCell data-label="Quantidade" className="text-right py-2"> {/* Alterado py-4 para py-2 */}
+                  <TableCell data-label="Quantidade" className="text-right py-4"> {/* Alterado py-2 para py-4 */}
                     <IMaskInput
                       mask="num"
                       blocks={{
@@ -148,10 +148,10 @@ const ItensMovimentacaoTable = ({ items, onItemsChange, type, isEditing }) => {
                       disabled={isEditing}
                     />
                   </TableCell>
-                  <TableCell data-label="Unidade" className="text-center py-2"> {/* Alterado py-4 para py-2 */}
+                  <TableCell data-label="Unidade" className="text-center py-4"> {/* Alterado py-2 para py-4 */}
                     {item.unidade || 'N/A'}
                   </TableCell>
-                  <TableCell data-label="Ações" className="text-center py-2"> {/* Alterado py-4 para py-2 */}
+                  <TableCell data-label="Ações" className="text-center py-4"> {/* Alterado py-2 para py-4 */}
                     <Button
                       type="button"
                       variant="ghost"
