@@ -99,7 +99,7 @@ export const FinanceiroFormFields = ({
           value={formData.cnpj_cpf}
           onAccept={(value) => handleCnpjCpfChange(String(value))}
           placeholder="Digite o CNPJ ou CPF"
-          className="w-full flex h-9 rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-xs" {/* Reduced height and font size */}
+          className="w-full flex h-9 rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-xs" /* Reduced height and font size */
           disabled={!!formData.pessoa_id}
           required
         />
