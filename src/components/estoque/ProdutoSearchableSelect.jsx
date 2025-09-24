@@ -136,7 +136,7 @@ const ProdutoSearchableSelect = ({
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="absolute z-50 w-full bg-white rounded-xl shadow-lg max-h-[320px] overflow-y-auto mt-1"
+          className="absolute z-50 w-full bg-white rounded-xl shadow-lg max-h-[440px] overflow-y-auto mt-1"
         >
           {filteredProducts.length > 0 ? (
             filteredProducts.map(product => (
