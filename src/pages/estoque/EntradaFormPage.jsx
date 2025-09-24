@@ -474,7 +474,7 @@ const EntradaFormPage = () => {
               )}
 
               {/* Componente ItensMovimentacaoTable com altura aumentada */}
-              <div style={{ minHeight: '400px' }}> {/* Altura aumentada em 3x */}
+              <div style={{ minHeight: '250px' }}> {/* Altura ajustada */}
                 <ItensMovimentacaoTable
                   items={formData.itens}
                   onItemsChange={handleItemsChange}

@@ -104,7 +104,7 @@ const ItensMovimentacaoTable = ({ items, onItemsChange, type, isEditing }) => {
           <TableBody>
             {items.length === 0 && (
               <TableRow>
-                <TableCell colSpan={4} className="text-center text-gray-400 py-4 h-40"> {/* Adicionado h-40 aqui */}
+                <TableCell colSpan={4} className="text-center text-gray-400 py-4 h-64"> {/* Aumentado para h-64 */}
                   Nenhum item adicionado.
                 </TableCell>
               </TableRow>
