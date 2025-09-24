@@ -80,7 +80,7 @@ export const FinanceiroFormFields = ({
           </DialogTrigger>
           <DialogContent className="sm:max-w-[600px] bg-gray-800 text-white border-gray-700 rounded-xl"> {/* Reduced max-width, removed overflow */}
             <DialogHeader>
-              <DialogTitle className="text-emerald-300">Novo {entityLabel}</DialogTitle>
+              {/* <DialogTitle className="text-emerald-300">Novo {entityLabel}</DialogTitle> */} {/* REMOVED TITLE */}
             </DialogHeader>
             <ClienteForm isModal onSaveSuccess={handleNewClientSuccess} personType={entityLabel.toLowerCase()} />
           </DialogContent>
