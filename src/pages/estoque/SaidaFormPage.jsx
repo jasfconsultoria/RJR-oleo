@@ -34,7 +34,7 @@ const SaidaFormPage = () => {
     cnpj_cpf: '',
     coleta_id: null,
     observacao: '',
-    itens: [],
+    itens: [{ id: null, produto_id: null, produto_nome: '', unidade: '', quantidade: '' }], // Inicializa com um item vazio
     cliente: '', // Campo único para busca igual ao EntradaFormPage
   });
   const [loading, setLoading] = useState(true);
@@ -379,7 +379,7 @@ const SaidaFormPage = () => {
         .insert(itensToInsert);
       if (itensInsertError) throw itensInsertError;
 
-      await logAction(isEditing ? 'update_stock_exit' : 'create_stock_exit', {
+      await logAction(isEditing ? 'update_stock_entry' : 'create_stock_entry', {
         movimentacao_id: savedMovimentacao.id,
         tipo: savedMovimentacao.tipo,
         origem: savedMovimentacao.origem,
@@ -392,7 +392,7 @@ const SaidaFormPage = () => {
 
     } catch (error) {
       toast({ title: `Erro ao salvar movimentação de ${formData.tipo}`, description: error.message, variant: 'destructive' });
-      await logAction(isEditing ? 'update_stock_exit_failed' : 'create_stock_exit_failed', {
+      await logAction(isEditing ? 'update_stock_entry_failed' : 'create_stock_entry_failed', {
         error: error.message,
         tipo: formData.tipo,
       });
@@ -412,7 +412,7 @@ const SaidaFormPage = () => {
   return (
     <>
       <Helmet>
-        <title>{isEditing ? 'Editar Saída' : 'Nova Saída'} de Estoque - RJR Óleo</title>
+        <title>{isEditing ? 'Editar Entrada' : 'Nova Entrada'} de Estoque - RJR Óleo</title>
       </Helmet>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -423,8 +423,8 @@ const SaidaFormPage = () => {
         <Card className="bg-white/10 backdrop-blur-sm border-white/20 text-white rounded-xl shadow-lg">
           <CardHeader>
             <CardTitle className="text-2xl md:text-3xl font-bold flex items-center gap-3 text-emerald-300">
-              <ArrowUpSquare className="w-8 h-8" />
-              {isEditing ? 'Editar Saída' : 'Nova Saída'} de Estoque
+              <ArrowDownSquare className="w-8 h-8" />
+              {isEditing ? 'Editar Entrada' : 'Nova Entrada'} de Estoque
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -435,7 +435,7 @@ const SaidaFormPage = () => {
                 handleSelectChange={handleSelectChange}
                 handleColetaSelect={handleColetaSelect}
                 isEditing={isEditing}
-                type="saida"
+                type="entrada"
               />
 
               {formData.origem === 'manual' && (
@@ -503,12 +503,12 @@ const SaidaFormPage = () => {
                 </div>
               )}
 
-              {/* Componente ItensMovimentacaoTable com altura aumentada */}
+              {/* Componente ItensMovimentacaoTable com altura ajustada */}
               <div style={{ minHeight: '250px' }}> {/* Altura ajustada */}
                 <ItensMovimentacaoTable
                   items={formData.itens}
                   onItemsChange={handleItemsChange}
-                  type="saida"
+                  type="entrada"
                   isEditing={isEditing}
                 />
               </div>
@@ -545,4 +545,4 @@ const SaidaFormPage = () => {
   );
 };
 
-export default SaidaFormPage;
+export default EntradaFormPage;

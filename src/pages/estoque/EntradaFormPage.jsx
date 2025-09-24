@@ -34,7 +34,7 @@ const EntradaFormPage = () => {
     cnpj_cpf: '',
     coleta_id: null,
     observacao: '',
-    itens: [],
+    itens: [{ id: null, produto_id: null, produto_nome: '', unidade: '', quantidade: '' }], // Inicializa com um item vazio
     cliente: '', // Campo único para busca
   });
   const [loading, setLoading] = useState(true);
@@ -473,7 +473,7 @@ const EntradaFormPage = () => {
                 </div>
               )}
 
-              {/* Componente ItensMovimentacaoTable com altura aumentada */}
+              {/* Componente ItensMovimentacaoTable com altura ajustada */}
               <div style={{ minHeight: '250px' }}> {/* Altura ajustada */}
                 <ItensMovimentacaoTable
                   items={formData.itens}
