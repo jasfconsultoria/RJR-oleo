@@ -101,7 +101,7 @@ const ItensMovimentacaoTable = ({ items, onItemsChange, type, isEditing }) => {
   return (
     <div className="space-y-4">
       <h3 className="text-lg font-semibold text-white">Itens da Movimentação *</h3>
-      <div className="overflow-x-auto rounded-xl border border-white/20"> {/* Removido overflow-y-auto */}
+      <div className="overflow-x-auto rounded-xl border border-white/20 min-h-[200px] max-h-[400px]"> {/* Adicionado min-h e max-h */}
         <Table className="responsive-table">
           <TableHeader>
             <TableRow className="hover:bg-transparent border-b border-white/20 text-xs">
@@ -116,7 +116,7 @@ const ItensMovimentacaoTable = ({ items, onItemsChange, type, isEditing }) => {
               const error = validateItem(item);
               return (
                 <TableRow key={index} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
-                  <TableCell data-label="Produto" className="py-4 relative z-20"> {/* Adicionado relative z-20 */}
+                  <TableCell data-label="Produto" className="py-4 relative z-20">
                   <ProdutoSearchableSelect
                     value={item.produto_id}
                     onChange={(product) => handleProductSelect(index, product)}
@@ -126,7 +126,7 @@ const ItensMovimentacaoTable = ({ items, onItemsChange, type, isEditing }) => {
                   />
                     {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
                   </TableCell>
-                  <TableCell data-label="Quantidade" className="text-right py-4"> {/* Alterado py-2 para py-4 */}
+                  <TableCell data-label="Quantidade" className="text-right py-4">
                     <IMaskInput
                       mask="num"
                       blocks={{
@@ -148,10 +148,10 @@ const ItensMovimentacaoTable = ({ items, onItemsChange, type, isEditing }) => {
                       disabled={isEditing}
                     />
                   </TableCell>
-                  <TableCell data-label="Unidade" className="text-center py-4"> {/* Alterado py-2 para py-4 */}
+                  <TableCell data-label="Unidade" className="text-center py-4">
                     {item.unidade || 'N/A'}
                   </TableCell>
-                  <TableCell data-label="Ações" className="text-center py-4"> {/* Alterado py-2 para py-4 */}
+                  <TableCell data-label="Ações" className="text-center py-4">
                     <Button
                       type="button"
                       variant="ghost"
