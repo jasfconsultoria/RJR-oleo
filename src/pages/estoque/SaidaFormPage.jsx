@@ -46,6 +46,14 @@ const SaidaFormPage = () => {
   const [showClienteDropdown, setShowClienteDropdown] = useState(false);
   const [isClienteSelected, setIsClienteSelected] = useState(false);
   const dropdownRef = useRef(null);
+  const documentNumberRef = useRef(null); // Ref para o campo Número do Documento
+
+  // Focar no campo Número do Documento ao carregar (apenas para novas saídas)
+  useEffect(() => {
+    if (documentNumberRef.current && !isEditing) {
+      documentNumberRef.current.focus();
+    }
+  }, [isEditing]);
 
   // Fetch all clients (SEM filtrar por contratos ativos)
   useEffect(() => {
@@ -292,8 +300,9 @@ const SaidaFormPage = () => {
       toast({ title: 'Campo obrigatório', description: 'Selecione uma Coleta para origem de coleta.', variant: 'destructive' });
       return false;
     }
-    if (formData.itens.length === 0) {
-      toast({ title: 'Itens da movimentação', description: 'Adicione pelo menos um item à movimentação.', variant: 'destructive' });
+    // A validação de itens vazios agora é mais permissiva para o item inicial
+    if (formData.itens.length === 0 || (formData.itens.length === 1 && !formData.itens[0].produto_id && formData.itens[0].quantidade === '')) {
+      toast({ title: 'Itens da movimentação', description: 'Adicione pelo menos um item válido à movimentação.', variant: 'destructive' });
       return false;
     }
     
@@ -311,23 +320,37 @@ const SaidaFormPage = () => {
       }, {});
 
       for (const item of formData.itens) {
-        if (!item.produto_id || parseCurrency(item.quantidade) <= 0) {
-          toast({ title: 'Itens inválidos', description: 'Verifique todos os itens: produto e quantidade são obrigatórios e a quantidade deve ser maior que zero.', variant: 'destructive' });
-          return false;
-        }
-        
-        const currentBalance = balancesMap[item.produto_id] || 0;
-        if (parseCurrency(item.quantidade) > currentBalance) {
-          toast({ title: 'Saldo insuficiente', description: `Saldo insuficiente para o produto ${item.produto_nome}. Disponível: ${currentBalance} ${item.unidade}.`, variant: 'destructive' });
-          return false;
+        // Se o item não está completamente vazio, valide-o
+        if (item.produto_id || item.quantidade !== '') {
+          if (!item.produto_id) {
+            toast({ title: 'Itens inválidos', description: 'Verifique todos os itens: selecione um produto para cada linha preenchida.', variant: 'destructive' });
+            return false;
+          }
+          if (parseCurrency(item.quantidade) <= 0) {
+            toast({ title: 'Itens inválidos', description: 'Verifique todos os itens: a quantidade deve ser maior que zero para linhas preenchidas.', variant: 'destructive' });
+            return false;
+          }
+          
+          const currentBalance = balancesMap[item.produto_id] || 0;
+          if (parseCurrency(item.quantidade) > currentBalance) {
+            toast({ title: 'Saldo insuficiente', description: `Saldo insuficiente para o produto ${item.produto_nome}. Disponível: ${currentBalance} ${item.unidade}.`, variant: 'destructive' });
+            return false;
+          }
         }
       }
     } else {
       // Validação básica para entradas ou edições de saídas
       for (const item of formData.itens) {
-        if (!item.produto_id || parseCurrency(item.quantidade) <= 0) {
-          toast({ title: 'Itens inválidos', description: 'Verifique todos os itens: produto e quantidade são obrigatórios e a quantidade deve ser maior que zero.', variant: 'destructive' });
-          return false;
+        // Se o item não está completamente vazio, valide-o
+        if (item.produto_id || item.quantidade !== '') {
+          if (!item.produto_id) {
+            toast({ title: 'Itens inválidos', description: 'Verifique todos os itens: selecione um produto para cada linha preenchida.', variant: 'destructive' });
+            return false;
+          }
+          if (parseCurrency(item.quantidade) <= 0) {
+            toast({ title: 'Itens inválidos', description: 'Verifique todos os itens: a quantidade deve ser maior que zero para linhas preenchidas.', variant: 'destructive' });
+            return false;
+          }
         }
       }
     }
@@ -341,6 +364,9 @@ const SaidaFormPage = () => {
 
     setSaving(true);
     try {
+      // Filtrar itens completamente vazios antes de enviar
+      const itensToSave = formData.itens.filter(item => item.produto_id !== null || item.quantidade !== '');
+
       const { itens, cliente, ...movimentacaoHeader } = formData; // Remover campo de busca temporário
       movimentacaoHeader.user_id = user?.id;
 
@@ -368,7 +394,7 @@ const SaidaFormPage = () => {
         savedMovimentacao = data;
       }
 
-      const itensToInsert = itens.map(item => ({
+      const itensToInsert = itensToSave.map(item => ({
         entrada_saida_id: savedMovimentacao.id,
         produto_id: item.produto_id,
         quantidade: parseCurrency(item.quantidade),
@@ -379,7 +405,7 @@ const SaidaFormPage = () => {
         .insert(itensToInsert);
       if (itensInsertError) throw itensInsertError;
 
-      await logAction(isEditing ? 'update_stock_entry' : 'create_stock_entry', {
+      await logAction(isEditing ? 'update_stock_exit' : 'create_stock_exit', {
         movimentacao_id: savedMovimentacao.id,
         tipo: savedMovimentacao.tipo,
         origem: savedMovimentacao.origem,
@@ -392,7 +418,7 @@ const SaidaFormPage = () => {
 
     } catch (error) {
       toast({ title: `Erro ao salvar movimentação de ${formData.tipo}`, description: error.message, variant: 'destructive' });
-      await logAction(isEditing ? 'update_stock_entry_failed' : 'create_stock_entry_failed', {
+      await logAction(isEditing ? 'update_stock_exit_failed' : 'create_stock_exit_failed', {
         error: error.message,
         tipo: formData.tipo,
       });
@@ -412,7 +438,7 @@ const SaidaFormPage = () => {
   return (
     <>
       <Helmet>
-        <title>{isEditing ? 'Editar Entrada' : 'Nova Entrada'} de Estoque - RJR Óleo</title>
+        <title>{isEditing ? 'Editar Saída' : 'Nova Saída'} de Estoque - RJR Óleo</title>
       </Helmet>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -423,8 +449,8 @@ const SaidaFormPage = () => {
         <Card className="bg-white/10 backdrop-blur-sm border-white/20 text-white rounded-xl shadow-lg">
           <CardHeader>
             <CardTitle className="text-2xl md:text-3xl font-bold flex items-center gap-3 text-emerald-300">
-              <ArrowDownSquare className="w-8 h-8" />
-              {isEditing ? 'Editar Entrada' : 'Nova Entrada'} de Estoque
+              <ArrowUpSquare className="w-8 h-8" />
+              {isEditing ? 'Editar Saída' : 'Nova Saída'} de Estoque
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -435,7 +461,8 @@ const SaidaFormPage = () => {
                 handleSelectChange={handleSelectChange}
                 handleColetaSelect={handleColetaSelect}
                 isEditing={isEditing}
-                type="entrada"
+                type="saida"
+                documentNumberRef={documentNumberRef} // Passando a ref
               />
 
               {formData.origem === 'manual' && (
@@ -508,7 +535,7 @@ const SaidaFormPage = () => {
                 <ItensMovimentacaoTable
                   items={formData.itens}
                   onItemsChange={handleItemsChange}
-                  type="entrada"
+                  type="saida"
                   isEditing={isEditing}
                 />
               </div>
@@ -545,4 +572,4 @@ const SaidaFormPage = () => {
   );
 };
 
-export default EntradaFormPage;
+export default SaidaFormPage;

@@ -1,81 +1,100 @@
 import React from 'react';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-import { Calendar, Info, User, Tag } from 'lucide-react';
-// Removido: import ClienteSearchableSelect from '@/components/ui/ClienteSearchableSelect';
-import ColetaSearchableSelect from '@/components/ui/ColetaSearchableSelect'; // New import
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { CalendarIcon, Hash, Factory, Truck } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import ColetaSearchableSelect from './ColetaSearchableSelect';
 
-const MovimentacaoFormFields = ({ formData, handleChange, handleSelectChange, handleColetaSelect, isEditing, type, loadingClients }) => {
-  const originOptions = [
-    { value: 'manual', label: 'Manual' },
-    { value: 'coleta', label: 'Coleta' }, // Added Coleta origin
-  ];
-
+const MovimentacaoFormFields = ({ formData, handleChange, handleSelectChange, handleColetaSelect, isEditing, type, documentNumberRef }) => {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-white">
-      <div>
-        <Label htmlFor="data" className="text-lg flex items-center gap-2">
-          <Calendar className="w-4 h-4" /> Data *
-        </Label>
-        <Input
-          id="data"
-          name="data"
-          type="date"
-          value={format(formData.data, 'yyyy-MM-dd')}
-          onChange={(e) => handleChange('data', new Date(e.target.value))}
-          className="bg-white/5 border-white/20 rounded-xl"
-          required
-          disabled={isEditing}
-        />
+    <>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="data" className="text-white flex items-center gap-2">
+            <CalendarIcon className="w-4 h-4" /> Data *
+          </Label>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant={"outline"}
+                className={cn(
+                  "w-full justify-start text-left font-normal bg-white/5 border-white/20 text-white hover:bg-white/10 hover:text-white rounded-xl",
+                  !formData.data && "text-white/60"
+                )}
+                disabled={isEditing}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {formData.data ? format(formData.data, "PPP", { locale: ptBR }) : <span>Selecione uma data</span>}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0 bg-white/10 border-white/20 text-white rounded-xl" align="start">
+              <Calendar
+                mode="single"
+                selected={formData.data}
+                onSelect={(date) => handleChange('data', date)}
+                initialFocus
+                locale={ptBR}
+                disabled={isEditing}
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="origem" className="text-white flex items-center gap-2">
+            <Factory className="w-4 h-4" /> Origem *
+          </Label>
+          <Select
+            value={formData.origem}
+            onValueChange={(value) => handleSelectChange('origem', value)}
+            disabled={isEditing}
+          >
+            <SelectTrigger className="w-full bg-white/5 border-white/20 text-white placeholder:text-white/60 rounded-xl">
+              <SelectValue placeholder="Selecione a origem" />
+            </SelectTrigger>
+            <SelectContent className="bg-white/10 border-white/20 text-white rounded-xl">
+              <SelectItem value="manual">Manual</SelectItem>
+              <SelectItem value="coleta">Coleta</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
-      <div>
-        <Label htmlFor="origem" className="text-lg flex items-center gap-2">
-          <Tag className="w-4 h-4" /> Origem *
-        </Label>
-        <Select value={formData.origem} onValueChange={(value) => handleSelectChange('origem', value)} disabled={isEditing}>
-          <SelectTrigger className="bg-white/5 border-white/20 rounded-xl">
-            <SelectValue placeholder="Selecione a origem" />
-          </SelectTrigger>
-          <SelectContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
-            {originOptions.map(option => (
-              <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      {formData.origem === 'coleta' && (
+        <div className="space-y-2">
+          <Label htmlFor="coleta_id" className="text-white flex items-center gap-2">
+            <Truck className="w-4 h-4" /> Coleta *
+          </Label>
+          <ColetaSearchableSelect
+            value={formData.coleta_id}
+            onChange={handleColetaSelect}
+            type={type}
+            disabled={isEditing}
+          />
+        </div>
+      )}
 
-      {/* New Document Number Field */}
-      <div>
-        <Label htmlFor="document_number" className="text-lg flex items-center gap-2">
-          <Info className="w-4 h-4" /> Nº Documento
+      <div className="space-y-2">
+        <Label htmlFor="document_number" className="text-white flex items-center gap-2">
+          <Hash className="w-4 h-4" /> Número do Documento
         </Label>
         <Input
           id="document_number"
           name="document_number"
           value={formData.document_number}
           onChange={(e) => handleChange('document_number', e.target.value)}
-          placeholder="Ex: NF-12345, Recibo-001"
-          className="bg-white/5 border-white/20 rounded-xl"
-          disabled={isEditing || formData.origem === 'coleta'} // Disable if editing or origin is coleta
+          placeholder="Número do Documento"
+          className="bg-white/5 border-white/20 text-white placeholder:text-white/60 rounded-xl"
+          disabled={isEditing}
+          ref={documentNumberRef} // Aplicando a ref aqui
         />
       </div>
-
-      {formData.origem === 'coleta' && (
-        <div className="md:col-span-2">
-          <ColetaSearchableSelect
-            labelText="Selecionar Coleta *"
-            value={formData.coleta_id}
-            onChange={handleColetaSelect}
-            disabled={isEditing}
-          />
-        </div>
-      )}
-      {/* O campo de cliente para origem 'manual' será renderizado no componente pai (EntradaFormPage/SaidaFormPage) */}
-    </div>
+    </>
   );
 };
 

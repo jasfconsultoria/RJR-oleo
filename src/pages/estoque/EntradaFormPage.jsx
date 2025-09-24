@@ -46,6 +46,14 @@ const EntradaFormPage = () => {
   const [showClienteDropdown, setShowClienteDropdown] = useState(false);
   const [isClienteSelected, setIsClienteSelected] = useState(false);
   const dropdownRef = useRef(null);
+  const documentNumberRef = useRef(null); // Ref para o campo Número do Documento
+
+  // Focar no campo Número do Documento ao carregar (apenas para novas entradas)
+  useEffect(() => {
+    if (documentNumberRef.current && !isEditing) {
+      documentNumberRef.current.focus();
+    }
+  }, [isEditing]);
 
   // Fetch all clients (SEM filtrar por contratos ativos)
   useEffect(() => {
@@ -292,14 +300,22 @@ const EntradaFormPage = () => {
       toast({ title: 'Campo obrigatório', description: 'Selecione uma Coleta para origem de coleta.', variant: 'destructive' });
       return false;
     }
-    if (formData.itens.length === 0) {
-      toast({ title: 'Itens da movimentação', description: 'Adicione pelo menos um item à movimentação.', variant: 'destructive' });
+    // A validação de itens vazios agora é mais permissiva para o item inicial
+    if (formData.itens.length === 0 || (formData.itens.length === 1 && !formData.itens[0].produto_id && formData.itens[0].quantidade === '')) {
+      toast({ title: 'Itens da movimentação', description: 'Adicione pelo menos um item válido à movimentação.', variant: 'destructive' });
       return false;
     }
     for (const item of formData.itens) {
-      if (!item.produto_id || parseCurrency(item.quantidade) <= 0) {
-        toast({ title: 'Itens inválidos', description: 'Verifique todos os itens: produto e quantidade são obrigatórios e a quantidade deve ser maior que zero.', variant: 'destructive' });
-        return false;
+      // Se o item não está completamente vazio, valide-o
+      if (item.produto_id || item.quantidade !== '') {
+        if (!item.produto_id) {
+          toast({ title: 'Itens inválidos', description: 'Verifique todos os itens: selecione um produto para cada linha preenchida.', variant: 'destructive' });
+          return false;
+        }
+        if (parseCurrency(item.quantidade) <= 0) {
+          toast({ title: 'Itens inválidos', description: 'Verifique todos os itens: a quantidade deve ser maior que zero para linhas preenchidas.', variant: 'destructive' });
+          return false;
+        }
       }
     }
     return true;
@@ -311,6 +327,9 @@ const EntradaFormPage = () => {
 
     setSaving(true);
     try {
+      // Filtrar itens completamente vazios antes de enviar
+      const itensToSave = formData.itens.filter(item => item.produto_id !== null || item.quantidade !== '');
+
       const { itens, cliente, ...movimentacaoHeader } = formData; // Remover campo de busca temporário
       movimentacaoHeader.user_id = user?.id;
 
@@ -338,7 +357,7 @@ const EntradaFormPage = () => {
         savedMovimentacao = data;
       }
 
-      const itensToInsert = itens.map(item => ({
+      const itensToInsert = itensToSave.map(item => ({
         entrada_saida_id: savedMovimentacao.id,
         produto_id: item.produto_id,
         quantidade: parseCurrency(item.quantidade),
@@ -406,6 +425,7 @@ const EntradaFormPage = () => {
                 handleColetaSelect={handleColetaSelect}
                 isEditing={isEditing}
                 type="entrada"
+                documentNumberRef={documentNumberRef} // Passando a ref
               />
 
               {formData.origem === 'manual' && (
