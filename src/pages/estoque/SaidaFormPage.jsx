@@ -531,7 +531,7 @@ const SaidaFormPage = () => {
               )}
 
               {/* Componente ItensMovimentacaoTable com altura ajustada */}
-              <div style={{ minHeight: '250px' }}> {/* Altura ajustada */}
+              <div> {/* Removido minHeight */}
                 <ItensMovimentacaoTable
                   items={formData.itens}
                   onItemsChange={handleItemsChange}
