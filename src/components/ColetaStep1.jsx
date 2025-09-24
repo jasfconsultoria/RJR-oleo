@@ -106,16 +106,8 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
   };
 
   useEffect(() => {
-    // Garante que data_coleta seja um objeto Date válido
-    let validDataColeta = data.data_coleta;
-    if (typeof data.data_coleta === 'string') {
-      const parsedDate = parseISO(data.data_coleta);
-      validDataColeta = isValid(parsedDate) ? parsedDate : utcToZonedTime(new Date(), empresaTimezone);
-    } else if (!(data.data_coleta instanceof Date) || !isValid(data.data_coleta)) {
-      validDataColeta = utcToZonedTime(new Date(), empresaTimezone);
-    }
-
-    setFormData(prev => ({ ...data, data_coleta: validDataColeta }));
+    // `data.data_coleta` já é um objeto Date válido vindo de ColetaForm
+    setFormData(prev => ({ ...data }));
     if (data.estado) {
       setMunicipios(getMunicipios(data.estado).map(m => ({ value: m, label: m })));
     }

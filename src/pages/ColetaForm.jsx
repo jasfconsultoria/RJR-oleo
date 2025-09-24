@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -47,7 +47,7 @@ const ColetaForm = () => {
       municipio: '',
       estado: '',
       telefone: '',
-      data_coleta: nowInEmpresaTimezone,
+      data_coleta: nowInEmpresaTimezone, // This should be a Date object
       hora_coleta: format(nowInEmpresaTimezone, 'HH:mm'),
       fator: '6',
       tipo_coleta: 'Troca',
@@ -69,63 +69,28 @@ const ColetaForm = () => {
     return (dateValue instanceof Date && isValid(dateValue)) ? dateValue : defaultValue;
   }, []);
 
-  // Use rawColetaData for auto-save storage
+  // Use rawColetaData for auto-save storage (always ISO string for dates)
   const [rawColetaData, setRawColetaData, clearSavedData] = useAutoSave(
     autoSaveKey,
     isEditing ? {} : getInitialColetaData('America/Sao_Paulo'),
     !isEditing
   );
 
-  // Processed coletaData for component usage, ensuring Date objects
-  const [coletaData, setColetaData] = useState(() => {
-    const initialData = isEditing ? {} : getInitialColetaData('America/Sao_Paulo');
-    const saved = rawColetaData;
-    
-    return {
-      ...initialData,
-      ...saved,
-      data_coleta: processDateValue(saved.data_coleta, initialData.data_coleta),
-    };
-  });
-
-  // Effect to synchronize rawColetaData with processed coletaData
-  useEffect(() => {
+  // Processed coletaData for component usage (Date objects)
+  const coletaData = useMemo(() => {
     const initialDataForDefault = getInitialColetaData(empresaTimezone);
-
-    setColetaData(prev => ({
+    return {
       ...rawColetaData,
       data_coleta: processDateValue(rawColetaData.data_coleta, initialDataForDefault.data_coleta),
-    }));
+    };
   }, [rawColetaData, empresaTimezone, getInitialColetaData, processDateValue]);
 
-
+  // This useEffect ensures user.id is always set for new forms
   useEffect(() => {
-    if (user?.id && coletaData.user_id !== user.id) {
-      setColetaData(prev => ({ ...prev, user_id: user.id }));
-      setRawColetaData(prev => ({ ...prev, user_id: user.id })); // Also update raw for auto-save
+    if (user?.id && rawColetaData.user_id !== user.id) {
+      setRawColetaData(prev => ({ ...prev, user_id: user.id }));
     }
-  }, [user, coletaData.user_id, setColetaData, setRawColetaData]);
-
-  useEffect(() => {
-    if (empresaTimezone && !isEditing) {
-      const nowInEmpresaTimezone = utcToZonedTime(new Date(), empresaTimezone);
-      const currentFormattedTime = format(nowInEmpresaTimezone, 'HH:mm');
-
-      if (!coletaData.data_coleta || format(coletaData.data_coleta, 'yyyy-MM-dd') !== format(nowInEmpresaTimezone, 'yyyy-MM-dd') || coletaData.hora_coleta !== currentFormattedTime) {
-        setColetaData(prev => ({
-          ...prev,
-          data_coleta: nowInEmpresaTimezone,
-          hora_coleta: currentFormattedTime
-        }));
-        setRawColetaData(prev => ({ // Update raw for auto-save
-          ...prev,
-          data_coleta: nowInEmpresaTimezone.toISOString(), // Store as ISO string
-          hora_coleta: currentFormattedTime
-        }));
-      }
-    }
-  }, [empresaTimezone, isEditing, setColetaData, setRawColetaData, coletaData.data_coleta, coletaData.hora_coleta]);
-
+  }, [user, rawColetaData.user_id, setRawColetaData]);
 
   useEffect(() => {
     const fetchColeta = async () => {
@@ -155,22 +120,17 @@ const ColetaForm = () => {
             estado: data.pessoa?.estado,
             telefone: data.pessoa?.telefone,
             tipo_coleta: data.tipo_coleta,
-            data_coleta: zonedDate,
+            data_coleta: zonedDate.toISOString(), // Store as ISO string in rawColetaData
             hora_coleta: formattedTime,
             valor_compra: String(data.valor_compra || '0').replace('.', ','),
             quantidade_coletada: String(data.quantidade_coletada || '').replace('.', ','),
           };
-          setColetaData(updatedColetaData);
-          setRawColetaData(prev => ({ // Update raw for auto-save
-            ...prev,
-            ...updatedColetaData,
-            data_coleta: updatedColetaData.data_coleta.toISOString(), // Store as ISO string
-          }));
+          setRawColetaData(updatedColetaData);
         }
       }
     };
     fetchColeta();
-  }, [id, isEditing, navigate, setColetaData, setRawColetaData, toast, empresaTimezone]);
+  }, [id, isEditing, navigate, setRawColetaData, toast, empresaTimezone, getInitialColetaData]);
 
   const nextStep = () => {
     setCurrentStep(prev => prev < 3 ? prev + 1 : prev);
@@ -181,15 +141,12 @@ const ColetaForm = () => {
   };
 
   const updateColetaData = (newData) => {
-    setColetaData(prev => {
+    setRawColetaData(prev => {
       const updated = { ...prev, ...newData };
-      setRawColetaData(rawPrev => { // Update raw for auto-save
-        const rawUpdated = { ...rawPrev, ...newData };
-        if (updated.data_coleta instanceof Date) {
-          rawUpdated.data_coleta = updated.data_coleta.toISOString();
-        }
-        return rawUpdated;
-      });
+      // Ensure data_coleta is stored as ISO string if it's a Date object
+      if (updated.data_coleta instanceof Date) {
+        updated.data_coleta = updated.data_coleta.toISOString();
+      }
       return updated;
     });
   };

@@ -26,7 +26,10 @@ const formatDisplayDate = (dateInput, timezone) => {
     }
 
     let finalDateObject = baseDate;
-    if (typeof dateInput === 'string') { // Se a entrada foi uma string, assume que é UTC do DB e converte
+    // A data vinda do `data_coleta` já está no fuso horário da empresa (convertida em ColetaForm)
+    // Se for uma string ISO, ela é tratada como UTC e convertida para o fuso horário da empresa para exibição.
+    // Se já for um objeto Date (que já representa a data no fuso horário da empresa), não precisa de nova conversão.
+    if (typeof dateInput === 'string') { 
         try {
             const validTimezone = typeof timezone === 'string' && timezone ? timezone : 'America/Sao_Paulo';
             finalDateObject = utcToZonedTime(baseDate, validTimezone);
