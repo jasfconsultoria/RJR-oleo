@@ -190,8 +190,12 @@ const ContratoPDF = React.forwardRef(({ contrato, empresa, showSignature }, ref)
           <br />
           A <strong>CONTRATANTE</strong> se compromete a armazenar o resíduo em recipiente apropriado, {contrato.usa_recipiente ? `fornecido pela CONTRATADA em quantidade de ${contrato.qtd_recipiente || '____'} unidade(s),` : 'de sua propriedade,'} e a disponibilizá-lo para coleta na frequência <strong>{contrato.frequencia_coleta || 'a combinar'}</strong>.
           <br />
-          A contratante fica ciente de que é responsável pelo recipiente e arcará com o extravio enquanto estiver em seu poder.
-          <br />
+          {contrato.usa_recipiente && ( // Conditional rendering for the sentence
+            <>
+              A contratante fica ciente de que é responsável pelo recipiente e arcará com o extravio enquanto estiver em seu poder.
+              <br />
+            </>
+          )}
           A contratante compromete-se em despejar de forma correta os resíduos conforme orientação da contratada.
           <br />
           A contratante compromete-se em entregar com fidelidade a contratada os resíduos de sua unidade, sem desviar a terceiros.
