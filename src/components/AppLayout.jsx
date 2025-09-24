@@ -30,6 +30,7 @@ import {
   TrendingDown, // New icon for Débito
   ClipboardList, // Icon for Cadastro
   PenLine, // Alterado de Signature para PenLine
+  Box, // New icon for Recipientes
 } from 'lucide-react';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useProfile } from '@/contexts/ProfileContext';
@@ -113,6 +114,7 @@ const AppLayout = ({ children }) => {
         { to: '/app/relatorios/coletas', label: 'Coletas', icon: Truck },
         { to: '/app/relatorios/financeiro', label: 'Financeiro', icon: DollarSign },
         { to: '/app/relatorios/estoque', label: 'Estoque', icon: Warehouse },
+        { to: '/app/relatorios/recipientes', label: 'Recipientes', icon: Box }, // Novo item
       ]
     },
     { 

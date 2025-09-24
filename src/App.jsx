@@ -48,6 +48,7 @@ import ListaCentrosCusto from '@/pages/ListaCentrosCusto'; // New list page
 import CentroCustoForm from '@/pages/CentroCustoForm'; // New form page
 import CertificadoDisplayPage from '@/pages/CertificadoDisplayPage';
 import CertificadoPublicoPage from '@/pages/CertificadoPublicoPage';
+import RelatorioRecipientesPage from '@/pages/relatorios/RelatorioRecipientesPage'; // New import
 
 const ProtectedRoute = ({ children, requiredRole }) => {
   const { session, loading: authLoading } = useAuth();
@@ -151,6 +152,7 @@ function App() {
                   <Route path="relatorios/coletas" element={<ProtectedRoute requiredRole="administrador"><RelatorioColetasPage /></ProtectedRoute>} />
                   <Route path="relatorios/financeiro" element={<ProtectedRoute requiredRole="administrador"><RelatorioFinanceiroPage /></ProtectedRoute>} />
                   <Route path="relatorios/estoque" element={<ProtectedRoute requiredRole="administrador"><RelatorioEstoquePage /></ProtectedRoute>} />
+                  <Route path="relatorios/recipientes" element={<ProtectedRoute requiredRole="administrador"><RelatorioRecipientesPage /></ProtectedRoute>} /> {/* New route */}
                   
                   {/* New Financeiro Routes */}
                   <Route path="financeiro/credito" element={<ProtectedRoute requiredRole="administrador"><ListaFinanceiro type="credito" /></ProtectedRoute>} />
