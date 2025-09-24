@@ -116,7 +116,7 @@ const ItensMovimentacaoTable = ({ items, onItemsChange, type, isEditing }) => {
               const error = validateItem(item);
               return (
                 <TableRow key={index} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
-                  <TableCell data-label="Produto" className="py-4"> {/* Alterado py-2 para py-4 */}
+                  <TableCell data-label="Produto" className="py-4 relative z-20"> {/* Adicionado relative z-20 */}
                   <ProdutoSearchableSelect
                     value={item.produto_id}
                     onChange={(product) => handleProductSelect(index, product)}
