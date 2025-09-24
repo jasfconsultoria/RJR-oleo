@@ -5,20 +5,20 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
-import { Loader2, PlusCircle, Edit, Trash2, Search, DollarSign, Eye, Receipt, Banknote, Tag, ClipboardList } from 'lucide-react';
+import { Loader2, PlusCircle, Edit, Trash2, Search, DollarSign, Eye, Receipt, Banknote, Tag, ClipboardList, CalendarIcon } from 'lucide-react';
 import { useDebounce } from '@/hooks/useDebounce';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Pagination } from '@/components/ui/pagination';
 import { logAction } from '@/lib/logger';
-import { formatCnpjCpf, formatCurrency, formatNumber, formatDateWithTimezone } from '@/lib/utils';
-// Removido: import ClienteSearchableSelect from '@/components/ui/ClienteSearchableSelect';
+import { formatCnpjCpf, formatCurrency, formatNumber, formatDateWithTimezone, cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { format, parseISO, endOfDay, startOfMonth, endOfMonth, subYears, addYears } from 'date-fns';
+import { format, parseISO, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import PaymentDialog from '@/components/financeiro/PaymentDialog';
 import PaymentHistoryDialog from '@/components/financeiro/PaymentHistoryDialog';
+import { DatePicker } from '@/components/ui/date-picker'; // Import DatePicker
 
 const ListaFinanceiro = ({ type }) => {
   const navigate = useNavigate();
@@ -26,15 +26,16 @@ const ListaFinanceiro = ({ type }) => {
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [clientSearchTerm, setClientSearchTerm] = useState(''); // Novo estado para busca de cliente
+  const [clientSearchTerm, setClientSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  // Ajustado os filtros de data padrão para um período mais amplo
-  const [startDate, setStartDate] = useState('2025-09-22'); // Alterado para a data específica
-  const [endDate, setEndDate] = useState('2025-09-22');   // Alterado para a data específica
+  // Inicializa startDate e endDate como objetos Date para o primeiro e último dia do mês atual
+  const [startDate, setStartDate] = useState(startOfMonth(new Date()));
+  const [endDate, setEndDate] = useState(endOfMonth(new Date()));
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
-  const debouncedClientSearchTerm = useDebounce(clientSearchTerm, 500); // Debounce para busca de cliente
-  const debouncedStartDate = useDebounce(startDate, 500);
-  const debouncedEndDate = useDebounce(endDate, 500);
+  const debouncedClientSearchTerm = useDebounce(clientSearchTerm, 500);
+  // Formata as datas para string 'yyyy-MM-dd' para as chamadas RPC
+  const debouncedStartDate = useDebounce(startDate ? format(startDate, 'yyyy-MM-dd') : null, 500);
+  const debouncedEndDate = useDebounce(endDate ? format(endDate, 'yyyy-MM-dd') : null, 500);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [empresa, setEmpresa] = useState(null);
@@ -68,13 +69,13 @@ const ListaFinanceiro = ({ type }) => {
       .from('v_financeiro_completo')
       .select('*', { count: 'exact' })
       .eq('type', type)
-      .order('created_at', { ascending: false }) // Alterado para ordenar por created_at decrescente
+      .order('created_at', { ascending: false })
       .range(from, to);
 
     if (debouncedSearchTerm) {
-      query = query.or(`document_number.ilike.%${debouncedSearchTerm}%,description.ilike.%${debouncedSearchTerm}%,cliente_fornecedor_name.ilike.%${debouncedSearchTerm}%,cliente_fornecedor_name_fantasia.ilike.%${debouncedSearchTerm}%`); // Added nome_fantasia to search
+      query = query.or(`document_number.ilike.%${debouncedSearchTerm}%,description.ilike.%${debouncedSearchTerm}%,cliente_fornecedor_name.ilike.%${debouncedSearchTerm}%,cliente_fornecedor_name_fantasia.ilike.%${debouncedSearchTerm}%`);
     }
-    if (debouncedClientSearchTerm) { // Filtrar por nome do cliente/fornecedor
+    if (debouncedClientSearchTerm) {
       query = query.or(`cliente_fornecedor_name.ilike.%${debouncedClientSearchTerm}%,cliente_fornecedor_name_fantasia.ilike.%${debouncedClientSearchTerm}%`);
     }
     if (statusFilter !== 'all') {
@@ -106,8 +107,8 @@ const ListaFinanceiro = ({ type }) => {
       p_end_date: debouncedEndDate || null,
       p_type: type,
       p_status: statusFilter === 'all' ? null : statusFilter,
-      p_cliente_id: null, // Removido filtro por ID, agora é por termo de busca
-      p_search_term: debouncedSearchTerm || debouncedClientSearchTerm || null, // Usar termo de busca geral ou de cliente
+      p_cliente_id: null,
+      p_search_term: debouncedSearchTerm || debouncedClientSearchTerm || null,
     });
 
     if (error) {
@@ -127,7 +128,7 @@ const ListaFinanceiro = ({ type }) => {
   
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearchTerm, debouncedClientSearchTerm, statusFilter, debouncedStartDate, debouncedEndDate, pageSize]); // Atualizado para debouncedClientSearchTerm
+  }, [debouncedSearchTerm, debouncedClientSearchTerm, statusFilter, debouncedStartDate, debouncedEndDate, pageSize]);
 
   const handleDelete = async (id, description) => {
     const { error } = await supabase.from('credito_debito').delete().eq('id', id);
@@ -251,11 +252,19 @@ const ListaFinanceiro = ({ type }) => {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="startDate" className="block text-white mb-1 text-sm">Venc. Início</Label>
-                <Input id="startDate" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="bg-white/20 border-white/30 text-white rounded-xl" />
+                <DatePicker
+                  date={startDate}
+                  setDate={setStartDate}
+                  className="w-full bg-white/20 border-white/30 text-white rounded-xl"
+                />
               </div>
               <div>
                 <Label htmlFor="endDate" className="block text-white mb-1 text-sm">Venc. Fim</Label>
-                <Input id="endDate" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="bg-white/20 border-white/30 text-white rounded-xl" />
+                <DatePicker
+                  date={endDate}
+                  setDate={setEndDate}
+                  className="w-full bg-white/20 border-white/30 text-white rounded-xl"
+                />
               </div>
             </div>
           </div>
