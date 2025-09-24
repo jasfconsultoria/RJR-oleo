@@ -14,7 +14,7 @@ import { format, addDays } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
 import { FinanceiroFormFields } from '@/components/financeiro/FinanceiroFormFields';
 import { InstallmentDetails } from '@/components/financeiro/InstallmentDetails';
-import { FinanceiroFormActions } from '@/components/financeiro/FinanceiroFormActions'; // NEW: Import actions component
+import { FinanceiroFormActions } from '@/components/financeiro/FinanceiroFormActions';
 
 const FinanceiroForm = ({ type }) => {
   const { id } = useParams();
@@ -23,6 +23,19 @@ const FinanceiroForm = ({ type }) => {
   const { user } = useAuth();
   const isEditing = Boolean(id);
   const downPaymentInputRef = useRef(null);
+
+  // Chave única para o localStorage, dependendo se é crédito ou débito
+  const localStorageKey = `financeiroForm_isNewClientModalOpen_${type}`;
+
+  // Estado do modal de novo cliente/fornecedor, inicializado de forma lazy do localStorage
+  const [isNewClientModalOpen, setIsNewClientModalOpen] = useState(() => {
+    return localStorage.getItem(localStorageKey) === 'true';
+  });
+
+  // Efeito para salvar o estado do modal no localStorage sempre que ele mudar
+  useEffect(() => {
+    localStorage.setItem(localStorageKey, isNewClientModalOpen ? 'true' : 'false');
+  }, [localStorageKey, isNewClientModalOpen]);
 
   const [formData, setFormData] = useState({
     document_number: '',
@@ -48,7 +61,6 @@ const FinanceiroForm = ({ type }) => {
   const [existingInstallments, setExistingInstallments] = useState([]);
   const [downPaymentError, setDownPaymentError] = useState('');
   const [costCenters, setCostCenters] = useState([]); // State for dynamic cost centers
-  const [isNewClientModalOpen, setIsNewClientModalOpen] = useState(false);
   const [isNewCostCenterModalOpen, setIsNewCostCenterModalOpen] = useState(false);
   const [clientListVersion, setClientListVersion] = useState(0);
 
@@ -297,8 +309,8 @@ const FinanceiroForm = ({ type }) => {
                 costCenters={costCenters}
                 entityLabel={entityLabel}
                 clientListVersion={clientListVersion}
-                isNewClientModalOpen={isNewClientModalOpen}
-                setIsNewClientModalOpen={setIsNewClientModalOpen}
+                isNewClientModalOpen={isNewClientModalOpen} // Passa o estado do pai
+                setIsNewClientModalOpen={setIsNewClientModalOpen} // Passa o setter do pai
                 isNewCostCenterModalOpen={isNewCostCenterModalOpen}
                 setIsNewCostCenterModalOpen={setIsNewCostCenterModalOpen}
                 handleNewClientSuccess={handleNewClientSuccess}

@@ -34,40 +34,16 @@ export const FinanceiroFormFields = ({
   costCenters,
   entityLabel,
   clientListVersion,
-  isNewClientModalOpen: propIsNewClientModalOpen, // Renomeado para evitar conflito
-  setIsNewClientModalOpen: setPropIsNewClientModalOpen, // Renomeado para evitar conflito
+  isNewClientModalOpen, // Agora é uma prop
+  setIsNewClientModalOpen, // Agora é uma prop
   isNewCostCenterModalOpen,
   setIsNewCostCenterModalOpen,
   handleNewClientSuccess,
   handleNewCostCenterSuccess,
   isEditing,
 }) => {
-  const localStorageKey = `financeiroForm_isNew${entityLabel}ModalOpen`;
-
-  // Inicializa o estado diretamente do localStorage usando a função lazy
-  const [isNewClientModalOpen, setIsNewClientModalOpen] = useState(() => {
-    return localStorage.getItem(localStorageKey) === 'true';
-  });
-
-  // Sincroniza o estado interno com a prop externa, se houver
-  useEffect(() => {
-    if (typeof propIsNewClientModalOpen === 'boolean' && propIsNewClientModalOpen !== isNewClientModalOpen) {
-      setIsNewClientModalOpen(propIsNewClientModalOpen);
-    }
-  }, [propIsNewClientModalOpen]);
-
-  // Sincroniza o estado interno com a prop externa, se houver
-  useEffect(() => {
-    if (typeof setPropIsNewClientModalOpen === 'function' && propIsNewClientModalOpen !== isNewClientModalOpen) {
-      setPropIsNewClientModalOpen(isNewClientModalOpen);
-    }
-  }, [isNewClientModalOpen, setPropIsNewClientModalOpen]);
-
-
-  // O useEffect para salvar no localStorage permanece o mesmo
-  useEffect(() => {
-    localStorage.setItem(localStorageKey, isNewClientModalOpen ? 'true' : 'false');
-  }, [localStorageKey, isNewClientModalOpen]);
+  // Removido o estado interno isNewClientModalOpen e os useEffects de localStorage.
+  // O estado agora é totalmente controlado pelo componente pai via props.
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
