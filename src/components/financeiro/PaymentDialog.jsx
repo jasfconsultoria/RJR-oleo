@@ -96,10 +96,10 @@ const PaymentDialog = ({ isOpen, onClose, entry, onSuccess }) => {
   useEffect(() => {
     if (isOpen) {
       fetchLinkedAccounts();
-      // Resetar o valor a pagar para o saldo restante ao abrir o modal
+      // Resetar o valor a pagar para 0,00 ao abrir o modal
       setPaymentData(prev => ({ 
         ...prev, 
-        paid_amount: String(realRemainingBalance).replace('.', ','),
+        paid_amount: '0,00', // Alterado para '0,00'
         payment_date: new Date(), // Resetar data para hoje
         notes: '', // Limpar notas
       }));
