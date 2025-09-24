@@ -8,7 +8,8 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CalendarIcon, Hash, Factory, Truck } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import ColetaSearchableSelect from '@/components/ui/ColetaSearchableSelect'; // Caminho corrigido
+import ColetaSearchableSelect from '@/components/ui/ColetaSearchableSelect';
+import { Button } from '@/components/ui/button'; // Importando o componente Button
 
 const MovimentacaoFormFields = ({ formData, handleChange, handleSelectChange, handleColetaSelect, isEditing, type, documentNumberRef }) => {
   return (
