@@ -85,12 +85,10 @@ import React, { useState, useEffect, useRef } from 'react';
           const imgData = canvas.toDataURL('image/png');
           const pdf = new jsPDF('p', 'mm', 'a4');
           const pdfWidth = pdf.internal.pageSize.getWidth();
-          const pdfHeight = pdf.internal.pageSize.getHeight();
-          const imgProps = pdf.getImageProperties(imgData);
-          const ratio = Math.min(pdfWidth / imgProps.width, pdfHeight / imgProps.height);
-          const width = imgProps.width * ratio;
-          const height = imgProps.height * ratio;
-          pdf.addImage(imgData, 'PNG', 0, 0, width, height);
+          const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+          
+          pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+          
           pdf.save(`Contrato_${contrato.numero_contrato}_assinado.pdf`);
         } catch (error) {
           console.error("Erro ao gerar PDF:", error);
@@ -123,26 +121,26 @@ import React, { useState, useEffect, useRef } from 'react';
 
         if (contrato && empresa) {
           return (
-            <div className="w-full max-w-4xl mx-auto">
+            <div className="w-full max-w-2xl mx-auto">
                 <div className="bg-emerald-600/20 border border-emerald-500 text-emerald-100 p-4 rounded-lg mb-6 text-center">
                     <h1 className="text-2xl font-bold">Contrato Assinado</h1>
                     <p>Visualize, imprima ou baixe o contrato abaixo.</p>
                 </div>
                 <div className="bg-white rounded-lg shadow-2xl overflow-hidden">
-                    <div className="p-4 sm:p-8 overflow-x-auto">
+                    <div className="p-4 sm:p-8 max-h-[70vh] overflow-y-auto">
                         <ContratoPDF ref={pdfRef} contrato={contrato} empresa={empresa} showSignature={true} />
                     </div>
                 </div>
-                <div className="mt-6 flex flex-col sm:flex-row justify-center items-center gap-4"> {/* Adicionado flexbox para alinhar botões */}
+                <div className="mt-6 flex flex-col sm:flex-row justify-center items-center gap-4">
                     <Button 
-                        onClick={() => navigate('/app/cadastro/contratos')} // Navega para a lista de contratos
+                        onClick={() => navigate('/app/cadastro/contratos')}
                         variant="outline" 
-                        className="text-white border-white/50 hover:bg-white/20 hover:text-white text-lg px-8 py-6"
+                        className="text-white border-white/50 hover:bg-white/20 hover:text-white text-base px-6 py-3"
                     >
-                        <ArrowLeft className="mr-2 h-5 w-5" /> Voltar para o Sistema
+                        <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
                     </Button>
-                    <Button onClick={handleDownloadPdf} className="bg-emerald-500 hover:bg-emerald-600 text-white text-lg px-8 py-6">
-                        <Printer className="mr-2 h-5 w-5" /> Imprimir / Salvar PDF
+                    <Button onClick={handleDownloadPdf} className="bg-emerald-500 hover:bg-emerald-600 text-white text-base px-6 py-3">
+                        <Printer className="mr-2 h-4 w-4" /> Imprimir / Salvar PDF
                     </Button>
                 </div>
             </div>

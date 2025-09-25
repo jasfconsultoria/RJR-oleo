@@ -112,7 +112,7 @@ const ContratoPDF = React.forwardRef(({ contrato, empresa, showSignature }, ref)
       const valorExtenso = valorPorExtenso(valorColeta); // valorPorExtenso already handles 0
 
       return (
-        <p className="mb-4">
+        <p className="mb-3 leading-normal">
           <strong>CLÁUSULA SEGUNDA - DO PREÇO E CONDIÇÕES DE PAGAMENTO</strong>
           <br />
           A <strong>CONTRATADA</strong> pagará à <strong>CONTRATANTE</strong> o valor de {valorFormatado} ({valorExtenso}) por quilograma de resíduo coletado. O pagamento será realizado no ato da coleta.
@@ -121,7 +121,7 @@ const ContratoPDF = React.forwardRef(({ contrato, empresa, showSignature }, ref)
     }
     if (contrato.tipo_coleta === 'Troca') {
       return (
-        <p className="mb-4">
+        <p className="mb-3 leading-normal">
           <strong>CLÁUSULA SEGUNDA - DA TROCA</strong>
           <br />
           A cada {contrato.fator_troca || '____'} kg de óleo coletado, a <strong>CONTRATANTE</strong> receberá 1 (uma) unidade de óleo de soja de 900ml. A entrega do produto será realizada no ato da coleta.
@@ -130,7 +130,7 @@ const ContratoPDF = React.forwardRef(({ contrato, empresa, showSignature }, ref)
     }
     if (contrato.tipo_coleta === 'Doação') {
       return (
-        <p className="mb-4">
+        <p className="mb-3 leading-normal">
           <strong>CLÁUSULA SEGUNDA - DA DOAÇÃO</strong>
           <br />
           A <strong>CONTRATANTE</strong> realizará a doação do resíduo óleo/gordura de origem animal e vegetal utilizado em fritura alimentar à <strong>CONTRATADA</strong>, sem qualquer contrapartida financeira ou material.
@@ -146,38 +146,38 @@ const ContratoPDF = React.forwardRef(({ contrato, empresa, showSignature }, ref)
   return (
     <div 
       ref={ref} 
-      className="bg-white text-black text-sm a4-container"
+      className="bg-white text-black text-xs a4-container"
       style={{ fontFamily: "'Times New Roman', Times, serif" }}
     >
-      <div className="p-8 a4-content">
-        <header className="flex justify-between items-start mb-6">
+      <div className="p-6 a4-content">
+        <header className="flex justify-between items-start mb-4">
           <div className="w-2/5">
             {empresa?.logo_documento_url && (
               <img 
                 src={empresa.logo_documento_url} 
                 alt="Logo da Empresa" 
-                className="h-16 mb-2" 
+                className="h-14 mb-1" 
               />
             )}
           </div>
-          <div className="w-3/5 text-right">
-              <p className="font-bold text-base">{empresa?.nome_fantasia || 'Nome Fantasia da Contratada'}</p>
-              <p className="text-xs">{empresa?.endereco}</p>
-              <p className="text-xs">CNPJ: {formatCnpjCpf(empresa?.cnpj)}</p>
-              <p className="text-xs">Telefone: {empresa?.telefone}</p>
-              <p className="text-xs">Email: {empresa?.email}</p>
+          <div className="w-3/5 text-right text-xs leading-tight">
+              <p className="font-bold text-sm">{empresa?.nome_fantasia || 'Nome Fantasia da Contratada'}</p>
+              <p>{empresa?.endereco}</p>
+              <p>CNPJ: {formatCnpjCpf(empresa?.cnpj)}</p>
+              <p>Telefone: {empresa?.telefone}</p>
+              <p>Email: {empresa?.email}</p>
           </div>
         </header>
 
-        <h1 className="text-center font-bold text-base mb-4">CONTRATO Nº {contrato.numero_contrato}</h1>
+        <h1 className="text-center font-bold text-sm mb-3">CONTRATO Nº {contrato.numero_contrato}</h1>
 
-        <p className="mb-3 text-justify">
+        <p className="mb-3 text-justify leading-normal">
           Pelo presente <strong>CONTRATO DE PRESTAÇÃO DE SERVIÇOS</strong>, de um lado a empresa <strong>{empresa?.nome_fantasia || 'Nome Fantasia da Contratada'}</strong>, CNPJ: <strong>{formatCnpjCpf(empresa?.cnpj) || 'CNPJ da Contratada'}</strong>, representada por <strong>{empresa?.razao_social || 'Razão Social da Contratada'}</strong>, doravante denominada <strong>CONTRATADA</strong> e de outro lado a empresa <strong>{cliente.nome}</strong>, CNPJ: <strong>{formatCnpjCpf(cliente.cnpj_cpf)}</strong>, doravante denominada <strong>CONTRATANTE</strong>.
         </p>
 
-        <h2 className="font-bold text-center mb-3 text-base">CLÁUSULAS</h2>
+        <h2 className="font-bold text-center mb-3 text-sm">CLÁUSULAS</h2>
 
-        <p className="mb-3 text-justify">
+        <p className="mb-3 text-justify leading-normal">
           <strong>CLÁUSULA PRIMEIRA - DO OBJETO</strong>
           <br />
           Fica estabelecido que a contratada prestará serviço de coleta dos resíduos óleo/gordura de origem animal e vegetal utilizados em fritura alimentar e fará a troca por óleo de soja novo ou efetuará o pagamento, conforme acordado entre as partes.
@@ -185,7 +185,7 @@ const ContratoPDF = React.forwardRef(({ contrato, empresa, showSignature }, ref)
 
         {renderClausulaValor()}
 
-        <p className="mb-3 text-justify">
+        <p className="mb-3 text-justify leading-normal">
           <strong>CLÁUSULA TERCEIRA - DAS OBRIGAÇÕES DA CONTRATANTE</strong>
           <br />
           A <strong>CONTRATANTE</strong> se compromete a armazenar o resíduo em recipiente apropriado, {contrato.usa_recipiente ? `fornecido pela CONTRATADA em quantidade de ${contrato.qtd_recipiente || '____'} unidade(s),` : 'de sua propriedade,'} e a disponibilizá-lo para coleta na frequência <strong>{contrato.frequencia_coleta || 'a combinar'}</strong>.
@@ -201,7 +201,7 @@ const ContratoPDF = React.forwardRef(({ contrato, empresa, showSignature }, ref)
           A contratante compromete-se em entregar com fidelidade a contratada os resíduos de sua unidade, sem desviar a terceiros.
         </p>
 
-        <p className="mb-3 text-justify">
+        <p className="mb-3 text-justify leading-normal">
           <strong>CLÁUSULA QUARTA - DAS OBRIGAÇÕES DA CONTRATADA</strong>
           <br />
           A <strong>CONTRATADA</strong> se compromete a realizar a coleta do resíduo, fornecer o Certificado de Coleta e dar a destinação final ambientalmente correta, conforme legislação vigente.
@@ -209,30 +209,30 @@ const ContratoPDF = React.forwardRef(({ contrato, empresa, showSignature }, ref)
           A contratada disponibilizará outro recipiente a contratante, sem custo algum, caso haja dano no recipiente de forma que não seja mais possível utilizar.
         </p>
 
-        <p className="mb-3 text-justify">
+        <p className="mb-3 text-justify leading-normal">
           <strong>CLÁUSULA QUINTA - DO PRAZO</strong>
           <br />
           O presente contrato terá vigência de <strong>{formatarDataExtenso(contrato.data_inicio)}</strong> a <strong>{formatarDataExtenso(contrato.data_fim)}</strong> {contractDurationMonths} ({durationText}) meses, podendo ser renovado mediante acordo entre as partes e ser rescindido, desde que ocorra o aviso prévio de 30 dias.
         </p>
 
-        <p className="mb-3 text-justify">
+        <p className="mb-3 text-justify leading-normal">
           <strong>CLÁUSULA SEXTA - DO FORO</strong>
           <br />
           Fica eleito o foro da comarca de <strong>{empresa?.municipio || 'Cidade da Empresa'}</strong>, <strong>{empresa?.estado || 'UF'}</strong>, para dirimir quaisquer dúvidas oriundas do presente contrato.
         </p>
 
-        <p className="my-6 text-center">
+        <p className="my-4 text-center leading-normal">
           E por estarem justos e contratados, assinam o presente em duas vias de igual teor e forma.
         </p>
 
-        <p className="text-center mb-8">
+        <p className="text-center mb-6 leading-normal">
           {empresa?.municipio || 'Cidade'}, {formatarDataExtenso(new Date())}.
         </p>
 
-        <div className="flex justify-around mt-10">
+        <div className="flex justify-around mt-8">
           <div className="w-2/5 text-center">
             {empresa?.assinatura_responsavel_url ? (
-              <img src={empresa.assinatura_responsavel_url} alt="Assinatura da Contratada" className="h-20 border-b-2 border-black mx-auto" crossOrigin="anonymous" />
+              <img src={empresa.assinatura_responsavel_url} alt="Assinatura da Contratada" className="h-16 border-b-2 border-black mx-auto" crossOrigin="anonymous" />
             ) : (
               <div className="border-b-2 border-black pb-1 mb-1"></div>
             )}
@@ -241,7 +241,7 @@ const ContratoPDF = React.forwardRef(({ contrato, empresa, showSignature }, ref)
           </div>
           <div className="w-2/5 text-center">
             {showSignature && contrato.assinatura_url ? (
-              <img src={contrato.assinatura_url} alt="Assinatura do Cliente" className="h-20 border-b-2 border-black mx-auto" crossOrigin="anonymous" />
+              <img src={contrato.assinatura_url} alt="Assinatura do Cliente" className="h-16 border-b-2 border-black mx-auto" crossOrigin="anonymous" />
             ) : (
               <div className="border-b-2 border-black pb-1 mb-1"></div>
             )}

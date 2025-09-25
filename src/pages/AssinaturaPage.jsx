@@ -7,7 +7,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
     import { Button } from '@/components/ui/button';
     import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
     import ContratoPDF from '@/components/ContratoPDF';
-    import { Loader2, Eraser, CheckCircle, AlertTriangle, ArrowLeft } from 'lucide-react'; // Alterado XCircle para ArrowLeft
+    import { Loader2, Eraser, CheckCircle, AlertTriangle, ArrowLeft } from 'lucide-react';
     import { Label } from '@/components/ui/label';
 
     const AssinaturaPage = () => {
@@ -66,8 +66,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
         sigCanvas.current.clear();
       };
 
-      const handleGoBack = () => { // Renomeado para handleGoBack
-        navigate(-1); // Navega para a página anterior
+      const handleGoBack = () => {
+        navigate(-1);
       };
 
       const handleSubmit = async () => {
@@ -120,7 +120,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
         <>
           <Helmet><title>Assinatura de Contrato - {contrato.numero_contrato}</title></Helmet>
           <div className="min-h-screen bg-gradient-to-br from-gray-900 via-teal-900 to-gray-900 p-4 sm:p-8 flex justify-center items-center">
-            <Card className="w-full max-w-4xl bg-white/10 backdrop-blur-md border-white/20 text-white shadow-2xl animate-fade-in-up">
+            <Card className="w-full max-w-2xl bg-white/10 backdrop-blur-md border-white/20 text-white shadow-2xl animate-fade-in-up">
               <CardHeader>
                 <CardTitle className="text-2xl text-center text-emerald-300">
                   Assinatura do Contrato {contrato.numero_contrato}
@@ -143,14 +143,14 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
                 </div>
               </CardContent>
               <CardFooter className="flex flex-col sm:flex-row justify-between items-center gap-4 mt-4">
-                <Button variant="destructive" onClick={handleGoBack}> {/* Alterado onClick para handleGoBack */}
-                    <ArrowLeft className="mr-2 h-4 w-4" /> Voltar {/* Alterado texto e ícone */}
+                <Button variant="destructive" onClick={handleGoBack} className="text-base px-6 py-3">
+                    <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
                 </Button>
                 <div className="flex flex-col sm:flex-row gap-4">
-                    <Button variant="outline" onClick={clearSignature} className="border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black">
+                    <Button variant="outline" onClick={clearSignature} className="border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black text-base px-6 py-3">
                         <Eraser className="mr-2 h-4 w-4" /> Limpar
                     </Button>
-                    <Button onClick={handleSubmit} disabled={isSubmitting} className="bg-emerald-500 hover:bg-emerald-600">
+                    <Button onClick={handleSubmit} disabled={isSubmitting} className="bg-emerald-500 hover:bg-emerald-600 text-base px-6 py-3">
                         {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
                         Assinar e Salvar
                     </Button>
