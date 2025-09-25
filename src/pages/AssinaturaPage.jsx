@@ -120,14 +120,14 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
         <>
           <Helmet><title>Assinatura de Contrato - {contrato.numero_contrato}</title></Helmet>
           <div className="min-h-screen bg-gradient-to-br from-gray-900 via-teal-900 to-gray-900 p-4 sm:p-8 flex justify-center items-center">
-            <Card className="w-full max-w-[calc(56rem+1cm)] bg-white/10 backdrop-blur-md border-white/20 text-white shadow-2xl animate-fade-in-up">
+            <Card className="w-full max-w-[240mm] bg-white/10 backdrop-blur-md border-white/20 text-white shadow-2xl animate-fade-in-up">
               <CardHeader>
                 <CardTitle className="text-2xl text-center text-emerald-300">
                   Assinatura do Contrato {contrato.numero_contrato}
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="max-h-[50vh] overflow-y-auto p-4 bg-white rounded-md text-black border-2 border-dashed border-emerald-400/50">
+                <div className="max-h-[70vh] overflow-y-auto p-4 bg-white rounded-md text-black border-2 border-dashed border-emerald-400/50">
                   <ContratoPDF contrato={contrato} empresa={empresa} />
                 </div>
                 
