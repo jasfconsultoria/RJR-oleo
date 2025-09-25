@@ -156,8 +156,8 @@ const ListaEntradasPage = () => {
         </motion.div>
 
         <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 md:p-6 space-y-4 relative z-10">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4"> {/* Alterado para lg:grid-cols-5 */}
-            <div className="lg:col-span-2"> {/* Ocupa 2 colunas em telas grandes */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end"> {/* Alterado para lg:grid-cols-5 e adicionado items-end */}
+            <div className="lg:col-span-1"> {/* Ocupa 1 coluna em telas grandes */}
               <Label htmlFor="searchTerm" className="block text-white mb-1 text-sm">Buscar</Label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/70" />
@@ -171,7 +171,7 @@ const ListaEntradasPage = () => {
                 />
               </div>
             </div>
-            <div className="lg:col-span-1"> {/* Ocupa 1 coluna em telas grandes */}
+            <div className="lg:col-span-2"> {/* Ocupa 2 colunas em telas grandes */}
               <Label htmlFor="clientSearch" className="block text-white mb-1 text-sm">Cliente</Label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/70" />
@@ -192,14 +192,15 @@ const ListaEntradasPage = () => {
                 onChange={(product) => handleFilterChange('selectedProdutoId', product ? product.id : null)}
               />
             </div>
-            {/* Datas agora ocupam 1 coluna cada em telas grandes */}
-            <div>
-              <Label htmlFor="startDate" className="block text-white mb-1 text-sm">Data Início</Label>
-              <Input id="startDate" type="date" value={filters.startDate} onChange={(e) => handleFilterChange('startDate', e.target.value)} className="bg-white/20 border-white/30 text-white rounded-xl" />
-            </div>
-            <div>
-              <Label htmlFor="endDate" className="block text-white mb-1 text-sm">Data Fim</Label>
-              <Input id="endDate" type="date" value={filters.endDate} onChange={(e) => handleFilterChange('endDate', e.target.value)} className="bg-white/20 border-white/30 text-white rounded-xl" />
+            <div className="lg:col-span-1 grid grid-cols-2 gap-4"> {/* Agrupamento de datas */}
+              <div>
+                <Label htmlFor="startDate" className="block text-white mb-1 text-sm">Data Início</Label>
+                <Input id="startDate" type="date" value={filters.startDate} onChange={(e) => handleFilterChange('startDate', e.target.value)} className="bg-white/20 border-white/30 text-white rounded-xl" />
+              </div>
+              <div>
+                <Label htmlFor="endDate" className="block text-white mb-1 text-sm">Data Fim</Label>
+                <Input id="endDate" type="date" value={filters.endDate} onChange={(e) => handleFilterChange('endDate', e.target.value)} className="bg-white/20 border-white/30 text-white rounded-xl" />
+              </div>
             </div>
           </div>
         </div>
