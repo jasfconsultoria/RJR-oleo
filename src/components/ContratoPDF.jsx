@@ -232,7 +232,7 @@ const ContratoPDF = React.forwardRef(({ contrato, empresa, showSignature }, ref)
         <div className="flex justify-around mt-8">
           <div className="w-2/5 text-center">
             {empresa?.assinatura_responsavel_url ? (
-              <img src={empresa.assinatura_responsavel_url} alt="Assinatura da Contratada" className="h-16 border-b-2 border-black mx-auto" crossOrigin="anonymous" />
+              <img src={empresa.assinatura_responsavel_url} alt="Assinatura da Contratada" className="h-[calc(4rem-0.5cm)] border-b-2 border-black mx-auto" crossOrigin="anonymous" />
             ) : (
               <div className="border-b-2 border-black pb-1 mb-1"></div>
             )}
@@ -241,7 +241,7 @@ const ContratoPDF = React.forwardRef(({ contrato, empresa, showSignature }, ref)
           </div>
           <div className="w-2/5 text-center">
             {showSignature && contrato.assinatura_url ? (
-              <img src={contrato.assinatura_url} alt="Assinatura do Cliente" className="h-16 border-b-2 border-black mx-auto" crossOrigin="anonymous" />
+              <img src={contrato.assinatura_url} alt="Assinatura do Cliente" className="h-[calc(4rem-0.5cm)] border-b-2 border-black mx-auto" crossOrigin="anonymous" />
             ) : (
               <div className="border-b-2 border-black pb-1 mb-1"></div>
             )}
