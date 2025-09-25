@@ -31,11 +31,11 @@ import { logAction } from '@/lib/logger';
 import { Pagination } from '@/components/ui/pagination';
 import { useDebounce } from '@/hooks/useDebounce';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'; // Import Select
+// Removido: import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const ListaClientes = ({ personType = 'pessoa' }) => {
   const [clientes, setClientes] = useState([]);
-  const [allContratos, setAllContratos] = useState([]);
+  const [allContratos, setAllContratos] = useState([]); // Ainda necessário para exibir o status do contrato
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState({ key: 'nome', direction: 'asc' });
@@ -46,7 +46,7 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
   const [empresa, setEmpresa] = useState(null);
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
   const { toast } = useToast();
-  const [contractFilterType, setContractFilterType] = useState('has_contract'); // 'all', 'has_contract', 'no_contract'
+  // Removido: const [contractFilterType, setContractFilterType] = useState('has_contract');
 
   const pageSize = useMemo(() => empresa?.items_per_page || 25, [empresa]);
 
@@ -99,50 +99,72 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
             setAllContratos(data || []);
         }
     };
-    // Fetch contracts always, then filter later if needed
-    fetchAllContratos();
-  }, [toast]);
+    // Fetch contracts only if it's the client list, as suppliers don't need contract info
+    if (personType === 'cliente') {
+      fetchAllContratos();
+    } else {
+      setAllContratos([]); // Clear contracts for suppliers
+    }
+  }, [toast, personType]);
 
   const fetchClientes = useCallback(async () => {
     if (profileLoading || !profile || !empresa) return;
     setLoading(true);
     
-    // Fetch all clients first, without contract filtering in the main query
-    let query = supabase
-      .from('clientes')
-      .select('id, nome, nome_fantasia, cnpj_cpf, municipio, estado');
+    let clientesData = [];
+    let clientesError = null;
+    let count = 0;
 
-    if (debouncedSearchTerm) {
-      query = query.or(`nome.ilike.%${debouncedSearchTerm}%,nome_fantasia.ilike.%${debouncedSearchTerm}%,cnpj_cpf.ilike.%${debouncedSearchTerm}%,municipio.ilike.%${debouncedSearchTerm}%,estado.ilike.%${debouncedSearchTerm}%`);
+    if (personType === 'cliente') {
+      // Use RPC function for clients with active contracts
+      const { data, error } = await supabase.rpc('get_clients_with_active_contracts');
+      clientesData = data;
+      clientesError = error;
+    } else { // Fornecedor
+      // Fetch all clients for suppliers
+      const { data, error } = await supabase
+        .from('clientes')
+        .select('id, nome, nome_fantasia, cnpj_cpf, municipio, estado');
+      clientesData = data;
+      clientesError = error;
     }
-
-    query = query.order(sortConfig.key, { ascending: sortConfig.direction === 'asc' });
-
-    let { data: clientesData, error: clientesError } = await query;
 
     if (clientesError) {
       toast({
-        title: 'Erro ao carregar clientes',
+        title: 'Erro ao carregar ' + listTitle.toLowerCase(),
         description: clientesError.message,
         variant: 'destructive',
       });
       setClientes([]);
       setTotalCount(0);
     } else {
-      let filteredByContract = clientesData || [];
+      let filteredData = clientesData || [];
 
-      if (personType !== 'fornecedor' && contractFilterType !== 'all') { // Only apply filter if not 'fornecedor' and filter is active
-        filteredByContract = (clientesData || []).filter(client => {
-          const hasActiveContract = allContratos.some(c => c.cliente_id === client.id && c.status === 'Ativo');
-          return contractFilterType === 'has_contract' ? hasActiveContract : !hasActiveContract;
-        });
+      // Apply search term filter
+      if (debouncedSearchTerm) {
+        filteredData = filteredData.filter(client =>
+          client.nome.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+          (client.nome_fantasia && client.nome_fantasia.toLowerCase().includes(debouncedSearchTerm.toLowerCase())) ||
+          (client.cnpj_cpf && formatCnpjCpf(client.cnpj_cpf).toLowerCase().includes(debouncedSearchTerm.toLowerCase())) ||
+          (client.municipio && client.municipio.toLowerCase().includes(debouncedSearchTerm.toLowerCase())) ||
+          (client.estado && client.estado.toLowerCase().includes(debouncedSearchTerm.toLowerCase()))
+        );
       }
+
+      // Apply sorting
+      filteredData.sort((a, b) => {
+        const aValue = a[sortConfig.key] || '';
+        const bValue = b[sortConfig.key] || '';
+        if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
       
-      setClientes(filteredByContract);
-      setTotalCount(filteredByContract.length); // Set total count based on filtered data
+      setClientes(filteredData);
+      setTotalCount(filteredData.length); // Set total count based on filtered data
     }
     setLoading(false);
-  }, [profile, profileLoading, toast, debouncedSearchTerm, sortConfig, empresa, personType, contractFilterType, allContratos]);
+  }, [profile, profileLoading, toast, debouncedSearchTerm, sortConfig, empresa, personType, listTitle]);
 
   useEffect(() => {
     fetchClientes();
@@ -150,7 +172,7 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearchTerm, contractFilterType, pageSize]);
+  }, [debouncedSearchTerm, pageSize]); // Removido contractFilterType
 
   const handleDelete = async (cliente) => {
     const { error } = await supabase
@@ -190,14 +212,17 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
   };
 
   const getContractStatus = (clienteId) => {
+    if (personType === 'fornecedor') {
+      return <span className="text-gray-400">N/A</span>;
+    }
     if (allContratos.length === 0) {
       return <span className="text-gray-400">Carregando...</span>;
     }
     const contratosDoCliente = allContratos.filter(c => c.cliente_id === clienteId);
     if (contratosDoCliente.length === 0) {
-      return <span className="text-gray-400">Sem Contrato</span>;
+      return <span className="text-gray-400">Sem Contrato</span>; // Should not happen for 'cliente' type with the RPC filter
     }
-    const activeContract = contratosDoCliente.find(c => c.cliente_id === clienteId && c.status === 'Ativo');
+    const activeContract = contratosDoCliente.find(c => c.status === 'Ativo');
     if (activeContract) {
       return <span className="text-emerald-400 font-semibold">{activeContract.numero_contrato}</span>;
     }
@@ -252,21 +277,7 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
                 className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60 rounded-xl"
                 />
             </div>
-            {personType !== 'fornecedor' && (
-              <div>
-                <Label htmlFor="contractStatusFilter" className="block text-white mb-1 text-sm">Status do Contrato</Label>
-                <Select value={contractFilterType} onValueChange={setContractFilterType}>
-                  <SelectTrigger id="contractStatusFilter" className="bg-white/20 border-white/30 text-white rounded-xl">
-                    <SelectValue placeholder="Todos" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
-                    <SelectItem value="all">Todos</SelectItem>
-                    <SelectItem value="has_contract">Com Contrato</SelectItem>
-                    <SelectItem value="no_contract">Sem Contrato</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+            {/* Removido o seletor de filtro de contrato */}
         </div>
 
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white/10 backdrop-blur-sm rounded-xl">
