@@ -30,8 +30,8 @@ import { formatCnpjCpf } from '@/lib/utils';
 import { logAction } from '@/lib/logger';
 import { Pagination } from '@/components/ui/pagination';
 import { useDebounce } from '@/hooks/useDebounce';
-// Removido: import { Switch } from '@/components/ui/switch'; 
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'; // Import Select
 
 const ListaClientes = ({ personType = 'pessoa' }) => {
   const [clientes, setClientes] = useState([]);
@@ -46,7 +46,7 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
   const [empresa, setEmpresa] = useState(null);
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
   const { toast } = useToast();
-  // Removido: const [showOnlyWithContracts, setShowOnlyWithContracts] = useState(false);
+  const [contractStatusFilter, setContractStatusFilter] = useState('all'); // 'all', 'with_contract', 'no_contract'
 
   const pageSize = useMemo(() => empresa?.items_per_page || 25, [empresa]);
 
@@ -116,35 +116,41 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
       .from('clientes')
       .select('id, nome, nome_fantasia, cnpj_cpf, municipio, estado', { count: 'exact' });
 
-    // Filter logic for clients with contracts (always applied for 'cliente' type)
-    if (personType === 'cliente') {
-        console.warn('fetchClientes: Aplicando filtro para mostrar APENAS clientes com contrato.');
+    // Fetch client IDs with contracts if filtering by contract status
+    let clientIdsWithContracts = [];
+    if (personType === 'cliente' && contractStatusFilter !== 'all') {
         const { data: clientsWithContracts, error: contractsError } = await supabase
             .from('contratos')
             .select('cliente_id')
-            .distinct(); // Get unique client_ids
+            .distinct();
 
         if (contractsError) {
-            console.error("Error fetching clients with contracts:", contractsError);
-            toast({ title: 'Erro ao buscar clientes com contratos', description: contractsError.message, variant: 'destructive' });
+            console.error("Error fetching clients with contracts for filter:", contractsError);
+            toast({ title: 'Erro ao buscar clientes com contratos para filtro', description: contractsError.message, variant: 'destructive' });
             setClientes([]);
             setTotalCount(0);
             setLoading(false);
             return;
         }
-        const clientIdsWithContracts = clientsWithContracts.map(c => c.cliente_id);
-        console.warn('fetchClientes: IDs de clientes com contrato encontrados:', clientIdsWithContracts.length, 'IDs:', clientIdsWithContracts);
+        clientIdsWithContracts = clientsWithContracts.map(c => c.cliente_id);
+    }
 
+    if (contractStatusFilter === 'with_contract') {
         if (clientIdsWithContracts.length === 0) {
-            console.warn('fetchClientes: NENHUM cliente com contrato encontrado ou visível para o usuário atual. A lista de clientes será vazia.');
-            // If no clients have contracts, the filtered list is empty
             setClientes([]);
             setTotalCount(0);
             setLoading(false);
             return;
         }
         query = query.in('id', clientIdsWithContracts);
+    } else if (contractStatusFilter === 'no_contract') {
+        if (clientIdsWithContracts.length > 0) {
+            query = query.not('id', 'in', clientIdsWithContracts);
+        }
+        // If clientIdsWithContracts is empty, it means no contracts exist, so all clients are 'no_contract'
+        // No additional filter needed in this case, as the main query will fetch all.
     }
+
 
     if (debouncedSearchTerm) {
       query = query.or(`nome.ilike.%${debouncedSearchTerm}%,nome_fantasia.ilike.%${debouncedSearchTerm}%,cnpj_cpf.ilike.%${debouncedSearchTerm}%,municipio.ilike.%${debouncedSearchTerm}%,estado.ilike.%${debouncedSearchTerm}%`);
@@ -162,12 +168,11 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
       });
       setClientes([]);
     } else {
-      console.warn('fetchClientes: Clientes carregados (após filtro de contrato):', clientesData?.length);
       setClientes(clientesData || []);
-      setTotalCount(count || 0); // Count will now be accurate for the filtered list
+      setTotalCount(count || 0);
     }
     setLoading(false);
-  }, [profile, profileLoading, toast, currentPage, pageSize, debouncedSearchTerm, sortConfig, empresa, personType]);
+  }, [profile, profileLoading, toast, currentPage, pageSize, debouncedSearchTerm, sortConfig, empresa, personType, contractStatusFilter]);
 
   useEffect(() => {
     fetchClientes();
@@ -175,7 +180,7 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearchTerm, pageSize]); // Removed showOnlyWithContracts from dependencies
+  }, [debouncedSearchTerm, pageSize, contractStatusFilter]);
 
   const handleDelete = async (cliente) => {
     const { error } = await supabase
@@ -261,17 +266,33 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
         </motion.div>
 
         <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 md:p-6 space-y-4">
-            <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/70" />
-                <Input
-                type="search"
-                placeholder={`Buscar por nome, CNPJ/CPF, município ou estado d${singularArticle} ${singularNoun}...`}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60 rounded-xl"
-                />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/70" />
+                    <Input
+                    type="search"
+                    placeholder={`Buscar por nome, CNPJ/CPF, município ou estado d${singularArticle} ${singularNoun}...`}
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60 rounded-xl"
+                    />
+                </div>
+                {personType === 'cliente' && (
+                    <div>
+                        <Label htmlFor="contractStatusFilter" className="block text-white mb-1 text-sm">Status do Contrato</Label>
+                        <Select value={contractStatusFilter} onValueChange={setContractStatusFilter}>
+                            <SelectTrigger className="bg-white/20 border-white/30 text-white rounded-xl">
+                                <SelectValue placeholder="Todos" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
+                                <SelectItem value="all">Todos</SelectItem>
+                                <SelectItem value="with_contract">Com Contrato</SelectItem>
+                                <SelectItem value="no_contract">Sem Contrato</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                )}
             </div>
-            {/* Removido: Switch para filtrar clientes com contrato */}
         </div>
 
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white/10 backdrop-blur-sm rounded-xl">
