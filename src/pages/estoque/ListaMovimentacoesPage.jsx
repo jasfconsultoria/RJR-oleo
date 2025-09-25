@@ -20,6 +20,7 @@ import ProdutoSearchableSelect from '@/components/estoque/ProdutoSearchableSelec
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { formatNumber } from '@/lib/utils';
 import MovimentacaoViewDialog from '@/components/estoque/MovimentacaoViewDialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"; // Import Tooltip components
 
 const ListaMovimentacoesPage = () => {
   const navigate = useNavigate();
@@ -66,11 +67,11 @@ const ListaMovimentacoesPage = () => {
         origem,
         document_number,
         observacao,
-        cliente:clientes(nome),
+        cliente:clientes(nome, nome_fantasia),
         itens_entrada_saida(
           id,
           quantidade,
-          produto:produtos(nome, unidade)
+          produto:produtos(id, nome, unidade, codigo)
         )
       `, { count: 'exact' })
       .order('data', { ascending: false })
@@ -240,7 +241,7 @@ const ListaMovimentacoesPage = () => {
               <Table className="responsive-table">
                 <TableHeader>
                   <TableRow className="hover:bg-transparent border-b border-white/20 text-xs">
-                    <th className="p-2 text-left text-white">Nº Documento</th> {/* New column */}
+                    <th className="p-2 text-left text-white">Nº Documento</th>
                     <th className="p-2 text-left text-white">Data</th>
                     <th className="p-2 text-left text-white">Cliente</th>
                     <th className="p-2 text-left text-white">Origem</th>
@@ -252,7 +253,7 @@ const ListaMovimentacoesPage = () => {
                   {movimentacoes.length > 0 ? (
                     movimentacoes.map(mov => (
                       <TableRow key={mov.id} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
-                        <TableCell data-label="Nº Documento">{mov.document_number || 'N/A'}</TableCell> {/* New cell */}
+                        <TableCell data-label="Nº Documento">{mov.document_number || 'N/A'}</TableCell>
                         <TableCell data-label="Data">{format(parseISO(mov.data), 'dd/MM/yyyy HH:mm', { locale: ptBR })}</TableCell>
                         <TableCell data-label="Cliente">{mov.cliente?.nome || 'N/A'}</TableCell>
                         <TableCell data-label="Origem" className="capitalize flex items-center gap-2">
@@ -268,7 +269,26 @@ const ListaMovimentacoesPage = () => {
                         <TableCell className="text-right actions-cell">
                            <div className="flex justify-end items-center gap-2">
                             <Button variant="ghost" size="icon" className="text-blue-400 hover:text-blue-300 rounded-xl" onClick={() => handleViewMovimentacao(mov)}><Eye className="h-4 w-4" /></Button>
-                            <Button variant="ghost" size="icon" className="text-yellow-400 hover:text-yellow-300 rounded-xl" onClick={() => navigate(getEditRoute(mov))}><Edit className="h-4 w-4" /></Button>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className={`text-yellow-400 hover:text-yellow-300 rounded-xl ${mov.origem === 'coleta' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    onClick={() => navigate(getEditRoute(mov))}
+                                    disabled={mov.origem === 'coleta'}
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                {mov.origem === 'coleta' && (
+                                  <TooltipContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
+                                    <p>Movimentações de coleta devem ser editadas na coleta de origem.</p>
+                                  </TooltipContent>
+                                )}
+                              </Tooltip>
+                            </TooltipProvider>
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
                                 <Button variant="ghost" size="icon" className="text-red-400 hover:text-red-300 rounded-xl"><Trash2 className="h-4 w-4" /></Button>

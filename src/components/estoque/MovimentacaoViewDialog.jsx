@@ -3,9 +3,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Button } from '@/components/ui/button';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ArrowLeft, Package, User, Tag, Info, ArrowDownSquare, ArrowUpSquare } from 'lucide-react';
+import { ArrowLeft, Package, User, Tag, Info, ArrowDownSquare, ArrowUpSquare, FileText } from 'lucide-react'; // Import FileText icon
 import { formatNumber } from '@/lib/utils';
-import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHeader, TableRow, TableHead } from '@/components/ui/table'; // Import TableHead
 
 const MovimentacaoViewDialog = ({ isOpen, onClose, movimentacao }) => {
   if (!movimentacao) return null;
@@ -26,18 +26,22 @@ const MovimentacaoViewDialog = ({ isOpen, onClose, movimentacao }) => {
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
-          <div className="grid grid-cols-2 gap-4 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+            <div className="flex items-center gap-2">
+              <FileText className="h-4 w-4 text-emerald-400" />
+              <span className="font-semibold">Nº Documento:</span> <span>{movimentacao.document_number || 'N/A'}</span>
+            </div>
             <div className="flex items-center gap-2">
               <Tag className="h-4 w-4 text-emerald-400" />
               <span className="font-semibold">Origem:</span> <span className="capitalize">{movimentacao.origem}</span>
             </div>
             {movimentacao.cliente?.nome && (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 col-span-full sm:col-span-1">
                 <User className="h-4 w-4 text-emerald-400" />
                 <span className="font-semibold">Cliente:</span> {movimentacao.cliente.nome}
               </div>
             )}
-            <div className="col-span-2 flex items-start gap-2">
+            <div className="col-span-full flex items-start gap-2">
               <Info className="h-4 w-4 text-emerald-400 mt-1" />
               <span className="font-semibold">Observação:</span> <span className="flex-1">{movimentacao.observacao || 'N/A'}</span>
             </div>
@@ -51,7 +55,7 @@ const MovimentacaoViewDialog = ({ isOpen, onClose, movimentacao }) => {
               <TableHeader>
                 <TableRow className="hover:bg-transparent border-b border-white/20 text-xs">
                   <TableHead className="text-white">Produto</TableHead>
-                  <TableHead className="text-white">Código</TableHead> {/* Nova coluna */}
+                  <TableHead className="text-white">Código</TableHead>
                   <TableHead className="text-white text-right">Quantidade</TableHead>
                   <TableHead className="text-white text-center">Unidade</TableHead>
                 </TableRow>
@@ -61,7 +65,7 @@ const MovimentacaoViewDialog = ({ isOpen, onClose, movimentacao }) => {
                   movimentacao.itens_entrada_saida.map((item, index) => (
                     <TableRow key={index} className="border-b-0 md:border-b border-white/10 text-white/90 text-sm">
                       <TableCell data-label="Produto" className="font-medium">{item.produto.nome}</TableCell>
-                      <TableCell data-label="Código" className="font-mono">{item.produto.codigo || 'N/A'}</TableCell> {/* Nova célula */}
+                      <TableCell data-label="Código" className="font-mono">{item.produto.codigo || 'N/A'}</TableCell>
                       <TableCell data-label="Quantidade" className="text-right">{formatNumber(item.quantidade)}</TableCell>
                       <TableCell data-label="Unidade" className="text-center">{item.produto.unidade}</TableCell>
                     </TableRow>
