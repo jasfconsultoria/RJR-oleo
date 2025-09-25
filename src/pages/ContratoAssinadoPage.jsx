@@ -111,7 +111,7 @@ import React, { useState, useEffect, useRef } from 'react';
             <div className="flex flex-col items-center justify-center text-white bg-red-900/20 p-10 rounded-lg">
               <FileWarning className="h-12 w-12 text-red-400 mb-4" />
               <h2 className="text-2xl font-bold mb-2">Erro ao Carregar Contrato</h2>
-              <p className="text-red-300 mb-6">{error}</p>
+              <p className="text-center text-gray-300 mb-6">{error}</p>
               <Button asChild variant="outline">
                 <Link to="/app/dashboard"><ArrowLeft className="mr-2 h-4 w-4" /> Voltar ao Início</Link>
               </Button>
@@ -121,7 +121,7 @@ import React, { useState, useEffect, useRef } from 'react';
 
         if (contrato && empresa) {
           return (
-            <div className="w-full max-w-[220mm] mx-auto"> {/* Increased max-width to 220mm (A4 width + margin) */}
+            <div className="w-full max-w-[240mm] mx-auto"> {/* Increased max-width to 240mm */}
                 <div className="bg-emerald-600/20 border border-emerald-500 text-emerald-100 p-4 rounded-lg mb-6 text-center">
                     <h1 className="text-2xl font-bold">Contrato Assinado</h1>
                     <p>Visualize, imprima ou baixe o contrato abaixo.</p>
