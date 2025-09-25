@@ -138,7 +138,7 @@ export const ReciboViewDialog = ({ coleta, empresa, isOpen, onClose, empresaTime
         const { data: debitEntry, error: debitError } = await supabase
           .from('v_financeiro_completo')
           .select('*')
-          .eq('lancamento_id', coleta.id)
+          .eq('coleta_id', coleta.id) // ALTERADO: Usando o novo campo 'coleta_id'
           .eq('type', 'debito')
           .maybeSingle(); // Alterado para maybeSingle()
 

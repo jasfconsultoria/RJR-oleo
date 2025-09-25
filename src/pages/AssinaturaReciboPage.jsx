@@ -105,7 +105,7 @@ const AssinaturaReciboPage = () => {
         const { data: debitEntry, error: debitError } = await supabase
           .from('v_financeiro_completo')
           .select('*')
-          .eq('lancamento_id', id) // O lancamento_id é o mesmo id da coleta para este caso
+          .eq('coleta_id', id) // ALTERADO: Usando o novo campo 'coleta_id'
           .eq('type', 'debito')
           .maybeSingle(); // Alterado para maybeSingle()
 
