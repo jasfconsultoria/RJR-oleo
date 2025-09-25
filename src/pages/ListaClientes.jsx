@@ -96,8 +96,11 @@ const ListaClientes = ({ personType = 'pessoa' }) => { // Accept personType prop
             setAllContratos(data || []);
         }
     };
-    fetchAllContratos();
-  }, [toast]);
+    // Fetch contracts only if not a 'fornecedor' list
+    if (personType !== 'fornecedor') {
+      fetchAllContratos();
+    }
+  }, [toast, personType]);
 
   const fetchClientes = useCallback(async () => {
     if (profileLoading || !profile || !empresa) return;
@@ -255,7 +258,9 @@ const ListaClientes = ({ personType = 'pessoa' }) => { // Accept personType prop
                       <th onClick={() => requestSort('municipio')} className="cursor-pointer text-white p-2 text-left">
                         <div className="flex items-center">Localização {getSortIcon('municipio')}</div>
                       </th>
-                      <th className="text-left text-white p-2">Contrato</th>
+                      {personType !== 'fornecedor' && ( // Conditionally render 'Contrato' column header
+                        <th className="text-left text-white p-2">Contrato</th>
+                      )}
                       <th className="text-left text-white p-2">Ações</th>
                     </TableRow>
                   </TableHeader>
@@ -267,12 +272,16 @@ const ListaClientes = ({ personType = 'pessoa' }) => { // Accept personType prop
                         </TableCell>
                         <TableCell data-label="CNPJ/CPF" className="p-2">{formatCnpjCpf(cliente.cnpj_cpf)}</TableCell>
                         <TableCell data-label="Localização" className="p-2">{cliente.municipio}, {cliente.estado}</TableCell>
-                        <TableCell data-label="Contrato" className="p-2">{getContractStatus(cliente.id)}</TableCell>
+                        {personType !== 'fornecedor' && ( // Conditionally render 'Contrato' column cell
+                          <TableCell data-label="Contrato" className="p-2">{getContractStatus(cliente.id)}</TableCell>
+                        )}
                         <TableCell className="p-2 actions-cell">
                           <div className="flex items-center gap-1">
-                            <Button variant="ghost" size="icon" title="Ver Contratos" onClick={() => navigate(`/app/cadastro/contratos?clienteId=${cliente.id}`)}>
-                                <FileText className="h-4 w-4 text-cyan-400" />
-                            </Button>
+                            {personType !== 'fornecedor' && ( // Conditionally render 'Ver Contratos' button
+                              <Button variant="ghost" size="icon" title="Ver Contratos" onClick={() => navigate(`/app/cadastro/contratos?clienteId=${cliente.id}`)}>
+                                  <FileText className="h-4 w-4 text-cyan-400" />
+                              </Button>
+                            )}
                             <Link to={`/app/cadastro/${personType}s/editar/${cliente.id}`}>
                               <Button variant="ghost" size="icon" title={`Editar ${singularNoun}`}>
                                 <Edit className="h-4 w-4 text-yellow-400" />
@@ -306,7 +315,7 @@ const ListaClientes = ({ personType = 'pessoa' }) => { // Accept personType prop
                       </TableRow>
                     )) : (
                       <TableRow>
-                        <TableCell colSpan={5} className="h-24 text-center text-white/70"> {/* Adjusted colspan */}
+                        <TableCell colSpan={personType !== 'fornecedor' ? 5 : 4} className="h-24 text-center text-white/70"> {/* Adjusted colspan */}
                           Nenhum{singularArticle === 'a' ? 'a' : ''} {singularNoun} encontrado{singularArticle === 'a' ? 'a' : ''}.
                         </TableCell>
                       </TableRow>
