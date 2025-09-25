@@ -116,6 +116,9 @@ const ListaClientes = ({ personType = 'pessoa' }) => { // Accept personType prop
       .from('clientes')
       .select('id, nome, nome_fantasia, cnpj_cpf, municipio, estado', { count: 'exact' });
 
+    console.log('fetchClientes: personType', personType);
+    console.log('fetchClientes: showOnlyWithContracts', showOnlyWithContracts);
+
     // NEW: Filter logic for clients with contracts
     if (personType === 'cliente' && showOnlyWithContracts) {
         const { data: clientsWithContracts, error: contractsError } = await supabase
@@ -132,6 +135,7 @@ const ListaClientes = ({ personType = 'pessoa' }) => { // Accept personType prop
             return;
         }
         const clientIdsWithContracts = clientsWithContracts.map(c => c.cliente_id);
+        console.log('fetchClientes: clientIdsWithContracts', clientIdsWithContracts);
         if (clientIdsWithContracts.length === 0) {
             // If no clients have contracts, the filtered list is empty
             setClientes([]);
@@ -158,6 +162,7 @@ const ListaClientes = ({ personType = 'pessoa' }) => { // Accept personType prop
       });
       setClientes([]);
     } else {
+      console.log('fetchClientes: fetched clientesData count', clientesData?.length);
       setClientes(clientesData || []);
       setTotalCount(count || 0); // Count will now be accurate for the filtered list
     }
