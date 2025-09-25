@@ -10,8 +10,8 @@ import { toast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
 import { estados, getMunicipios } from '@/lib/location';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
-import { useIMask } from 'react-imask';
-import { formatCnpjCpf, unmask, formatToISODate, parseCurrency } from '@/lib/utils'; // Importar parseCurrency
+import { IMaskInput } from 'react-imask'; // Adicionado IMaskInput
+import { formatCnpjCpf, unmask, formatToISODate, parseCurrency } from '@/lib/utils';
 import { DatePicker } from '@/components/ui/date-picker';
 import { format, isValid, parseISO } from 'date-fns';
 import { formatInTimeZone, utcToZonedTime, toDate } from 'date-fns-tz';
@@ -24,28 +24,17 @@ const tiposColeta = [
 
 export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }) {
   const navigate = useNavigate();
-  const [formData, setFormData] = useState(data);
+  // Removido: const [formData, setFormData] = useState(data);
   const [allClients, setAllClients] = useState([]); // All clients from DB
   const [filteredClients, setFilteredClients] = useState([]); // Clients filtered by search term
   const [showClienteDropdown, setShowClienteDropdown] = useState(false);
   const [municipios, setMunicipios] = useState([]);
   const [isClienteSelected, setIsClienteSelected] = useState(false);
 
-  const { ref: cnpjCpfRef, setValue: setCnpjCpfValue } = useIMask({
-    mask: [
-      { mask: '000.000.000-00', maxLength: 11 },
-      { mask: '00.000.000/0000-00' }
-    ],
-  });
-
-  const { ref: telefoneRef, setValue: setTelefoneValue } = useIMask({
-    mask: '(00) 00000-0000',
-  });
-
   // Fetch all clients with active contracts
   useEffect(() => {
     const fetchClients = async () => {
-      const { data, error } = await supabase
+      const { data: clientsData, error } = await supabase
         .from('clientes')
         .select('*, contratos(status, tipo_coleta, valor_coleta, fator_troca, data_fim)') // Select contracts to filter active ones
         .order('nome', { ascending: true });
@@ -55,7 +44,7 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
         setAllClients([]);
       } else {
         // Filter clients with at least one active contract
-        const activeClients = (data || []).filter(client => 
+        const activeClients = (clientsData || []).filter(client => 
           client.contratos && client.contratos.some(contract => contract.status === 'Ativo')
         );
         setAllClients(activeClients);
@@ -64,102 +53,94 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
     fetchClients();
   }, [toast]);
 
+  // Atualiza a lista de municípios quando o estado muda
+  useEffect(() => {
+    if (data.estado) {
+      setMunicipios(getMunicipios(data.estado).map(m => ({ value: m, label: m })));
+    } else {
+      setMunicipios([]);
+    }
+    setIsClienteSelected(!!data.cliente_id);
+  }, [data.estado, data.cliente_id]);
+
   const handleInputChange = (name, value) => {
-    setFormData(prev => ({ ...prev, [name]: value }));
+    onUpdate({ [name]: value });
   };
 
   const handleEstadoChange = (value) => {
-    setFormData(prev => ({ ...prev, estado: value, municipio: '' }));
+    onUpdate({ estado: value, municipio: '' });
     setMunicipios(getMunicipios(value).map(m => ({ value: m, label: m })));
   };
 
   const handleMunicipioChange = (value) => {
-    setFormData(prev => ({ ...prev, municipio: value }));
+    onUpdate({ municipio: value });
   };
 
   const handleTipoColetaChange = (value) => {
-    setFormData(prev => {
-      let newValorCompra = prev.valor_compra;
-      let newFator = prev.fator;
+    let newValorCompra = data.valor_compra;
+    let newFator = data.fator;
 
-      if (value === 'Compra') {
-        // If changing to 'Compra', set a default value if it's currently 0 or empty
-        if (parseCurrency(newValorCompra) === 0 || !newValorCompra) {
-          newValorCompra = '1,20';
-        }
-        newFator = '6'; // Default factor for 'Compra' (can be adjusted by user later if needed)
-      } else if (value === 'Troca') {
-        newValorCompra = '0,00'; // No purchase value for 'Troca'
-        newFator = '6'; // Default factor for 'Troca'
-      } else if (value === 'Doação') {
-        newValorCompra = '0,00'; // No purchase value for 'Doação'
-        newFator = '6'; // Default factor for 'Doação'
+    if (value === 'Compra') {
+      if (parseCurrency(newValorCompra) === 0 || !newValorCompra) {
+        newValorCompra = '1,20';
       }
+      newFator = '6';
+    } else if (value === 'Troca') {
+      newValorCompra = '0,00';
+      newFator = '6';
+    } else if (value === 'Doação') {
+      newValorCompra = '0,00';
+      newFator = '6';
+    }
 
-      return {
-        ...prev,
-        tipo_coleta: value,
-        valor_compra: newValorCompra,
-        fator: newFator,
-      };
+    onUpdate({
+      tipo_coleta: value,
+      valor_compra: newValorCompra,
+      fator: newFator,
     });
   };
 
   useEffect(() => {
-    // `data.data_coleta` já é um objeto Date válido vindo de ColetaForm
-    setFormData(prev => ({ ...data }));
-    if (data.estado) {
-      setMunicipios(getMunicipios(data.estado).map(m => ({ value: m, label: m })));
-    }
-    setCnpjCpfValue(data.cnpj_cpf || '');
-    setTelefoneValue(data.telefone || '');
-    setIsClienteSelected(!!data.cliente_id);
-  }, [data, setCnpjCpfValue, setTelefoneValue, empresaTimezone]);
-
-  useEffect(() => {
-    if (formData.cliente) {
+    if (data.cliente) {
       const filtered = allClients.filter(client =>
-        client.nome.toLowerCase().includes(formData.cliente.toLowerCase()) ||
-        (client.nome_fantasia && client.nome_fantasia.toLowerCase().includes(formData.cliente.toLowerCase())) // Filter by nome_fantasia
+        client.nome.toLowerCase().includes(data.cliente.toLowerCase()) ||
+        (client.nome_fantasia && client.nome_fantasia.toLowerCase().includes(data.cliente.toLowerCase()))
       );
       setFilteredClients(filtered);
     } else {
       setFilteredClients(allClients);
     }
-  }, [formData.cliente, allClients]);
+  }, [data.cliente, allClients]);
 
   const handleClienteSelect = (client) => {
-    // Encontrar o contrato ativo mais recente
     const activeContracts = client.contratos?.filter(contract => contract.status === 'Ativo');
     const latestActiveContract = activeContracts?.sort((a, b) => new Date(b.data_fim) - new Date(a.data_fim))[0];
     
-    let newTipoColeta = formData.tipo_coleta;
-    let newFator = formData.fator;
-    let newValorCompra = formData.valor_compra;
+    let newTipoColeta = data.tipo_coleta;
+    let newFator = data.fator;
+    let newValorCompra = data.valor_compra;
 
     if (latestActiveContract) {
       newTipoColeta = latestActiveContract.tipo_coleta;
       if (newTipoColeta === 'Troca') {
         newFator = String(latestActiveContract.fator_troca || '6');
-        newValorCompra = '0,00'; // Reset valor_compra for Troca
+        newValorCompra = '0,00';
       } else if (newTipoColeta === 'Compra') {
-        newValorCompra = String(latestActiveContract.valor_coleta || '0,00').replace('.', ','); // Formatar para vírgula
-        newFator = '6'; // Reset fator for Compra
+        newValorCompra = String(latestActiveContract.valor_coleta || '0,00').replace('.', ',');
+        newFator = '6';
       } else if (newTipoColeta === 'Doação') {
-        newValorCompra = '0,00'; // Valor da compra é 0 para Doação
-        newFator = '6'; // Reset fator for Doação
+        newValorCompra = '0,00';
+        newFator = '6';
       }
     } else {
-      // Se não houver contrato ativo, resetar para valores padrão
       newTipoColeta = 'Troca';
       newFator = '6';
-      newValorCompra = '0,00'; // This is the potential culprit!
+      newValorCompra = '0,00';
     }
 
-    const newFormData = {
-      ...formData,
+    onUpdate({
       cliente_id: client.id,
-      cliente: client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome, // Concatenate name
+      cliente: client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome,
       cnpj_cpf: client.cnpj_cpf,
       endereco: client.endereco,
       email: client.email,
@@ -169,13 +150,10 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
       tipo_coleta: newTipoColeta,
       fator: newFator,
       valor_compra: newValorCompra,
-    };
-    setFormData(newFormData);
+    });
     if (client.estado) {
       setMunicipios(getMunicipios(client.estado).map(m => ({ value: m, label: m })));
     }
-    setCnpjCpfValue(client.cnpj_cpf || '');
-    setTelefoneValue(client.telefone || '');
     setShowClienteDropdown(false);
     setIsClienteSelected(true);
   };
@@ -183,7 +161,7 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
   const handleSubmit = (e) => {
     e.preventDefault();
     
-    if (!formData.cliente.trim() || !unmask(formData.cnpj_cpf) || !unmask(formData.telefone) || !formData.data_coleta || !formData.hora_coleta || !formData.tipo_coleta || !formData.municipio || !formData.estado) {
+    if (!data.cliente.trim() || !unmask(data.cnpj_cpf) || !unmask(data.telefone) || !data.data_coleta || !data.hora_coleta || !data.tipo_coleta || !data.municipio || !data.estado) {
       toast({
         title: "Campos obrigatórios",
         description: "Por favor, preencha todos os campos com asterisco (*).",
@@ -192,7 +170,7 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
       return;
     }
 
-    onUpdate(formData);
+    // onUpdate(data); // Data is already updated by individual handlers
     
     toast({
       title: "Dados salvos!",
@@ -228,7 +206,7 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
               Data da Coleta *
             </Label>
             <DatePicker
-              date={formData.data_coleta}
+              date={data.data_coleta}
               setDate={(date) => handleInputChange('data_coleta', date || null)}
               className="w-full"
               disabled={profile?.role !== 'administrador'}
@@ -242,7 +220,7 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
             <Input
               id="hora_coleta"
               type="time"
-              value={formData.hora_coleta}
+              value={data.hora_coleta}
               onChange={(e) => handleInputChange('hora_coleta', e.target.value)}
               className="bg-white/5 border-white/20 text-white placeholder:text-white/60 rounded-xl"
               required
@@ -257,7 +235,7 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
           </Label>
           <Input
             id="cliente"
-            value={formData.cliente}
+            value={data.cliente}
             onChange={(e) => handleInputChange('cliente', e.target.value)}
             onFocus={() => setShowClienteDropdown(true)}
             onBlur={() => setTimeout(() => setShowClienteDropdown(false), 200)}
@@ -276,7 +254,7 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
               {filteredClients.length > 0 ? filteredClients.map((client) => (
                 <div
                   key={client.id}
-                  onClick={() => handleClienteSelect(client)}
+                  onMouseDown={() => handleClienteSelect(client)} // Use onMouseDown to prevent blur from closing before click
                   className="p-3 hover:bg-emerald-50 cursor-pointer border-b border-gray-100 last:border-b-0"
                 >
                   <div className="font-medium text-gray-900">{client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome}</div>
@@ -295,10 +273,16 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
                <Info className="w-4 h-4" />
               CNPJ/CPF *
             </Label>
-            <Input
+            <IMaskInput
+              mask={[
+                { mask: '000.000.000-00', maxLength: 11 },
+                { mask: '00.000.000/0000-00' }
+              ]}
+              as={Input}
               id="cnpj_cpf"
-              ref={cnpjCpfRef}
-              value={formData.cnpj_cpf}
+              name="cnpj_cpf"
+              value={data.cnpj_cpf}
+              onAccept={(value) => handleInputChange('cnpj_cpf', value)}
               placeholder="Digite o CNPJ ou CPF"
               className="bg-white/5 border-white/20 text-white placeholder:text-white/60 disabled:opacity-70 disabled:cursor-not-allowed rounded-xl"
               required
@@ -310,10 +294,13 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
                 <Phone className="w-4 h-4" />
                 Telefone *
               </Label>
-              <Input
+              <IMaskInput
+                mask={'(00) 00000-0000'}
+                as={Input}
                 id="telefone"
-                ref={telefoneRef}
-                value={formData.telefone}
+                name="telefone"
+                value={data.telefone}
+                onAccept={(value) => handleInputChange('telefone', value)}
                 placeholder="(99) 99999-9999"
                 className="bg-white/5 border-white/20 text-white placeholder:text-white/60 rounded-xl"
                 required
@@ -329,7 +316,7 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
           <Input
             id="email"
             type="email"
-            value={formData.email || ''}
+            value={data.email || ''}
             onChange={(e) => handleInputChange('email', e.target.value)}
             placeholder="email@cliente.com"
             className="bg-white/5 border-white/20 text-white placeholder:text-white/60 rounded-xl"
@@ -343,7 +330,7 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
           </Label>
           <Input
             id="endereco"
-            value={formData.endereco || ''}
+            value={data.endereco || ''}
             onChange={(e) => handleInputChange('endereco', e.target.value)}
             placeholder="Digite o endereço completo"
             className="bg-white/5 border-white/20 text-white placeholder:text-white/60 rounded-xl"
@@ -353,7 +340,7 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
             <div className="space-y-2">
               <Label htmlFor="estado" className="text-white">Estado *</Label>
-                <Select value={formData.estado || ''} onValueChange={handleEstadoChange} required disabled={isClienteSelected}>
+                <Select value={data.estado || ''} onValueChange={handleEstadoChange} required disabled={isClienteSelected}>
                     <SelectTrigger className="w-full bg-white/5 border-white/20 text-white disabled:opacity-70 disabled:cursor-not-allowed rounded-xl">
                         <SelectValue placeholder="Selecione o estado" />
                     </SelectTrigger>
@@ -366,10 +353,10 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
                 <Label htmlFor="municipio" className="text-white">Município *</Label>
                 <SearchableSelect
                   options={municipios}
-                  value={formData.municipio || ''}
+                  value={data.municipio || ''}
                   onChange={handleMunicipioChange}
                   placeholder="Selecione o município"
-                  disabled={!formData.estado || isClienteSelected}
+                  disabled={!data.estado || isClienteSelected}
                   required
                 />
             </div>
@@ -380,7 +367,7 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
               <Label htmlFor="tipo_coleta" className="text-white">
                 Tipo de Coleta *
               </Label>
-              <Select value={formData.tipo_coleta} onValueChange={handleTipoColetaChange} required>
+              <Select value={data.tipo_coleta} onValueChange={handleTipoColetaChange} required>
                 <SelectTrigger className="w-full bg-white/5 border-white/20 text-white rounded-xl">
                   <SelectValue placeholder="Selecione o tipo" />
                 </SelectTrigger>
@@ -394,7 +381,7 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
               </Select>
             </div>
     
-            {formData.tipo_coleta === 'Troca' ? (
+            {data.tipo_coleta === 'Troca' ? (
               <div className="space-y-2">
                 <Label htmlFor="fator" className="text-white flex items-center gap-2">
                   <Calculator className="w-4 h-4" />
@@ -402,20 +389,36 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
                 </Label>
                 <Input
                   id="fator" type="number" step="1" min="1"
-                  value={formData.fator} onChange={(e) => handleInputChange('fator', e.target.value)}
+                  value={data.fator} onChange={(e) => handleInputChange('fator', e.target.value)}
                   placeholder="Ex: 6 (para 1 unidade de óleo novo a cada 6kg usado)"
                   className="bg-white/5 border-white/20 text-white placeholder:text-white/60 rounded-xl" required
                 />
               </div>
-            ) : formData.tipo_coleta === 'Compra' ? (
+            ) : data.tipo_coleta === 'Compra' ? (
               <div className="space-y-2">
                 <Label htmlFor="valor_compra" className="text-white flex items-center gap-2">
                   <Calculator className="w-4 h-4" />
                   Valor da Compra (R$ por Kg) *
                 </Label>
-                <Input
-                  id="valor_compra" type="text"
-                  value={formData.valor_compra} onChange={(e) => handleInputChange('valor_compra', e.target.value)}
+                <IMaskInput
+                  mask="num"
+                  blocks={{
+                    num: {
+                      mask: Number,
+                      thousandsSeparator: '.',
+                      radix: ',',
+                      mapToRadix: ['.'],
+                      scale: 2,
+                      padFractionalZeros: true,
+                      normalizeZeros: true,
+                      signed: false,
+                    },
+                  }}
+                  as={Input}
+                  id="valor_compra"
+                  type="text"
+                  value={data.valor_compra}
+                  onAccept={(value) => handleInputChange('valor_compra', value)}
                   placeholder="Ex: 1,20"
                   className="bg-white/5 border-white/20 text-white placeholder:text-white/60 rounded-xl" required
                 />
@@ -428,7 +431,7 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
                 </Label>
                 <Input
                   id="doacao_info" type="text"
-                  value={formData.doacao_info || ''}
+                  value={data.doacao_info || ''}
                   onChange={(e) => handleInputChange('doacao_info', e.target.value)}
                   placeholder="Detalhes da doação (opcional)"
                   className="bg-white/5 border-white/20 text-white placeholder:text-white/60 rounded-xl"

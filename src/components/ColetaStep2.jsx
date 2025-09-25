@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,19 +6,18 @@ import { Label } from '@/components/ui/label';
 import { ArrowLeft, Droplets, Scale, RefreshCw } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { parseCurrency, formatCurrency } from '@/lib/utils';
-import { format, isValid } from 'date-fns'; // Importar isValid
-import { ptBR } from 'date-fns/locale'; // Importar ptBR
-import { formatInTimeZone, utcToZonedTime } from 'date-fns-tz'; // Importar formatInTimeZone e utcToZonedTime
+import { format, isValid } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { IMaskInput } from 'react-imask'; // Adicionado IMaskInput
 
 export function ColetaStep2({ data, onBack, onNext, onUpdate, empresaTimezone }) {
-  const [quantidadeColetada, setQuantidadeColetada] = useState(data.quantidade_coletada || '');
   const { toast } = useToast();
   const isCompra = data.tipo_coleta === 'Compra';
-  const isDoacao = data.tipo_coleta === 'Doação'; // Novo: verificar se é doação
+  const isDoacao = data.tipo_coleta === 'Doação';
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!quantidadeColetada || parseCurrency(quantidadeColetada) <= 0) {
+    if (!data.quantidade_coletada || parseCurrency(data.quantidade_coletada) <= 0) {
       toast({
         title: 'Campo obrigatório',
         description: 'Por favor, informe a quantidade de óleo coletado.',
@@ -26,19 +25,19 @@ export function ColetaStep2({ data, onBack, onNext, onUpdate, empresaTimezone })
       });
       return;
     }
-    onUpdate({ quantidade_coletada: quantidadeColetada });
+    // onUpdate({ quantidade_coletada: quantidadeColetada }); // Data is already updated by IMaskInput
     onNext();
   };
 
   const calcularResultado = () => {
-    const qtd = parseCurrency(quantidadeColetada);
+    const qtd = parseCurrency(data.quantidade_coletada);
     if (isNaN(qtd)) return 0;
 
     if (isCompra) {
       const valor = parseCurrency(data.valor_compra);
       if (isNaN(valor)) return 0;
       return (qtd * valor);
-    } else if (isDoacao) { // Se for doação, a quantidade entregue é 0
+    } else if (isDoacao) {
       return 0;
     } else { // Troca
       const fator = parseFloat(data.fator);
@@ -46,8 +45,6 @@ export function ColetaStep2({ data, onBack, onNext, onUpdate, empresaTimezone })
       return Math.floor(qtd / fator);
     }
   };
-
-  console.log('ColetaStep2 - data.data_coleta:', data.data_coleta, 'Type:', typeof data.data_coleta, 'isValid:', isValid(data.data_coleta));
 
   return (
     <motion.div
@@ -84,9 +81,25 @@ export function ColetaStep2({ data, onBack, onNext, onUpdate, empresaTimezone })
             Quantidade de Óleo Coletado (kg) *
           </Label>
           <div className="relative">
-            <Input
-              id="quantidade" type="text"
-              value={quantidadeColetada} onChange={(e) => setQuantidadeColetada(e.target.value)}
+            <IMaskInput
+              mask="num"
+              blocks={{
+                num: {
+                  mask: Number,
+                  thousandsSeparator: '.',
+                  radix: ',',
+                  mapToRadix: ['.'],
+                  scale: 2,
+                  padFractionalZeros: true,
+                  normalizeZeros: true,
+                  signed: false,
+                },
+              }}
+              as={Input}
+              id="quantidade"
+              type="text"
+              value={data.quantidade_coletada}
+              onAccept={(value) => onUpdate({ quantidade_coletada: value })}
               placeholder="Ex: 150,50"
               className="bg-white/20 border-white/30 text-white placeholder:text-white/60 text-lg py-4 pr-12"
             />
@@ -94,7 +107,7 @@ export function ColetaStep2({ data, onBack, onNext, onUpdate, empresaTimezone })
           </div>
         </div>
 
-        {quantidadeColetada && (
+        {data.quantidade_coletada && (
           <motion.div
             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
             className="bg-emerald-500/20 border border-emerald-400/30 rounded-lg p-4"
@@ -104,7 +117,7 @@ export function ColetaStep2({ data, onBack, onNext, onUpdate, empresaTimezone })
               <span className="font-medium">Prévia do Cálculo</span>
             </div>
             <div className="text-white">
-              <p>Qtd. coletada: <span className="font-bold">{parseCurrency(quantidadeColetada).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg</span></p>
+              <p>Qtd. coletada: <span className="font-bold">{parseCurrency(data.quantidade_coletada).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg</span></p>
               {isCompra ? (
                 <>
                   <p>Valor por kg: <span className="font-bold">{formatCurrency(parseCurrency(data.valor_compra))}</span></p>
@@ -115,7 +128,7 @@ export function ColetaStep2({ data, onBack, onNext, onUpdate, empresaTimezone })
               ) : (
                 <>
                   <p>Fator de conversão: <span className="font-bold">{data.fator}</span></p>
-                  <p className="text-emerald-300 font-bold text-lg">Qtd. a entregar (óleo novo): {calcularResultado()} unidades</p> {/* Alterado para unidades */}
+                  <p className="text-emerald-300 font-bold text-lg">Qtd. a entregar (óleo novo): {calcularResultado()} unidades</p>
                   <p className="text-xs text-emerald-200 mt-1">* Valor Arredondado.</p>
                 </>
               )}

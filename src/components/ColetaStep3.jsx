@@ -6,12 +6,11 @@ import { Label } from '@/components/ui/label';
 import { Truck, CheckCircle, Droplets, ArrowLeft, DollarSign } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { formatCnpjCpf, parseCurrency, formatCurrency } from '@/lib/utils';
-import { format, isValid } from 'date-fns'; // Importação adicionada isValid
-import { ptBR } from 'date-fns/locale'; // Importação adicionada
+import { format, isValid } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/customSupabaseClient';
 import { ReciboViewDialog } from '@/components/coletas/ReciboViewDialog';
-import { formatInTimeZone, utcToZonedTime } from 'date-fns-tz'; // Importar formatInTimeZone e utcToZonedTime
 
 export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData, empresaTimezone, collectorName }) {
   const [resultadoFinal, setResultadoFinal] = useState('0,00');
@@ -19,7 +18,7 @@ export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData, em
   const [savedColeta, setSavedColeta] = useState(null);
   const [empresa, setEmpresa] = useState(null);
   const isCompra = data.tipo_coleta === 'Compra';
-  const isDoacao = data.tipo_coleta === 'Doação'; // Novo: verificar se é doação
+  const isDoacao = data.tipo_coleta === 'Doação';
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -42,7 +41,7 @@ export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData, em
       const valor = parseCurrency(data.valor_compra);
       const total = isNaN(valor) ? 0 : qtd * valor;
       setResultadoFinal(total.toFixed(2).replace('.', ','));
-    } else if (isDoacao) { // Se for doação, a quantidade entregue é 0
+    } else if (isDoacao) {
       setResultadoFinal('0');
     } else { // Troca
       const fator = parseFloat(data.fator);
@@ -57,7 +56,7 @@ export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData, em
     const calculatedFinalData = { 
       ...(isCompra 
         ? { total_pago: resultadoFinal }
-        : { quantidade_entregue: resultadoFinal }), // resultadoFinal já é o número de unidades ou 0 para doação
+        : { quantidade_entregue: resultadoFinal }),
       data_lancamento: dataLancamento 
     };
     
@@ -70,7 +69,6 @@ export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData, em
        return;
     }
 
-    // savedData agora já inclui a assinatura_url atualizada (null se foi editado)
     onUpdate(calculatedFinalData);
     setSavedColeta(savedData); 
     
@@ -84,41 +82,8 @@ export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData, em
 
   const finishProcess = () => {
     setShowReciboDialog(false);
-    clearSavedData(); // Clear auto-saved data when the process is finished
+    clearSavedData();
     navigate('/app/coletas');
-  };
-
-  // Agora espera um objeto Date para dateObject
-  const formatColetaDateTime = (dateInput, timeString, timezone) => {
-    console.log('ColetaStep3 - formatColetaDateTime inputs:', { dateInput, timeString, timezone }); // DEBUG
-    if (!dateInput || !timeString) {
-      console.error("ColetaStep3 - Missing dateInput or timeString:", { dateInput, timeString });
-      return 'N/A';
-    }
-    try {
-        let dateObject;
-        if (dateInput instanceof Date) {
-            dateObject = dateInput;
-        } else if (typeof dateInput === 'string') {
-            // Se for uma string, tenta converter para Date
-            dateObject = parseISO(dateInput);
-        } else {
-            return 'Data/Hora inválida';
-        }
-
-        // Verifica se o objeto Date é válido após a conversão
-        if (!isValid(dateObject)) { // Usar isValid para validação
-            console.error("ColetaStep3 - Invalid Date object after parsing:", dateInput);
-            return 'Data/Hora inválida';
-        }
-
-      // dateObject já está no fuso horário da empresa (definido em ColetaForm)
-      const formattedDate = format(dateObject, 'dd/MM/yyyy', { locale: ptBR });
-      return `${formattedDate} às ${timeString}`;
-    } catch (e) {
-      console.error("ColetaStep3 - Error formatting date/time for display:", e);
-      return 'Data/Hora inválida';
-    }
   };
 
   return (
@@ -129,8 +94,8 @@ export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData, em
           empresa={empresa}
           isOpen={showReciboDialog}
           onClose={finishProcess}
-          empresaTimezone={empresaTimezone} // Passar o fuso horário
-          collectorName={collectorName} // Passar o nome do coletor
+          empresaTimezone={empresaTimezone}
+          collectorName={collectorName}
         />
       )}
     
@@ -166,7 +131,7 @@ export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData, em
           <div className="space-y-2">
             <Label htmlFor="resultado_final" className="text-white flex items-center gap-2 text-lg">
               {isCompra ? <DollarSign className="w-5 h-5" /> : <Droplets className="w-5 h-5" />}
-              {isCompra ? 'Total a Pagar' : 'Qtd. de Óleo Novo a Entregar (Unidades)'} {/* Alterado para Unidades */}
+              {isCompra ? 'Total a Pagar' : 'Qtd. de Óleo Novo a Entregar (Unidades)'}
             </Label>
             <div className="relative">
               <Input id="resultado_final" type="text" value={isCompra ? formatCurrency(parseCurrency(resultadoFinal)) : `${resultadoFinal} unidades`} readOnly
@@ -177,7 +142,7 @@ export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData, em
               <p className="text-emerald-200 text-sm">
                 <strong>Cálculo:</strong> {isCompra 
                   ? `${parseCurrency(data.quantidade_coletada).toLocaleString('pt-BR')} kg × ${formatCurrency(parseCurrency(data.valor_compra))} = ${formatCurrency(parseCurrency(resultadoFinal))}`
-                  : `${parseCurrency(data.quantidade_coletada).toLocaleString('pt-BR')} kg ÷ ${data.fator || 1} = ${resultadoFinal} unidades` /* Alterado para unidades */
+                  : `${parseCurrency(data.quantidade_coletada).toLocaleString('pt-BR')} kg ÷ ${data.fator || 1} = ${resultadoFinal} unidades`
                 }
               </p>
                {!isCompra && <p className="text-xs text-emerald-200 mt-1">* Valor Arredondado.</p>}
