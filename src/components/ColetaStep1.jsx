@@ -278,7 +278,7 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
               value={data.cnpj_cpf}
               onAccept={(value) => handleInputChange('cnpj_cpf', value)}
               placeholder="Digite o CNPJ ou CPF"
-              className="bg-white/10 border-white/30 text-white placeholder:text-white/60 disabled:opacity-70 disabled:cursor-not-allowed rounded-xl h-10 text-base"
+              className="bg-white/10 border border-white/50 text-white placeholder:text-white/60 disabled:opacity-70 disabled:cursor-not-allowed rounded-xl h-10 text-base"
               required
               disabled={isClienteSelected}
             />
@@ -296,7 +296,7 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
                 value={data.telefone}
                 onAccept={(value) => handleInputChange('telefone', value)}
                 placeholder="(99) 99999-9999"
-                className="bg-white/10 border-white/30 text-white placeholder:text-white/60 rounded-xl h-10 text-base"
+                className="bg-white/10 border border-white/50 text-white placeholder:text-white/60 rounded-xl h-10 text-base"
                 required
               />
             </div>
@@ -415,7 +415,7 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
                   value={data.valor_compra}
                   onAccept={(value) => handleInputChange('valor_compra', value)}
                   placeholder="Ex: 1,20"
-                  className="bg-white/10 border-white/30 text-white placeholder:text-white/60 rounded-xl h-10 text-base" required
+                  className="bg-white/10 border border-white/50 text-white placeholder:text-white/60 rounded-xl h-10 text-base" required
                 />
               </div>
             ) : (
