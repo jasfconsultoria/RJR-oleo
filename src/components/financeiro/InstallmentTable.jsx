@@ -24,31 +24,38 @@ const InstallmentTable = ({
   const { toast } = useToast();
 
   const calculateInstallments = useCallback(() => {
-    const remainingValue = totalValue - downPayment;
+    const remainingValue = totalValue - downPayment; // Este é um float, ex: 100.00
     if (installmentsNumber <= 0 || remainingValue < 0 || !isValid(issueDate)) {
       return [];
     }
 
-    const baseInstallmentValue = Math.floor((remainingValue / installmentsNumber) * 100) / 100;
-    const totalOfBaseInstallments = baseInstallmentValue * installmentsNumber;
-    const roundingDifference = parseFloat((remainingValue - totalOfBaseInstallments).toFixed(2));
+    const newInstallments = [];
+    const totalCents = Math.round(remainingValue * 100); // Trabalhar com centavos para evitar problemas de float
+    const baseCentsPerInstallment = Math.floor(totalCents / installmentsNumber);
+    let remainderCents = totalCents % installmentsNumber;
 
-    return Array.from({ length: installmentsNumber }, (_, i) => {
+    for (let i = 0; i < installmentsNumber; i++) {
       const existing = existingInstallments.find(inst => inst.installment_number === i + 1);
-      let finalInstallmentValue = baseInstallmentValue;
-      if (i === installmentsNumber - 1) {
-        finalInstallmentValue += roundingDifference;
+      
+      let currentInstallmentCents = baseCentsPerInstallment;
+      if (remainderCents > 0) {
+        currentInstallmentCents += 1;
+        remainderCents -= 1;
       }
-      return {
+      
+      const expectedAmount = parseFloat((currentInstallmentCents / 100).toFixed(2)); // Converter centavos de volta para unidades
+
+      newInstallments.push({
         id: existing?.id,
         installment_number: i + 1,
         issue_date: existing?.issue_date ? parseISO(existing.issue_date) : addMonths(issueDate, i + 1),
-        expected_amount: isEditing && existing?.expected_amount ? existing.expected_amount : parseFloat(finalInstallmentValue.toFixed(2)),
+        expected_amount: isEditing && existing?.expected_amount ? existing.expected_amount : expectedAmount,
         paid_amount: existing?.paid_amount || 0,
         paid_date: existing?.paid_date ? parseISO(existing.paid_date) : null,
         status: existing?.status || 'pending',
-      };
-    });
+      });
+    }
+    return newInstallments;
   }, [totalValue, downPayment, installmentsNumber, issueDate, isEditing, existingInstallments]);
 
   useEffect(() => {
@@ -59,51 +66,77 @@ const InstallmentTable = ({
 
 
   const handleInstallmentValueChange = (index, value) => {
-    const newAmount = parseCurrency(value);
+    const newAmount = parseCurrency(value); // Converte a string de entrada para número
     const updatedInstallments = [...installments];
-    
-    const totalExpectedSum = totalValue - downPayment;
-    
-    // Calculate sum of other installments (excluding the one being edited)
-    const sumOfOtherInstallments = updatedInstallments.reduce((sum, inst, i) => {
-      if (i === index) return sum;
-      return sum + inst.expected_amount;
-    }, 0);
+    const totalExpectedSum = totalValue - downPayment; // Soma alvo para todas as parcelas
 
-    // Calculate the correct value for the current installment to make the total sum match
-    const correctValueForCurrentInstallment = parseFloat((totalExpectedSum - sumOfOtherInstallments).toFixed(2));
+    // Validação básica: o valor da parcela não pode ser negativo
+    if (newAmount < 0) {
+      toast({
+        title: 'Valor inválido',
+        description: 'O valor da parcela não pode ser negativo.',
+        variant: 'destructive',
+      });
+      return; // Não atualiza o estado com valor inválido
+    }
 
-    // If editing the last installment, its value must be exactly what's needed to balance
-    if (index === updatedInstallments.length - 1) {
-      if (Math.abs(newAmount - correctValueForCurrentInstallment) > 0.01) { // Allow small floating point tolerance
-        toast({
-          title: 'Valor incorreto',
-          description: `O valor da parcela deve ser ${formatCurrency(correctValueForCurrentInstallment)} para fechar corretamente o total.`,
-          variant: 'destructive',
-        });
-        updatedInstallments[index].expected_amount = correctValueForCurrentInstallment;
-      } else {
-        updatedInstallments[index].expected_amount = newAmount;
-      }
-    } else {
-      // If editing a non-last installment, update its value and adjust the last one
-      updatedInstallments[index].expected_amount = newAmount;
+    // Atualiza o valor esperado da parcela atual
+    updatedInstallments[index].expected_amount = newAmount;
+
+    // Calcula a soma de todas as parcelas após a edição atual
+    const currentTotalInstallmentsSum = updatedInstallments.reduce((sum, inst) => sum + inst.expected_amount, 0);
+
+    // Calcula a diferença necessária para corresponder à soma alvo
+    const difference = parseFloat((totalExpectedSum - currentTotalInstallmentsSum).toFixed(2));
+
+    // Se houver uma diferença e houver outras parcelas para ajustar
+    if (difference !== 0 && updatedInstallments.length > 1) {
+      const lastInstallmentIndex = updatedInstallments.length - 1;
       
-      const currentSumAfterEdit = updatedInstallments.reduce((sum, inst) => sum + inst.expected_amount, 0);
-      const difference = parseFloat((totalExpectedSum - currentSumAfterEdit).toFixed(2));
-
-      if (updatedInstallments.length > 1) {
-        updatedInstallments[updatedInstallments.length - 1].expected_amount = parseFloat((updatedInstallments[updatedInstallments.length - 1].expected_amount + difference).toFixed(2));
+      // Ajusta a última parcela apenas se não for a que está sendo editada
+      if (index !== lastInstallmentIndex) {
+        let adjustedLastInstallmentValue = parseFloat((updatedInstallments[lastInstallmentIndex].expected_amount + difference).toFixed(2));
         
-        // Prevent last installment from going negative
-        if (updatedInstallments[updatedInstallments.length - 1].expected_amount < 0) {
-            updatedInstallments[updatedInstallments.length - 1].expected_amount = 0;
-            // If it still doesn't balance, it means the user entered a value too high for a previous installment
-            // This scenario should ideally be prevented by the "correctValueForCurrentInstallment" check
-            // or by a more complex redistribution. For now, we cap at 0.
+        // Impede que a última parcela se torne negativa
+        if (adjustedLastInstallmentValue < 0) {
+          toast({
+            title: 'Ajuste de parcela',
+            description: `O valor da última parcela foi ajustado para R$ 0,00. A soma das parcelas anteriores excede o saldo restante.`,
+            variant: 'destructive',
+          });
+          updatedInstallments[lastInstallmentIndex].expected_amount = 0;
+        } else {
+          updatedInstallments[lastInstallmentIndex].expected_amount = adjustedLastInstallmentValue;
+        }
+      } else {
+        // Se a última parcela está sendo editada, apenas verifica se a soma total está correta.
+        // Se não, informa o usuário e opcionalmente força o valor correto.
+        if (Math.abs(difference) > 0.01) { // Permite pequena tolerância
+          toast({
+            title: 'Valor incorreto',
+            description: `A soma das parcelas não corresponde ao saldo restante. Ajuste o valor para ${formatCurrency(newAmount + difference)}.`,
+            variant: 'destructive',
+          });
+          // Força o valor correto para a última parcela que está sendo editada
+          updatedInstallments[index].expected_amount = parseFloat((newAmount + difference).toFixed(2));
         }
       }
+    } else if (updatedInstallments.length === 1 && Math.abs(difference) > 0.01) {
+        // Se houver apenas uma parcela e ela não corresponder ao total
+        toast({
+            title: 'Valor incorreto',
+            description: `O valor da parcela deve ser ${formatCurrency(totalExpectedSum)}.`,
+            variant: 'destructive',
+        });
+        updatedInstallments[index].expected_amount = totalExpectedSum;
     }
+
+    // Garante que nenhuma parcela individual seja negativa após todos os ajustes
+    updatedInstallments.forEach((inst, i) => {
+      if (inst.expected_amount < 0) {
+        updatedInstallments[i].expected_amount = 0;
+      }
+    });
 
     setInstallments(updatedInstallments);
     onInstallmentsChange(updatedInstallments);
