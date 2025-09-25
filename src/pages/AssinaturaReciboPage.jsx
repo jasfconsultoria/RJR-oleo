@@ -98,9 +98,10 @@ const AssinaturaReciboPage = () => {
 
       // Se a coleta for do tipo 'Compra', abre o diálogo de pagamento
       if (coleta.tipo_coleta === 'Compra') {
-        // Aguarda um pouco para o trigger do Supabase processar o lançamento financeiro
-        await new Promise(resolve => setTimeout(resolve, 1500)); 
+        // Aguarda um pouco mais para o trigger do Supabase processar o lançamento financeiro
+        await new Promise(resolve => setTimeout(resolve, 2500)); // Aumentado para 2.5 segundos
 
+        console.log('AssinaturaReciboPage: Tentando buscar lançamento de débito para coleta_id:', id);
         const { data: debitEntry, error: debitError } = await supabase
           .from('v_financeiro_completo')
           .select('*')
@@ -109,10 +110,16 @@ const AssinaturaReciboPage = () => {
           .single();
 
         if (debitError) {
-          console.error('Erro ao buscar lançamento de débito:', debitError);
-          toast({ title: 'Erro', description: 'Não foi possível carregar os detalhes do débito para pagamento.', variant: 'destructive' });
-          navigate(`/recibo/publico/${coleta.id}`); // Navega mesmo com erro
-        } else {
+          console.error('AssinaturaReciboPage: Erro ao buscar lançamento de débito:', debitError);
+          toast({ title: 'Erro', description: 'Não foi possível carregar os detalhes do débito para pagamento. Por favor, registre o pagamento manualmente na seção Financeiro.', variant: 'destructive', duration: 8000 });
+          navigate(`/recibo/publico/${coleta.id}`); // Navega para o recibo público mesmo com erro
+        } else if (!debitEntry) {
+          console.warn('AssinaturaReciboPage: Lançamento de débito não encontrado após assinatura para coleta_id:', id);
+          toast({ title: 'Aviso', description: 'Lançamento de débito não encontrado. Por favor, registre o pagamento manualmente na seção Financeiro.', variant: 'warning', duration: 8000 });
+          navigate(`/recibo/publico/${coleta.id}`); // Navega para o recibo público
+        }
+        else {
+          console.log('AssinaturaReciboPage: Lançamento de débito encontrado:', debitEntry);
           setDebitEntryForPayment(debitEntry);
           setShowPaymentDialog(true);
         }

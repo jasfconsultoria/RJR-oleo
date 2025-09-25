@@ -9,6 +9,7 @@ import jsPDF from 'jspdf';
 import SignatureCanvas from 'react-signature-canvas';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Label } from '@/components/ui/label'; // Correção aqui
+import PaymentDialog from '@/components/financeiro/PaymentDialog'; // Importar o PaymentDialog
 
 export const ReciboViewDialog = ({ coleta, empresa, isOpen, onClose, empresaTimezone }) => {
   const { toast } = useToast();
@@ -16,6 +17,9 @@ export const ReciboViewDialog = ({ coleta, empresa, isOpen, onClose, empresaTime
   const sigCanvas = useRef({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [collectorName, setCollectorName] = useState(null); // Novo estado para o nome do coletor
+
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false); // Novo estado para o diálogo de pagamento
+  const [debitEntryForPayment, setDebitEntryForPayment] = useState(null); // Novo estado para o lançamento de débito
 
   const isSigned = !!coleta.assinatura_url;
 
@@ -127,13 +131,53 @@ export const ReciboViewDialog = ({ coleta, empresa, isOpen, onClose, empresaTime
       if (upsertError) throw upsertError;
         
       toast({ title: 'Recibo assinado com sucesso!' });
-      onClose(); // Fecha o modal após sucesso
+      
+      // Se a coleta for do tipo 'Compra', abre o diálogo de pagamento
+      if (coleta.tipo_coleta === 'Compra') {
+        // Aguarda um pouco mais para o trigger do Supabase processar o lançamento financeiro
+        await new Promise(resolve => setTimeout(resolve, 2500)); // Aumentado para 2.5 segundos
+
+        console.log('ReciboViewDialog: Tentando buscar lançamento de débito para coleta_id:', coleta.id);
+        const { data: debitEntry, error: debitError } = await supabase
+          .from('v_financeiro_completo')
+          .select('*')
+          .eq('lancamento_id', coleta.id) // O lancamento_id é o mesmo id da coleta para este caso
+          .eq('type', 'debito')
+          .single();
+
+        if (debitError) {
+          console.error('ReciboViewDialog: Erro ao buscar lançamento de débito:', debitError);
+          toast({ title: 'Erro', description: 'Não foi possível carregar os detalhes do débito para pagamento. Por favor, registre o pagamento manualmente na seção Financeiro.', variant: 'destructive', duration: 8000 });
+          onClose(); // Fecha o modal e o usuário pode ir para a lista de coletas
+        } else if (!debitEntry) {
+          console.warn('ReciboViewDialog: Lançamento de débito não encontrado após assinatura para coleta_id:', coleta.id);
+          toast({ title: 'Aviso', description: 'Lançamento de débito não encontrado. Por favor, registre o pagamento manualmente na seção Financeiro.', variant: 'warning', duration: 8000 });
+          onClose(); // Fecha o modal
+        }
+        else {
+          console.log('ReciboViewDialog: Lançamento de débito encontrado:', debitEntry);
+          setDebitEntryForPayment(debitEntry);
+          setShowPaymentDialog(true);
+        }
+      } else {
+        onClose(); // Fecha o modal após sucesso para outros tipos de coleta
+      }
 
     } catch (err) {
       toast({ title: 'Erro ao salvar assinatura', description: err.message, variant: 'destructive' });
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handlePaymentSuccess = () => {
+    setShowPaymentDialog(false);
+    onClose(); // Fecha o modal principal após o pagamento
+  };
+
+  const handlePaymentClose = () => {
+    setShowPaymentDialog(false);
+    onClose(); // Fecha o modal principal se o pagamento for cancelado
   };
 
   return (
@@ -191,6 +235,17 @@ export const ReciboViewDialog = ({ coleta, empresa, isOpen, onClose, empresaTime
           </div>
         </DialogFooter>
       </DialogContent>
-    </Dialog>
+
+      {debitEntryForPayment && (
+        <PaymentDialog
+          isOpen={showPaymentDialog}
+          onClose={handlePaymentClose}
+          entry={debitEntryForPayment}
+          onSuccess={handlePaymentSuccess}
+          initialPaidAmount={debitEntryForPayment.amount_balance} // Preenche com o saldo devedor
+          initialPaymentMethod="pix" // Define Pix como padrão
+        />
+      )}
+    </>
   );
 };
