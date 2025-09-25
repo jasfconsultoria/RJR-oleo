@@ -178,27 +178,34 @@ const ListaMovimentacoesPage = () => {
         </motion.div>
 
         <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 md:p-6 space-y-4 relative z-10">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4"> {/* Alterado para lg:grid-cols-5 */}
-            <div className="lg:col-span-2"> {/* Ocupa 2 colunas em telas grandes */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end"> {/* Alterado para lg:grid-cols-5 */}
+            <div className="lg:col-span-1"> {/* Ocupa 1 coluna em telas grandes */}
               <Label htmlFor="searchTerm" className="block text-white mb-1 text-sm">Buscar</Label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/70" />
                 <Input
                   id="searchTerm"
                   type="search"
-                  placeholder="Observação..."
+                  placeholder="Nº Doc, Observação..."
                   value={filters.searchTerm}
                   onChange={(e) => handleFilterChange('searchTerm', e.target.value)}
                   className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60 rounded-xl"
                 />
               </div>
             </div>
-            <div className="lg:col-span-1"> {/* Ocupa 1 coluna em telas grandes */}
-              <ClienteSearchableSelect
-                labelText="Cliente"
-                value={filters.selectedClienteId}
-                onChange={(value) => handleFilterChange('selectedClienteId', value)}
-              />
+            <div className="lg:col-span-2"> {/* Ocupa 2 colunas em telas grandes */}
+              <Label htmlFor="clientSearch" className="block text-white mb-1 text-sm">Cliente</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/70" />
+                <Input
+                  id="clientSearch"
+                  type="search"
+                  placeholder="Buscar por nome do cliente..."
+                  value={filters.clientSearchTerm}
+                  onChange={(e) => handleFilterChange('clientSearchTerm', e.target.value)}
+                  className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60 rounded-xl"
+                />
+              </div>
             </div>
             <div className="lg:col-span-1"> {/* Ocupa 1 coluna em telas grandes */}
               <ProdutoSearchableSelect
@@ -207,26 +214,15 @@ const ListaMovimentacoesPage = () => {
                 onChange={(product) => handleFilterChange('selectedProdutoId', product ? product.id : null)}
               />
             </div>
-            <div>
-              <Label htmlFor="type" className="block text-white mb-1 text-sm">Tipo</Label>
-              <Select value={filters.type} onValueChange={(value) => handleFilterChange('type', value)}>
-                <SelectTrigger className="bg-white/20 border-white/30 text-white rounded-xl">
-                  <SelectValue placeholder="Todos os Tipos" />
-                </SelectTrigger>
-                <SelectContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
-                  <SelectItem value="all">Todos</SelectItem>
-                  <SelectItem value="entrada">Entrada</SelectItem>
-                  <SelectItem value="saida">Saída</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="startDate" className="block text-white mb-1 text-sm">Data Início</Label>
-              <Input id="startDate" type="date" value={filters.startDate} onChange={(e) => handleFilterChange('startDate', e.target.value)} className="bg-white/20 border-white/30 text-white rounded-xl" />
-            </div>
-            <div>
-              <Label htmlFor="endDate" className="block text-white mb-1 text-sm">Data Fim</Label>
-              <Input id="endDate" type="date" value={filters.endDate} onChange={(e) => handleFilterChange('endDate', e.target.value)} className="bg-white/20 border-white/30 text-white rounded-xl" />
+            <div className="lg:col-span-1 grid grid-cols-2 gap-4"> {/* Agrupamento de datas */}
+              <div>
+                <Label htmlFor="startDate" className="block text-white mb-1 text-sm">Data Início</Label>
+                <Input id="startDate" type="date" value={filters.startDate} onChange={(e) => handleFilterChange('startDate', e.target.value)} className="bg-white/20 border-white/30 text-white rounded-xl" />
+              </div>
+              <div>
+                <Label htmlFor="endDate" className="block text-white mb-1 text-sm">Data Fim</Label>
+                <Input id="endDate" type="date" value={filters.endDate} onChange={(e) => handleFilterChange('endDate', e.target.value)} className="bg-white/20 border-white/30 text-white rounded-xl" />
+              </div>
             </div>
           </div>
         </div>
