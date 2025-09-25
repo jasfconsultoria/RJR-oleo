@@ -30,10 +30,10 @@ import { formatCnpjCpf } from '@/lib/utils';
 import { logAction } from '@/lib/logger';
 import { Pagination } from '@/components/ui/pagination';
 import { useDebounce } from '@/hooks/useDebounce';
-import { Switch } from '@/components/ui/switch'; // Import Switch
-import { Label } from '@/components/ui/label'; // Import Label
+// Removido: import { Switch } from '@/components/ui/switch'; 
+import { Label } from '@/components/ui/label';
 
-const ListaClientes = ({ personType = 'pessoa' }) => { // Accept personType prop
+const ListaClientes = ({ personType = 'pessoa' }) => {
   const [clientes, setClientes] = useState([]);
   const [allContratos, setAllContratos] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -46,7 +46,7 @@ const ListaClientes = ({ personType = 'pessoa' }) => { // Accept personType prop
   const [empresa, setEmpresa] = useState(null);
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
   const { toast } = useToast();
-  const [showOnlyWithContracts, setShowOnlyWithContracts] = useState(false); // NEW: State for contract filter
+  // Removido: const [showOnlyWithContracts, setShowOnlyWithContracts] = useState(false);
 
   const pageSize = useMemo(() => empresa?.items_per_page || 25, [empresa]);
 
@@ -116,11 +116,8 @@ const ListaClientes = ({ personType = 'pessoa' }) => { // Accept personType prop
       .from('clientes')
       .select('id, nome, nome_fantasia, cnpj_cpf, municipio, estado', { count: 'exact' });
 
-    console.log('fetchClientes: personType', personType);
-    console.log('fetchClientes: showOnlyWithContracts', showOnlyWithContracts);
-
-    // NEW: Filter logic for clients with contracts
-    if (personType === 'cliente' && showOnlyWithContracts) {
+    // Filter logic for clients with contracts (always applied for 'cliente' type)
+    if (personType === 'cliente') {
         const { data: clientsWithContracts, error: contractsError } = await supabase
             .from('contratos')
             .select('cliente_id')
@@ -135,7 +132,6 @@ const ListaClientes = ({ personType = 'pessoa' }) => { // Accept personType prop
             return;
         }
         const clientIdsWithContracts = clientsWithContracts.map(c => c.cliente_id);
-        console.log('fetchClientes: clientIdsWithContracts', clientIdsWithContracts);
         if (clientIdsWithContracts.length === 0) {
             // If no clients have contracts, the filtered list is empty
             setClientes([]);
@@ -162,12 +158,11 @@ const ListaClientes = ({ personType = 'pessoa' }) => { // Accept personType prop
       });
       setClientes([]);
     } else {
-      console.log('fetchClientes: fetched clientesData count', clientesData?.length);
       setClientes(clientesData || []);
       setTotalCount(count || 0); // Count will now be accurate for the filtered list
     }
     setLoading(false);
-  }, [profile, profileLoading, toast, currentPage, pageSize, debouncedSearchTerm, sortConfig, empresa, personType, showOnlyWithContracts]); // Add new dependencies
+  }, [profile, profileLoading, toast, currentPage, pageSize, debouncedSearchTerm, sortConfig, empresa, personType]);
 
   useEffect(() => {
     fetchClientes();
@@ -175,7 +170,7 @@ const ListaClientes = ({ personType = 'pessoa' }) => { // Accept personType prop
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearchTerm, pageSize, showOnlyWithContracts]); // NEW: Reset page on contract filter change
+  }, [debouncedSearchTerm, pageSize]); // Removed showOnlyWithContracts from dependencies
 
   const handleDelete = async (cliente) => {
     const { error } = await supabase
@@ -271,16 +266,7 @@ const ListaClientes = ({ personType = 'pessoa' }) => { // Accept personType prop
                 className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60 rounded-xl"
                 />
             </div>
-            {personType === 'cliente' && ( // NEW: Conditionally render contract filter switch
-                <div className="flex items-center space-x-2 mt-4">
-                    <Switch
-                        id="show-only-with-contracts"
-                        checked={showOnlyWithContracts}
-                        onCheckedChange={setShowOnlyWithContracts}
-                    />
-                    <Label htmlFor="show-only-with-contracts" className="text-white">Mostrar apenas clientes com contrato</Label>
-                </div>
-            )}
+            {/* Removido: Switch para filtrar clientes com contrato */}
         </div>
 
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white/10 backdrop-blur-sm rounded-xl">
