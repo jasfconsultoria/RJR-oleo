@@ -55,8 +55,8 @@ export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData, em
     
     const calculatedFinalData = { 
       ...(isCompra 
-        ? { total_pago: resultadoFinal }
-        : { quantidade_entregue: resultadoFinal }),
+        ? { total_pago: parseCurrency(resultadoFinal) } // Usar parseCurrency aqui
+        : { quantidade_entregue: parseFloat(resultadoFinal) }), // Usar parseFloat aqui
       data_lancamento: dataLancamento 
     };
     

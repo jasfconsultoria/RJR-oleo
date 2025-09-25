@@ -156,7 +156,7 @@ const ItensMovimentacaoTable = ({ items, onItemsChange, type, isEditing }) => {
             <TableBody>
               {items.map((item, index) => {
                 const error = validateItem(item, index);
-                const isEmptyItem = !item.produto_id && (!item.quantidade || item.quantidade === '' || item.quantidade === '0,00');
+                const isEmptyItem = !item.produto_id && (item.quantidade === '' || parseCurrency(item.quantidade) === 0);
                 
                 return (
                   <TableRow key={index} className="border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">

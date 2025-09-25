@@ -142,7 +142,7 @@ export const Recibo = React.forwardRef(({ data, signature, empresa, timezone, co
                             <>
                                 <tr>
                                     <td className="py-2">Valor por Kg</td>
-                                    <td className="text-right py-2 font-semibold">{formatCurrency(data.valor_compra)}</td>
+                                    <td className="text-right py-2 font-semibold">{formatCurrency(parseCurrency(data.valor_compra))}</td>
                                 </tr>
                                 <tr className="border-t font-bold text-base">
                                     <td className="py-3">Total Pago</td>

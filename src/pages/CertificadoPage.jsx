@@ -557,7 +557,7 @@ const CertificadoPage = () => {
                 {/* Seletor de Cliente - IDÊNTICO AO COLETASTEP1 */}
                 <div className="md:col-span-2 space-y-2 relative">
                   <Label htmlFor="cliente" className="text-white flex items-center gap-2">
-                    <User className="w-4 h-4 text-emerald-400" />
+                    <User className="w-4 h-4" />
                     Cliente (com contrato ativo) *
                   </Label>
                   <Input
@@ -583,7 +583,7 @@ const CertificadoPage = () => {
                         filteredClients.map((client) => (
                           <div
                             key={client.id}
-                            onClick={() => handleClientSelect(client)}
+                            onMouseDown={() => handleClientSelect(client)} // onMouseDown evita conflito com blur
                             className="p-3 hover:bg-emerald-50 cursor-pointer border-b border-gray-100 last:border-b-0"
                           >
                             <div className="font-medium text-gray-900">
