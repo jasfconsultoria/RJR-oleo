@@ -10,7 +10,7 @@ import { toast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
 import { estados, getMunicipios } from '@/lib/location';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
-import { IMaskInput } from 'react-imask'; // Adicionado IMaskInput
+import { IMaskInput } from 'react-imask';
 import { formatCnpjCpf, unmask, formatToISODate, parseCurrency } from '@/lib/utils';
 import { DatePicker } from '@/components/ui/date-picker';
 import { format, isValid, parseISO } from 'date-fns';
@@ -24,26 +24,23 @@ const tiposColeta = [
 
 export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }) {
   const navigate = useNavigate();
-  // Removido: const [formData, setFormData] = useState(data);
-  const [allClients, setAllClients] = useState([]); // All clients from DB
-  const [filteredClients, setFilteredClients] = useState([]); // Clients filtered by search term
+  const [allClients, setAllClients] = useState([]);
+  const [filteredClients, setFilteredClients] = useState([]);
   const [showClienteDropdown, setShowClienteDropdown] = useState(false);
   const [municipios, setMunicipios] = useState([]);
   const [isClienteSelected, setIsClienteSelected] = useState(false);
 
-  // Fetch all clients with active contracts
   useEffect(() => {
     const fetchClients = async () => {
       const { data: clientsData, error } = await supabase
         .from('clientes')
-        .select('*, contratos(status, tipo_coleta, valor_coleta, fator_troca, data_fim)') // Select contracts to filter active ones
+        .select('*, contratos(status, tipo_coleta, valor_coleta, fator_troca, data_fim)')
         .order('nome', { ascending: true });
 
       if (error) {
         toast({ title: 'Erro ao buscar clientes', description: error.message, variant: 'destructive' });
         setAllClients([]);
       } else {
-        // Filter clients with at least one active contract
         const activeClients = (clientsData || []).filter(client => 
           client.contratos && client.contratos.some(contract => contract.status === 'Ativo')
         );
@@ -53,7 +50,6 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
     fetchClients();
   }, [toast]);
 
-  // Atualiza a lista de municípios quando o estado muda
   useEffect(() => {
     if (data.estado) {
       setMunicipios(getMunicipios(data.estado).map(m => ({ value: m, label: m })));
@@ -170,8 +166,6 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
       return;
     }
 
-    // onUpdate(data); // Data is already updated by individual handlers
-    
     toast({
       title: "Dados salvos!",
       description: "Cadastro da coleta realizado com sucesso."
@@ -208,7 +202,7 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
             <DatePicker
               date={data.data_coleta}
               setDate={(date) => handleInputChange('data_coleta', date || null)}
-              className="w-full"
+              className="w-full bg-white/10 border-white/30 text-white placeholder:text-white/60 rounded-xl"
               disabled={profile?.role !== 'administrador'}
             />
           </div>
@@ -222,7 +216,7 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
               type="time"
               value={data.hora_coleta}
               onChange={(e) => handleInputChange('hora_coleta', e.target.value)}
-              className="bg-white/5 border-white/20 text-white placeholder:text-white/60 rounded-xl"
+              className="bg-white/10 border-white/30 text-white placeholder:text-white/60 rounded-xl"
               required
             />
           </div>
@@ -240,7 +234,7 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
             onFocus={() => setShowClienteDropdown(true)}
             onBlur={() => setTimeout(() => setShowClienteDropdown(false), 200)}
             placeholder="Digite para buscar..."
-            className="bg-white/5 border-white/20 text-white placeholder:text-white/60 rounded-xl"
+            className="bg-white/10 border-white/30 text-white placeholder:text-white/60 rounded-xl"
             autoComplete="off"
             required
           />
@@ -284,7 +278,7 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
               value={data.cnpj_cpf}
               onAccept={(value) => handleInputChange('cnpj_cpf', value)}
               placeholder="Digite o CNPJ ou CPF"
-              className="bg-white/5 border-white/20 text-white placeholder:text-white/60 disabled:opacity-70 disabled:cursor-not-allowed rounded-xl"
+              className="bg-white/10 border-white/30 text-white placeholder:text-white/60 disabled:opacity-70 disabled:cursor-not-allowed rounded-xl"
               required
               disabled={isClienteSelected}
             />
@@ -302,7 +296,7 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
                 value={data.telefone}
                 onAccept={(value) => handleInputChange('telefone', value)}
                 placeholder="(99) 99999-9999"
-                className="bg-white/5 border-white/20 text-white placeholder:text-white/60 rounded-xl"
+                className="bg-white/10 border-white/30 text-white placeholder:text-white/60 rounded-xl"
                 required
               />
             </div>
@@ -319,7 +313,7 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
             value={data.email || ''}
             onChange={(e) => handleInputChange('email', e.target.value)}
             placeholder="email@cliente.com"
-            className="bg-white/5 border-white/20 text-white placeholder:text-white/60 rounded-xl"
+            className="bg-white/10 border-white/30 text-white placeholder:text-white/60 rounded-xl"
           />
         </div>
 
@@ -333,7 +327,7 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
             value={data.endereco || ''}
             onChange={(e) => handleInputChange('endereco', e.target.value)}
             placeholder="Digite o endereço completo"
-            className="bg-white/5 border-white/20 text-white placeholder:text-white/60 rounded-xl"
+            className="bg-white/10 border-white/30 text-white placeholder:text-white/60 rounded-xl"
           />
         </div>
         
@@ -341,7 +335,7 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
             <div className="space-y-2">
               <Label htmlFor="estado" className="text-white">Estado *</Label>
                 <Select value={data.estado || ''} onValueChange={handleEstadoChange} required disabled={isClienteSelected}>
-                    <SelectTrigger className="w-full bg-white/5 border-white/20 text-white disabled:opacity-70 disabled:cursor-not-allowed rounded-xl">
+                    <SelectTrigger className="w-full bg-white/10 border-white/30 text-white disabled:opacity-70 disabled:cursor-not-allowed rounded-xl">
                         <SelectValue placeholder="Selecione o estado" />
                     </SelectTrigger>
                     <SelectContent className="bg-gray-800 text-white border-gray-700">
@@ -358,6 +352,7 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
                   placeholder="Selecione o município"
                   disabled={!data.estado || isClienteSelected}
                   required
+                  inputClassName="bg-white/10 border-white/30 text-white placeholder:text-white/60 rounded-xl"
                 />
             </div>
         </div>
@@ -368,7 +363,7 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
                 Tipo de Coleta *
               </Label>
               <Select value={data.tipo_coleta} onValueChange={handleTipoColetaChange} required>
-                <SelectTrigger className="w-full bg-white/5 border-white/20 text-white rounded-xl">
+                <SelectTrigger className="w-full bg-white/10 border-white/30 text-white rounded-xl">
                   <SelectValue placeholder="Selecione o tipo" />
                 </SelectTrigger>
                 <SelectContent className="bg-gray-800 text-white border-gray-700">
@@ -391,7 +386,7 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
                   id="fator" type="number" step="1" min="1"
                   value={data.fator} onChange={(e) => handleInputChange('fator', e.target.value)}
                   placeholder="Ex: 6 (para 1 unidade de óleo novo a cada 6kg usado)"
-                  className="bg-white/5 border-white/20 text-white placeholder:text-white/60 rounded-xl" required
+                  className="bg-white/10 border-white/30 text-white placeholder:text-white/60 rounded-xl" required
                 />
               </div>
             ) : data.tipo_coleta === 'Compra' ? (
@@ -420,7 +415,7 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
                   value={data.valor_compra}
                   onAccept={(value) => handleInputChange('valor_compra', value)}
                   placeholder="Ex: 1,20"
-                  className="bg-white/5 border-white/20 text-white placeholder:text-white/60 rounded-xl" required
+                  className="bg-white/10 border-white/30 text-white placeholder:text-white/60 rounded-xl" required
                 />
               </div>
             ) : (
@@ -434,7 +429,7 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
                   value={data.doacao_info || ''}
                   onChange={(e) => handleInputChange('doacao_info', e.target.value)}
                   placeholder="Detalhes da doação (opcional)"
-                  className="bg-white/5 border-white/20 text-white placeholder:text-white/60 rounded-xl"
+                  className="bg-white/10 border-white/30 text-white placeholder:text-white/60 rounded-xl"
                 />
               </div>
             )}
