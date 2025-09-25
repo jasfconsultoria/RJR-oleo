@@ -99,11 +99,9 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
             setAllContratos(data || []);
         }
     };
-    // Fetch contracts only if not a 'fornecedor' list
-    if (personType !== 'fornecedor') {
-      fetchAllContratos();
-    }
-  }, [toast, personType]);
+    // Fetch contracts always, then filter later if needed
+    fetchAllContratos();
+  }, [toast]);
 
   const fetchClientes = useCallback(async () => {
     if (profileLoading || !profile || !empresa) return;
@@ -199,7 +197,7 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
     if (contratosDoCliente.length === 0) {
       return <span className="text-gray-400">Sem Contrato</span>;
     }
-    const activeContract = contratosDoCliente.find(c => c.status === 'Ativo');
+    const activeContract = contratosDoCliente.find(c => c.cliente_id === clienteId && c.status === 'Ativo');
     if (activeContract) {
       return <span className="text-emerald-400 font-semibold">{activeContract.numero_contrato}</span>;
     }
