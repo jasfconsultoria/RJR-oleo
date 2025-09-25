@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Pagination } from '@/components/ui/pagination';
 import { logAction } from '@/lib/logger';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, startOfMonth, endOfMonth } from 'date-fns'; // Adicionado startOfMonth e endOfMonth
 import { ptBR } from 'date-fns/locale';
 import ClienteSearchableSelect from '@/components/ui/ClienteSearchableSelect';
 import ProdutoSearchableSelect from '@/components/estoque/ProdutoSearchableSelect';
@@ -30,8 +30,8 @@ const ListaEntradasPage = () => {
     searchTerm: '',
     clientSearchTerm: '',
     selectedProdutoId: null,
-    startDate: '',
-    endDate: '',
+    startDate: format(startOfMonth(new Date()), 'yyyy-MM-dd'), // Default para o primeiro dia do mês
+    endDate: format(endOfMonth(new Date()), 'yyyy-MM-dd'), // Default para o último dia do mês
   });
   const debouncedFilters = useDebounce(filters, 500);
   const [currentPage, setCurrentPage] = useState(1);
@@ -156,8 +156,8 @@ const ListaEntradasPage = () => {
         </motion.div>
 
         <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 md:p-6 space-y-4 relative z-10">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4"> {/* Alterado para lg:grid-cols-5 */}
+            <div className="lg:col-span-2"> {/* Ocupa 2 colunas em telas grandes */}
               <Label htmlFor="searchTerm" className="block text-white mb-1 text-sm">Buscar</Label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/70" />
@@ -171,7 +171,7 @@ const ListaEntradasPage = () => {
                 />
               </div>
             </div>
-            <div>
+            <div className="lg:col-span-1"> {/* Ocupa 1 coluna em telas grandes */}
               <Label htmlFor="clientSearch" className="block text-white mb-1 text-sm">Cliente</Label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/70" />
@@ -185,13 +185,14 @@ const ListaEntradasPage = () => {
                 />
               </div>
             </div>
-            <div>
+            <div className="lg:col-span-1"> {/* Ocupa 1 coluna em telas grandes */}
               <ProdutoSearchableSelect
                 labelText="Produto"
                 value={filters.selectedProdutoId}
                 onChange={(product) => handleFilterChange('selectedProdutoId', product ? product.id : null)}
               />
             </div>
+            {/* Datas agora ocupam 1 coluna cada em telas grandes */}
             <div>
               <Label htmlFor="startDate" className="block text-white mb-1 text-sm">Data Início</Label>
               <Input id="startDate" type="date" value={filters.startDate} onChange={(e) => handleFilterChange('startDate', e.target.value)} className="bg-white/20 border-white/30 text-white rounded-xl" />

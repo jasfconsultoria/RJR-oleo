@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Pagination } from '@/components/ui/pagination';
 import { logAction } from '@/lib/logger';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, startOfMonth, endOfMonth } from 'date-fns'; // Adicionado startOfMonth e endOfMonth
 import { ptBR } from 'date-fns/locale';
 import ClienteSearchableSelect from '@/components/ui/ClienteSearchableSelect';
 import ProdutoSearchableSelect from '@/components/estoque/ProdutoSearchableSelect';
@@ -31,8 +31,8 @@ const ListaMovimentacoesPage = () => {
     searchTerm: '',
     selectedClienteId: null,
     selectedProdutoId: null,
-    startDate: '',
-    endDate: '',
+    startDate: format(startOfMonth(new Date()), 'yyyy-MM-dd'), // Default para o primeiro dia do mês
+    endDate: format(endOfMonth(new Date()), 'yyyy-MM-dd'), // Default para o último dia do mês
     type: 'all', // 'entrada', 'saida', 'all'
   });
   const debouncedFilters = useDebounce(filters, 500);
@@ -178,8 +178,8 @@ const ListaMovimentacoesPage = () => {
         </motion.div>
 
         <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 md:p-6 space-y-4 relative z-10">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4"> {/* Alterado para lg:grid-cols-5 */}
+            <div className="lg:col-span-2"> {/* Ocupa 2 colunas em telas grandes */}
               <Label htmlFor="searchTerm" className="block text-white mb-1 text-sm">Buscar</Label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/70" />
@@ -193,14 +193,14 @@ const ListaMovimentacoesPage = () => {
                 />
               </div>
             </div>
-            <div>
+            <div className="lg:col-span-1"> {/* Ocupa 1 coluna em telas grandes */}
               <ClienteSearchableSelect
                 labelText="Cliente"
                 value={filters.selectedClienteId}
                 onChange={(value) => handleFilterChange('selectedClienteId', value)}
               />
             </div>
-            <div>
+            <div className="lg:col-span-1"> {/* Ocupa 1 coluna em telas grandes */}
               <ProdutoSearchableSelect
                 labelText="Produto"
                 value={filters.selectedProdutoId}
@@ -255,7 +255,7 @@ const ListaMovimentacoesPage = () => {
                       <TableRow key={mov.id} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
                         <TableCell data-label="Nº Documento">{mov.document_number || 'N/A'}</TableCell>
                         <TableCell data-label="Data">{format(parseISO(mov.data), 'dd/MM/yyyy HH:mm', { locale: ptBR })}</TableCell>
-                        <TableCell data-label="Cliente">{mov.cliente?.nome || 'N/A'}</TableCell>
+                        <TableCell data-label="Cliente">{mov.cliente?.nome_fantasia ? `${mov.cliente.nome} - ${mov.cliente.nome_fantasia}` : mov.cliente?.nome || 'N/A'}</TableCell>
                         <TableCell data-label="Origem" className="capitalize flex items-center gap-2">
                           {getMovementIcon(mov.tipo)} {mov.origem}
                         </TableCell>

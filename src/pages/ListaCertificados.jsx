@@ -12,6 +12,7 @@ import { Pagination } from '@/components/ui/pagination';
 import { useDebounce } from '@/hooks/useDebounce';
 import { formatToISODate } from '@/lib/utils';
 import { motion } from 'framer-motion';
+import { startOfMonth, endOfMonth } from 'date-fns'; // Importar startOfMonth e endOfMonth
 
 const getTodayDate = () => new Date();
 const getFirstDayOfMonth = () => {

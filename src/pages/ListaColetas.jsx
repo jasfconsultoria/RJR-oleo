@@ -9,7 +9,7 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { useProfile } from '@/contexts/ProfileContext';
 import ColetasFilters from '@/components/coletas/ColetasFilters';
 import ColetasTable from '@/components/coletas/ColetasTable';
-import { startOfMonth, format, endOfDay, parseISO } from 'date-fns';
+import { startOfMonth, format, endOfDay, parseISO, endOfMonth } from 'date-fns'; // Adicionado endOfMonth
 import { logAction } from '@/lib/logger';
 import { Pagination } from '@/components/ui/pagination';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -28,8 +28,9 @@ const ListaColetas = () => {
   const [selectedColeta, setSelectedColeta] = useState(null);
   const [empresa, setEmpresa] = useState(null);
 
+  // Inicializa startDate e endDate para o primeiro e último dia do mês atual
   const [startDate, setStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
-  const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [endDate, setEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd')); // Alterado para endOfMonth
 
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);

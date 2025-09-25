@@ -29,8 +29,8 @@ export function CertificadosFilters({
       animate={{ opacity: 1, y: 0 }}
       className="bg-white/10 backdrop-blur-sm rounded-xl p-4 md:p-6 relative z-20"
     >
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 items-end">
-        <div className="relative">
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6 items-end"> {/* Alterado para lg:grid-cols-4 */}
+        <div className="relative lg:col-span-2"> {/* Ocupa 2 colunas em telas grandes */}
           <label htmlFor="cliente-search" className="block text-white mb-2">Cliente</label>
            <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/70" />
@@ -50,11 +50,11 @@ export function CertificadosFilters({
           </div>
         </div>
 
-        <div>
+        <div> {/* Ocupa 1 coluna em telas grandes */}
           <label htmlFor="startDate" className="block text-white mb-2">Data Inicial</label>
           <DateInput id="startDate" date={startDate} setDate={setStartDate} />
         </div>
-        <div>
+        <div> {/* Ocupa 1 coluna em telas grandes */}
           <label htmlFor="endDate" className="block text-white mb-2">Data Final</label>
           <DateInput id="endDate" date={endDate} setDate={setEndDate} />
         </div>
