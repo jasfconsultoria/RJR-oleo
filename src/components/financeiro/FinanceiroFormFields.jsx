@@ -85,7 +85,12 @@ export const FinanceiroFormFields = ({
             <DialogHeader>
               {/* <DialogTitle className="text-emerald-300">Novo {entityLabel}</DialogTitle> */}
             </DialogHeader>
-            <ClienteForm isModal onSaveSuccess={handleNewClientSuccess} personType={entityLabel.toLowerCase()} />
+            <ClienteForm 
+              isModal 
+              onSaveSuccess={handleNewClientSuccess} 
+              personType={entityLabel.toLowerCase()} 
+              onCancel={() => setIsNewClientModalOpen(false)} // Passa a função para fechar o modal
+            />
           </DialogContent>
         </Dialog>
       </div>

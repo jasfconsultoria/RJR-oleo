@@ -40,7 +40,6 @@ const ItensMovimentacaoTable = ({ items, onItemsChange, type, isEditing }) => {
   };
 
   const handleRemoveItem = (index) => {
-    // Garante que sempre haja pelo menos um item vazio se não estiver editando
     if (!isEditing && items.length === 1) {
       onItemsChange([{ id: null, produto_id: null, produto_nome: '', unidade: '', quantidade: '' }]);
     } else {
@@ -68,13 +67,12 @@ const ItensMovimentacaoTable = ({ items, onItemsChange, type, isEditing }) => {
   };
 
   const validateItem = (item) => {
-    // Se o item está completamente vazio, não retorna erro
     if (!item.produto_id && (item.quantidade === '' || parseCurrency(item.quantidade) === 0)) {
       return null;
     }
     if (!item.produto_id) return 'Selecione um produto.';
     if (parseCurrency(item.quantidade) <= 0) return 'Quantidade deve ser maior que zero.';
-    if (type === 'saida' && !isEditing) { // Only validate stock for new exits
+    if (type === 'saida' && !isEditing) {
       const currentBalance = productBalances[item.produto_id] || 0;
       if (parseCurrency(item.quantidade) > currentBalance) {
         return `Saldo insuficiente. Disponível: ${formatNumber(currentBalance)} ${item.unidade}.`;
@@ -84,7 +82,6 @@ const ItensMovimentacaoTable = ({ items, onItemsChange, type, isEditing }) => {
   };
 
   const hasErrors = useMemo(() => {
-    // Considera erro apenas se houver itens preenchidos com validação falha
     return items.some(item => (item.produto_id || item.quantidade !== '') && validateItem(item) !== null);
   }, [items, productBalances]);
 
@@ -101,9 +98,14 @@ const ItensMovimentacaoTable = ({ items, onItemsChange, type, isEditing }) => {
   return (
     <div className="space-y-4">
       <h3 className="text-lg font-semibold text-white">Itens da Movimentação *</h3>
-      <div className="rounded-xl border border-white/20 min-h-[200px] max-h-[400px]">
-        <div className="overflow-x-auto"> {/* Adicionado overflow-x-auto aqui */}
-          <Table className="responsive-table">
+      
+      {/* Container principal SEM overflow - removemos o overflow daqui */}
+      <div className="rounded-xl border border-white/20 min-h-[200px] max-h-[400px] relative">
+        
+        {/* DIV CRÍTICA: Container da tabela SEM overflow que corta */}
+        <div className="h-full"> {/* Removido overflow-x-auto */}
+          
+          <Table className="w-full">
             <TableHeader>
               <TableRow className="hover:bg-transparent border-b border-white/20 text-xs">
                 <TableHead className="text-white w-[40%]">Produto</TableHead>
@@ -112,21 +114,37 @@ const ItensMovimentacaoTable = ({ items, onItemsChange, type, isEditing }) => {
                 <TableHead className="text-white w-[15%] text-center">Ações</TableHead>
               </TableRow>
             </TableHeader>
+            
             <TableBody>
               {items.map((item, index) => {
                 const error = validateItem(item);
                 return (
-                  <TableRow key={index} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm overflow-visible"> {/* Adicionado overflow-visible */}
-                    <TableCell data-label="Produto" className="py-4 relative z-20">
-                    <ProdutoSearchableSelect
-                      value={item.produto_id}
-                      onChange={(product) => handleProductSelect(index, product)}
-                      filterType={type === 'entrada' ? null : null}
-                      disabled={isEditing}
-                      hideLabel={true}
-                    />
+                  <TableRow key={index} className="border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
+                    
+                    {/* Célula do Produto - CRÍTICA para o dropdown */}
+                    <TableCell 
+                      data-label="Produto" 
+                      className="py-4 relative overflow-visible"
+                      style={{ 
+                        position: 'relative',
+                        zIndex: items.length - index + 100 // Z-index dinâmico
+                      }}
+                    >
+                      
+                      {/* Container especial para o dropdown */}
+                      <div className="dropdown-container" style={{ position: 'static' }}>
+                        <ProdutoSearchableSelect
+                          value={item.produto_id}
+                          onChange={(product) => handleProductSelect(index, product)}
+                          filterType={type === 'entrada' ? null : null}
+                          disabled={isEditing}
+                          hideLabel={true}
+                        />
+                      </div>
+                      
                       {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
                     </TableCell>
+                    
                     <TableCell data-label="Quantidade" className="text-right py-4">
                       <IMaskInput
                         mask="num"
@@ -149,9 +167,11 @@ const ItensMovimentacaoTable = ({ items, onItemsChange, type, isEditing }) => {
                         disabled={isEditing}
                       />
                     </TableCell>
+                    
                     <TableCell data-label="Unidade" className="text-center py-4">
                       {item.unidade || 'N/A'}
                     </TableCell>
+                    
                     <TableCell data-label="Ações" className="text-center py-4">
                       <Button
                         type="button"
@@ -171,6 +191,7 @@ const ItensMovimentacaoTable = ({ items, onItemsChange, type, isEditing }) => {
           </Table>
         </div>
       </div>
+      
       <Button type="button" onClick={handleAddItem} variant="outline" className="w-full" disabled={isEditing}>
         <PlusCircle className="mr-2 h-4 w-4" /> Adicionar Item
       </Button>

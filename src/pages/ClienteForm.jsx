@@ -19,7 +19,7 @@ import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { unmask } from '@/lib/utils';
 import { useAutoSave } from '@/hooks/useAutoSave'; // Import the new hook
 
-const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa' }) => {
+const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', onCancel }) => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -387,7 +387,12 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa' }) 
               </div>
 
               <div className="flex justify-between items-center pt-4"> {/* Reduced padding */}
-                {!isModal && (
+                {isModal ? (
+                  <Button type="button" onClick={onCancel} variant="outline" className="rounded-xl h-8 px-2 text-xs">
+                    <ArrowLeft className="w-3 h-3 mr-1" />
+                    Voltar
+                  </Button>
+                ) : (
                   <Button type="button" onClick={() => navigate(`/app/cadastro/${personType}s`)} variant="outline" className="rounded-xl h-8 px-2 text-xs"> {/* Reduced height, padding, font size */}
                     <ArrowLeft className="w-3 h-3 mr-1" /> {/* Reduced icon size */}
                     Voltar
