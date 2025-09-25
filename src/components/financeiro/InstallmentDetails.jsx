@@ -5,7 +5,7 @@ import { IMaskInput } from 'react-imask';
 import { DateInput } from '@/components/ui/date-input';
 import InstallmentTable from '@/components/financeiro/InstallmentTable';
 import { formatCurrency } from '@/lib/utils';
-import { format } from 'date-fns'; // Corrigido: de '=>' para 'from'
+import { format } => 'date-fns';
 
 export const InstallmentDetails = ({
   formData,

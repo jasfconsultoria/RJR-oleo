@@ -253,7 +253,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
         title = 'Documento já existe';
         description = `CPF/CNPJ ${formData.cnpj_cpf} já cadastrado. Verifique!`;
         setCnpjCpfError(description);
-        cnpjCpfInputRef.current?.element.focus();
+        cnpjCpfInputRef.current?.element?.focus();
       }
 
       toast({ title, description, variant: 'destructive' });

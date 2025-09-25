@@ -69,7 +69,7 @@ const ContratoForm = () => {
                 data_inicio: parseDateWithTimezone(data.data_inicio),
                 data_fim: parseDateWithTimezone(data.data_fim),
                 pessoa: data.pessoa,
-                valor_coleta: String(data.valor_coleta || '0.00').replace('.', ','), // Garante que é string com vírgula
+                valor_coleta: String(data.valor_coleta || '0,00').replace('.', ','), // Garante que é string com vírgula
             };
             setFormData(formDataFromDB);
             setOriginalContrato(data);

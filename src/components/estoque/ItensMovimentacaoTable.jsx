@@ -14,7 +14,7 @@ const ItensMovimentacaoTable = ({ items, onItemsChange, type, isEditing }) => {
   const [productBalances, setProductBalances] = useState({});
   const [loadingBalances, setLoadingBalances] = useState(false);
   const [touchedItems, setTouchedItems] = useState({});
-  const [validatedItems, setValidatedItems] = useState({}); // Novo estado para itens validado
+  const [validatedItems, setValidatedItems] = useState({}); // Novo estado para itens validados
 
   const fetchProductBalances = useCallback(async () => {
     setLoadingBalances(true);
@@ -156,7 +156,7 @@ const ItensMovimentacaoTable = ({ items, onItemsChange, type, isEditing }) => {
             <TableBody>
               {items.map((item, index) => {
                 const error = validateItem(item, index);
-                const isEmptyItem = !item.produto_id && (item.quantidade === '' || parseCurrency(item.quantidade) === 0);
+                const isEmptyItem = !item.produto_id && (!item.quantidade || item.quantidade === '' || item.quantidade === '0,00');
                 
                 return (
                   <TableRow key={index} className="border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
