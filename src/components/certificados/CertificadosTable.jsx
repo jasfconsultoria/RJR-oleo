@@ -31,6 +31,7 @@ export const CertificadosTable = ({
   handleEdit,
   handleDelete,
   timezone, // Adicionado prop timezone
+  handleOpenViewModal, // Novo prop para abrir o modal de visualização
 }) => {
   const getSortIcon = (key) => {
     if (sortConfig.key !== key) return null;
@@ -67,12 +68,16 @@ export const CertificadosTable = ({
         <TableBody>
           {certificados.length > 0 ? certificados.map((cert) => (
             <TableRow key={cert.id} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
-              <TableCell data-label="ID" className="p-2 font-mono">{cert.id.substring(0, 8)}</TableCell> {/* Removido text-xs */}
+              <TableCell data-label="ID" className="p-2 font-mono">
+                <Button variant="link" onClick={() => handleOpenViewModal(cert)} className="p-0 h-auto text-white/90 hover:text-emerald-300">
+                  {cert.id.substring(0, 8)}
+                </Button>
+              </TableCell>
               <TableCell data-label="Data Emissão" className="p-2">{formatDateWithTimezone(cert.data_emissao, timezone)}</TableCell> {/* Usando formatDateWithTimezone */}
               <TableCell data-label="Cliente" className="font-medium p-2">{cert.cliente?.nome_fantasia ? `${cert.cliente.nome} - ${cert.cliente.nome_fantasia}` : cert.cliente?.nome || 'N/A'}</TableCell>
               <TableCell data-label="Período" className="p-2">{formatDateWithTimezone(cert.periodo_inicio, timezone)} - {formatDateWithTimezone(cert.periodo_fim, timezone)}</TableCell>
               <TableCell data-label="Total (kg)" className="text-right p-2">{formatNumber(cert.total_kg)}</TableCell>
-              <TableCell className="p-2 actions-cell text-right">
+              <TableCell className="p-2 actions-cell">
                 <div className="flex items-center justify-end gap-1">
                   <Button variant="ghost" size="icon" onClick={() => handleOpenPdf(cert)} title="Abrir PDF">
                     <FileText className="h-4 w-4 text-blue-400" />

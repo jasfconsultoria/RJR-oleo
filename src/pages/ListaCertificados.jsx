@@ -13,6 +13,7 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { formatToISODate } from '@/lib/utils';
 import { motion } from 'framer-motion';
 import { startOfMonth, endOfMonth } from 'date-fns'; // Importar startOfMonth e endOfMonth
+import CertificadoViewModal from '@/components/certificados/CertificadoViewModal'; // Importar o novo modal
 
 const getTodayDate = () => new Date();
 const getFirstDayOfMonth = () => {
@@ -38,6 +39,9 @@ const ListaCertificados = () => {
   const navigate = useNavigate();
 
   const debouncedFilters = useDebounce(filters, 500);
+
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false); // Estado para o modal de visualização
+  const [selectedCertificado, setSelectedCertificado] = useState(null); // Certificado selecionado para o modal
 
   const pageSize = useMemo(() => empresa?.items_per_page || 25, [empresa]);
 
@@ -107,7 +111,7 @@ const ListaCertificados = () => {
       .from('certificados')
       .select(`
         *,
-        cliente:clientes(nome, nome_fantasia)
+        cliente:clientes(id, nome, nome_fantasia)
       `, { count: 'exact' })
       .gte('data_emissao', startDate.toISOString())
       .lte('data_emissao', endDate.toISOString());
@@ -191,6 +195,11 @@ const ListaCertificados = () => {
     navigate(`/app/certificados/editar/${cert.id}`);
   };
 
+  const handleOpenViewModal = (cert) => {
+    setSelectedCertificado(cert);
+    setIsViewModalOpen(true);
+  };
+
   const requestSort = (key) => {
     let direction = 'asc';
     if (sortConfig.key === key && sortConfig.direction === 'asc') {
@@ -240,6 +249,7 @@ const ListaCertificados = () => {
             handleEdit={handleEdit}
             handleDelete={handleDelete}
             timezone={empresa?.timezone} 
+            handleOpenViewModal={handleOpenViewModal} // Passar o novo handler
           />
         </motion.div>
         <Pagination
@@ -250,6 +260,14 @@ const ListaCertificados = () => {
           totalCount={totalCount}
         />
       </div>
+
+      {isViewModalOpen && selectedCertificado && (
+         <CertificadoViewModal 
+            certificado={selectedCertificado} 
+            isOpen={isViewModalOpen} 
+            onClose={() => setIsViewModalOpen(false)}
+         />
+      )}
     </>
   );
 };
