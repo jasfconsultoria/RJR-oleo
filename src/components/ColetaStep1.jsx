@@ -9,7 +9,7 @@ import { Calendar, User, MapPin, Calculator, Package, Info, AtSign, Phone, Arrow
 import { toast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
 import { estados, getMunicipios } from '@/lib/location';
-import { SearchableSelect } from '@/components/ui/SearchableSelect';
+import { SearchableSelect } '@/components/ui/SearchableSelect';
 import { IMaskInput } from 'react-imask';
 import { formatCnpjCpf, unmask, formatToISODate, parseCurrency } from '@/lib/utils';
 import { DatePicker } from '@/components/ui/date-picker';

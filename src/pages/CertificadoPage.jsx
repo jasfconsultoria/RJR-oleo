@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { ArrowLeft, Loader2, FileText, CheckCircle, User } from 'lucide-react';
 import { logAction } from '@/lib/logger';
-import { formatToISODate, formatCnpjCpf } from '@/lib/utils';
+import { formatToISODate, formatCnpjCpf, parseCurrency } from '@/lib/utils';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas'; // Corrigido de html22canvas para html2canvas
 import { format, isValid, parseISO, endOfDay } from 'date-fns';
@@ -577,7 +577,7 @@ const CertificadoPage = () => {
                     <motion.div
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="absolute z-10 w-full bg-white rounded-lg shadow-lg max-h-48 overflow-y-auto mt-1"
+                      className="absolute z-10 w-full bg-white rounded-lg shadow-lg max-h-48 overflow-y-auto mt-1 border border-gray-200"
                     >
                       {filteredClients.length > 0 ? (
                         filteredClients.map((client) => (

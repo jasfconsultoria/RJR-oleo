@@ -14,7 +14,7 @@ const ItensMovimentacaoTable = ({ items, onItemsChange, type, isEditing }) => {
   const [productBalances, setProductBalances] = useState({});
   const [loadingBalances, setLoadingBalances] = useState(false);
   const [touchedItems, setTouchedItems] = useState({});
-  const [validatedItems, setValidatedItems] = useState({}); // Novo estado para itens validados
+  const [validatedItems, setValidatedItems] = useState({}); // Novo estado para itens validado
 
   const fetchProductBalances = useCallback(async () => {
     setLoadingBalances(true);
