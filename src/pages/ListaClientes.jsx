@@ -164,7 +164,7 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
       setTotalCount(filteredData.length); // Set total count based on filtered data
     }
     setLoading(false);
-  }, [profile, profileLoading, toast, debouncedSearchTerm, sortConfig, empresa, personType, listTitle, allContratos]); // allContratos is a dependency because getContractStatus uses it
+  }, [profile, profileLoading, toast, debouncedSearchTerm, sortConfig, empresa, personType, listTitle]); // Removido allContratos daqui
 
   useEffect(() => {
     fetchClientes();
@@ -221,7 +221,7 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
     }
     const contratosDoCliente = allContratos.filter(c => c.cliente_id === clienteId);
     if (contratosDoCliente.length === 0) {
-      return <span className="text-gray-400">Sem Contrato</span>;
+      return <span className="text-gray-400">Sem Contrato</span>; // Should not happen for 'cliente' type with the RPC filter
     }
     const activeContract = contratosDoCliente.find(c => c.cliente_id === clienteId && c.status === 'Ativo');
     if (activeContract) {
