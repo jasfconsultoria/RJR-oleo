@@ -55,30 +55,67 @@ const PaymentDialog = ({ isOpen, onClose, entry, onSuccess, initialPaidAmount, i
     }
     setLoadingAccounts(true);
     try {
-      const { data: links, error: linksError } = await supabase
+      // 1. Fetch company CNPJ to find default account
+      const { data: empresaData, error: empresaError } = await supabase
+        .from('empresa')
+        .select('cnpj')
+        .single();
+
+      if (empresaError) throw empresaError;
+
+      const companyCnpj = empresaData?.cnpj;
+
+      // 2. Fetch all accounts linked to the current user
+      const { data: userLinks, error: userLinksError } = await supabase
         .from('conta_usuario')
         .select('conta_corrente_id')
         .eq('user_id', user.id);
 
-      if (linksError) throw linksError;
+      if (userLinksError) throw userLinksError;
 
-      const accountIds = links.map(link => link.conta_corrente_id);
+      const userAccountIds = userLinks.map(link => link.conta_corrente_id);
 
-      if (accountIds.length > 0) {
-        const { data: accounts, error: accountsError } = await supabase
+      // 3. Fetch full details for linked accounts
+      let accounts = [];
+      if (userAccountIds.length > 0) {
+        const { data: accountsData, error: accountsError } = await supabase
           .from('conta_corrente')
           .select('*')
-          .in('id', accountIds)
+          .in('id', userAccountIds)
           .order('banco', { ascending: true });
-
         if (accountsError) throw accountsError;
-        setLinkedAccounts(accounts || []);
-        if (accounts.length > 0 && !paymentData.conta_corrente_id) {
-          setPaymentData(prev => ({ ...prev, conta_corrente_id: accounts[0].id }));
-        }
-      } else {
-        setLinkedAccounts([]);
+        accounts = accountsData || [];
       }
+      setLinkedAccounts(accounts);
+
+      // 4. Determine default account and pre-select if applicable
+      let defaultAccountId = '';
+      if (companyCnpj) {
+        const { data: defaultAccount, error: defaultError } = await supabase
+          .from('conta_corrente')
+          .select('id')
+          .eq('cnpj_empresa', companyCnpj)
+          .eq('is_default', true)
+          .single();
+
+        if (defaultError && defaultError.code !== 'PGRST116') { // PGRST116 means no rows found, which is fine
+          console.error('Error fetching default account:', defaultError);
+        }
+
+        if (defaultAccount && userAccountIds.includes(defaultAccount.id)) {
+          defaultAccountId = defaultAccount.id;
+        }
+      }
+
+      // Set initial selected account: default if found, otherwise the first linked account, otherwise empty
+      if (defaultAccountId) {
+        setPaymentData(prev => ({ ...prev, conta_corrente_id: defaultAccountId }));
+      } else if (accounts.length > 0 && !paymentData.conta_corrente_id) {
+        setPaymentData(prev => ({ ...prev, conta_corrente_id: accounts[0].id }));
+      } else if (accounts.length === 0) {
+        setPaymentData(prev => ({ ...prev, conta_corrente_id: '' }));
+      }
+
     } catch (error) {
       toast({ title: 'Erro ao buscar contas vinculadas', description: error.message, variant: 'destructive' });
       setLinkedAccounts([]);

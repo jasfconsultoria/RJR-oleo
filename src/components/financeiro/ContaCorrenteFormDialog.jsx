@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Loader2 } from 'lucide-react';
 import { IMaskInput } from 'react-imask';
 import { parseCurrency } from '@/lib/utils';
+import { Checkbox } from '@/components/ui/checkbox'; // Importar Checkbox
 
 export const ContaCorrenteFormDialog = ({ cnpjEmpresa, contaToEdit, isOpen, onClose, onSaveSuccess }) => {
   const [formData, setFormData] = useState({
@@ -15,6 +16,7 @@ export const ContaCorrenteFormDialog = ({ cnpjEmpresa, contaToEdit, isOpen, onCl
     agencia: '',
     conta: '',
     saldo: '0,00',
+    is_default: false, // Novo campo
   });
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
@@ -28,6 +30,7 @@ export const ContaCorrenteFormDialog = ({ cnpjEmpresa, contaToEdit, isOpen, onCl
           agencia: contaToEdit.agencia || '',
           conta: contaToEdit.conta || '',
           saldo: String(contaToEdit.saldo || '0.00').replace('.', ','),
+          is_default: contaToEdit.is_default || false, // Carregar valor existente
         });
       } else {
         setFormData({
@@ -35,6 +38,7 @@ export const ContaCorrenteFormDialog = ({ cnpjEmpresa, contaToEdit, isOpen, onCl
           agencia: '',
           conta: '',
           saldo: '0,00',
+          is_default: false,
         });
       }
     }
@@ -47,6 +51,10 @@ export const ContaCorrenteFormDialog = ({ cnpjEmpresa, contaToEdit, isOpen, onCl
 
   const handleSaldoChange = (value) => {
     setFormData(prev => ({ ...prev, saldo: value }));
+  };
+
+  const handleCheckboxChange = (checked) => {
+    setFormData(prev => ({ ...prev, is_default: checked }));
   };
 
   const handleSubmit = async (e) => {
@@ -66,6 +74,7 @@ export const ContaCorrenteFormDialog = ({ cnpjEmpresa, contaToEdit, isOpen, onCl
       agencia: formData.agencia.trim(),
       conta: formData.conta.trim(),
       saldo: parsedSaldo,
+      is_default: formData.is_default, // Incluir no objeto a ser salvo
     };
 
     let result;
@@ -152,6 +161,15 @@ export const ContaCorrenteFormDialog = ({ cnpjEmpresa, contaToEdit, isOpen, onCl
               className="w-full flex h-10 rounded-xl border border-white/30 bg-white/10 px-3 py-2 text-sm"
               required
             />
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="is_default"
+              checked={formData.is_default}
+              onCheckedChange={handleCheckboxChange}
+              className="border-white/50 data-[state=checked]:bg-emerald-500 data-[state=checked]:text-white"
+            />
+            <Label htmlFor="is_default">Definir como Conta Padrão</Label>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
