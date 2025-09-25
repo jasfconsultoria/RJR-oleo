@@ -12,13 +12,12 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { Input } from '@/components/ui/input';
 import { Pagination } from '@/components/ui/pagination';
 import { formatNumber } from '@/lib/utils';
-import ClienteSearchableSelect from '@/components/ui/ClienteSearchableSelect'; // Reintroduzido
 
 const RelatorioRecipientesPage = () => {
   const [reportData, setReportData] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedClientId, setSelectedClientId] = useState(null); // Reintroduzido
-  const debouncedSelectedClientId = useDebounce(selectedClientId, 500); // Debounce para o ID do cliente
+  const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearchTerm = useDebounce(searchTerm, 500);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [empresa, setEmpresa] = useState(null);
@@ -42,24 +41,22 @@ const RelatorioRecipientesPage = () => {
     if (!empresa) return;
     setLoading(true);
     
-    let query = supabase.rpc('get_recipientes_report');
-
-    const { data, error } = await query;
+    const { data, error } = await supabase.rpc('get_recipientes_report');
 
     if (error) {
       toast({ title: 'Erro ao gerar relatório de recipientes', description: error.message, variant: 'destructive' });
       setReportData([]);
       setTotalCount(0);
     } else {
-      let filteredData = (data || []);
-      if (debouncedSelectedClientId) { // Filtrar por ID do cliente selecionado
-        filteredData = filteredData.filter(item => item.cliente_id === debouncedSelectedClientId);
-      }
+      const filteredData = (data || []).filter(item =>
+        item.cliente_nome.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+        (item.cliente_nome_fantasia && item.cliente_nome_fantasia.toLowerCase().includes(debouncedSearchTerm.toLowerCase()))
+      );
       setReportData(filteredData);
       setTotalCount(filteredData.length);
     }
     setLoading(false);
-  }, [toast, debouncedSelectedClientId, empresa]);
+  }, [toast, debouncedSearchTerm, empresa]);
 
   useEffect(() => {
     if (empresa) {
@@ -69,7 +66,7 @@ const RelatorioRecipientesPage = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSelectedClientId, pageSize]);
+  }, [debouncedSearchTerm, pageSize]);
 
   const paginatedData = useMemo(() => {
     const from = (currentPage - 1) * pageSize;
@@ -130,11 +127,18 @@ const RelatorioRecipientesPage = () => {
           <CardContent className="pt-6">
             <div className="grid grid-cols-1 gap-4 items-end">
                 <div>
-                  <ClienteSearchableSelect
-                    labelText="Buscar Cliente"
-                    value={selectedClientId}
-                    onChange={setSelectedClientId}
-                  />
+                  <Label htmlFor="searchTerm" className="block text-white mb-1 text-sm">Buscar Cliente</Label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/70" />
+                    <Input
+                      id="searchTerm"
+                      type="search"
+                      placeholder="Nome do cliente ou nome fantasia..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60 rounded-xl"
+                    />
+                  </div>
                 </div>
             </div>
           </CardContent>

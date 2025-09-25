@@ -4,16 +4,25 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { DateInput } from '@/components/ui/date-input';
 import { Loader2, X, Search } from 'lucide-react';
-import ClienteSearchableSelect from '@/components/ui/ClienteSearchableSelect'; // Reintroduzido
 
 export function CertificadosFilters({
-  selectedClientId, // Reintroduzido
-  setSelectedClientId, // Reintroduzido
+  clientSearchTerm, // Novo prop
+  setClientSearchTerm, // Novo prop
   startDate,
   setStartDate,
   endDate,
   setEndDate,
 }) {
+  const handleInputChange = (e) => {
+    const value = e.target.value;
+    setClientSearchTerm(value); // Atualiza o termo de busca diretamente
+  };
+  
+  const clearSearch = () => {
+    setClientSearchTerm('');
+  };
+
+
   return (
     <motion.div
       initial={{ opacity: 0, y: -20 }}
@@ -22,11 +31,23 @@ export function CertificadosFilters({
     >
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 items-end">
         <div className="relative">
-          <ClienteSearchableSelect
-            labelText="Cliente"
-            value={selectedClientId}
-            onChange={setSelectedClientId}
-          />
+          <label htmlFor="cliente-search" className="block text-white mb-2">Cliente</label>
+           <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/70" />
+            <Input
+              id="cliente-search"
+              value={clientSearchTerm} // Usar clientSearchTerm
+              onChange={handleInputChange}
+              placeholder="Buscar cliente..."
+              className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60 focus:ring-emerald-400 rounded-xl pr-10"
+              autoComplete="off"
+            />
+            {clientSearchTerm && ( // Mostrar botão de limpar apenas se houver texto
+              <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-white/70 hover:text-white rounded-full" onClick={clearSearch}>
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
         </div>
 
         <div>

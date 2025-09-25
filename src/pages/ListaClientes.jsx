@@ -30,10 +30,8 @@ import { formatCnpjCpf } from '@/lib/utils';
 import { logAction } from '@/lib/logger';
 import { Pagination } from '@/components/ui/pagination';
 import { useDebounce } from '@/hooks/useDebounce';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-const ListaClientes = ({ personType = 'pessoa' }) => {
+const ListaClientes = ({ personType = 'pessoa' }) => { // Accept personType prop
   const [clientes, setClientes] = useState([]);
   const [allContratos, setAllContratos] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -46,7 +44,6 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
   const [empresa, setEmpresa] = useState(null);
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
   const { toast } = useToast();
-  const [contractFilterType, setContractFilterType] = useState('all'); // Reintroduzido
 
   const pageSize = useMemo(() => empresa?.items_per_page || 25, [empresa]);
 
@@ -99,64 +96,41 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
             setAllContratos(data || []);
         }
     };
-    // Fetch contracts only if it's the client list, as suppliers don't need contract info
-    if (personType === 'cliente') {
-      fetchAllContratos();
-    } else {
-      setAllContratos([]); // Clear contracts for suppliers
-    }
-  }, [toast, personType]);
+    fetchAllContratos();
+  }, [toast]);
 
   const fetchClientes = useCallback(async () => {
     if (profileLoading || !profile || !empresa) return;
     setLoading(true);
     
+    const from = (currentPage - 1) * pageSize;
+    const to = from + pageSize - 1;
+
     let query = supabase
       .from('clientes')
-      .select('id, nome, nome_fantasia, cnpj_cpf, municipio, estado', { count: 'exact' });
+      .select('id, nome, nome_fantasia, cnpj_cpf, municipio, estado', { count: 'exact' }); // Include nome_fantasia
 
     if (debouncedSearchTerm) {
       query = query.or(`nome.ilike.%${debouncedSearchTerm}%,nome_fantasia.ilike.%${debouncedSearchTerm}%,cnpj_cpf.ilike.%${debouncedSearchTerm}%,municipio.ilike.%${debouncedSearchTerm}%,estado.ilike.%${debouncedSearchTerm}%`);
     }
 
-    // Apply role-based filtering
-    if (profile.role === 'coletor') {
-      query = query.eq('estado', profile.estado);
-    }
+    query = query.order(sortConfig.key, { ascending: sortConfig.direction === 'asc' }).range(from, to);
 
-    query = query.order(sortConfig.key, { ascending: sortConfig.direction === 'asc' });
+    let { data: clientesData, error: clientesError, count } = await query;
 
-    const { data, error, count } = await query;
-
-    if (error) {
+    if (clientesError) {
       toast({
-        title: 'Erro ao carregar ' + listTitle.toLowerCase(),
-        description: error.message,
+        title: 'Erro ao carregar clientes',
+        description: clientesError.message,
         variant: 'destructive',
       });
       setClientes([]);
-      setTotalCount(0);
     } else {
-      let filteredData = data || [];
-
-      // Apply contract filter if it's a client list
-      if (personType === 'cliente' && contractFilterType !== 'all') {
-        filteredData = filteredData.filter(client => {
-          const hasActiveContract = allContratos.some(c => c.cliente_id === client.id && c.status === 'Ativo');
-          if (contractFilterType === 'has_contract') {
-            return hasActiveContract;
-          } else if (contractFilterType === 'no_contract') {
-            return !hasActiveContract;
-          }
-          return true; // 'all'
-        });
-      }
-      
-      setClientes(filteredData);
-      setTotalCount(filteredData.length);
+      setClientes(clientesData || []);
+      setTotalCount(count || 0);
     }
     setLoading(false);
-  }, [profile, profileLoading, toast, debouncedSearchTerm, sortConfig, empresa, personType, listTitle, contractFilterType, allContratos]);
+  }, [profile, profileLoading, toast, currentPage, pageSize, debouncedSearchTerm, sortConfig, empresa]);
 
   useEffect(() => {
     fetchClientes();
@@ -164,7 +138,7 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearchTerm, contractFilterType, pageSize]);
+  }, [debouncedSearchTerm, pageSize]);
 
   const handleDelete = async (cliente) => {
     const { error } = await supabase
@@ -204,17 +178,14 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
   };
 
   const getContractStatus = (clienteId) => {
-    if (personType === 'fornecedor') {
-      return <span className="text-gray-400">N/A</span>;
-    }
-    if (!Array.isArray(allContratos) || allContratos.length === 0) {
+    if (allContratos.length === 0) {
       return <span className="text-gray-400">Carregando...</span>;
     }
     const contratosDoCliente = allContratos.filter(c => c.cliente_id === clienteId);
     if (contratosDoCliente.length === 0) {
       return <span className="text-gray-400">Sem Contrato</span>;
     }
-    const activeContract = contratosDoCliente.find(c => c.cliente_id === clienteId && c.status === 'Ativo');
+    const activeContract = contratosDoCliente.find(c => c.status === 'Ativo');
     if (activeContract) {
       return <span className="text-emerald-400 font-semibold">{activeContract.numero_contrato}</span>;
     }
@@ -230,12 +201,6 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
   }
 
   const totalPages = Math.ceil(totalCount / pageSize);
-
-  const paginatedClientes = useMemo(() => {
-    const from = (currentPage - 1) * pageSize;
-    const to = from + pageSize;
-    return clientes.slice(from, to);
-  }, [clientes, currentPage, pageSize]);
 
   return (
     <>
@@ -259,32 +224,15 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
         </motion.div>
 
         <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 md:p-6 space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/70" />
-                    <Input
-                    type="search"
-                    placeholder={`Buscar por nome, CNPJ/CPF, município ou estado d${singularArticle} ${singularNoun}...`}
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60 rounded-xl"
-                    />
-                </div>
-                {personType === 'cliente' && (
-                    <div>
-                        <Label htmlFor="contractFilter" className="block text-white mb-1 text-sm">Status Contrato</Label>
-                        <Select value={contractFilterType} onValueChange={setContractFilterType}>
-                            <SelectTrigger id="contractFilter" className="bg-white/20 border-white/30 text-white rounded-xl">
-                                <SelectValue placeholder="Todos" />
-                            </SelectTrigger>
-                            <SelectContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
-                                <SelectItem value="all">Todos</SelectItem>
-                                <SelectItem value="has_contract">Com Contrato Ativo</SelectItem>
-                                <SelectItem value="no_contract">Sem Contrato Ativo</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                )}
+            <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/70" />
+                <Input
+                type="search"
+                placeholder={`Buscar por nome, CNPJ/CPF, município ou estado d${singularArticle} ${singularNoun}...`}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60 rounded-xl"
+                />
             </div>
         </div>
 
@@ -307,30 +255,24 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
                       <th onClick={() => requestSort('municipio')} className="cursor-pointer text-white p-2 text-left">
                         <div className="flex items-center">Localização {getSortIcon('municipio')}</div>
                       </th>
-                      {personType !== 'fornecedor' && ( 
-                        <th className="text-left text-white p-2">Contrato</th>
-                      )}
+                      <th className="text-left text-white p-2">Contrato</th>
                       <th className="text-left text-white p-2">Ações</th>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {paginatedClientes.length > 0 ? paginatedClientes.map((cliente) => (
+                    {clientes.length > 0 ? clientes.map((cliente) => (
                       <TableRow key={cliente.id} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
                         <TableCell data-label="Razão Social / Nome Fantasia" className="font-medium p-2">
                           {cliente.nome_fantasia ? `${cliente.nome} - ${cliente.nome_fantasia}` : cliente.nome}
                         </TableCell>
                         <TableCell data-label="CNPJ/CPF" className="p-2">{formatCnpjCpf(cliente.cnpj_cpf)}</TableCell>
                         <TableCell data-label="Localização" className="p-2">{cliente.municipio}, {cliente.estado}</TableCell>
-                        {personType !== 'fornecedor' && ( 
-                          <TableCell data-label="Contrato" className="p-2">{getContractStatus(cliente.id)}</TableCell>
-                        )}
+                        <TableCell data-label="Contrato" className="p-2">{getContractStatus(cliente.id)}</TableCell>
                         <TableCell className="p-2 actions-cell">
                           <div className="flex items-center gap-1">
-                            {personType !== 'fornecedor' && ( 
-                              <Button variant="ghost" size="icon" title="Ver Contratos" onClick={() => navigate(`/app/cadastro/contratos?clienteId=${cliente.id}`)}>
-                                  <FileText className="h-4 w-4 text-cyan-400" />
-                              </Button>
-                            )}
+                            <Button variant="ghost" size="icon" title="Ver Contratos" onClick={() => navigate(`/app/cadastro/contratos?clienteId=${cliente.id}`)}>
+                                <FileText className="h-4 w-4 text-cyan-400" />
+                            </Button>
                             <Link to={`/app/cadastro/${personType}s/editar/${cliente.id}`}>
                               <Button variant="ghost" size="icon" title={`Editar ${singularNoun}`}>
                                 <Edit className="h-4 w-4 text-yellow-400" />
@@ -364,7 +306,7 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
                       </TableRow>
                     )) : (
                       <TableRow>
-                        <TableCell colSpan={personType !== 'fornecedor' ? 5 : 4} className="h-24 text-center text-white/70"> 
+                        <TableCell colSpan={5} className="h-24 text-center text-white/70"> {/* Adjusted colspan */}
                           Nenhum{singularArticle === 'a' ? 'a' : ''} {singularNoun} encontrado{singularArticle === 'a' ? 'a' : ''}.
                         </TableCell>
                       </TableRow>

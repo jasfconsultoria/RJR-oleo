@@ -5,10 +5,10 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
     import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
     import { Button } from '@/components/ui/button';
     import { Label } from '@/components/ui/label';
-    import { Loader2, FileDown, Droplets, Truck, DollarSign, Repeat, BarChart2, Search } from 'lucide-react';
+    import { Loader2, FileDown, Droplets, Truck, DollarSign, Repeat, BarChart2, Search } from 'lucide-react'; // Adicionado Search
     import { Table, TableBody, TableCell, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
     import { estados, getMunicipios } from '@/lib/location';
-    import { useProfile } from '@/contexts/ProfileContext';
+    import { useProfile } from '@/contexts/ProfileContext'; // Corrigido o caminho de importação
     import { format, subDays, endOfDay, parseISO, isValid } from 'date-fns';
     import { ptBR } from 'date-fns/locale';
     import * as XLSX from 'xlsx';
@@ -16,7 +16,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
     import { useDebounce } from '@/hooks/useDebounce';
     import { Input } from '@/components/ui/input';
     import { SearchableSelect } from '@/components/ui/SearchableSelect';
-    import ClienteSearchableSelect from '@/components/ui/ClienteSearchableSelect'; // Reintroduzido
+    // Removido: import ClienteSearchableSelect from '@/components/ui/ClienteSearchableSelect';
     import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
     import { Pagination } from '@/components/ui/pagination';
     import { UserSearchableSelect } from '@/components/ui/UserSearchableSelect';
@@ -24,11 +24,12 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
     const RelatoriosPage = () => {
       const [reportData, setReportData] = useState([]);
       const [loading, setLoading] = useState(true);
+      // Removido: [clientes, setClientes] = useState([]);
       const [usuarios, setUsuarios] = useState([]);
       const [filters, setFilters] = useState({ 
         estado: 'all', 
         municipio: 'all',
-        selectedClientId: null, // Reintroduzido
+        clientSearchTerm: '', // Alterado de clienteId para clientSearchTerm
         userId: 'all',
         startDate: format(subDays(new Date(), 30), 'yyyy-MM-dd'),
         endDate: format(new Date(), 'yyyy-MM-dd'),
@@ -50,9 +51,13 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
           setLoading(true);
           try {
             const [usuariosRes, empresaRes] = await Promise.all([
+              // Removido: supabase.from('clientes').select(...)
               supabase.rpc('get_all_users'),
               supabase.from('empresa').select('items_per_page').single()
             ]);
+
+            // Removido: if (clientesRes.error) toast({ title: 'Erro ao buscar clientes', variant: 'destructive' });
+            // Removido: else setClientes(clientesRes.data || []);
 
             if (usuariosRes.error) {
               toast({ title: 'Erro ao buscar usuários', variant: 'destructive' });
@@ -81,11 +86,11 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
         const from = (currentPage - 1) * pageSize;
         const to = from + pageSize - 1;
 
-        let query = supabase.from('coletas').select('*, pessoa:clientes(nome, nome_fantasia), usuario:profiles(full_name)', { count: 'exact' });
+        let query = supabase.from('coletas').select('*, pessoa:clientes(nome, nome_fantasia), usuario:profiles(full_name)', { count: 'exact' }); // Added nome_fantasia to client select
 
         if (currentFilters.estado && currentFilters.estado !== 'all') query = query.eq('estado', currentFilters.estado);
         if (currentFilters.municipio && currentFilters.municipio !== 'all') query = query.eq('municipio', currentFilters.municipio);
-        if (currentFilters.selectedClientId) query = query.eq('cliente_id', currentFilters.selectedClientId); // Filtrar por ID do cliente
+        if (currentFilters.clientSearchTerm) query = query.or(`pessoa.nome.ilike.%${currentFilters.clientSearchTerm}%,pessoa.nome_fantasia.ilike.%${currentFilters.clientSearchTerm}%`); // Filtrar por nome do cliente
         if (currentFilters.userId && currentFilters.userId !== 'all') query = query.eq('user_id', currentFilters.userId);
         if (currentFilters.startDate) query = query.gte('data_coleta', currentFilters.startDate);
         if (currentFilters.endDate) {
@@ -147,10 +152,10 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
           const from = i * 500;
           const to = from + 500 - 1;
           
-          let query = supabase.from('coletas').select('*, pessoa:clientes(nome, nome_fantasia), usuario:profiles(full_name)');
+          let query = supabase.from('coletas').select('*, pessoa:clientes(nome, nome_fantasia), usuario:profiles(full_name)'); // Added nome_fantasia
           if (filters.estado && filters.estado !== 'all') query = query.eq('estado', filters.estado);
           if (filters.municipio && filters.municipio !== 'all') query = query.eq('municipio', filters.municipio);
-          if (filters.selectedClientId) query = query.eq('cliente_id', filters.selectedClientId); // Filtrar por ID do cliente
+          if (filters.clientSearchTerm) query = query.or(`pessoa.nome.ilike.%${filters.clientSearchTerm}%,pessoa.nome_fantasia.ilike.%${filters.clientSearchTerm}%`); // Filtrar por nome do cliente
           if (filters.userId && filters.userId !== 'all') query = query.eq('user_id', filters.userId);
           if (filters.startDate) query = query.gte('data_coleta', filters.startDate);
           if (filters.endDate) {
@@ -175,7 +180,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
           const clientDisplayName = item.pessoa?.nome_fantasia ? `${item.pessoa.nome} - ${item.pessoa.nome_fantasia}` : item.pessoa?.nome || item.cliente_nome;
           return {
             'Data Coleta': formattedDate,
-            'Cliente': clientDisplayName,
+            'Cliente': clientDisplayName, // Use concatenated name
             'Usuário': item.usuario?.full_name || 'N/A',
             'Estado': item.estado,
             'Município': item.municipio,
@@ -257,11 +262,18 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
                       />
                     </div>
                     <div className="relative z-30">
-                      <ClienteSearchableSelect
-                        labelText="Cliente"
-                        value={filters.selectedClientId}
-                        onChange={(value) => setFilters(f => ({ ...f, selectedClientId: value }))}
-                      />
+                      <Label htmlFor="clientSearch" className="block text-white mb-1 text-sm">Cliente</Label>
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/70" />
+                        <Input
+                          id="clientSearch"
+                          type="search"
+                          placeholder="Buscar por nome do cliente..."
+                          value={filters.clientSearchTerm}
+                          onChange={(e) => setFilters(f => ({ ...f, clientSearchTerm: e.target.value }))}
+                          className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60 rounded-xl"
+                        />
+                      </div>
                     </div>
                     <div className="relative z-20">
                       <UserSearchableSelect
