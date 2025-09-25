@@ -57,8 +57,8 @@ const VersoesPage = () => {
       setVersoes([]);
       setTotalCount(0);
     } else {
-      setVersoes(data);
-      setTotalCount(data.length);
+      setVersoes(data || []);
+      setTotalCount(data?.length || 0);
     }
     setLoading(false);
   }, [toast]);
@@ -141,7 +141,7 @@ const VersoesPage = () => {
                   </TableHeader>
                   <TableBody>
                     {paginatedAndSortedVersoes.map((versao) => (
-                      <TableRow key={versao.id} className="border-b border-white/10 hover:bg-white/15">
+                      <TableRow key={versao.id} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/15">
                         <TableCell className="font-medium">{versao.versao}</TableCell>
                         <TableCell>{formatarData(versao.data_implantacao)}</TableCell>
                         <TableCell className="font-mono text-sm text-gray-400">
@@ -155,7 +155,7 @@ const VersoesPage = () => {
                                 Ver Detalhes
                               </Button>
                             </DialogTrigger>
-                            <DialogContent className="bg-gray-800 text-white border-gray-700">
+                            <DialogContent className="bg-gray-800 text-white border-gray-700 max-w-lg max-h-[80vh] overflow-y-auto">
                               <DialogHeader>
                                 <DialogTitle className="text-emerald-400">Detalhes da Versão {versao.versao}</DialogTitle>
                                 <DialogDescription className="text-gray-400">
@@ -198,7 +198,7 @@ const VersoesPage = () => {
                 totalPages={totalPages}
                 onPageChange={setCurrentPage}
                 pageSize={pageSize}
-                showPageSize={true}
+                totalCount={totalCount}
               />
              <div className="flex justify-start items-center pt-6 mt-4">
                 <Button
