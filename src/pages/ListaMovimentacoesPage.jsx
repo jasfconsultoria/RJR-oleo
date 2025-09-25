@@ -19,6 +19,7 @@ import ClienteSearchableSelect from '@/components/ui/ClienteSearchableSelect';
 import ProdutoSearchableSelect from '@/components/estoque/ProdutoSearchableSelect';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { formatNumber } from '@/lib/utils';
+import MovimentacaoViewDialog from '@/components/estoque/MovimentacaoViewDialog';
 
 const ListaMovimentacoesPage = () => {
   const navigate = useNavigate();
@@ -37,6 +38,7 @@ const ListaMovimentacoesPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [empresa, setEmpresa] = useState(null);
+  const [viewingMovimentacao, setViewingMovimentacao] = useState(null);
 
   const pageSize = useMemo(() => empresa?.items_per_page || 25, [empresa]);
 
@@ -136,6 +138,10 @@ const ListaMovimentacoesPage = () => {
       toast({ title: 'Movimentação deletada com sucesso' });
       fetchMovimentacoes();
     }
+  };
+
+  const handleViewMovimentacao = (mov) => {
+    setViewingMovimentacao(mov);
   };
 
   const totalPages = Math.ceil(totalCount / pageSize);
