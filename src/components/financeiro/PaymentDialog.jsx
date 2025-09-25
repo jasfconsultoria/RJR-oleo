@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, CalendarIcon, Banknote } from 'lucide-react'; // Adicionado Banknote icon
+import { Loader2, CalendarIcon, Banknote } from 'lucide-react';
 import { formatCurrency, parseCurrency, formatToISODate } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -27,29 +27,26 @@ const paymentMethods = [
   { value: 'other', label: 'Outro' },
 ];
 
-const PaymentDialog = ({ isOpen, onClose, entry, onSuccess }) => {
+const PaymentDialog = ({ isOpen, onClose, entry, onSuccess, initialPaidAmount, initialPaymentMethod = 'pix' }) => {
   const { toast } = useToast();
   const { user } = useAuth();
   const [paymentData, setPaymentData] = useState({
     paid_amount: '',
     payment_date: new Date(),
-    payment_method: entry?.payment_method || 'pix',
+    payment_method: initialPaymentMethod, // Usar o valor inicial
     notes: '',
-    conta_corrente_id: '', // Novo estado para a conta corrente selecionada
+    conta_corrente_id: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [linkedAccounts, setLinkedAccounts] = useState([]); // Estado para as contas vinculadas
+  const [linkedAccounts, setLinkedAccounts] = useState([]);
   const [loadingAccounts, setLoadingAccounts] = useState(true);
 
-  // Calcula o saldo restante real da parcela
   const realRemainingBalance = entry ? (entry.total_value - (entry.paid_amount || 0)) : 0;
   
-  // Calcula o novo total pago e o novo saldo com base no input do usuário
   const currentPaidAmountInput = parseCurrency(paymentData.paid_amount);
   const newTotalPaidDisplay = (entry?.paid_amount || 0) + currentPaidAmountInput;
   const newBalanceDisplay = realRemainingBalance - currentPaidAmountInput;
 
-  // Função para buscar as contas correntes vinculadas ao usuário
   const fetchLinkedAccounts = useCallback(async () => {
     if (!user?.id) {
       setLinkedAccounts([]);
@@ -58,7 +55,6 @@ const PaymentDialog = ({ isOpen, onClose, entry, onSuccess }) => {
     }
     setLoadingAccounts(true);
     try {
-      // Busca os IDs das contas vinculadas ao usuário
       const { data: links, error: linksError } = await supabase
         .from('conta_usuario')
         .select('conta_corrente_id')
@@ -69,7 +65,6 @@ const PaymentDialog = ({ isOpen, onClose, entry, onSuccess }) => {
       const accountIds = links.map(link => link.conta_corrente_id);
 
       if (accountIds.length > 0) {
-        // Busca os detalhes completos das contas
         const { data: accounts, error: accountsError } = await supabase
           .from('conta_corrente')
           .select('*')
@@ -78,7 +73,6 @@ const PaymentDialog = ({ isOpen, onClose, entry, onSuccess }) => {
 
         if (accountsError) throw accountsError;
         setLinkedAccounts(accounts || []);
-        // Define a primeira conta como padrão, se houver
         if (accounts.length > 0 && !paymentData.conta_corrente_id) {
           setPaymentData(prev => ({ ...prev, conta_corrente_id: accounts[0].id }));
         }
@@ -96,15 +90,15 @@ const PaymentDialog = ({ isOpen, onClose, entry, onSuccess }) => {
   useEffect(() => {
     if (isOpen) {
       fetchLinkedAccounts();
-      // Resetar o valor a pagar para 0,00 ao abrir o modal
       setPaymentData(prev => ({ 
         ...prev, 
-        paid_amount: '0,00', // Alterado para '0,00'
-        payment_date: new Date(), // Resetar data para hoje
-        notes: '', // Limpar notas
+        paid_amount: initialPaidAmount ? String(initialPaidAmount).replace('.', ',') : '0,00', // Usar initialPaidAmount
+        payment_date: new Date(),
+        payment_method: initialPaymentMethod, // Usar initialPaymentMethod
+        notes: '',
       }));
     }
-  }, [isOpen, fetchLinkedAccounts, realRemainingBalance]);
+  }, [isOpen, fetchLinkedAccounts, realRemainingBalance, initialPaidAmount, initialPaymentMethod]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -127,8 +121,7 @@ const PaymentDialog = ({ isOpen, onClose, entry, onSuccess }) => {
       toast({ title: 'Valor inválido', description: 'O valor do pagamento deve ser maior que zero.', variant: 'destructive' });
       return;
     }
-    // A validação agora usa o saldo restante real
-    if (parsedPaidAmount > realRemainingBalance + 0.01) { // Adiciona uma pequena tolerância para problemas de ponto flutuante
+    if (parsedPaidAmount > realRemainingBalance + 0.01) {
       toast({ title: 'Valor excede o saldo', description: `O valor máximo para pagamento é ${formatCurrency(realRemainingBalance)}.`, variant: 'destructive' });
       return;
     }
@@ -145,7 +138,7 @@ const PaymentDialog = ({ isOpen, onClose, entry, onSuccess }) => {
       p_payment_date: formatToISODate(paymentData.payment_date),
       p_payment_method: paymentData.payment_method,
       p_notes: paymentData.notes,
-      p_conta_corrente_id: paymentData.conta_corrente_id, // Novo parâmetro
+      p_conta_corrente_id: paymentData.conta_corrente_id,
     };
 
     const { data, error } = await supabase.rpc('register_payment', rpc_params);

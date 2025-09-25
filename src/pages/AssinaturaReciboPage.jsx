@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { Recibo } from '@/components/Recibo';
 import { Loader2, Eraser, CheckCircle, AlertTriangle, XCircle } from 'lucide-react';
 import { Label } from '@/components/ui/label';
+import PaymentDialog from '@/components/financeiro/PaymentDialog'; // Importar o PaymentDialog
 
 const AssinaturaReciboPage = () => {
   const { id } = useParams();
@@ -21,6 +22,9 @@ const AssinaturaReciboPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const sigCanvas = useRef({});
+
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false); // Novo estado para o diálogo de pagamento
+  const [debitEntryForPayment, setDebitEntryForPayment] = useState(null); // Novo estado para o lançamento de débito
 
   const fetchReciboData = useCallback(async () => {
     setLoading(true);
@@ -91,13 +95,47 @@ const AssinaturaReciboPage = () => {
       if (upsertError) throw upsertError;
         
       toast({ title: 'Recibo assinado com sucesso!', description: 'Obrigado por sua colaboração.' });
-      navigate(`/recibo/publico/${coleta.id}`);
+
+      // Se a coleta for do tipo 'Compra', abre o diálogo de pagamento
+      if (coleta.tipo_coleta === 'Compra') {
+        // Aguarda um pouco para o trigger do Supabase processar o lançamento financeiro
+        await new Promise(resolve => setTimeout(resolve, 1500)); 
+
+        const { data: debitEntry, error: debitError } = await supabase
+          .from('v_financeiro_completo')
+          .select('*')
+          .eq('lancamento_id', id) // O lancamento_id é o mesmo id da coleta para este caso
+          .eq('type', 'debito')
+          .single();
+
+        if (debitError) {
+          console.error('Erro ao buscar lançamento de débito:', debitError);
+          toast({ title: 'Erro', description: 'Não foi possível carregar os detalhes do débito para pagamento.', variant: 'destructive' });
+          navigate(`/recibo/publico/${coleta.id}`); // Navega mesmo com erro
+        } else {
+          setDebitEntryForPayment(debitEntry);
+          setShowPaymentDialog(true);
+        }
+      } else {
+        // Para outros tipos de coleta, navega diretamente para o recibo público
+        navigate(`/recibo/publico/${coleta.id}`);
+      }
 
     } catch (err) {
       toast({ title: 'Erro ao salvar assinatura', description: err.message, variant: 'destructive' });
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handlePaymentSuccess = () => {
+    setShowPaymentDialog(false);
+    navigate(`/recibo/publico/${coleta.id}`);
+  };
+
+  const handlePaymentClose = () => {
+    setShowPaymentDialog(false);
+    navigate(`/recibo/publico/${coleta.id}`);
   };
 
   if (loading) {
@@ -161,6 +199,17 @@ const AssinaturaReciboPage = () => {
           </CardFooter>
         </Card>
       </div>
+
+      {debitEntryForPayment && (
+        <PaymentDialog
+          isOpen={showPaymentDialog}
+          onClose={handlePaymentClose}
+          entry={debitEntryForPayment}
+          onSuccess={handlePaymentSuccess}
+          initialPaidAmount={debitEntryForPayment.amount_balance} // Preenche com o saldo devedor
+          initialPaymentMethod="pix" // Define Pix como padrão
+        />
+      )}
     </>
   );
 };
