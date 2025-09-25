@@ -113,7 +113,7 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
     
     let clientesData = [];
     let clientesError = null;
-    let count = 0;
+    // let count = 0; // Removido, pois o count será do array filtrado
 
     if (personType === 'cliente') {
       // Use RPC function for clients with active contracts
@@ -164,7 +164,7 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
       setTotalCount(filteredData.length); // Set total count based on filtered data
     }
     setLoading(false);
-  }, [profile, profileLoading, toast, debouncedSearchTerm, sortConfig, empresa, personType, listTitle]);
+  }, [profile, profileLoading, toast, debouncedSearchTerm, sortConfig, empresa, personType, listTitle, allContratos]); // allContratos is a dependency because getContractStatus uses it
 
   useEffect(() => {
     fetchClientes();
@@ -215,14 +215,15 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
     if (personType === 'fornecedor') {
       return <span className="text-gray-400">N/A</span>;
     }
-    if (allContratos.length === 0) {
+    // Adicionado verificação Array.isArray para robustez
+    if (!Array.isArray(allContratos) || allContratos.length === 0) {
       return <span className="text-gray-400">Carregando...</span>;
     }
     const contratosDoCliente = allContratos.filter(c => c.cliente_id === clienteId);
     if (contratosDoCliente.length === 0) {
-      return <span className="text-gray-400">Sem Contrato</span>; // Should not happen for 'cliente' type with the RPC filter
+      return <span className="text-gray-400">Sem Contrato</span>;
     }
-    const activeContract = contratosDoCliente.find(c => c.status === 'Ativo');
+    const activeContract = contratosDoCliente.find(c => c.cliente_id === clienteId && c.status === 'Ativo');
     if (activeContract) {
       return <span className="text-emerald-400 font-semibold">{activeContract.numero_contrato}</span>;
     }
