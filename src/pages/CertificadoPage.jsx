@@ -13,12 +13,13 @@ import { ArrowLeft, Loader2, FileText, CheckCircle, User } from 'lucide-react';
 import { logAction } from '@/lib/logger';
 import { formatToISODate, formatCnpjCpf } from '@/lib/utils';
 import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas'; // Corrigido de html22canvas para html2canvas
+import html2canvas from 'html2canvas';
 import { format, isValid, parseISO, endOfDay } from 'date-fns';
 import CertificadoPDF from '@/components/CertificadoPDF';
 import { Progress } from '@/components/ui/progress';
 import { useAutoSave } from '@/hooks/useAutoSave';
 import { useProfile } from '@/contexts/ProfileContext';
+import ClienteSearchableSelect from '@/components/ui/ClienteSearchableSelect'; // Reintroduzido
 
 const getTodayDate = () => new Date();
 const getFirstDayOfMonth = () => {
@@ -31,7 +32,7 @@ const initialFormState = {
   periodoFim: getTodayDate(),
   data_emissao: new Date(),
   
-  cliente_id: '',
+  cliente_id: null, // Alterado para null
   cliente_nome: '',
   cliente_nome_fantasia: '',
   cnpj_cpf: '',
@@ -40,7 +41,6 @@ const initialFormState = {
   municipio: '',
   estado: '',
   telefone: '',
-  cliente: '',
 };
 
 const CertificadoPage = () => {
@@ -57,10 +57,6 @@ const CertificadoPage = () => {
   const [loading, setLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [allClients, setAllClients] = useState([]);
-  const [filteredClients, setFilteredClients] = useState([]);
-  const [showClienteDropdown, setShowClienteDropdown] = useState(false);
-  const [isClienteSelected, setIsClienteSelected] = useState(false);
 
   const [localFormData, setLocalFormData, clearSavedData, savedData] = useAutoSave(
     'certificado-form-data',
@@ -81,7 +77,6 @@ const CertificadoPage = () => {
     periodoInicio, 
     periodoFim, 
     data_emissao, 
-    cliente 
   } = localFormData;
 
   const processDateValue = useCallback((dateValue, defaultValueFn) => {
@@ -107,55 +102,8 @@ const CertificadoPage = () => {
         data_emissao: processDateValue(currentSavedData.data_emissao, () => new Date()),
       };
       setLocalFormData(dataToLoad);
-      setIsClienteSelected(!!currentSavedData.cliente_id);
     }
   }, [isEditMode, savedData, setLocalFormData, processDateValue, clearSavedData]);
-
-  // Buscar todos os clientes com contratos ativos
-  useEffect(() => {
-    const fetchAllClients = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('clientes')
-          .select('*, contratos(status)')
-          .order('nome', { ascending: true });
-
-        if (error) throw error;
-
-        const activeClients = (data || []).filter(client => 
-          client.contratos && client.contratos.some(contract => contract.status === 'Ativo')
-        );
-        
-        setAllClients(activeClients);
-        setFilteredClients(activeClients);
-      } catch (error) {
-        toast({ 
-          title: 'Erro ao buscar clientes', 
-          description: error.message, 
-          variant: 'destructive' 
-        });
-        setAllClients([]);
-        setFilteredClients([]);
-      }
-    };
-    
-    fetchAllClients();
-  }, [toast]);
-
-  // Filtrar clientes baseado no termo de busca (CORREÇÃO CRÍTICA)
-  useEffect(() => {
-    if (cliente && cliente.trim()) {
-      const searchTerm = cliente.toLowerCase();
-      const filtered = allClients.filter(client =>
-        client.nome.toLowerCase().includes(searchTerm) ||
-        (client.nome_fantasia && client.nome_fantasia.toLowerCase().includes(searchTerm)) ||
-        (client.cnpj_cpf && formatCnpjCpf(client.cnpj_cpf).toLowerCase().includes(searchTerm)) // Corrigido para usar formatCnpjCpf
-      );
-      setFilteredClients(filtered);
-    } else {
-      setFilteredClients(allClients);
-    }
-  }, [cliente, allClients]);
 
   // Buscar dados para edição
   useEffect(() => {
@@ -203,13 +151,11 @@ const CertificadoPage = () => {
           municipio: clientData.municipio,
           estado: clientData.estado,
           telefone: clientData.telefone || '',
-          cliente: clientData.nome_fantasia ? `${clientData.nome} - ${clientData.nome_fantasia}` : clientData.nome,
           periodoInicio: processDateValue(certData.periodo_inicio, getFirstDayOfMonth),
           periodoFim: processDateValue(certData.periodo_fim, getTodayDate),
           data_emissao: processDateValue(certData.data_emissao, () => new Date()),
         }));
         
-        setIsClienteSelected(true);
       } catch (error) {
         toast({ 
           title: 'Erro ao carregar dados', 
@@ -251,24 +197,36 @@ const CertificadoPage = () => {
     setLocalFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  // Handler para seleção de cliente (IDÊNTICO AO COLETASTEP1)
+  // Handler para seleção de cliente
   const handleClientSelect = (client) => {
-    const newFormData = {
+    if (!client) {
+      setLocalFormData(prev => ({
+        ...prev,
+        cliente_id: null,
+        cliente_nome: '',
+        cliente_nome_fantasia: '',
+        cnpj_cpf: '',
+        endereco: '',
+        email: '',
+        municipio: '',
+        estado: '',
+        telefone: '',
+      }));
+      return;
+    }
+
+    setLocalFormData(prev => ({
+      ...prev,
       cliente_id: client.id,
       cliente_nome: client.nome,
       cliente_nome_fantasia: client.nome_fantasia || '',
-      cnpj_cpf: client.cnpj_cpf,
+      cnpj_cpf: client.cnpj_cpf || '',
       endereco: client.endereco || '',
       email: client.email || '',
       municipio: client.municipio,
       estado: client.estado,
       telefone: client.telefone || '',
-      cliente: client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome,
-    };
-
-    setLocalFormData(prev => ({ ...prev, ...newFormData }));
-    setShowClienteDropdown(false);
-    setIsClienteSelected(true);
+    }));
   };
 
   const handleSubmit = async () => {
@@ -554,53 +512,13 @@ const CertificadoPage = () => {
                   />
                 </div>
                 
-                {/* Seletor de Cliente - IDÊNTICO AO COLETASTEP1 */}
+                {/* Seletor de Cliente */}
                 <div className="md:col-span-2 space-y-2 relative">
-                  <Label htmlFor="cliente" className="text-white flex items-center gap-2">
-                    <User className="w-4 h-4 text-emerald-400" />
-                    Cliente (com contrato ativo) *
-                  </Label>
-                  <Input
-                    id="cliente"
-                    value={cliente}
-                    onChange={(e) => handleInputChange('cliente', e.target.value)}
-                    onFocus={() => setShowClienteDropdown(true)}
-                    onBlur={() => setTimeout(() => setShowClienteDropdown(false), 200)}
-                    placeholder="Digite para buscar..."
-                    className="bg-white/5 border-white/20 text-white placeholder:text-white/60 rounded-xl"
-                    autoComplete="off"
-                    required
+                  <ClienteSearchableSelect
+                    labelText="Cliente (com contrato ativo) *"
+                    value={cliente_id}
+                    onChange={handleClientSelect}
                   />
-                  
-                  {/* Dropdown de clientes */}
-                  {showClienteDropdown && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="absolute z-10 w-full bg-white rounded-lg shadow-lg max-h-48 overflow-y-auto mt-1"
-                    >
-                      {filteredClients.length > 0 ? (
-                        filteredClients.map((client) => (
-                          <div
-                            key={client.id}
-                            onClick={() => handleClientSelect(client)}
-                            className="p-3 hover:bg-emerald-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-                          >
-                            <div className="font-medium text-gray-900">
-                              {client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome}
-                            </div>
-                            <div className="text-sm text-gray-600">
-                              {formatCnpjCpf(client.cnpj_cpf)} - {client.municipio}/{client.estado}
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="p-3 text-center text-gray-500">
-                          {cliente ? 'Nenhum cliente encontrado.' : 'Nenhum cliente com contrato ativo encontrado.'}
-                        </div>
-                      )}
-                    </motion.div>
-                  )}
                 </div>
                 
                 {/* Dados do cliente selecionado */}

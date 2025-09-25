@@ -15,7 +15,7 @@ import { logAction } from '@/lib/logger';
 import { formatDateWithTimezone } from '@/lib/utils';
 import ContratoViewModal from '@/components/contratos/ContratoViewModal';
 import { motion } from 'framer-motion';
-// Removido: import ClienteSearchableSelect from '@/components/ui/ClienteSearchableSelect';
+import ClienteSearchableSelect from '@/components/ui/ClienteSearchableSelect'; // Reintroduzido
 
 const ListaContratos = () => {
   const navigate = useNavigate();
@@ -25,56 +25,20 @@ const ListaContratos = () => {
   const [contratos, setContratos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [contratoSearchTerm, setContratoSearchTerm] = useState('');
-  const [clientSearchTerm, setClientSearchTerm] = useState(''); // Novo estado para busca de cliente
-  const [filterById, setFilterById] = useState(null); // NEW: State to store client ID from URL
+  const [selectedClientId, setSelectedClientId] = useState(null); // Reintroduzido
   const debouncedContratoSearchTerm = useDebounce(contratoSearchTerm, 500);
-  const debouncedClientSearchTerm = useDebounce(clientSearchTerm, 500); // Debounce para busca de cliente
+  const debouncedSelectedClientId = useDebounce(selectedClientId, 500); // Debounce para o ID do cliente
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [empresa, setEmpresa] = useState(null);
   const [selectedContrato, setSelectedContrato] = useState(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-  // Removido: [clientesMap, setClientesMap] = useState({});
 
   const pageSize = useMemo(() => empresa?.items_per_page || 25, [empresa]);
   const empresaTimezone = useMemo(() => empresa?.timezone || 'America/Sao_Paulo', [empresa]);
 
-  // Initialize clientSearchTerm from URL query param
-  useEffect(() => {
-    const queryParams = new URLSearchParams(location.search);
-    const clienteIdFromUrl = queryParams.get('clienteId');
-    if (clienteIdFromUrl) {
-      setFilterById(clienteIdFromUrl); // Set the ID for direct filtering
-      // Fetch client name to pre-fill the search input
-      const fetchClientName = async () => {
-        const { data, error } = await supabase.from('clientes').select('nome, nome_fantasia').eq('id', clienteIdFromUrl).single();
-        if (data) {
-          setClientSearchTerm(data.nome_fantasia ? `${data.nome} - ${data.nome_fantasia}` : data.nome);
-        }
-      };
-      fetchClientName();
-    } else {
-      setFilterById(null); // Clear filterById if no ID in URL
-    }
-  }, [location.search]);
-
-
+  // Removido: Initialize clientSearchTerm from URL query param
   // Removido: useEffect para fetchClientes, pois agora a busca é direta na query principal
-  // useEffect(() => {
-  //   const fetchClientes = async () => {
-  //       const { data, error } = await supabase.from('clientes').select('id, nome, nome_fantasia');
-  //       if (error) {
-  //           toast({ title: 'Erro ao buscar clientes', variant: 'destructive' });
-  //       } else {
-  //           const map = (data || []).reduce((acc, cliente) => {
-  //               acc[cliente.id] = cliente.nome_fantasia ? `${cliente.nome} - ${cliente.nome_fantasia}` : cliente.nome;
-  //               return acc;
-  //           }, {});
-  //           setClientesMap(map);
-  //       }
-  //   };
-  //   fetchClientes();
-  // }, [toast]);
 
   const fetchContratos = useCallback(async () => {
     setLoading(true);
@@ -83,35 +47,12 @@ const ListaContratos = () => {
 
     let query = supabase
       .from('contratos')
-      .select('*, pdf_url, cliente:clientes(id, nome, nome_fantasia)', { count: 'exact' }) // Incluir id do cliente
+      .select('*, pdf_url, cliente:clientes(id, nome, nome_fantasia)', { count: 'exact' })
       .order('created_at', { ascending: false })
       .range(from, to);
 
-    if (filterById) { // Prioritize filtering by ID if present
-        query = query.eq('cliente_id', filterById);
-    } else if (debouncedClientSearchTerm) {
-        // If no direct ID filter, use text search
-        const { data: matchingClients, error: clientError } = await supabase
-            .from('clientes')
-            .select('id')
-            .or(`nome.ilike.%${debouncedClientSearchTerm}%,nome_fantasia.ilike.%${debouncedClientSearchTerm}%`);
-        if (clientError) {
-            console.error("Error fetching matching clients for contracts:", clientError);
-            toast({ title: 'Erro ao buscar clientes para filtro', description: clientError.message, variant: 'destructive' });
-            setContratos([]);
-            setTotalCount(0);
-            setLoading(false);
-            return;
-        } else {
-            const clientIds = matchingClients.map(c => c.id);
-            if (clientIds.length === 0) {
-                setContratos([]);
-                setTotalCount(0);
-                setLoading(false);
-                return;
-            }
-            query = query.in('cliente_id', clientIds);
-        }
+    if (debouncedSelectedClientId) { // Filtrar por ID do cliente selecionado
+        query = query.eq('cliente_id', debouncedSelectedClientId);
     }
 
     if (debouncedContratoSearchTerm) {
@@ -129,7 +70,7 @@ const ListaContratos = () => {
       setTotalCount(count || 0);
     }
     setLoading(false);
-  }, [toast, currentPage, pageSize, debouncedContratoSearchTerm, debouncedClientSearchTerm, filterById, empresa]); // Add filterById to dependencies
+  }, [toast, currentPage, pageSize, debouncedContratoSearchTerm, debouncedSelectedClientId, empresa]);
 
   useEffect(() => {
     const fetchEmpresa = async () => {
@@ -148,7 +89,7 @@ const ListaContratos = () => {
   
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedContratoSearchTerm, debouncedClientSearchTerm, filterById, pageSize]); // Add filterById to dependencies
+  }, [debouncedContratoSearchTerm, debouncedSelectedClientId, pageSize]);
 
   const handleDelete = async (id, numeroContrato) => {
     const { error } = await supabase.from('contratos').delete().eq('id', id);
@@ -224,15 +165,6 @@ const ListaContratos = () => {
     }
   };
 
-  // Handler for client search input change
-  const handleClientSearchInputChange = (e) => {
-    setClientSearchTerm(e.target.value);
-    // When user starts typing, clear the direct ID filter
-    if (filterById) {
-      setFilterById(null);
-    }
-  };
-
   const totalPages = Math.ceil(totalCount / pageSize);
 
   const getStatusBadge = (status) => {
@@ -283,18 +215,11 @@ const ListaContratos = () => {
               </div>
             </div>
             <div>
-              <Label htmlFor="clientSearch" className="block text-white mb-1 text-sm">Cliente</Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/70" />
-                <Input
-                  id="clientSearch"
-                  type="search"
-                  placeholder="Buscar por nome do cliente..."
-                  value={clientSearchTerm}
-                  onChange={handleClientSearchInputChange} // Use the new handler
-                  className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60 rounded-xl"
-                />
-              </div>
+              <ClienteSearchableSelect
+                labelText="Cliente"
+                value={selectedClientId}
+                onChange={setSelectedClientId}
+              />
             </div>
           </div>
         </div>

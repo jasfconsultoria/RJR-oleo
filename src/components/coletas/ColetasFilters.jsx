@@ -1,14 +1,14 @@
 import React from 'react';
 import { Calendar, Search } from 'lucide-react';
-// Removido: import ClienteSearchableSelect from '@/components/ui/ClienteSearchableSelect';
+import ClienteSearchableSelect from '@/components/ui/ClienteSearchableSelect'; // Reintroduzido
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 
 const ColetasFilters = ({
   coletaSearchTerm,
   setColetaSearchTerm,
-  clientSearchTerm, // Novo prop
-  setClientSearchTerm, // Novo prop
+  selectedClientId, // Reintroduzido
+  setSelectedClientId, // Reintroduzido
   startDate,
   setStartDate,
   endDate,
@@ -36,19 +36,12 @@ const ColetasFilters = ({
         </div>
 
         <div className="relative z-20">
-          <Label htmlFor="clientSearch" className="block text-white mb-1 text-sm">Cliente</Label>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/70" />
-            <Input
-              id="clientSearch"
-              type="search"
-              placeholder="Buscar por nome do cliente..."
-              value={clientSearchTerm}
-              onChange={(e) => setClientSearchTerm(e.target.value)}
-              className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60"
-              disabled={isNumeroColetaSearching}
-            />
-          </div>
+          <ClienteSearchableSelect
+            labelText="Cliente"
+            value={selectedClientId}
+            onChange={setSelectedClientId}
+            disabled={isNumeroColetaSearching}
+          />
         </div>
 
         <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">

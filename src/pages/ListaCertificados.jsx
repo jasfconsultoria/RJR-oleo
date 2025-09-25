@@ -25,11 +25,10 @@ const ListaCertificados = () => {
   const [filters, setFilters] = useState({ 
     startDate: getFirstDayOfMonth(),
     endDate: getTodayDate(),
-    clientSearchTerm: '', // Alterado de selectedClientId para clientSearchTerm
+    selectedClientId: null, // Reintroduzido
   });
   const [sortConfig, setSortConfig] = useState({ key: 'data_emissao', direction: 'desc' });
   const { profile, loading: profileLoading } = useProfile();
-  // Removido: [clients, setClients] = useState([]);
   const [empresa, setEmpresa] = useState(null);
   const { toast } = useToast();
   const [currentPage, setCurrentPage] = useState(1);
@@ -45,12 +44,8 @@ const ListaCertificados = () => {
       if (!profile) return;
       try {
         const [empresaDataRes] = await Promise.all([
-          // Removido: supabase.from('clientes').select(...)
           supabase.from('empresa').select('*').single(),
         ]);
-
-        // Removido: if (clientDataRes.error) throw clientDataRes.error;
-        // Removido: setClients(clientDataRes.data || []);
 
         if (empresaDataRes.error) throw empresaDataRes.error;
         setEmpresa(empresaDataRes.data);
@@ -77,31 +72,6 @@ const ListaCertificados = () => {
     const endDate = new Date(debouncedFilters.endDate);
     endDate.setHours(23, 59, 59, 999);
 
-    let clientIds = [];
-    if (debouncedFilters.clientSearchTerm) {
-        const { data: matchingClients, error: clientError } = await supabase
-            .from('clientes')
-            .select('id')
-            .or(`nome.ilike.%${debouncedFilters.clientSearchTerm}%,nome_fantasia.ilike.%${debouncedFilters.clientSearchTerm}%`);
-        if (clientError) {
-            console.error("Error fetching matching clients for certificates:", clientError);
-            toast({ title: 'Erro ao buscar clientes para filtro', description: clientError.message, variant: 'destructive' });
-            setCertificados([]);
-            setTotalCount(0);
-            setLoading(false);
-            return;
-        } else {
-            clientIds = matchingClients.map(c => c.id);
-            if (clientIds.length === 0) {
-                // If a search term was provided but no clients matched, ensure no results are returned
-                setCertificados([]);
-                setTotalCount(0);
-                setLoading(false);
-                return;
-            }
-        }
-    }
-
     let query = supabase
       .from('certificados')
       .select(`
@@ -111,9 +81,9 @@ const ListaCertificados = () => {
       .gte('data_emissao', startDate.toISOString())
       .lte('data_emissao', endDate.toISOString());
 
-    // Aplicar filtro por IDs de cliente se houver
-    if (clientIds.length > 0) {
-        query = query.in('cliente_id', clientIds);
+    // Aplicar filtro por ID de cliente se houver
+    if (debouncedFilters.selectedClientId) {
+        query = query.eq('cliente_id', debouncedFilters.selectedClientId);
     }
     
     query = query.order(sortConfig.key, { ascending: sortConfig.direction === 'asc' }).range(from, to);
@@ -220,9 +190,8 @@ const ListaCertificados = () => {
           endDate={filters.endDate ? formatToISODate(filters.endDate) : ''} 
         />
         <CertificadosFilters 
-          // Removido: clients={clients}
-          clientSearchTerm={filters.clientSearchTerm} // Passar o novo estado
-          setClientSearchTerm={(value) => handleFilterChange('clientSearchTerm', value)} // Passar o novo setter
+          selectedClientId={filters.selectedClientId} // Passar o novo estado
+          setSelectedClientId={(value) => handleFilterChange('selectedClientId', value)} // Passar o novo setter
           startDate={filters.startDate}
           setStartDate={(value) => handleFilterChange('startDate', value)}
           endDate={filters.endDate}

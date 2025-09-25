@@ -19,7 +19,6 @@ import ClienteSearchableSelect from '@/components/ui/ClienteSearchableSelect';
 import ProdutoSearchableSelect from '@/components/estoque/ProdutoSearchableSelect';
 import { formatNumber } from '@/lib/utils';
 import MovimentacaoViewDialog from '@/components/estoque/MovimentacaoViewDialog';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"; // Import Tooltip components
 
 const ListaSaidasPage = () => {
   const navigate = useNavigate();
@@ -28,7 +27,7 @@ const ListaSaidasPage = () => {
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
     searchTerm: '',
-    clientSearchTerm: '',
+    selectedClientId: null, // Alterado de clientSearchTerm para selectedClientId
     selectedProdutoId: null,
     startDate: '',
     endDate: '',
@@ -80,8 +79,8 @@ const ListaSaidasPage = () => {
     if (debouncedFilters.searchTerm) {
       query = query.or(`observacao.ilike.%${debouncedFilters.searchTerm}%,document_number.ilike.%${debouncedFilters.searchTerm}%`);
     }
-    if (debouncedFilters.clientSearchTerm) {
-      query = query.or(`cliente.nome.ilike.%${debouncedFilters.clientSearchTerm}%,cliente.nome_fantasia.ilike.%${debouncedFilters.clientSearchTerm}%`);
+    if (debouncedFilters.selectedClientId) { // Filtrar por ID do cliente
+      query = query.eq('cliente_id', debouncedFilters.selectedClientId);
     }
     if (debouncedFilters.startDate) {
       query = query.gte('data', debouncedFilters.startDate);
@@ -172,18 +171,11 @@ const ListaSaidasPage = () => {
               </div>
             </div>
             <div>
-              <Label htmlFor="clientSearch" className="block text-white mb-1 text-sm">Cliente</Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/70" />
-                <Input
-                  id="clientSearch"
-                  type="search"
-                  placeholder="Buscar por nome do cliente..."
-                  value={filters.clientSearchTerm}
-                  onChange={(e) => handleFilterChange('clientSearchTerm', e.target.value)}
-                  className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60 rounded-xl"
-                />
-              </div>
+              <ClienteSearchableSelect
+                labelText="Cliente"
+                value={filters.selectedClientId}
+                onChange={(value) => handleFilterChange('selectedClientId', value)}
+              />
             </div>
             <div>
               <ProdutoSearchableSelect
@@ -239,26 +231,15 @@ const ListaSaidasPage = () => {
                         <TableCell className="text-right actions-cell">
                            <div className="flex justify-end items-center gap-2">
                             <Button variant="ghost" size="icon" className="text-blue-400 hover:text-blue-300 rounded-xl" onClick={() => handleViewMovimentacao(mov)}><Eye className="h-4 w-4" /></Button>
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className={`text-yellow-400 hover:text-yellow-300 rounded-xl ${mov.origem === 'coleta' ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                    onClick={() => navigate(`/app/estoque/saidas/editar/${mov.id}`)}
-                                    disabled={mov.origem === 'coleta'}
-                                  >
-                                    <Edit className="h-4 w-4" />
-                                  </Button>
-                                </TooltipTrigger>
-                                {mov.origem === 'coleta' && (
-                                  <TooltipContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
-                                    <p>Movimentações de coleta devem ser editadas na coleta de origem.</p>
-                                  </TooltipContent>
-                                )}
-                              </Tooltip>
-                            </TooltipProvider>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className={`text-yellow-400 hover:text-yellow-300 rounded-xl`}
+                              onClick={() => navigate(`/app/estoque/saidas/editar/${mov.id}`)}
+                              disabled={mov.origem === 'coleta'}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
                                 <Button variant="ghost" size="icon" className="text-red-400 hover:text-red-300 rounded-xl"><Trash2 className="h-4 w-4" /></Button>

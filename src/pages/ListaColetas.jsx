@@ -19,7 +19,7 @@ const ListaColetas = () => {
   const [coletas, setColetas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [coletaSearchTerm, setColetaSearchTerm] = useState('');
-  const [clientSearchTerm, setClientSearchTerm] = useState(''); // Novo estado para busca de cliente
+  const [selectedClientId, setSelectedClientId] = useState(null); // Reintroduzido
   
   const [sortConfig, setSortConfig] = useState({ key: 'numero_coleta', direction: 'desc' });
   const { profile, loading: profileLoading } = useProfile();
@@ -36,7 +36,7 @@ const ListaColetas = () => {
   const [periodTotals, setPeriodTotals] = useState({ coletado: 0, compras: 0, entregue: 0 });
 
   const debouncedColetaSearchTerm = useDebounce(coletaSearchTerm, 500);
-  const debouncedClientSearchTerm = useDebounce(clientSearchTerm, 500); // Debounce para busca de cliente
+  const debouncedSelectedClientId = useDebounce(selectedClientId, 500); // Debounce para o ID do cliente
   const debouncedStartDate = useDebounce(startDate, 500);
   const debouncedEndDate = useDebounce(endDate, 500);
   const { toast } = useToast();
@@ -61,9 +61,9 @@ const ListaColetas = () => {
     let query = supabase.rpc('get_coletas_totals', {
         p_start_date: debouncedColetaSearchTerm ? null : (debouncedStartDate || null),
         p_end_date: debouncedColetaSearchTerm ? null : (debouncedEndDate || null),
-        p_cliente_id: null, // Removido filtro por ID
+        p_cliente_id: debouncedSelectedClientId || null, // Usar o ID do cliente selecionado
         p_numero_coleta_term: debouncedColetaSearchTerm || null,
-        p_cliente_name_term: debouncedClientSearchTerm || null, // Novo parâmetro para busca por nome do cliente
+        p_cliente_name_term: null, // Removido
     });
 
     const { data, error } = await query.single();
@@ -78,7 +78,7 @@ const ListaColetas = () => {
         entregue: data.total_entregue || 0,
       });
     }
-  }, [profile, profileLoading, empresa, debouncedStartDate, debouncedEndDate, debouncedColetaSearchTerm, debouncedClientSearchTerm]);
+  }, [profile, profileLoading, empresa, debouncedStartDate, debouncedEndDate, debouncedColetaSearchTerm, debouncedSelectedClientId]);
 
   const fetchColetas = useCallback(async () => {
     if (profileLoading || !profile || !empresa) return;
@@ -87,14 +87,13 @@ const ListaColetas = () => {
     const from = (currentPage - 1) * pageSize;
     const to = from + pageSize - 1;
 
-    let query = supabase.from('v_coletas_com_status').select('*', { count: 'exact' }); // Use a nova view
+    let query = supabase.from('v_coletas_com_status').select('*', { count: 'exact' });
 
     if (debouncedColetaSearchTerm) {
-        // Aplica a busca diretamente na view
         query = query.or(`numero_coleta::text.ilike.%${debouncedColetaSearchTerm}%,cliente_nome.ilike.%${debouncedColetaSearchTerm}%,cliente_nome_fantasia.ilike.%${debouncedColetaSearchTerm}%`);
     } else {
-        if (debouncedClientSearchTerm) { // Filtrar por nome do cliente
-            query = query.or(`cliente_nome.ilike.%${debouncedClientSearchTerm}%,cliente_nome_fantasia.ilike.%${debouncedClientSearchTerm}%`);
+        if (debouncedSelectedClientId) { // Filtrar por ID do cliente selecionado
+            query = query.eq('cliente_id', debouncedSelectedClientId);
         }
         if (debouncedStartDate) {
             query = query.gte('data_coleta', debouncedStartDate);
@@ -118,7 +117,7 @@ const ListaColetas = () => {
         setTotalCount(count || 0);
     }
     setLoading(false);
-  }, [profile, profileLoading, sortConfig, debouncedColetaSearchTerm, debouncedClientSearchTerm, debouncedStartDate, debouncedEndDate, empresa, toast, currentPage, pageSize]);
+  }, [profile, profileLoading, sortConfig, debouncedColetaSearchTerm, debouncedSelectedClientId, debouncedStartDate, debouncedEndDate, empresa, toast, currentPage, pageSize]);
 
   useEffect(() => {
     fetchColetas();
@@ -127,10 +126,7 @@ const ListaColetas = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-    if(coletaSearchTerm) {
-      setClientSearchTerm(''); // Limpa o filtro de cliente se estiver buscando por número de coleta
-    }
-  }, [debouncedColetaSearchTerm, debouncedClientSearchTerm, debouncedStartDate, debouncedEndDate, pageSize, coletaSearchTerm]); // Atualizado para debouncedClientSearchTerm
+  }, [debouncedColetaSearchTerm, debouncedSelectedClientId, debouncedStartDate, debouncedEndDate, pageSize]);
 
   const handleDelete = async (coletaId) => {
     const coletaToDelete = coletas.find(c => c.id === coletaId);
@@ -194,8 +190,8 @@ const ListaColetas = () => {
         <ColetasFilters
           coletaSearchTerm={coletaSearchTerm}
           setColetaSearchTerm={setColetaSearchTerm}
-          clientSearchTerm={clientSearchTerm} // Passar o novo estado
-          setClientSearchTerm={setClientSearchTerm} // Passar o novo setter
+          selectedClientId={selectedClientId} // Passar o novo estado
+          setSelectedClientId={setSelectedClientId} // Passar o novo setter
           startDate={startDate}
           setStartDate={setStartDate}
           endDate={endDate}
