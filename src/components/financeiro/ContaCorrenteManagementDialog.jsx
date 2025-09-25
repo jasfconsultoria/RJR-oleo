@@ -4,7 +4,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, PlusCircle, Edit, Trash2 } from 'lucide-react';
+import { Loader2, PlusCircle, Edit, Trash2, CheckCircle } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { ContaCorrenteFormDialog } from './ContaCorrenteFormDialog';
@@ -94,6 +94,7 @@ export const ContaCorrenteManagementDialog = ({ cnpjEmpresa, empresaNome, isOpen
                       <TableHead className="text-white">Agência</TableHead>
                       <TableHead className="text-white">Conta</TableHead>
                       <TableHead className="text-white text-right">Saldo</TableHead>
+                      <TableHead className="text-white text-center">Padrão</TableHead> {/* Nova coluna */}
                       <TableHead className="text-white text-center">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -105,6 +106,9 @@ export const ContaCorrenteManagementDialog = ({ cnpjEmpresa, empresaNome, isOpen
                           <TableCell data-label="Agência">{conta.agencia}</TableCell>
                           <TableCell data-label="Conta">{conta.conta}</TableCell>
                           <TableCell data-label="Saldo" className="text-right">{formatCurrency(conta.saldo)}</TableCell>
+                          <TableCell data-label="Padrão" className="text-center"> {/* Nova célula */}
+                            {conta.is_default && <CheckCircle className="h-4 w-4 text-emerald-400 mx-auto" />}
+                          </TableCell>
                           <TableCell className="text-center actions-cell">
                             <div className="flex justify-center items-center gap-2">
                               <Button variant="ghost" size="icon" className="text-yellow-400 hover:text-yellow-300 rounded-xl" onClick={() => handleEditConta(conta)}>
@@ -137,7 +141,7 @@ export const ContaCorrenteManagementDialog = ({ cnpjEmpresa, empresaNome, isOpen
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center text-gray-400 py-8">
+                        <TableCell colSpan={6} className="text-center text-gray-400 py-8"> {/* Colspan ajustado */}
                           Nenhuma conta corrente cadastrada.
                         </TableCell>
                       </TableRow>
