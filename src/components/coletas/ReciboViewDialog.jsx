@@ -178,7 +178,7 @@ export const ReciboViewDialog = ({ coleta, empresa, isOpen, onClose, empresaTime
   };
 
   return (
-    <> {/* Fragmento adicionado aqui */}
+    <>
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="sm:max-w-3xl h-[90vh] bg-gray-800 border-gray-700 text-white flex flex-col">
           <DialogHeader>
@@ -245,6 +245,6 @@ export const ReciboViewDialog = ({ coleta, empresa, isOpen, onClose, empresaTime
           initialPaymentMethod="pix"
         />
       )}
-    </> {/* Fragmento fechado aqui */}
+    </>
   );
 };
