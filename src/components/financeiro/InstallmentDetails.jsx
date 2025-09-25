@@ -86,9 +86,9 @@ export const InstallmentDetails = ({
                   id="installments_number"
                   name="installments_number"
                   type="number"
-                  min="1"
+                  // Removido min="1"
                   value={formData.installments_number}
-                  onChange={(e) => handleInputChange({ target: { name: 'installments_number', value: parseInt(e.target.value, 10) || 1 } })}
+                  onChange={(e) => handleInputChange({ target: { name: 'installments_number', value: parseInt(e.target.value, 10) || 0 } })} // Alterado || 1 para || 0
                   className="bg-white/5 border-white/20 rounded-xl"
                 />
               </>

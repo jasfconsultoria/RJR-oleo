@@ -64,7 +64,7 @@ const FinanceiroForm = ({ type }) => {
     cost_center: 'ADMINISTRAÇÃO', // Default, will be updated by fetched data
     notes: '',
     down_payment: '0,00',
-    installments_number: 1,
+    installments_number: 0, // Alterado de 1 para 0
     installments: [],
   });
   
