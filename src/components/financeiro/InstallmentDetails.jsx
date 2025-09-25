@@ -21,6 +21,12 @@ export const InstallmentDetails = ({
   existingInstallments,
   isEditing,
 }) => {
+  const handleDownPaymentBlur = () => {
+    if (parsedDownPayment > 0 && formData.installments_number === 0) {
+      handleInputChange({ target: { name: 'installments_number', value: 1 } });
+    }
+  };
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-white/20">
       <div>
@@ -42,6 +48,7 @@ export const InstallmentDetails = ({
           }}
           value={formData.down_payment}
           onAccept={(value) => handleInputChange({ target: { name: 'down_payment', value: value } })}
+          onBlur={handleDownPaymentBlur} {/* Adicionado o onBlur aqui */}
           placeholder="0,00"
           className={`w-full flex h-10 rounded-xl border ${downPaymentError ? 'border-red-500' : 'border-white/20'} bg-white/5 px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50`}
         />
