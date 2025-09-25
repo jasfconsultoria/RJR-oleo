@@ -121,7 +121,7 @@ import React, { useState, useEffect, useRef } from 'react';
 
         if (contrato && empresa) {
           return (
-            <div className="w-full max-w-2xl mx-auto">
+            <div className="w-full max-w-4xl mx-auto">
                 <div className="bg-emerald-600/20 border border-emerald-500 text-emerald-100 p-4 rounded-lg mb-6 text-center">
                     <h1 className="text-2xl font-bold">Contrato Assinado</h1>
                     <p>Visualize, imprima ou baixe o contrato abaixo.</p>
@@ -131,7 +131,7 @@ import React, { useState, useEffect, useRef } from 'react';
                         <ContratoPDF ref={pdfRef} contrato={contrato} empresa={empresa} showSignature={true} />
                     </div>
                 </div>
-                <div className="mt-6 flex flex-col sm:flex-row justify-center items-center gap-4">
+                <div className="mt-6 flex justify-between items-center gap-4">
                     <Button 
                         onClick={() => navigate('/app/cadastro/contratos')}
                         variant="outline" 

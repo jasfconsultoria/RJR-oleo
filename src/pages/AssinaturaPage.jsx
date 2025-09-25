@@ -107,7 +107,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
       
       if (error) {
         return (
-          <div className="flex flex-col justify-center items-center h-screen bg-gray-900 text-white p-4">
+          <div className="flex flex-col items-center justify-center text-white bg-red-900/20 p-10 rounded-lg">
             <AlertTriangle className="h-16 w-16 text-yellow-400 mb-4" />
             <h1 className="text-2xl font-bold text-center mb-2">Ocorreu um Problema</h1>
             <p className="text-center text-gray-300">{error}</p>
@@ -120,7 +120,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
         <>
           <Helmet><title>Assinatura de Contrato - {contrato.numero_contrato}</title></Helmet>
           <div className="min-h-screen bg-gradient-to-br from-gray-900 via-teal-900 to-gray-900 p-4 sm:p-8 flex justify-center items-center">
-            <Card className="w-full max-w-2xl bg-white/10 backdrop-blur-md border-white/20 text-white shadow-2xl animate-fade-in-up">
+            <Card className="w-full max-w-4xl bg-white/10 backdrop-blur-md border-white/20 text-white shadow-2xl animate-fade-in-up">
               <CardHeader>
                 <CardTitle className="text-2xl text-center text-emerald-300">
                   Assinatura do Contrato {contrato.numero_contrato}
@@ -142,11 +142,11 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
                   </div>
                 </div>
               </CardContent>
-              <CardFooter className="flex flex-col sm:flex-row justify-between items-center gap-4 mt-4">
+              <CardFooter className="flex justify-between items-center gap-4 mt-4">
                 <Button variant="destructive" onClick={handleGoBack} className="text-base px-6 py-3">
                     <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
                 </Button>
-                <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex gap-4">
                     <Button variant="outline" onClick={clearSignature} className="border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black text-base px-6 py-3">
                         <Eraser className="mr-2 h-4 w-4" /> Limpar
                     </Button>

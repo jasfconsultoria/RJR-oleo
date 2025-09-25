@@ -112,7 +112,7 @@ const ContratoPDF = React.forwardRef(({ contrato, empresa, showSignature }, ref)
       const valorExtenso = valorPorExtenso(valorColeta); // valorPorExtenso already handles 0
 
       return (
-        <p className="mb-3 leading-normal">
+        <p className="mb-3 leading-normal text-justify">
           <strong>CLÁUSULA SEGUNDA - DO PREÇO E CONDIÇÕES DE PAGAMENTO</strong>
           <br />
           A <strong>CONTRATADA</strong> pagará à <strong>CONTRATANTE</strong> o valor de {valorFormatado} ({valorExtenso}) por quilograma de resíduo coletado. O pagamento será realizado no ato da coleta.
@@ -121,7 +121,7 @@ const ContratoPDF = React.forwardRef(({ contrato, empresa, showSignature }, ref)
     }
     if (contrato.tipo_coleta === 'Troca') {
       return (
-        <p className="mb-3 leading-normal">
+        <p className="mb-3 leading-normal text-justify">
           <strong>CLÁUSULA SEGUNDA - DA TROCA</strong>
           <br />
           A cada {contrato.fator_troca || '____'} kg de óleo coletado, a <strong>CONTRATANTE</strong> receberá 1 (uma) unidade de óleo de soja de 900ml. A entrega do produto será realizada no ato da coleta.
@@ -130,7 +130,7 @@ const ContratoPDF = React.forwardRef(({ contrato, empresa, showSignature }, ref)
     }
     if (contrato.tipo_coleta === 'Doação') {
       return (
-        <p className="mb-3 leading-normal">
+        <p className="mb-3 leading-normal text-justify">
           <strong>CLÁUSULA SEGUNDA - DA DOAÇÃO</strong>
           <br />
           A <strong>CONTRATANTE</strong> realizará a doação do resíduo óleo/gordura de origem animal e vegetal utilizado em fritura alimentar à <strong>CONTRATADA</strong>, sem qualquer contrapartida financeira ou material.
