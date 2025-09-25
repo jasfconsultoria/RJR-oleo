@@ -10,6 +10,12 @@ import { formatCurrency, parseCurrency } from '@/lib/utils';
 import { IMaskInput } from 'react-imask';
 import { useToast } from '@/components/ui/use-toast';
 
+// Helper para formatar números para o IMaskInput com vírgula como separador decimal
+const formatNumberForInput = (num) => {
+  if (num === null || num === undefined || isNaN(num)) return '';
+  return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+
 const InstallmentTable = ({
   totalValue,
   downPayment,
@@ -38,9 +44,11 @@ const InstallmentTable = ({
       const existing = existingInstallments.find(inst => inst.installment_number === i + 1);
       
       let currentInstallmentCents = baseCentsPerInstallment;
-      if (remainderCents > 0) {
+      
+      // Distribuir o restante para as últimas parcelas
+      // As últimas 'remainderCents' parcelas receberão um centavo extra
+      if (i >= installmentsNumber - remainderCents) {
         currentInstallmentCents += 1;
-        remainderCents -= 1;
       }
       
       const expectedAmount = parseFloat((currentInstallmentCents / 100).toFixed(2)); // Converter centavos de volta para unidades
@@ -196,8 +204,8 @@ const InstallmentTable = ({
                           signed: false,
                           },
                       }}
-                      // Passa o valor diretamente, o IMaskInput se encarrega de formatar para exibição
-                      value={String(installment.expected_amount)}
+                      // Passa o valor formatado para o IMaskInput
+                      value={formatNumberForInput(installment.expected_amount)}
                       onAccept={(value) => handleInstallmentValueChange(index, value)}
                       placeholder="0,00"
                       className="w-24 bg-white/5 border-white/20 text-white text-right h-10 px-3 py-2 rounded-md text-sm"
