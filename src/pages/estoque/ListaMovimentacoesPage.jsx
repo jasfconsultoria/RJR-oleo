@@ -240,11 +240,10 @@ const ListaMovimentacoesPage = () => {
               <Table className="responsive-table">
                 <TableHeader>
                   <TableRow className="hover:bg-transparent border-b border-white/20 text-xs">
-                    <th className="p-2 text-left text-white">Data</th>
                     <th className="p-2 text-left text-white">Nº Documento</th> {/* New column */}
-                    <th className="p-2 text-left text-white">Tipo</th>
-                    <th className="p-2 text-left text-white">Origem</th>
+                    <th className="p-2 text-left text-white">Data</th>
                     <th className="p-2 text-left text-white">Cliente</th>
+                    <th className="p-2 text-left text-white">Origem</th>
                     <th className="p-2 text-left text-white">Itens</th>
                     <th className="p-2 text-right text-white">Ações</th>
                   </TableRow>
@@ -253,13 +252,12 @@ const ListaMovimentacoesPage = () => {
                   {movimentacoes.length > 0 ? (
                     movimentacoes.map(mov => (
                       <TableRow key={mov.id} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
-                        <TableCell data-label="Data">{format(parseISO(mov.data), 'dd/MM/yyyy HH:mm', { locale: ptBR })}</TableCell>
                         <TableCell data-label="Nº Documento">{mov.document_number || 'N/A'}</TableCell> {/* New cell */}
-                        <TableCell data-label="Tipo" className="capitalize flex items-center gap-2">
-                          {getMovementIcon(mov.tipo)} {mov.tipo}
-                        </TableCell>
-                        <TableCell data-label="Origem" className="capitalize">{mov.origem}</TableCell>
+                        <TableCell data-label="Data">{format(parseISO(mov.data), 'dd/MM/yyyy HH:mm', { locale: ptBR })}</TableCell>
                         <TableCell data-label="Cliente">{mov.cliente?.nome || 'N/A'}</TableCell>
+                        <TableCell data-label="Origem" className="capitalize flex items-center gap-2">
+                          {getMovementIcon(mov.tipo)} {mov.origem}
+                        </TableCell>
                         <TableCell data-label="Itens">
                           {mov.itens_entrada_saida.map((item, idx) => (
                             <div key={idx} className="text-xs">
@@ -291,7 +289,7 @@ const ListaMovimentacoesPage = () => {
                       </TableRow>
                     ))
                   ) : (
-                    <TableRow><TableCell colSpan="7" className="text-center text-gray-400 py-10">Nenhuma movimentação encontrada.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan="6" className="text-center text-gray-400 py-10">Nenhuma movimentação encontrada.</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
