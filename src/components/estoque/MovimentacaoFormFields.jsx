@@ -10,6 +10,7 @@ import { CalendarIcon, Hash, Factory, Truck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ColetaSearchableSelect from '@/components/ui/ColetaSearchableSelect';
 import { Button } from '@/components/ui/button'; // Importando o componente Button
+import { DatePicker } from '@/components/ui/date-picker'; // Importar DatePicker
 
 const MovimentacaoFormFields = ({ formData, handleChange, handleSelectChange, handleColetaSelect, isEditing, type, documentNumberRef }) => {
   return (
@@ -19,31 +20,12 @@ const MovimentacaoFormFields = ({ formData, handleChange, handleSelectChange, ha
           <Label htmlFor="data" className="text-white flex items-center gap-2">
             <CalendarIcon className="w-4 h-4" /> Data *
           </Label>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant={"outline"}
-                className={cn(
-                  "w-full justify-start text-left font-normal bg-white/5 border-white/20 text-white hover:bg-white/10 hover:text-white rounded-xl",
-                  !formData.data && "text-white/60"
-                )}
-                disabled={isEditing}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {formData.data ? format(formData.data, "PPP", { locale: ptBR }) : <span>Selecione uma data</span>}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0 bg-white/10 border-white/20 text-white rounded-xl" align="start">
-              <Calendar
-                mode="single"
-                selected={formData.data}
-                onSelect={(date) => handleChange('data', date)}
-                initialFocus
-                locale={ptBR}
-                disabled={isEditing}
-              />
-            </PopoverContent>
-          </Popover>
+          <DatePicker
+            date={formData.data}
+            setDate={(date) => handleChange('data', date)}
+            className="w-full bg-white/5 border-white/20 text-white rounded-xl"
+            disabled={isEditing}
+          />
         </div>
 
         <div className="space-y-2">
