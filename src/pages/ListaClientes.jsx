@@ -31,7 +31,7 @@ import { logAction } from '@/lib/logger';
 import { Pagination } from '@/components/ui/pagination';
 import { useDebounce } from '@/hooks/useDebounce';
 import { Label } from '@/components/ui/label';
-// Removido: import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'; // Import Select
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'; // Import Select
 
 const ListaClientes = ({ personType = 'pessoa' }) => {
   const [clientes, setClientes] = useState([]);
@@ -46,7 +46,7 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
   const [empresa, setEmpresa] = useState(null);
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
   const { toast } = useToast();
-  // Removido: const [contractStatusFilter, setContractStatusFilter] = useState('all'); // 'all', 'with_contract', 'no_contract'
+  const [contractFilterType, setContractFilterType] = useState('has_contract'); // 'all', 'has_contract', 'no_contract'
 
   const pageSize = useMemo(() => empresa?.items_per_page || 25, [empresa]);
 
@@ -109,23 +109,18 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
     if (profileLoading || !profile || !empresa) return;
     setLoading(true);
     
-    const from = (currentPage - 1) * pageSize;
-    const to = from + pageSize - 1;
-
+    // Fetch all clients first, without contract filtering in the main query
     let query = supabase
       .from('clientes')
-      .select('id, nome, nome_fantasia, cnpj_cpf, municipio, estado', { count: 'exact' });
-
-    // Removido: Lógica de filtro de contrato, agora a lista exibe todos os clientes por padrão.
-    // Se for necessário filtrar por contrato, isso precisará ser implementado com um novo mecanismo.
+      .select('id, nome, nome_fantasia, cnpj_cpf, municipio, estado');
 
     if (debouncedSearchTerm) {
       query = query.or(`nome.ilike.%${debouncedSearchTerm}%,nome_fantasia.ilike.%${debouncedSearchTerm}%,cnpj_cpf.ilike.%${debouncedSearchTerm}%,municipio.ilike.%${debouncedSearchTerm}%,estado.ilike.%${debouncedSearchTerm}%`);
     }
 
-    query = query.order(sortConfig.key, { ascending: sortConfig.direction === 'asc' }).range(from, to);
+    query = query.order(sortConfig.key, { ascending: sortConfig.direction === 'asc' });
 
-    let { data: clientesData, error: clientesError, count } = await query;
+    let { data: clientesData, error: clientesError } = await query;
 
     if (clientesError) {
       toast({
@@ -134,12 +129,22 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
         variant: 'destructive',
       });
       setClientes([]);
+      setTotalCount(0);
     } else {
-      setClientes(clientesData || []);
-      setTotalCount(count || 0);
+      let filteredByContract = clientesData || [];
+
+      if (personType !== 'fornecedor' && contractFilterType !== 'all') { // Only apply filter if not 'fornecedor' and filter is active
+        filteredByContract = (clientesData || []).filter(client => {
+          const hasActiveContract = allContratos.some(c => c.cliente_id === client.id && c.status === 'Ativo');
+          return contractFilterType === 'has_contract' ? hasActiveContract : !hasActiveContract;
+        });
+      }
+      
+      setClientes(filteredByContract);
+      setTotalCount(filteredByContract.length); // Set total count based on filtered data
     }
     setLoading(false);
-  }, [profile, profileLoading, toast, currentPage, pageSize, debouncedSearchTerm, sortConfig, empresa, personType]);
+  }, [profile, profileLoading, toast, debouncedSearchTerm, sortConfig, empresa, personType, contractFilterType, allContratos]);
 
   useEffect(() => {
     fetchClientes();
@@ -147,7 +152,7 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearchTerm, pageSize]); // Removido contractStatusFilter das dependências
+  }, [debouncedSearchTerm, contractFilterType, pageSize]);
 
   const handleDelete = async (cliente) => {
     const { error } = await supabase
@@ -211,6 +216,12 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
 
   const totalPages = Math.ceil(totalCount / pageSize);
 
+  const paginatedClientes = useMemo(() => {
+    const from = (currentPage - 1) * pageSize;
+    const to = from + pageSize;
+    return clientes.slice(from, to); // Slice the already filtered 'clientes' state
+  }, [clientes, currentPage, pageSize]);
+
   return (
     <>
       <Helmet>
@@ -243,7 +254,21 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
                 className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60 rounded-xl"
                 />
             </div>
-            {/* Removido: Seletor de status de contrato */}
+            {personType !== 'fornecedor' && (
+              <div>
+                <Label htmlFor="contractStatusFilter" className="block text-white mb-1 text-sm">Status do Contrato</Label>
+                <Select value={contractFilterType} onValueChange={setContractFilterType}>
+                  <SelectTrigger id="contractStatusFilter" className="bg-white/20 border-white/30 text-white rounded-xl">
+                    <SelectValue placeholder="Todos" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="has_contract">Com Contrato</SelectItem>
+                    <SelectItem value="no_contract">Sem Contrato</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
         </div>
 
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white/10 backdrop-blur-sm rounded-xl">
@@ -272,7 +297,7 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {clientes.length > 0 ? clientes.map((cliente) => (
+                    {paginatedClientes.length > 0 ? paginatedClientes.map((cliente) => (
                       <TableRow key={cliente.id} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
                         <TableCell data-label="Razão Social / Nome Fantasia" className="font-medium p-2">
                           {cliente.nome_fantasia ? `${cliente.nome} - ${cliente.nome_fantasia}` : cliente.nome}
