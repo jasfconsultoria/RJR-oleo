@@ -10,11 +10,12 @@ import { ArrowLeft, Save, DollarSign, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { logAction } from '@/lib/logger';
 import { unmask, parseCurrency } from '@/lib/utils';
-import { format, addDays } from 'date-fns';
+import { format, addDays, parseISO, isValid } from 'date-fns'; // Import parseISO and isValid
 import { v4 as uuidv4 } from 'uuid';
 import { FinanceiroFormFields } from '@/components/financeiro/FinanceiroFormFields';
 import { InstallmentDetails } from '@/components/financeiro/InstallmentDetails';
 import { FinanceiroFormActions } from '@/components/financeiro/FinanceiroFormActions';
+import { useAutoSave } from '@/hooks/useAutoSave'; // Import useAutoSave
 
 const FinanceiroForm = ({ type }) => {
   const { id } = useParams();
@@ -29,8 +30,6 @@ const FinanceiroForm = ({ type }) => {
 
   // Estado do modal de novo cliente/fornecedor, inicializado de forma lazy do localStorage
   const [isNewClientModalOpen, setIsNewClientModalOpen] = useState(() => {
-    // Inicializa como false no primeiro render do servidor/cliente
-    // O useEffect abaixo irá hidratar com o valor do localStorage
     if (typeof window === 'undefined') {
       return false;
     }
@@ -50,13 +49,14 @@ const FinanceiroForm = ({ type }) => {
     setHydrated(true);
   }, []);
 
-  const [formData, setFormData] = useState({
+  // Initial state for useAutoSave
+  const getInitialFormData = useCallback((currentType) => ({
     document_number: '',
-    issue_date: new Date(),
+    issue_date: new Date().toISOString(), // Store as ISO string
     model: 'Recibo',
     pessoa_id: null,
-    cliente_fornecedor_name: '', // Razão Social
-    cliente_fornecedor_fantasy_name: '', // Nome Fantasia
+    cliente_fornecedor_name: '',
+    cliente_fornecedor_fantasy_name: '',
     cnpj_cpf: '',
     description: '',
     total_value: '',
@@ -64,16 +64,55 @@ const FinanceiroForm = ({ type }) => {
     cost_center: 'ADMINISTRAÇÃO', // Default, will be updated by fetched data
     notes: '',
     down_payment: '0,00',
-    installments_number: 0, // Alterado de 1 para 0
+    installments_number: 0,
     installments: [],
-  });
-  
-  const [singleDueDate, setSingleDueDate] = useState(addDays(new Date(), 30));
-  const [loading, setLoading] = useState(true);
+    single_due_date: addDays(new Date(), 30).toISOString(), // Store as ISO string
+  }), []);
+
+  const autoSaveKey = id ? `financeiroForm_edit_${id}` : `financeiroForm_new_${type}`;
+  const [rawFormData, setRawFormData, clearSavedData, savedData] = useAutoSave(
+    autoSaveKey,
+    getInitialFormData(type),
+    !isEditing // Only load from auto-save if not in edit mode
+  );
+
+  // Process rawFormData to get Date objects for component use
+  const formData = useMemo(() => {
+    const processed = { ...rawFormData };
+    if (typeof processed.issue_date === 'string') {
+      const parsed = parseISO(processed.issue_date);
+      processed.issue_date = isValid(parsed) ? parsed : new Date();
+    }
+    if (typeof processed.single_due_date === 'string') {
+      const parsed = parseISO(processed.single_due_date);
+      processed.single_due_date = isValid(parsed) ? parsed : addDays(new Date(), 30);
+    }
+    return processed;
+  }, [rawFormData]);
+
+  // Update rawFormData (which triggers auto-save)
+  const handleUpdateRawFormData = useCallback((updates) => {
+    setRawFormData(prev => {
+      const newRaw = { ...prev };
+      for (const key in updates) {
+        if (updates.hasOwnProperty(key)) {
+          let value = updates[key];
+          if (value instanceof Date) {
+            newRaw[key] = value.toISOString();
+          } else {
+            newRaw[key] = value;
+          }
+        }
+      }
+      return newRaw;
+    });
+  }, [setRawFormData]);
+
+  const [loading, setLoading] = useState(true); // Keep local loading state for initial fetches
   const [saving, setSaving] = useState(false);
   const [existingInstallments, setExistingInstallments] = useState([]);
   const [downPaymentError, setDownPaymentError] = useState('');
-  const [costCenters, setCostCenters] = useState([]); // State for dynamic cost centers
+  const [costCenters, setCostCenters] = useState([]);
   const [isNewCostCenterModalOpen, setIsNewCostCenterModalOpen] = useState(false);
   const [clientListVersion, setClientListVersion] = useState(0);
 
@@ -97,10 +136,10 @@ const FinanceiroForm = ({ type }) => {
       setCostCenters(data.map(cc => ({ value: cc.nome, label: cc.nome })));
       // Set default cost center if not already set and data exists
       if (!formData.cost_center && data.length > 0) {
-        setFormData(prev => ({ ...prev, cost_center: data[0].nome }));
+        handleUpdateRawFormData({ cost_center: data[0].nome });
       }
     }
-  }, [toast, formData.cost_center]);
+  }, [toast, formData.cost_center, handleUpdateRawFormData]);
 
   useEffect(() => {
     fetchCostCenters();
@@ -136,36 +175,36 @@ const FinanceiroForm = ({ type }) => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    handleUpdateRawFormData({ [name]: value });
   };
 
   const handleSelectChange = (name, value) => {
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    handleUpdateRawFormData({ [name]: value });
   };
 
   const handleDateChange = (date) => {
-    setFormData((prev) => ({ ...prev, issue_date: date }));
+    handleUpdateRawFormData({ issue_date: date });
   };
 
   const handleClientSelectId = (clientId) => {
-    setFormData((prev) => ({ ...prev, pessoa_id: clientId }));
+    handleUpdateRawFormData({ pessoa_id: clientId });
   };
 
   const handleClientNameChange = (name) => {
-    setFormData((prev) => ({ ...prev, cliente_fornecedor_name: name }));
+    handleUpdateRawFormData({ cliente_fornecedor_name: name });
   };
 
   const handleClientFantasyNameChange = (name) => {
-    setFormData((prev) => ({ ...prev, cliente_fornecedor_fantasy_name: name }));
+    handleUpdateRawFormData({ cliente_fornecedor_fantasy_name: name });
   };
 
   const handleCnpjCpfChange = (cnpjCpfValue) => {
-    setFormData((prev) => ({ ...prev, cnpj_cpf: cnpjCpfValue }));
+    handleUpdateRawFormData({ cnpj_cpf: cnpjCpfValue });
   };
 
   const handleInstallmentsChange = useCallback((installmentsData) => {
-    setFormData((prev) => ({ ...prev, installments: installmentsData }));
-  }, []);
+    handleUpdateRawFormData({ installments: installmentsData });
+  }, [handleUpdateRawFormData]);
 
   const showInstallments = parsedTotalValue > 0 && parsedDownPayment >= 0 && parsedTotalValue > parsedDownPayment;
 
@@ -178,19 +217,18 @@ const FinanceiroForm = ({ type }) => {
   const handleNewClientSuccess = (newClient) => {
     setIsNewClientModalOpen(false);
     setClientListVersion(v => v + 1);
-    setFormData(prev => ({
-      ...prev,
+    handleUpdateRawFormData({
       pessoa_id: newClient.id,
       cliente_fornecedor_name: newClient.nome,
       cliente_fornecedor_fantasy_name: newClient.nome_fantasia,
       cnpj_cpf: newClient.cnpj_cpf,
-    }));
+    });
   };
 
   const handleNewCostCenterSuccess = (newCostCenter) => {
     setIsNewCostCenterModalOpen(false);
     fetchCostCenters();
-    setFormData(prev => ({ ...prev, cost_center: newCostCenter.nome }));
+    handleUpdateRawFormData({ cost_center: newCostCenter.nome });
   };
 
   const handleSubmit = async (e) => {
@@ -228,7 +266,7 @@ const FinanceiroForm = ({ type }) => {
     if (parsedDownPayment === 0 && parsedTotalValue > 0) {
         installmentsPayload.push({
             amount: parsedTotalValue,
-            date: format(singleDueDate, 'yyyy-MM-dd'),
+            date: format(formData.single_due_date, 'yyyy-MM-dd'), // Use formData.single_due_date
             number: 1
         });
         totalInstallmentsCount = 1;
@@ -277,6 +315,7 @@ const FinanceiroForm = ({ type }) => {
     } else {
       toast({ title: `${title} cadastrado com sucesso!`, description: `${formData.description} foi salvo com todas as parcelas.` });
       await logAction(`create_${type}_success`, { lancamento_id: data.lancamento_id, entry_description: formData.description });
+      clearSavedData(); // Clear auto-saved data on successful submission
       navigate(`/app/financeiro/${type}`);
     }
     setSaving(false);
@@ -323,8 +362,8 @@ const FinanceiroForm = ({ type }) => {
                 costCenters={costCenters}
                 entityLabel={entityLabel}
                 clientListVersion={clientListVersion}
-                isNewClientModalOpen={isNewClientModalOpen} // Passa o estado do pai
-                setIsNewClientModalOpen={setIsNewClientModalOpen} // Passa o setter do pai
+                isNewClientModalOpen={isNewClientModalOpen}
+                setIsNewClientModalOpen={setIsNewClientModalOpen}
                 isNewCostCenterModalOpen={isNewCostCenterModalOpen}
                 setIsNewCostCenterModalOpen={setIsNewCostCenterModalOpen}
                 handleNewClientSuccess={handleNewClientSuccess}
@@ -337,8 +376,8 @@ const FinanceiroForm = ({ type }) => {
                 handleInputChange={handleInputChange}
                 downPaymentInputRef={downPaymentInputRef}
                 downPaymentError={downPaymentError}
-                singleDueDate={singleDueDate}
-                setSingleDueDate={setSingleDueDate}
+                singleDueDate={formData.single_due_date} // Use formData.single_due_date
+                setSingleDueDate={(date) => handleUpdateRawFormData({ single_due_date: date })} // Update via handleUpdateRawFormData
                 parsedTotalValue={parsedTotalValue}
                 parsedDownPayment={parsedDownPayment}
                 showInstallments={showInstallments}
