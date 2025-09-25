@@ -253,8 +253,8 @@ const ContratoPDF = React.forwardRef(({ contrato, empresa, showSignature }, ref)
 
       <style jsx>{`
         .a4-container {
-          width: 210mm;
-          min-height: 297mm;
+          width: 210mm; /* A4 width */
+          min-height: 297mm; /* A4 height */
           margin: 0 auto;
           box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
           box-sizing: border-box;
