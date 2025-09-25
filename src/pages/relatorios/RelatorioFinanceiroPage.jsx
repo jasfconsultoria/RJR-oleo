@@ -194,7 +194,7 @@ const RelatorioFinanceiroPage = () => {
       'Tipo': item.type === 'credito' ? 'Crédito' : 'Débito',
       'Nº Documento': item.document_number || 'N/A',
       'Modelo': item.model || 'N/A',
-      'Cliente/Fornecedor': item.cliente_fornecedor_name_fantasia ? `${item.cliente_fornecedor_name} - ${item.cliente_fornecedor_name_fantasia}` : item.cliente_fornecedor_name,
+      'Cliente/Fornecedor': item.cliente_fornecedor_fantasy_name ? `${item.cliente_fornecedor_name} - ${item.cliente_fornecedor_fantasy_name}` : item.cliente_fornecedor_name,
       'CNPJ/CPF': item.cnpj_cpf || 'N/A',
       'Descrição': item.description,
       'Data Emissão': formatDateWithTimezone(item.issue_date, empresaTimezone),
@@ -236,7 +236,7 @@ const RelatorioFinanceiroPage = () => {
   };
 
   const getClientDisplayName = (entry) => {
-    return entry.cliente_fornecedor_name_fantasia ? `${entry.cliente_fornecedor_name} - ${entry.cliente_fornecedor_name_fantasia}` : entry.cliente_fornecedor_name;
+    return entry.cliente_fornecedor_fantasy_name ? `${entry.cliente_fornecedor_name} - ${entry.cliente_fornecedor_fantasy_name}` : entry.cliente_fornecedor_name;
   };
 
   const CustomTooltip = ({ active, payload, label }) => {
@@ -395,7 +395,7 @@ const RelatorioFinanceiroPage = () => {
                       <TrendingDown className="h-4 w-4 text-gray-400" />
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold">{formatCurrency(summary.total_balance)}</div>
+                      <div className="2xl font-bold">{formatCurrency(summary.total_balance)}</div>
                       <p className="text-xs text-gray-400">Valor restante a pagar/receber</p>
                     </CardContent>
                   </Card>

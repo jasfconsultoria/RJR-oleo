@@ -63,32 +63,20 @@ const ListaFinanceiro = ({ type }) => {
     if (!empresa) return;
     setLoading(true);
     const from = (currentPage - 1) * pageSize;
-    const to = from + pageSize - 1;
 
-    let query = supabase
-      .from('v_financeiro_completo')
-      .select('*', { count: 'exact' })
-      .eq('type', type)
-      .order('created_at', { ascending: false })
-      .range(from, to);
+    const startDateISO = debouncedStartDate || null;
+    const endDateISO = debouncedEndDate || null;
 
-    if (debouncedSearchTerm) {
-      query = query.or(`document_number.ilike.%${debouncedSearchTerm}%,description.ilike.%${debouncedSearchTerm}%,cliente_fornecedor_name.ilike.%${debouncedSearchTerm}%,cliente_fornecedor_name_fantasia.ilike.%${debouncedSearchTerm}%`);
-    }
-    if (debouncedClientSearchTerm) {
-      query = query.or(`cliente_fornecedor_name.ilike.%${debouncedClientSearchTerm}%,cliente_fornecedor_name_fantasia.ilike.%${debouncedClientSearchTerm}%`);
-    }
-    if (statusFilter !== 'all') {
-      query = query.eq('status', statusFilter);
-    }
-    if (debouncedStartDate) {
-      query = query.gte('issue_date', debouncedStartDate);
-    }
-    if (debouncedEndDate) {
-      query = query.lte('issue_date', debouncedEndDate);
-    }
-
-    const { data, error, count } = await query;
+    const { data, error, count } = await supabase.rpc('get_financeiro_detailed_report', {
+      p_start_date: startDateISO,
+      p_end_date: endDateISO,
+      p_type: type,
+      p_status: statusFilter === 'all' ? null : statusFilter,
+      p_client_search_term: debouncedSearchTerm || debouncedClientSearchTerm || null,
+      p_cost_center: null, // Cost center filter is not implemented in ListaFinanceiro
+      p_offset: from,
+      p_limit: pageSize,
+    });
 
     if (error) {
       toast({ title: `Erro ao buscar ${title}s`, description: `Falha na consulta: ${error.message}`, variant: 'destructive' });
@@ -107,8 +95,8 @@ const ListaFinanceiro = ({ type }) => {
       p_end_date: debouncedEndDate || null,
       p_type: type,
       p_status: statusFilter === 'all' ? null : statusFilter,
-      p_cliente_id: null,
-      p_search_term: debouncedSearchTerm || debouncedClientSearchTerm || null,
+      p_client_search_term: debouncedSearchTerm || debouncedClientSearchTerm || null,
+      p_cost_center: null, // Cost center filter is not implemented in ListaFinanceiro
     });
 
     if (error) {
@@ -184,7 +172,7 @@ const ListaFinanceiro = ({ type }) => {
   };
 
   const getClientDisplayName = (entry) => {
-    return entry.cliente_fornecedor_name_fantasia ? `${entry.cliente_fornecedor_name} - ${entry.cliente_fornecedor_name_fantasia}` : entry.cliente_fornecedor_name;
+    return entry.cliente_fornecedor_fantasy_name ? `${entry.cliente_fornecedor_name} - ${entry.cliente_fornecedor_fantasy_name}` : entry.cliente_fornecedor_name;
   };
 
   return (
