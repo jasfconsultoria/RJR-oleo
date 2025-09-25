@@ -29,26 +29,36 @@ const InstallmentTable = ({
       return [];
     }
 
-    const baseInstallmentValue = Math.floor((remainingValue / installmentsNumber) * 100) / 100;
-    const totalOfBaseInstallments = baseInstallmentValue * installmentsNumber;
-    const roundingDifference = parseFloat((remainingValue - totalOfBaseInstallments).toFixed(2));
+    // Calcula o valor base da parcela com precisão
+    const baseInstallmentValue = remainingValue / installmentsNumber;
+    
+    // Arredonda para 2 casas decimais para evitar problemas de ponto flutuante
+    const roundedBaseInstallmentValue = parseFloat(baseInstallmentValue.toFixed(2));
 
-    return Array.from({ length: installmentsNumber }, (_, i) => {
+    let currentSum = 0;
+    const newInstallments = Array.from({ length: installmentsNumber }, (_, i) => {
       const existing = existingInstallments.find(inst => inst.installment_number === i + 1);
-      let finalInstallmentValue = baseInstallmentValue;
+      
+      let finalInstallmentValue = roundedBaseInstallmentValue;
+      
+      // Ajusta a última parcela para garantir que a soma total seja exata
       if (i === installmentsNumber - 1) {
-        finalInstallmentValue += roundingDifference;
+        finalInstallmentValue = parseFloat((remainingValue - currentSum).toFixed(2));
+      } else {
+        currentSum += finalInstallmentValue;
       }
+
       return {
         id: existing?.id,
         installment_number: i + 1,
         issue_date: existing?.issue_date ? parseISO(existing.issue_date) : addMonths(issueDate, i + 1),
-        expected_amount: isEditing && existing?.expected_amount ? existing.expected_amount : parseFloat(finalInstallmentValue.toFixed(2)),
+        expected_amount: isEditing && existing?.expected_amount ? existing.expected_amount : finalInstallmentValue,
         paid_amount: existing?.paid_amount || 0,
         paid_date: existing?.paid_date ? parseISO(existing.paid_date) : null,
         status: existing?.status || 'pending',
       };
     });
+    return newInstallments;
   }, [totalValue, downPayment, installmentsNumber, issueDate, isEditing, existingInstallments]);
 
   useEffect(() => {

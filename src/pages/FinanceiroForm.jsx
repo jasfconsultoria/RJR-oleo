@@ -15,6 +15,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { FinanceiroFormFields } from '@/components/financeiro/FinanceiroFormFields';
 import { InstallmentDetails } from '@/components/financeiro/InstallmentDetails';
 import { FinanceiroFormActions } from '@/components/financeiro/FinanceiroFormActions';
+import { useAutoSave } from '@/hooks/useAutoSave'; // Importando o hook useAutoSave
 
 const FinanceiroForm = ({ type }) => {
   const { id } = useParams();
@@ -37,36 +38,34 @@ const FinanceiroForm = ({ type }) => {
     return localStorage.getItem(localStorageKey) === 'true';
   });
 
-  // Flag para indicar que o componente foi hidratado com o estado do localStorage
-  const [hydrated, setHydrated] = useState(false);
-
   // Efeito para salvar o estado do modal no localStorage sempre que ele mudar
   useEffect(() => {
     localStorage.setItem(localStorageKey, isNewClientModalOpen ? 'true' : 'false');
   }, [localStorageKey, isNewClientModalOpen]);
 
-  // Efeito para definir hydrated como true após a primeira renderização no cliente
-  useEffect(() => {
-    setHydrated(true);
-  }, []);
+  const autoSaveKey = `financeiroForm_new_${type}`; // Apenas auto-save para novos formulários
 
-  const [formData, setFormData] = useState({
-    document_number: '',
-    issue_date: new Date(),
-    model: 'Recibo',
-    pessoa_id: null,
-    cliente_fornecedor_name: '', // Razão Social
-    cliente_fornecedor_fantasy_name: '', // Nome Fantasia
-    cnpj_cpf: '',
-    description: '',
-    total_value: '',
-    payment_method: 'pix',
-    cost_center: 'ADMINISTRAÇÃO', // Default, will be updated by fetched data
-    notes: '',
-    down_payment: '0,00',
-    installments_number: 0, // Alterado de 1 para 0
-    installments: [],
-  });
+  const [formData, setFormData, clearSavedData, savedData] = useAutoSave(
+    autoSaveKey,
+    { // Estado inicial para novo formulário
+      document_number: '',
+      issue_date: new Date(),
+      model: 'Recibo',
+      pessoa_id: null,
+      cliente_fornecedor_name: '', // Razão Social
+      cliente_fornecedor_fantasy_name: '', // Nome Fantasia
+      cnpj_cpf: '',
+      description: '',
+      total_value: '',
+      payment_method: 'pix',
+      cost_center: 'ADMINISTRAÇÃO', // Default, será atualizado pelos dados buscados
+      notes: '',
+      down_payment: '0,00',
+      installments_number: 0, // Alterado de 1 para 0
+      installments: [],
+    },
+    !isEditing // Carregar do auto-save apenas se for um novo formulário
+  );
   
   const [singleDueDate, setSingleDueDate] = useState(addDays(new Date(), 30));
   const [loading, setLoading] = useState(true);
@@ -100,7 +99,7 @@ const FinanceiroForm = ({ type }) => {
         setFormData(prev => ({ ...prev, cost_center: data[0].nome }));
       }
     }
-  }, [toast, formData.cost_center]);
+  }, [toast, formData.cost_center, setFormData]); // Adicionado setFormData
 
   useEffect(() => {
     fetchCostCenters();
@@ -128,11 +127,24 @@ const FinanceiroForm = ({ type }) => {
     });
     navigate(`/app/financeiro/${type}`);
     setLoading(false);
-  }, [id, isEditing, navigate, toast, type]);
+  }, [isEditing, navigate, toast, type]);
 
+  // Efeito para lidar com o carregamento inicial de dados (do DB para edição, ou auto-save para novo)
   useEffect(() => {
-    fetchEntry();
-  }, [fetchEntry]);
+    if (isEditing) {
+      clearSavedData(); // Limpa qualquer dado auto-salvo para este ID ao carregar do DB
+      fetchEntry(); // Isso acionará o redirecionamento conforme a implementação atual
+    } else {
+      // Para novos formulários, garante que as datas sejam objetos Date se carregadas de string
+      if (savedData) {
+        setFormData(prev => ({
+          ...prev,
+          issue_date: savedData.issue_date ? new Date(savedData.issue_date) : new Date(),
+          // Garante que outros campos de data também sejam convertidos se existirem em savedData
+        }));
+      }
+    }
+  }, [isEditing, clearSavedData, fetchEntry, savedData, setFormData]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -165,7 +177,7 @@ const FinanceiroForm = ({ type }) => {
 
   const handleInstallmentsChange = useCallback((installmentsData) => {
     setFormData((prev) => ({ ...prev, installments: installmentsData }));
-  }, []);
+  }, [setFormData]); // Adicionado setFormData
 
   const showInstallments = parsedTotalValue > 0 && parsedDownPayment >= 0 && parsedTotalValue > parsedDownPayment;
 
@@ -277,13 +289,14 @@ const FinanceiroForm = ({ type }) => {
     } else {
       toast({ title: `${title} cadastrado com sucesso!`, description: `${formData.description} foi salvo com todas as parcelas.` });
       await logAction(`create_${type}_success`, { lancamento_id: data.lancamento_id, entry_description: formData.description });
+      clearSavedData(); // Limpa o auto-save após o sucesso
       navigate(`/app/financeiro/${type}`);
     }
     setSaving(false);
   };
 
   // Renderiza um loader ou nada se não estiver hidratado
-  if (!hydrated || loading) {
+  if (loading) {
     return (
       <div className="flex justify-center items-center h-full">
         <Loader2 className="w-8 h-8 animate-spin text-emerald-400" />

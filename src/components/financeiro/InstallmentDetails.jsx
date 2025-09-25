@@ -5,7 +5,7 @@ import { IMaskInput } from 'react-imask';
 import { DateInput } from '@/components/ui/date-input';
 import InstallmentTable from '@/components/financeiro/InstallmentTable';
 import { formatCurrency } from '@/lib/utils';
-import { format } from 'date-fns';
+import { format } => 'date-fns';
 
 export const InstallmentDetails = ({
   formData,
@@ -86,9 +86,8 @@ export const InstallmentDetails = ({
                   id="installments_number"
                   name="installments_number"
                   type="number"
-                  // Removido min="1"
                   value={formData.installments_number}
-                  onChange={(e) => handleInputChange({ target: { name: 'installments_number', value: parseInt(e.target.value, 10) || 0 } })} // Alterado || 1 para || 0
+                  onChange={(e) => handleInputChange({ target: { name: 'installments_number', value: parseInt(e.target.value, 10) || 0 } })}
                   className="bg-white/5 border-white/20 rounded-xl"
                 />
               </>
