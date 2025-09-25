@@ -333,7 +333,10 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
             <div className="space-y-2">
-              <Label htmlFor="estado" className="text-white">Estado *</Label>
+              <Label htmlFor="estado" className="text-white flex items-center gap-2"> {/* Adicionado flex para alinhamento */}
+                <MapPin className="w-4 h-4 opacity-0" /> {/* Ícone transparente para alinhar com o outro campo */}
+                Estado *
+              </Label>
                 <Select value={data.estado || ''} onValueChange={handleEstadoChange} required disabled={isClienteSelected}>
                     <SelectTrigger className="w-full bg-white/10 border-white/30 text-white disabled:opacity-70 disabled:cursor-not-allowed rounded-xl h-10 text-base">
                         <SelectValue placeholder="Selecione o estado" />
@@ -344,7 +347,10 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
                 </Select>
             </div>
             <div className="space-y-2">
-                <Label htmlFor="municipio" className="text-white">Município *</Label>
+                <Label htmlFor="municipio" className="text-white flex items-center gap-2"> {/* Adicionado flex para alinhamento */}
+                  <MapPin className="w-4 h-4 opacity-0" /> {/* Ícone transparente para alinhar com o outro campo */}
+                  Município *
+                </Label>
                 <SearchableSelect
                   options={municipios}
                   value={data.municipio || ''}
@@ -359,7 +365,8 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
             <div className="space-y-2">
-              <Label htmlFor="tipo_coleta" className="text-white">
+              <Label htmlFor="tipo_coleta" className="text-white flex items-center gap-2">
+                <Calculator className="w-4 h-4 opacity-0" /> {/* Ícone transparente para alinhar com o outro campo */}
                 Tipo de Coleta *
               </Label>
               <Select value={data.tipo_coleta} onValueChange={handleTipoColetaChange} required>
