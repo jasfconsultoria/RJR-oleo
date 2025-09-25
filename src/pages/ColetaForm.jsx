@@ -222,11 +222,14 @@ const ColetaForm = () => {
       return;
     }
 
+    // A criação/atualização do lançamento financeiro agora é responsabilidade do trigger 'process_recibo_signature_actions'
+    // que é acionado na upsert da tabela 'recibos'.
+    // Portanto, aqui, apenas garantimos que um registro de recibo exista para a coleta.
     const { data: reciboEntry, error: reciboError } = await supabase
       .from('recibos')
       .upsert({ 
         coleta_id: savedData.id,
-        assinatura_url: isEditing ? null : undefined
+        assinatura_url: isEditing ? null : undefined // Se estiver editando, a assinatura pode ser invalidada
       }, { onConflict: 'coleta_id' })
       .select()
       .single();
