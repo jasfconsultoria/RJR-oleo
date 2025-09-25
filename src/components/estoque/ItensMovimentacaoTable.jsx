@@ -146,8 +146,8 @@ const ItensMovimentacaoTable = ({ items, onItemsChange, type, isEditing }) => {
           <Table className="w-full">
             <TableHeader>
               <TableRow className="hover:bg-transparent border-b border-white/20 text-xs">
-                <TableHead className="text-white w-[40%]">Produto</TableHead>
-                <TableHead className="text-white w-[30%] text-right">Quantidade</TableHead>
+                <TableHead className="text-white w-[50%]">Produto</TableHead>
+                <TableHead className="text-white w-[20%] text-right">Quantidade</TableHead>
                 <TableHead className="text-white w-[15%] text-center">Unidade</TableHead>
                 <TableHead className="text-white w-[15%] text-center">Ações</TableHead>
               </TableRow>
