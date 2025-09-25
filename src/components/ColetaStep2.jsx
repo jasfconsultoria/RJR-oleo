@@ -81,25 +81,12 @@ export function ColetaStep2({ data, onBack, onNext, onUpdate, empresaTimezone })
             Quantidade de Óleo Coletado (kg) *
           </Label>
           <div className="relative">
-            <IMaskInput
-              mask="num"
-              blocks={{
-                num: {
-                  mask: Number,
-                  thousandsSeparator: '.',
-                  radix: ',',
-                  mapToRadix: ['.'],
-                  scale: 2,
-                  padFractionalZeros: true,
-                  normalizeZeros: true,
-                  signed: false,
-                },
-              }}
-              as={Input}
+            <Input
               id="quantidade"
-              type="text"
+              type="number"
+              step="0.01"
               value={data.quantidade_coletada}
-              onAccept={(value) => onUpdate({ quantidade_coletada: value })}
+              onChange={(e) => onUpdate({ quantidade_coletada: e.target.value })}
               placeholder="Ex: 150,50"
               className="bg-white/20 border-white/30 text-white placeholder:text-white/60 text-lg py-4 pr-12"
             />
