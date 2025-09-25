@@ -19,6 +19,7 @@ import ClienteSearchableSelect from '@/components/ui/ClienteSearchableSelect';
 import ProdutoSearchableSelect from '@/components/estoque/ProdutoSearchableSelect';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { formatNumber } from '@/lib/utils';
+import MovimentacaoViewDialog from '@/components/estoque/MovimentacaoViewDialog';
 
 const ListaMovimentacoesPage = () => {
   const navigate = useNavigate();
@@ -37,6 +38,7 @@ const ListaMovimentacoesPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [empresa, setEmpresa] = useState(null);
+  const [viewingMovimentacao, setViewingMovimentacao] = useState(null);
 
   const pageSize = useMemo(() => empresa?.items_per_page || 25, [empresa]);
 
@@ -62,6 +64,7 @@ const ListaMovimentacoesPage = () => {
         data,
         tipo,
         origem,
+        document_number,
         observacao,
         cliente:clientes(nome),
         itens_entrada_saida(
@@ -75,7 +78,7 @@ const ListaMovimentacoesPage = () => {
       .range(from, to);
 
     if (debouncedFilters.searchTerm) {
-      query = query.ilike('observacao', `%${debouncedFilters.searchTerm}%`);
+      query = query.or(`observacao.ilike.%${debouncedFilters.searchTerm}%,document_number.ilike.%${debouncedFilters.searchTerm}%`);
     }
     if (debouncedFilters.selectedClienteId) {
       query = query.eq('cliente_id', debouncedFilters.selectedClienteId);
@@ -138,6 +141,10 @@ const ListaMovimentacoesPage = () => {
     }
   };
 
+  const handleViewMovimentacao = (mov) => {
+    setViewingMovimentacao(mov);
+  };
+
   const totalPages = Math.ceil(totalCount / pageSize);
 
   const getMovementIcon = (type) => {
@@ -160,10 +167,10 @@ const ListaMovimentacoesPage = () => {
             <p className="text-emerald-200/80 mt-1">Visualize e gerencie todas as entradas e saídas do estoque.</p>
           </div>
           <div className="flex gap-2 flex-wrap justify-end w-full sm:w-auto">
-            <Button onClick={() => navigate('/app/estoque/entradas')} className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto rounded-xl">
+            <Button onClick={() => navigate('/app/estoque/entradas/novo')} className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto rounded-xl">
               <PlusCircle className="mr-2 h-4 w-4" /> Nova Entrada
             </Button>
-            <Button onClick={() => navigate('/app/estoque/saidas')} className="bg-red-600 hover:bg-red-700 text-white w-full sm:w-auto rounded-xl">
+            <Button onClick={() => navigate('/app/estoque/saidas/novo')} className="bg-red-600 hover:bg-red-700 text-white w-full sm:w-auto rounded-xl">
               <PlusCircle className="mr-2 h-4 w-4" /> Nova Saída
             </Button>
           </div>
@@ -234,6 +241,7 @@ const ListaMovimentacoesPage = () => {
                 <TableHeader>
                   <TableRow className="hover:bg-transparent border-b border-white/20 text-xs">
                     <th className="p-2 text-left text-white">Data</th>
+                    <th className="p-2 text-left text-white">Nº Documento</th> {/* New column */}
                     <th className="p-2 text-left text-white">Tipo</th>
                     <th className="p-2 text-left text-white">Origem</th>
                     <th className="p-2 text-left text-white">Cliente</th>
@@ -246,6 +254,7 @@ const ListaMovimentacoesPage = () => {
                     movimentacoes.map(mov => (
                       <TableRow key={mov.id} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
                         <TableCell data-label="Data">{format(parseISO(mov.data), 'dd/MM/yyyy HH:mm', { locale: ptBR })}</TableCell>
+                        <TableCell data-label="Nº Documento">{mov.document_number || 'N/A'}</TableCell> {/* New cell */}
                         <TableCell data-label="Tipo" className="capitalize flex items-center gap-2">
                           {getMovementIcon(mov.tipo)} {mov.tipo}
                         </TableCell>
@@ -260,6 +269,7 @@ const ListaMovimentacoesPage = () => {
                         </TableCell>
                         <TableCell className="text-right actions-cell">
                            <div className="flex justify-end items-center gap-2">
+                            <Button variant="ghost" size="icon" className="text-blue-400 hover:text-blue-300 rounded-xl" onClick={() => handleViewMovimentacao(mov)}><Eye className="h-4 w-4" /></Button>
                             <Button variant="ghost" size="icon" className="text-yellow-400 hover:text-yellow-300 rounded-xl" onClick={() => navigate(getEditRoute(mov))}><Edit className="h-4 w-4" /></Button>
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
@@ -281,7 +291,7 @@ const ListaMovimentacoesPage = () => {
                       </TableRow>
                     ))
                   ) : (
-                    <TableRow><TableCell colSpan="6" className="text-center text-gray-400 py-10">Nenhuma movimentação encontrada.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan="7" className="text-center text-gray-400 py-10">Nenhuma movimentação encontrada.</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
@@ -297,6 +307,13 @@ const ListaMovimentacoesPage = () => {
           totalCount={totalCount}
         />
       </div>
+      {viewingMovimentacao && (
+        <MovimentacaoViewDialog
+          isOpen={!!viewingMovimentacao}
+          onClose={() => setViewingMovimentacao(null)}
+          movimentacao={viewingMovimentacao}
+        />
+      )}
     </>
   );
 };

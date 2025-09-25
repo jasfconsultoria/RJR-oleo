@@ -15,7 +15,7 @@ import { Pagination } from '@/components/ui/pagination';
 import { logAction } from '@/lib/logger';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-// Removido: import ClienteSearchableSelect from '@/components/ui/ClienteSearchableSelect';
+import ClienteSearchableSelect from '@/components/ui/ClienteSearchableSelect';
 import ProdutoSearchableSelect from '@/components/estoque/ProdutoSearchableSelect';
 import { formatNumber } from '@/lib/utils';
 import MovimentacaoViewDialog from '@/components/estoque/MovimentacaoViewDialog';
