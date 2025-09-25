@@ -13,6 +13,8 @@ const ItensMovimentacaoTable = ({ items, onItemsChange, type, isEditing }) => {
   const { toast } = useToast();
   const [productBalances, setProductBalances] = useState({});
   const [loadingBalances, setLoadingBalances] = useState(false);
+  const [touchedItems, setTouchedItems] = useState({});
+  const [validatedItems, setValidatedItems] = useState({}); // Novo estado para itens validados
 
   const fetchProductBalances = useCallback(async () => {
     setLoadingBalances(true);
@@ -45,6 +47,18 @@ const ItensMovimentacaoTable = ({ items, onItemsChange, type, isEditing }) => {
     } else {
       const newItems = items.filter((_, i) => i !== index);
       onItemsChange(newItems);
+      
+      // Limpar estados do item removido
+      setTouchedItems(prev => {
+        const newTouched = { ...prev };
+        delete newTouched[index];
+        return newTouched;
+      });
+      setValidatedItems(prev => {
+        const newValidated = { ...prev };
+        delete newValidated[index];
+        return newValidated;
+      });
     }
   };
 
@@ -64,26 +78,54 @@ const ItensMovimentacaoTable = ({ items, onItemsChange, type, isEditing }) => {
     const newItems = [...items];
     newItems[index].quantidade = value;
     onItemsChange(newItems);
+    
+    // Marcar como validado apenas se o usuário realmente digitou algo
+    if (value !== '' && value !== '0,00') {
+      setValidatedItems(prev => ({ ...prev, [index]: true }));
+    }
   };
 
-  const validateItem = (item) => {
+  const handleQuantityFocus = (index) => {
+    // Só marcar como tocado, não como validado ainda
+    setTouchedItems(prev => ({ ...prev, [index]: true }));
+  };
+
+  const handleQuantityBlur = (index, value) => {
+    // Marcar como validado apenas quando o usuário sair do campo e tiver digitado algo
+    if (value && value !== '' && value !== '0,00' && parseCurrency(value) > 0) {
+      setValidatedItems(prev => ({ ...prev, [index]: true }));
+    }
+  };
+
+  const validateItem = (item, index) => {
+    // Não mostrar erro se o item não foi validado ainda
+    if (!validatedItems[index]) {
+      return null;
+    }
+
+    // Se o item está completamente vazio, não retorna erro
     if (!item.produto_id && (item.quantidade === '' || parseCurrency(item.quantidade) === 0)) {
       return null;
     }
+    
     if (!item.produto_id) return 'Selecione um produto.';
-    if (parseCurrency(item.quantidade) <= 0) return 'Quantidade deve ser maior que zero.';
+    
+    const quantidade = parseCurrency(item.quantidade);
+    if (quantidade <= 0) return 'Quantidade deve ser maior que zero.';
+    
     if (type === 'saida' && !isEditing) {
       const currentBalance = productBalances[item.produto_id] || 0;
-      if (parseCurrency(item.quantidade) > currentBalance) {
+      if (quantidade > currentBalance) {
         return `Saldo insuficiente. Disponível: ${formatNumber(currentBalance)} ${item.unidade}.`;
       }
     }
+    
     return null;
   };
 
   const hasErrors = useMemo(() => {
-    return items.some(item => (item.produto_id || item.quantidade !== '') && validateItem(item) !== null);
-  }, [items, productBalances]);
+    return items.some((item, index) => validatedItems[index] && validateItem(item, index) !== null);
+  }, [items, validatedItems, productBalances]);
 
   useEffect(() => {
     if (hasErrors) {
@@ -99,12 +141,8 @@ const ItensMovimentacaoTable = ({ items, onItemsChange, type, isEditing }) => {
     <div className="space-y-4">
       <h3 className="text-lg font-semibold text-white">Itens da Movimentação *</h3>
       
-      {/* Container principal SEM overflow - removemos o overflow daqui */}
-      <div className="rounded-xl border border-white/20 min-h-[200px] max-h-[400px] relative">
-        
-        {/* DIV CRÍTICA: Container da tabela SEM overflow que corta */}
-        <div className="h-full"> {/* Removido overflow-x-auto */}
-          
+      <div className="rounded-xl border border-white/20 min-h-[200px] max-h-[400px] overflow-visible">
+        <div className="relative w-full overflow-visible">
           <Table className="w-full">
             <TableHeader>
               <TableRow className="hover:bg-transparent border-b border-white/20 text-xs">
@@ -117,22 +155,13 @@ const ItensMovimentacaoTable = ({ items, onItemsChange, type, isEditing }) => {
             
             <TableBody>
               {items.map((item, index) => {
-                const error = validateItem(item);
+                const error = validateItem(item, index);
+                const isEmptyItem = !item.produto_id && (!item.quantidade || item.quantidade === '' || item.quantidade === '0,00');
+                
                 return (
                   <TableRow key={index} className="border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
-                    
-                    {/* Célula do Produto - CRÍTICA para o dropdown */}
-                    <TableCell 
-                      data-label="Produto" 
-                      className="py-4 relative overflow-visible"
-                      style={{ 
-                        position: 'relative',
-                        zIndex: items.length - index + 100 // Z-index dinâmico
-                      }}
-                    >
-                      
-                      {/* Container especial para o dropdown */}
-                      <div className="dropdown-container" style={{ position: 'static' }}>
+                    <TableCell className="py-4 overflow-visible" style={{ position: 'relative', zIndex: items.length - index + 10 }}>
+                      <div style={{ position: 'static' }}>
                         <ProdutoSearchableSelect
                           value={item.produto_id}
                           onChange={(product) => handleProductSelect(index, product)}
@@ -141,11 +170,10 @@ const ItensMovimentacaoTable = ({ items, onItemsChange, type, isEditing }) => {
                           hideLabel={true}
                         />
                       </div>
-                      
                       {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
                     </TableCell>
                     
-                    <TableCell data-label="Quantidade" className="text-right py-4">
+                    <TableCell className="text-right py-4">
                       <IMaskInput
                         mask="num"
                         blocks={{
@@ -162,17 +190,22 @@ const ItensMovimentacaoTable = ({ items, onItemsChange, type, isEditing }) => {
                         }}
                         value={item.quantidade}
                         onAccept={(value) => handleQuantityChange(index, value)}
+                        onFocus={() => handleQuantityFocus(index)}
+                        onBlur={(e) => handleQuantityBlur(index, e.target.value)}
                         placeholder="0,00"
-                        className={`w-full bg-white/5 border ${error ? 'border-red-500' : 'border-white/20'} text-white text-right h-10 px-3 py-2 rounded-md text-sm`}
+                        className={`w-full bg-white/5 border ${
+                          error ? 'border-red-500' : 
+                          validatedItems[index] ? 'border-green-500/50' : 'border-white/20'
+                        } text-white text-right h-10 px-3 py-2 rounded-md text-sm`}
                         disabled={isEditing}
                       />
                     </TableCell>
                     
-                    <TableCell data-label="Unidade" className="text-center py-4">
+                    <TableCell className="text-center py-4">
                       {item.unidade || 'N/A'}
                     </TableCell>
                     
-                    <TableCell data-label="Ações" className="text-center py-4">
+                    <TableCell className="text-center py-4">
                       <Button
                         type="button"
                         variant="ghost"

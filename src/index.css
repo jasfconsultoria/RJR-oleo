@@ -148,3 +148,37 @@ button:focus {
     display: none;
   }
 }
+
+/* SOLUÇÃO PARA DROPDOWN NA TABELA */
+/* Sobrescrever a div que está cortando o dropdown */
+div.relative.w-full.overflow-auto {
+  overflow: visible !important;
+}
+
+/* Garantir que a tabela tenha scroll horizontal quando necessário */
+.rounded-xl.border.border-white\\/20 {
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+/* Forçar o dropdown a sair do container */
+[data-radix-popper-content-wrapper] {
+  position: fixed !important;
+  z-index: 9999 !important;
+}
+
+/* Container do dropdown dentro da tabela */
+.dropdown-container {
+  position: static !important;
+}
+
+/* Célula da tabela deve permitir overflow */
+td.py-4 {
+  overflow: visible !important;
+  position: relative;
+}
+
+/* Z-index para o dropdown */
+.relative.z-50 {
+  z-index: 1000 !important;
+}

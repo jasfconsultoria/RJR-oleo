@@ -35,7 +35,7 @@ const EntradaFormPage = () => {
     coleta_id: null,
     observacao: '',
     itens: [{ id: null, produto_id: null, produto_nome: '', unidade: '', quantidade: '' }], // Inicializa com um item vazio
-    cliente: '', // Campo único para busca
+    cliente: '', // Campo único para busca,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -330,14 +330,23 @@ const EntradaFormPage = () => {
       // Filtrar itens completamente vazios antes de enviar
       const itensToSave = formData.itens.filter(item => item.produto_id !== null || item.quantidade !== '');
 
-      const { itens, cliente, ...movimentacaoHeader } = formData; // Remover campo de busca temporário
-      movimentacaoHeader.user_id = user?.id;
+      // Desestruturar e remover campos que não pertencem à tabela 'entrada_saida'
+      const { 
+        itens, 
+        cliente, 
+        cliente_nome, 
+        cliente_nome_fantasia, 
+        cnpj_cpf, 
+        ...movimentacaoHeaderToSave 
+      } = formData; 
+      
+      movimentacaoHeaderToSave.user_id = user?.id;
 
       let savedMovimentacao;
       if (isEditing) {
         const { data, error } = await supabase
           .from('entrada_saida')
-          .update(movimentacaoHeader)
+          .update(movimentacaoHeaderToSave)
           .eq('id', id)
           .select()
           .single();
@@ -350,7 +359,7 @@ const EntradaFormPage = () => {
       } else {
         const { data, error } = await supabase
           .from('entrada_saida')
-          .insert(movimentacaoHeader)
+          .insert(movimentacaoHeaderToSave)
           .select()
           .single();
         if (error) throw error;
