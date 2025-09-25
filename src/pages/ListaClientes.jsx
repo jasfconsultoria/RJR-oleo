@@ -118,6 +118,7 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
 
     // Filter logic for clients with contracts (always applied for 'cliente' type)
     if (personType === 'cliente') {
+        console.warn('fetchClientes: Aplicando filtro para mostrar APENAS clientes com contrato.');
         const { data: clientsWithContracts, error: contractsError } = await supabase
             .from('contratos')
             .select('cliente_id')
@@ -132,7 +133,10 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
             return;
         }
         const clientIdsWithContracts = clientsWithContracts.map(c => c.cliente_id);
+        console.warn('fetchClientes: IDs de clientes com contrato encontrados:', clientIdsWithContracts.length, 'IDs:', clientIdsWithContracts);
+
         if (clientIdsWithContracts.length === 0) {
+            console.warn('fetchClientes: NENHUM cliente com contrato encontrado ou visível para o usuário atual. A lista de clientes será vazia.');
             // If no clients have contracts, the filtered list is empty
             setClientes([]);
             setTotalCount(0);
@@ -158,6 +162,7 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
       });
       setClientes([]);
     } else {
+      console.warn('fetchClientes: Clientes carregados (após filtro de contrato):', clientesData?.length);
       setClientes(clientesData || []);
       setTotalCount(count || 0); // Count will now be accurate for the filtered list
     }
