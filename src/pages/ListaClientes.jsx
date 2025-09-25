@@ -30,6 +30,8 @@ import { formatCnpjCpf } from '@/lib/utils';
 import { logAction } from '@/lib/logger';
 import { Pagination } from '@/components/ui/pagination';
 import { useDebounce } from '@/hooks/useDebounce';
+import { Switch } from '@/components/ui/switch'; // Import Switch
+import { Label } from '@/components/ui/label'; // Import Label
 
 const ListaClientes = ({ personType = 'pessoa' }) => { // Accept personType prop
   const [clientes, setClientes] = useState([]);
@@ -44,6 +46,7 @@ const ListaClientes = ({ personType = 'pessoa' }) => { // Accept personType prop
   const [empresa, setEmpresa] = useState(null);
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
   const { toast } = useToast();
+  const [showOnlyWithContracts, setShowOnlyWithContracts] = useState(false); // NEW: State for contract filter
 
   const pageSize = useMemo(() => empresa?.items_per_page || 25, [empresa]);
 
@@ -111,7 +114,33 @@ const ListaClientes = ({ personType = 'pessoa' }) => { // Accept personType prop
 
     let query = supabase
       .from('clientes')
-      .select('id, nome, nome_fantasia, cnpj_cpf, municipio, estado', { count: 'exact' }); // Include nome_fantasia
+      .select('id, nome, nome_fantasia, cnpj_cpf, municipio, estado', { count: 'exact' });
+
+    // NEW: Filter logic for clients with contracts
+    if (personType === 'cliente' && showOnlyWithContracts) {
+        const { data: clientsWithContracts, error: contractsError } = await supabase
+            .from('contratos')
+            .select('cliente_id')
+            .distinct(); // Get unique client_ids
+
+        if (contractsError) {
+            console.error("Error fetching clients with contracts:", contractsError);
+            toast({ title: 'Erro ao buscar clientes com contratos', description: contractsError.message, variant: 'destructive' });
+            setClientes([]);
+            setTotalCount(0);
+            setLoading(false);
+            return;
+        }
+        const clientIdsWithContracts = clientsWithContracts.map(c => c.cliente_id);
+        if (clientIdsWithContracts.length === 0) {
+            // If no clients have contracts, the filtered list is empty
+            setClientes([]);
+            setTotalCount(0);
+            setLoading(false);
+            return;
+        }
+        query = query.in('id', clientIdsWithContracts);
+    }
 
     if (debouncedSearchTerm) {
       query = query.or(`nome.ilike.%${debouncedSearchTerm}%,nome_fantasia.ilike.%${debouncedSearchTerm}%,cnpj_cpf.ilike.%${debouncedSearchTerm}%,municipio.ilike.%${debouncedSearchTerm}%,estado.ilike.%${debouncedSearchTerm}%`);
@@ -130,10 +159,10 @@ const ListaClientes = ({ personType = 'pessoa' }) => { // Accept personType prop
       setClientes([]);
     } else {
       setClientes(clientesData || []);
-      setTotalCount(count || 0);
+      setTotalCount(count || 0); // Count will now be accurate for the filtered list
     }
     setLoading(false);
-  }, [profile, profileLoading, toast, currentPage, pageSize, debouncedSearchTerm, sortConfig, empresa]);
+  }, [profile, profileLoading, toast, currentPage, pageSize, debouncedSearchTerm, sortConfig, empresa, personType, showOnlyWithContracts]); // Add new dependencies
 
   useEffect(() => {
     fetchClientes();
@@ -141,7 +170,7 @@ const ListaClientes = ({ personType = 'pessoa' }) => { // Accept personType prop
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearchTerm, pageSize]);
+  }, [debouncedSearchTerm, pageSize, showOnlyWithContracts]); // NEW: Reset page on contract filter change
 
   const handleDelete = async (cliente) => {
     const { error } = await supabase
@@ -237,6 +266,16 @@ const ListaClientes = ({ personType = 'pessoa' }) => { // Accept personType prop
                 className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60 rounded-xl"
                 />
             </div>
+            {personType === 'cliente' && ( // NEW: Conditionally render contract filter switch
+                <div className="flex items-center space-x-2 mt-4">
+                    <Switch
+                        id="show-only-with-contracts"
+                        checked={showOnlyWithContracts}
+                        onCheckedChange={setShowOnlyWithContracts}
+                    />
+                    <Label htmlFor="show-only-with-contracts" className="text-white">Mostrar apenas clientes com contrato</Label>
+                </div>
+            )}
         </div>
 
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white/10 backdrop-blur-sm rounded-xl">
@@ -258,7 +297,7 @@ const ListaClientes = ({ personType = 'pessoa' }) => { // Accept personType prop
                       <th onClick={() => requestSort('municipio')} className="cursor-pointer text-white p-2 text-left">
                         <div className="flex items-center">Localização {getSortIcon('municipio')}</div>
                       </th>
-                      {personType !== 'fornecedor' && ( // Conditionally render 'Contrato' column header
+                      {personType !== 'fornecedor' && ( 
                         <th className="text-left text-white p-2">Contrato</th>
                       )}
                       <th className="text-left text-white p-2">Ações</th>
@@ -272,12 +311,12 @@ const ListaClientes = ({ personType = 'pessoa' }) => { // Accept personType prop
                         </TableCell>
                         <TableCell data-label="CNPJ/CPF" className="p-2">{formatCnpjCpf(cliente.cnpj_cpf)}</TableCell>
                         <TableCell data-label="Localização" className="p-2">{cliente.municipio}, {cliente.estado}</TableCell>
-                        {personType !== 'fornecedor' && ( // Conditionally render 'Contrato' column cell
+                        {personType !== 'fornecedor' && ( 
                           <TableCell data-label="Contrato" className="p-2">{getContractStatus(cliente.id)}</TableCell>
                         )}
                         <TableCell className="p-2 actions-cell">
                           <div className="flex items-center gap-1">
-                            {personType !== 'fornecedor' && ( // Conditionally render 'Ver Contratos' button
+                            {personType !== 'fornecedor' && ( 
                               <Button variant="ghost" size="icon" title="Ver Contratos" onClick={() => navigate(`/app/cadastro/contratos?clienteId=${cliente.id}`)}>
                                   <FileText className="h-4 w-4 text-cyan-400" />
                               </Button>
@@ -315,7 +354,7 @@ const ListaClientes = ({ personType = 'pessoa' }) => { // Accept personType prop
                       </TableRow>
                     )) : (
                       <TableRow>
-                        <TableCell colSpan={personType !== 'fornecedor' ? 5 : 4} className="h-24 text-center text-white/70"> {/* Adjusted colspan */}
+                        <TableCell colSpan={personType !== 'fornecedor' ? 5 : 4} className="h-24 text-center text-white/70"> 
                           Nenhum{singularArticle === 'a' ? 'a' : ''} {singularNoun} encontrado{singularArticle === 'a' ? 'a' : ''}.
                         </TableCell>
                       </TableRow>
