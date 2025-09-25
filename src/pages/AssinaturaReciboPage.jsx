@@ -99,7 +99,7 @@ const AssinaturaReciboPage = () => {
       // Se a coleta for do tipo 'Compra', abre o diálogo de pagamento
       if (coleta.tipo_coleta === 'Compra') {
         // Aguarda um pouco mais para o trigger do Supabase processar o lançamento financeiro
-        await new Promise(resolve => setTimeout(resolve, 2500)); // Aumentado para 2.5 segundos
+        await new Promise(resolve => setTimeout(resolve, 3000)); // Aumentado para 3 segundos
 
         console.log('AssinaturaReciboPage: Tentando buscar lançamento de débito para coleta_id:', id);
         const { data: debitEntry, error: debitError } = await supabase
@@ -107,11 +107,13 @@ const AssinaturaReciboPage = () => {
           .select('*')
           .eq('lancamento_id', id) // O lancamento_id é o mesmo id da coleta para este caso
           .eq('type', 'debito')
-          .single();
+          .maybeSingle(); // Alterado para maybeSingle()
+
+        console.log('AssinaturaReciboPage: Resultado da busca do débito:', { debitEntry, debitError });
 
         if (debitError) {
           console.error('AssinaturaReciboPage: Erro ao buscar lançamento de débito:', debitError);
-          toast({ title: 'Erro', description: 'Não foi possível carregar os detalhes do débito para pagamento. Por favor, registre o pagamento manualmente na seção Financeiro.', variant: 'destructive', duration: 8000 });
+          toast({ title: 'Erro', description: `Não foi possível carregar os detalhes do débito para pagamento: ${debitError.message}. Por favor, registre o pagamento manualmente na seção Financeiro.`, variant: 'destructive', duration: 8000 });
           navigate(`/recibo/publico/${coleta.id}`); // Navega para o recibo público mesmo com erro
         } else if (!debitEntry) {
           console.warn('AssinaturaReciboPage: Lançamento de débito não encontrado após assinatura para coleta_id:', id);

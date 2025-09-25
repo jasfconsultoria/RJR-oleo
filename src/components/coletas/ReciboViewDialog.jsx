@@ -132,7 +132,7 @@ export const ReciboViewDialog = ({ coleta, empresa, isOpen, onClose, empresaTime
       toast({ title: 'Recibo assinado com sucesso!' });
       
       if (coleta.tipo_coleta === 'Compra') {
-        await new Promise(resolve => setTimeout(resolve, 2500));
+        await new Promise(resolve => setTimeout(resolve, 3000)); // Aumentado para 3 segundos
 
         console.log('ReciboViewDialog: Tentando buscar lançamento de débito para coleta_id:', coleta.id);
         const { data: debitEntry, error: debitError } = await supabase
@@ -140,11 +140,13 @@ export const ReciboViewDialog = ({ coleta, empresa, isOpen, onClose, empresaTime
           .select('*')
           .eq('lancamento_id', coleta.id)
           .eq('type', 'debito')
-          .single();
+          .maybeSingle(); // Alterado para maybeSingle()
+
+        console.log('ReciboViewDialog: Resultado da busca do débito:', { debitEntry, debitError });
 
         if (debitError) {
           console.error('ReciboViewDialog: Erro ao buscar lançamento de débito:', debitError);
-          toast({ title: 'Erro', description: 'Não foi possível carregar os detalhes do débito para pagamento. Por favor, registre o pagamento manualmente na seção Financeiro.', variant: 'destructive', duration: 8000 });
+          toast({ title: 'Erro', description: `Não foi possível carregar os detalhes do débito para pagamento: ${debitError.message}. Por favor, registre o pagamento manualmente na seção Financeiro.`, variant: 'destructive', duration: 8000 });
           onClose();
         } else if (!debitEntry) {
           console.warn('ReciboViewDialog: Lançamento de débito não encontrado após assinatura para coleta_id:', coleta.id);
