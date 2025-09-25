@@ -26,6 +26,7 @@ const ListaContratos = () => {
   const [loading, setLoading] = useState(true);
   const [contratoSearchTerm, setContratoSearchTerm] = useState('');
   const [clientSearchTerm, setClientSearchTerm] = useState(''); // Novo estado para busca de cliente
+  const [filterById, setFilterById] = useState(null); // NEW: State to store client ID from URL
   const debouncedContratoSearchTerm = useDebounce(contratoSearchTerm, 500);
   const debouncedClientSearchTerm = useDebounce(clientSearchTerm, 500); // Debounce para busca de cliente
   const [currentPage, setCurrentPage] = useState(1);
@@ -43,6 +44,7 @@ const ListaContratos = () => {
     const queryParams = new URLSearchParams(location.search);
     const clienteIdFromUrl = queryParams.get('clienteId');
     if (clienteIdFromUrl) {
+      setFilterById(clienteIdFromUrl); // Set the ID for direct filtering
       // Fetch client name to pre-fill the search input
       const fetchClientName = async () => {
         const { data, error } = await supabase.from('clientes').select('nome, nome_fantasia').eq('id', clienteIdFromUrl).single();
@@ -51,6 +53,8 @@ const ListaContratos = () => {
         }
       };
       fetchClientName();
+    } else {
+      setFilterById(null); // Clear filterById if no ID in URL
     }
   }, [location.search]);
 
@@ -77,8 +81,16 @@ const ListaContratos = () => {
     const from = (currentPage - 1) * pageSize;
     const to = from + pageSize - 1;
 
-    let clientIds = [];
-    if (debouncedClientSearchTerm) {
+    let query = supabase
+      .from('contratos')
+      .select('*, pdf_url, cliente:clientes(id, nome, nome_fantasia)', { count: 'exact' }) // Incluir id do cliente
+      .order('created_at', { ascending: false })
+      .range(from, to);
+
+    if (filterById) { // Prioritize filtering by ID if present
+        query = query.eq('cliente_id', filterById);
+    } else if (debouncedClientSearchTerm) {
+        // If no direct ID filter, use text search
         const { data: matchingClients, error: clientError } = await supabase
             .from('clientes')
             .select('id')
@@ -91,32 +103,21 @@ const ListaContratos = () => {
             setLoading(false);
             return;
         } else {
-            clientIds = matchingClients.map(c => c.id);
+            const clientIds = matchingClients.map(c => c.id);
             if (clientIds.length === 0) {
-                // If a search term was provided but no clients matched, ensure no results are returned
                 setContratos([]);
                 setTotalCount(0);
                 setLoading(false);
                 return;
             }
+            query = query.in('cliente_id', clientIds);
         }
     }
-
-    let query = supabase
-      .from('contratos')
-      .select('*, pdf_url, cliente:clientes(nome, nome_fantasia)', { count: 'exact' }) // Incluir dados do cliente
-      .order('created_at', { ascending: false })
-      .range(from, to);
 
     if (debouncedContratoSearchTerm) {
       query = query.ilike('numero_contrato', `%${debouncedContratoSearchTerm}%`);
     }
-    // Aplicar filtro por IDs de cliente se houver
-    if (clientIds.length > 0) {
-        query = query.in('cliente_id', clientIds);
-    }
-
-
+    
     const { data, error, count } = await query;
 
     if (error) {
@@ -128,7 +129,7 @@ const ListaContratos = () => {
       setTotalCount(count || 0);
     }
     setLoading(false);
-  }, [toast, currentPage, pageSize, debouncedContratoSearchTerm, debouncedClientSearchTerm, empresa]);
+  }, [toast, currentPage, pageSize, debouncedContratoSearchTerm, debouncedClientSearchTerm, filterById, empresa]); // Add filterById to dependencies
 
   useEffect(() => {
     const fetchEmpresa = async () => {
@@ -147,7 +148,7 @@ const ListaContratos = () => {
   
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedContratoSearchTerm, debouncedClientSearchTerm, pageSize]);
+  }, [debouncedContratoSearchTerm, debouncedClientSearchTerm, filterById, pageSize]); // Add filterById to dependencies
 
   const handleDelete = async (id, numeroContrato) => {
     const { error } = await supabase.from('contratos').delete().eq('id', id);
@@ -162,6 +163,7 @@ const ListaContratos = () => {
 
   const handleViewContrato = async (contrato) => {
     setLoading(true);
+    // Fetch full client data for the modal if not already available
     const { data, error } = await supabase.from('contratos').select('*, pessoa:clientes(*)').eq('id', contrato.id).single();
     if (error) {
       toast({ title: 'Erro ao buscar detalhes do contrato', description: error.message, variant: 'destructive' });
@@ -222,7 +224,14 @@ const ListaContratos = () => {
     }
   };
 
-  // Removido: handleClienteSelectChange, pois agora é um input de texto direto
+  // Handler for client search input change
+  const handleClientSearchInputChange = (e) => {
+    setClientSearchTerm(e.target.value);
+    // When user starts typing, clear the direct ID filter
+    if (filterById) {
+      setFilterById(null);
+    }
+  };
 
   const totalPages = Math.ceil(totalCount / pageSize);
 
@@ -282,7 +291,7 @@ const ListaContratos = () => {
                   type="search"
                   placeholder="Buscar por nome do cliente..."
                   value={clientSearchTerm}
-                  onChange={(e) => setClientSearchTerm(e.target.value)}
+                  onChange={handleClientSearchInputChange} // Use the new handler
                   className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60 rounded-xl"
                 />
               </div>
