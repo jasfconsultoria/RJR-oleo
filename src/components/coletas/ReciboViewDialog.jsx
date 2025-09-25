@@ -8,7 +8,7 @@ import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import SignatureCanvas from 'react-signature-canvas';
 import { supabase } from '@/lib/customSupabaseClient';
-import { Label } from '@/components/ui/label'; // Correção aqui
+import { Label } from '@/components/ui/label';
 import PaymentDialog from '@/components/financeiro/PaymentDialog'; // Importar o PaymentDialog
 
 export const ReciboViewDialog = ({ coleta, empresa, isOpen, onClose, empresaTimezone }) => {
@@ -16,10 +16,10 @@ export const ReciboViewDialog = ({ coleta, empresa, isOpen, onClose, empresaTime
   const reciboRef = useRef();
   const sigCanvas = useRef({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [collectorName, setCollectorName] = useState(null); // Novo estado para o nome do coletor
+  const [collectorName, setCollectorName] = useState(null);
 
-  const [showPaymentDialog, setShowPaymentDialog] = useState(false); // Novo estado para o diálogo de pagamento
-  const [debitEntryForPayment, setDebitEntryForPayment] = useState(null); // Novo estado para o lançamento de débito
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [debitEntryForPayment, setDebitEntryForPayment] = useState(null);
 
   const isSigned = !!coleta.assinatura_url;
 
@@ -38,7 +38,6 @@ export const ReciboViewDialog = ({ coleta, empresa, isOpen, onClose, empresaTime
   useEffect(() => {
     if (isOpen && coleta) {
       fetchCollectorName();
-      // DEBUG: Log para verificar o objeto coleta completo e a hora da coleta
       console.log('ReciboViewDialog - Coleta prop recebida:', coleta);
       console.log('ReciboViewDialog - coleta.hora_coleta:', coleta.hora_coleta);
     }
@@ -132,27 +131,25 @@ export const ReciboViewDialog = ({ coleta, empresa, isOpen, onClose, empresaTime
         
       toast({ title: 'Recibo assinado com sucesso!' });
       
-      // Se a coleta for do tipo 'Compra', abre o diálogo de pagamento
       if (coleta.tipo_coleta === 'Compra') {
-        // Aguarda um pouco mais para o trigger do Supabase processar o lançamento financeiro
-        await new Promise(resolve => setTimeout(resolve, 2500)); // Aumentado para 2.5 segundos
+        await new Promise(resolve => setTimeout(resolve, 2500));
 
         console.log('ReciboViewDialog: Tentando buscar lançamento de débito para coleta_id:', coleta.id);
         const { data: debitEntry, error: debitError } = await supabase
           .from('v_financeiro_completo')
           .select('*')
-          .eq('lancamento_id', coleta.id) // O lancamento_id é o mesmo id da coleta para este caso
+          .eq('lancamento_id', coleta.id)
           .eq('type', 'debito')
           .single();
 
         if (debitError) {
           console.error('ReciboViewDialog: Erro ao buscar lançamento de débito:', debitError);
           toast({ title: 'Erro', description: 'Não foi possível carregar os detalhes do débito para pagamento. Por favor, registre o pagamento manualmente na seção Financeiro.', variant: 'destructive', duration: 8000 });
-          onClose(); // Fecha o modal e o usuário pode ir para a lista de coletas
+          onClose();
         } else if (!debitEntry) {
           console.warn('ReciboViewDialog: Lançamento de débito não encontrado após assinatura para coleta_id:', coleta.id);
           toast({ title: 'Aviso', description: 'Lançamento de débito não encontrado. Por favor, registre o pagamento manualmente na seção Financeiro.', variant: 'warning', duration: 8000 });
-          onClose(); // Fecha o modal
+          onClose();
         }
         else {
           console.log('ReciboViewDialog: Lançamento de débito encontrado:', debitEntry);
@@ -160,7 +157,7 @@ export const ReciboViewDialog = ({ coleta, empresa, isOpen, onClose, empresaTime
           setShowPaymentDialog(true);
         }
       } else {
-        onClose(); // Fecha o modal após sucesso para outros tipos de coleta
+        onClose();
       }
 
     } catch (err) {
@@ -172,69 +169,71 @@ export const ReciboViewDialog = ({ coleta, empresa, isOpen, onClose, empresaTime
 
   const handlePaymentSuccess = () => {
     setShowPaymentDialog(false);
-    onClose(); // Fecha o modal principal após o pagamento
+    onClose();
   };
 
   const handlePaymentClose = () => {
     setShowPaymentDialog(false);
-    onClose(); // Fecha o modal principal se o pagamento for cancelado
+    onClose();
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-3xl h-[90vh] bg-gray-800 border-gray-700 text-white flex flex-col">
-        <DialogHeader>
-          <DialogTitle>Visualizar Recibo - {coleta.numero_coleta}</DialogTitle>
-        </DialogHeader>
-        <div className="flex-grow overflow-y-auto p-4 bg-white rounded-md">
-          <Recibo 
-            ref={reciboRef} 
-            data={coleta} 
-            empresa={empresa} 
-            signature={coleta.assinatura_url} 
-            timezone={empresaTimezone} 
-            collectorName={collectorName} 
-            coletaDateString={coleta.data_coleta}
-            coletaTimeString={coleta.hora_coleta}
-          />
-          {!isSigned && (
-            <div className="mt-6 p-4 border-t-2 border-dashed">
-              <Label htmlFor="signature-canvas-modal" className="text-lg font-semibold mb-2 block text-gray-800">Assinatura:</Label>
-              <div className="bg-gray-100 rounded-md p-1 border-2 border-dashed border-emerald-400">
-                <SignatureCanvas
-                  ref={sigCanvas}
-                  penColor='black'
-                  canvasProps={{ id: 'signature-canvas-modal', className: 'w-full h-48 rounded-md' }}
-                />
-              </div>
-            </div>
-          )}
-        </div>
-        <DialogFooter className="mt-4 flex-col sm:flex-row sm:justify-between gap-2">
-          <Button variant="outline" onClick={onClose} className="border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black">
-            <ArrowLeft className="mr-2 h-4 w-4" /> {isSigned ? 'Fechar' : 'Voltar'}
-          </Button>
-          <div className="flex flex-col sm:flex-row gap-2">
-            <Button onClick={handleShare} className="bg-blue-500 hover:bg-blue-600">
-                <Share2 className="mr-2 h-4 w-4" /> Compartilhar
-            </Button>
-            <Button onClick={handlePrint} className="bg-emerald-500 hover:bg-emerald-600">
-              <Printer className="mr-2 h-4 w-4" /> Imprimir
-            </Button>
+    <> {/* Fragmento adicionado aqui */}
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="sm:max-w-3xl h-[90vh] bg-gray-800 border-gray-700 text-white flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Visualizar Recibo - {coleta.numero_coleta}</DialogTitle>
+          </DialogHeader>
+          <div className="flex-grow overflow-y-auto p-4 bg-white rounded-md">
+            <Recibo 
+              ref={reciboRef} 
+              data={coleta} 
+              empresa={empresa} 
+              signature={coleta.assinatura_url} 
+              timezone={empresaTimezone} 
+              collectorName={collectorName} 
+              coletaDateString={coleta.data_coleta}
+              coletaTimeString={coleta.hora_coleta}
+            />
             {!isSigned && (
-              <>
-                <Button variant="outline" onClick={clearSignature} className="border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black">
-                  <Eraser className="mr-2 h-4 w-4" /> Limpar
-                </Button>
-                <Button onClick={handleSaveSignature} disabled={isSubmitting} className="bg-green-600 hover:bg-green-700">
-                  {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
-                  Salvar Assinatura
-                </Button>
-              </>
+              <div className="mt-6 p-4 border-t-2 border-dashed">
+                <Label htmlFor="signature-canvas-modal" className="text-lg font-semibold mb-2 block text-gray-800">Assinatura:</Label>
+                <div className="bg-gray-100 rounded-md p-1 border-2 border-dashed border-emerald-400">
+                  <SignatureCanvas
+                    ref={sigCanvas}
+                    penColor='black'
+                    canvasProps={{ id: 'signature-canvas-modal', className: 'w-full h-48 rounded-md' }}
+                  />
+                </div>
+              </div>
             )}
           </div>
-        </DialogFooter>
-      </DialogContent>
+          <DialogFooter className="mt-4 flex-col sm:flex-row sm:justify-between gap-2">
+            <Button variant="outline" onClick={onClose} className="border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black">
+              <ArrowLeft className="mr-2 h-4 w-4" /> {isSigned ? 'Fechar' : 'Voltar'}
+            </Button>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button onClick={handleShare} className="bg-blue-500 hover:bg-blue-600">
+                  <Share2 className="mr-2 h-4 w-4" /> Compartilhar
+              </Button>
+              <Button onClick={handlePrint} className="bg-emerald-500 hover:bg-emerald-600">
+                <Printer className="mr-2 h-4 w-4" /> Imprimir
+              </Button>
+              {!isSigned && (
+                <>
+                  <Button variant="outline" onClick={clearSignature} className="border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black">
+                    <Eraser className="mr-2 h-4 w-4" /> Limpar
+                  </Button>
+                  <Button onClick={handleSaveSignature} disabled={isSubmitting} className="bg-green-600 hover:bg-green-700">
+                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
+                    Salvar Assinatura
+                  </Button>
+                </>
+              )}
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {debitEntryForPayment && (
         <PaymentDialog
@@ -242,10 +241,10 @@ export const ReciboViewDialog = ({ coleta, empresa, isOpen, onClose, empresaTime
           onClose={handlePaymentClose}
           entry={debitEntryForPayment}
           onSuccess={handlePaymentSuccess}
-          initialPaidAmount={debitEntryForPayment.amount_balance} // Preenche com o saldo devedor
-          initialPaymentMethod="pix" // Define Pix como padrão
+          initialPaidAmount={debitEntryForPayment.amount_balance}
+          initialPaymentMethod="pix"
         />
       )}
-    </>
+    </> {/* Fragmento fechado aqui */}
   );
 };
