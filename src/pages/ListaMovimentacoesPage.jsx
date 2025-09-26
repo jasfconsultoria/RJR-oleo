@@ -11,7 +11,7 @@ import { Loader2, PlusCircle, Edit, Trash2, Search, ListChecks, ArrowDownSquare,
 import { useDebounce } from '@/hooks/useDebounce';
 import { Label } from '@/components/ui/label';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Pagination } => '@/components/ui/pagination';
+import { Pagination } from '@/components/ui/pagination';
 import { logAction } from '@/lib/logger';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -292,23 +292,25 @@ const ListaMovimentacoesPage = () => {
                                 </Tooltip>
                                 {/* Botão Excluir */}
                                 <AlertDialog>
-                                  <AlertDialogTrigger asChild>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <AlertDialogTrigger asChild>
                                         <Button 
                                           variant="ghost" 
                                           size="icon" 
-                                          className={`text-red-400 hover:text-red-300 rounded-xl opacity-50 cursor-not-allowed`} // TEMPORARIAMENTE DESABILITADO
-                                          disabled={true} // TEMPORARIAMENTE DESABILITADO
+                                          className={`text-red-400 hover:text-red-300 rounded-xl ${isLinkedToColeta ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                          disabled={isLinkedToColeta} 
                                         >
                                           <Trash2 className="h-4 w-4" />
                                         </Button>
-                                      </TooltipTrigger>
+                                      </AlertDialogTrigger>
+                                    </TooltipTrigger>
+                                    {isLinkedToColeta && (
                                       <TooltipContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
-                                        <p>Botão de exclusão desabilitado para teste.</p>
+                                        <p>Movimentações de coletas devem ser excluídas na coleta de origem.</p>
                                       </TooltipContent>
-                                    </Tooltip>
-                                  </AlertDialogTrigger>
+                                    )}
+                                  </Tooltip>
                                   <AlertDialogContent className="bg-emerald-900 border-emerald-700 text-white rounded-xl">
                                     <AlertDialogHeader>
                                       <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
