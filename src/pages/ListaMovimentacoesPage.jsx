@@ -251,8 +251,8 @@ const ListaMovimentacoesPage = () => {
                 <TableBody>
                   {movimentacoes.length > 0 ? (
                     movimentacoes.map(mov => {
-                      // Corrigido: Comparação de origem insensível a maiúsculas e minúsculas
                       const isLinkedToColeta = mov.origem?.toLowerCase() === 'coleta';
+                      console.log(`Mov ID: ${mov.id}, Origem: ${mov.origem}, isLinkedToColeta: ${isLinkedToColeta}`); // DEBUG LOG
                       return (
                         <TableRow key={mov.id} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
                           <TableCell data-label="Data">{format(parseISO(mov.data), 'dd/MM/yyyy HH:mm', { locale: ptBR })}</TableCell>
