@@ -290,38 +290,15 @@ const ListaMovimentacoesPage = () => {
                                     </TooltipContent>
                                   )}
                                 </Tooltip>
-                                {/* Botão Excluir */}
-                                <AlertDialog>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <AlertDialogTrigger asChild disabled={isLinkedToColeta}> {/* AlertDialogTrigger recebe disabled */}
-                                        <Button 
-                                          variant="ghost" 
-                                          size="icon" 
-                                          className={`text-red-400 hover:text-red-300 rounded-xl ${isLinkedToColeta ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                          disabled={isLinkedToColeta} /* O Button também recebe disabled */
-                                        >
-                                          <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                      </AlertDialogTrigger>
-                                    </TooltipTrigger>
-                                    {isLinkedToColeta && (
-                                      <TooltipContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
-                                        <p>Movimentações de coletas devem ser excluídas na coleta de origem.</p>
-                                      </TooltipContent>
-                                    )}
-                                  </Tooltip>
-                                  <AlertDialogContent className="bg-emerald-900 border-emerald-700 text-white rounded-xl">
-                                    <AlertDialogHeader>
-                                      <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
-                                      <AlertDialogDescription className="text-emerald-300">Essa ação não pode ser desfeita. Isso deletará permanentemente a movimentação de {mov.tipo}.</AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                      <AlertDialogCancel className="border-gray-500 text-gray-300 rounded-xl">Cancelar</AlertDialogCancel>
-                                      <AlertDialogAction onClick={() => handleDelete(mov.id)} className="bg-red-500 hover:bg-red-600 rounded-xl">Deletar</AlertDialogAction>
-                                    </AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
+                                {/* Botão Excluir - TEMPORARIAMENTE ISOLADO PARA DEBUG */}
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className={`text-red-400 hover:text-red-300 rounded-xl opacity-50 cursor-not-allowed`}
+                                  disabled={true} // FORÇANDO DESABILITADO PARA TESTE
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
                               </div>
                             </TooltipProvider>
                           </TableCell>
