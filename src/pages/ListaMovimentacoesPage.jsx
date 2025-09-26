@@ -7,7 +7,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, PlusCircle, Edit, Search, ListChecks, ArrowDownSquare, ArrowUpSquare, Eye } from 'lucide-react';
+import { Loader2, PlusCircle, Edit, Trash2, Search, ListChecks, ArrowDownSquare, ArrowUpSquare, Eye } from 'lucide-react';
 import { useDebounce } from '@/hooks/useDebounce';
 import { Label } from '@/components/ui/label';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -131,17 +131,16 @@ const ListaMovimentacoesPage = () => {
     setFilters(prev => ({ ...prev, [name]: value }));
   };
 
-  // A função handleDelete foi removida, pois o botão de exclusão não estará mais presente.
-  // const handleDelete = async (id) => {
-  //   const { error } = await supabase.from('entrada_saida').delete().eq('id', id);
-  //   if (error) {
-  //     toast({ title: 'Erro ao deletar movimentação', description: error.message, variant: 'destructive' });
-  //   } else {
-  //     await logAction('delete_stock_movement', { movimentacao_id: id });
-  //     toast({ title: 'Movimentação deletada com sucesso' });
-  //     fetchMovimentacoes();
-  //   }
-  // };
+  const handleDelete = async (id) => {
+    const { error } = await supabase.from('entrada_saida').delete().eq('id', id);
+    if (error) {
+      toast({ title: 'Erro ao deletar movimentação', description: error.message, variant: 'destructive' });
+    } else {
+      await logAction('delete_stock_movement', { movimentacao_id: id });
+      toast({ title: 'Movimentação deletada com sucesso' });
+      fetchMovimentacoes();
+    }
+  };
 
   const handleViewMovimentacao = (mov) => {
     setViewingMovimentacao(mov);
@@ -293,7 +292,37 @@ const ListaMovimentacoesPage = () => {
                                     </TooltipContent>
                                   )}
                                 </Tooltip>
-                                {/* O botão Excluir foi removido daqui */}
+                                {/* Botão Excluir */}
+                                <AlertDialog>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        title="Excluir" 
+                                        className={`text-red-400 hover:text-red-300 rounded-xl ${isLinkedToColeta ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                        disabled={isLinkedToColeta}
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    {isLinkedToColeta && (
+                                      <TooltipContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
+                                        <p>Movimentações de coletas devem ser excluídas na coleta de origem.</p>
+                                      </TooltipContent>
+                                    )}
+                                  </Tooltip>
+                                  <AlertDialogContent className="bg-emerald-900 border-emerald-700 text-white rounded-xl">
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                                      <AlertDialogDescription className="text-emerald-300">Essa ação não pode ser desfeita. Isso deletará permanentemente a movimentação.</AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel className="border-gray-500 text-gray-300 rounded-xl">Cancelar</AlertDialogCancel>
+                                      <AlertDialogAction onClick={() => handleDelete(mov.id)} className="bg-red-500 hover:bg-red-600 rounded-xl">Deletar</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
                               </div>
                             </TooltipProvider>
                           </TableCell>
