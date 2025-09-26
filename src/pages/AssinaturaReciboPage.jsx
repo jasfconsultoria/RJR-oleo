@@ -103,11 +103,11 @@ const AssinaturaReciboPage = () => {
 
         console.log('AssinaturaReciboPage: Tentando buscar lançamento de débito para coleta_id:', id);
         const { data: debitEntry, error: debitError } = await supabase
-          .from('v_financeiro_completo')
+          .from('v_financeiro_relatorio') // CORRIGIDO: Usando a view correta
           .select('*')
-          .eq('coleta_id', id) // ALTERADO: Usando o novo campo 'coleta_id'
+          .eq('coleta_id', id)
           .eq('type', 'debito')
-          .maybeSingle(); // Alterado para maybeSingle()
+          .maybeSingle();
 
         console.log('AssinaturaReciboPage: Resultado da busca do débito:', { debitEntry, debitError });
 
