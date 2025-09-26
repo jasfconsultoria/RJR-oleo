@@ -42,7 +42,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
   const { title: titleLabel, article, pageVerb } = getLabels(personType);
   const pageTitle = isEditing ? `Editar ${titleLabel}` : `${pageVerb} ${titleLabel}`;
 
-  const autoSaveKey = id ? `autoSave_clienteForm_${id}` : `autoSave_clienteForm_new_${personType}`;
+  const autoSaveKey = id ? `autoSave_clienteForm_edit_${id}` : `autoSave_clienteForm_new_${personType}`;
 
   // Use the new useAutoSave hook
   const [formData, setFormData, clearSavedData, savedData] = useAutoSave(autoSaveKey, {
@@ -55,7 +55,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
     municipio: '',
     endereco: '',
     referencia: '',
-  }, !isEditing); // shouldLoad is true for new forms, false for editing
+  }, true); // shouldLoad is always true to enable autosave for both new and edit forms
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -81,7 +81,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
       return false;
     }
     if (!validateCnpjCpfFormat(value)) {
-      setCnpjCnpjCpfError('O número digitado não possui um dígito verificador (DV) válido.');
+      setCnpjCpfError('O número digitado não possui um dígito verificador (DV) válido.');
       return false;
     }
 
@@ -163,10 +163,13 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
         endereco: data.endereco || '',
         referencia: data.referencia || '',
       };
-      setFormData(loadedData); // This will also trigger autosave with the loaded data
+      // Only load from DB if there's no saved data for this specific edit session
+      if (!savedData || Object.keys(savedData).length === 0) {
+        setFormData(loadedData);
+      }
     }
     setLoading(false);
-  }, [id, isEditing, navigate, toast, setFormData, isModal, personType]);
+  }, [id, isEditing, navigate, toast, setFormData, isModal, personType, savedData]);
 
   useEffect(() => {
     fetchCliente();
