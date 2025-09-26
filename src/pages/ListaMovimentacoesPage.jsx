@@ -20,7 +20,7 @@ import ProdutoSearchableSelect from '@/components/estoque/ProdutoSearchableSelec
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { formatNumber } from '@/lib/utils';
 import MovimentacaoViewDialog from '@/components/estoque/MovimentacaoViewDialog';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"; // Import Tooltip components
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const ListaMovimentacoesPage = () => {
   const navigate = useNavigate();
@@ -28,8 +28,8 @@ const ListaMovimentacoesPage = () => {
   const [movimentacoes, setMovimentacoes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
-    searchTerm: '', // For 'Observação...'
-    clientSearchText: '', // New state for client text search
+    searchTerm: '', // For 'Nº Doc, Observação...'
+    clientSearchText: '', // For client text search in ClienteSearchableSelect
     selectedClienteId: null, // For the ClienteSearchableSelect's selected ID
     selectedProdutoId: null,
     startDate: '',
@@ -67,12 +67,13 @@ const ListaMovimentacoesPage = () => {
         tipo,
         origem,
         observacao,
-        cliente:clientes(id, nome, nome_fantasia), // Select client ID, name, and fantasy name
+        document_number,
+        cliente:clientes(id, nome, nome_fantasia),
         coleta_id,
         itens_entrada_saida(
           id,
           quantidade,
-          produto:produtos(nome, unidade)
+          produto:produtos(id, nome, unidade)
         )
       `, { count: 'exact' })
       .order('data', { ascending: false })
@@ -80,19 +81,13 @@ const ListaMovimentacoesPage = () => {
       .range(from, to);
 
     if (debouncedFilters.searchTerm) {
-      query = query.ilike('observacao', `%${debouncedFilters.searchTerm}%`);
+      query = query.or(`observacao.ilike.%${debouncedFilters.searchTerm}%,document_number.ilike.%${debouncedFilters.searchTerm}%`);
     }
     
     // Apply client filter based on selected ID or search text
     if (debouncedFilters.selectedClienteId) {
       query = query.eq('cliente_id', debouncedFilters.selectedClienteId);
     } else if (debouncedFilters.clientSearchText) {
-      // If no specific client ID is selected, but there's search text,
-      // filter by client name or fantasy name using a subquery or RPC if needed.
-      // For now, let's try to filter directly on the joined 'cliente' relationship.
-      // This might require a different approach if PostgREST doesn't support direct filtering on joined columns this way.
-      // The error message suggests it's trying to do this, but with incorrect syntax.
-      // A more robust way is to first find client IDs matching the search text, then filter by those IDs.
       const { data: matchingClients, error: clientSearchError } = await supabase
         .from('clientes')
         .select('id')
@@ -117,11 +112,9 @@ const ListaMovimentacoesPage = () => {
       }
     }
 
-    if (debouncedFilters.selectedProdutoId) {
-      // This requires a join or a subquery, which is complex in RLS.
-      // For simplicity, we'll filter on the client side for now if product filter is active.
-      // A more robust solution would involve a custom RPC or a view that includes item details.
-    }
+    // Filtering by product ID requires client-side filtering after fetching,
+    // as direct filtering on nested arrays in PostgREST is complex/not directly supported for `select` with `count`.
+    // The `count` will be for the unfiltered set, and then we filter `data` locally.
     if (debouncedFilters.startDate) {
       query = query.gte('data', debouncedFilters.startDate);
     }
@@ -179,6 +172,11 @@ const ListaMovimentacoesPage = () => {
     setViewingMovimentacao(mov);
   };
 
+  // Função auxiliar para verificar se a movimentação está vinculada a coleta
+  const isMovimentacaoVinculadaColeta = (movimentacao) => {
+    return movimentacao.origem === 'coleta' || movimentacao.coleta_id != null;
+  };
+
   const totalPages = Math.ceil(totalCount / pageSize);
 
   const getMovementIcon = (type) => {
@@ -219,7 +217,7 @@ const ListaMovimentacoesPage = () => {
                 <Input
                   id="searchTerm"
                   type="search"
-                  placeholder="Observação..."
+                  placeholder="Nº Doc, Observação..."
                   value={filters.searchTerm}
                   onChange={(e) => handleFilterChange('searchTerm', e.target.value)}
                   className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60 rounded-xl"
@@ -287,8 +285,8 @@ const ListaMovimentacoesPage = () => {
                 <TableBody>
                   {movimentacoes.length > 0 ? (
                     movimentacoes.map(mov => {
-                      // A lógica de desabilitação agora considera 'coleta_id' OU 'origem'
-                      const isLinkedToColeta = !!mov.coleta_id || mov.origem === 'coleta';
+                      const isLinkedToColeta = isMovimentacaoVinculadaColeta(mov);
+
                       return (
                         <TableRow key={mov.id} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
                           <TableCell data-label="Data">{format(parseISO(mov.data), 'dd/MM/yyyy HH:mm', { locale: ptBR })}</TableCell>
