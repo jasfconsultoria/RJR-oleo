@@ -19,6 +19,7 @@ import { ptBR } from 'date-fns/locale';
 import PaymentDialog from '@/components/financeiro/PaymentDialog';
 import PaymentHistoryDialog from '@/components/financeiro/PaymentHistoryDialog';
 import { DatePicker } from '@/components/ui/date-picker'; // Import DatePicker
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"; // Import Tooltip components
 
 const ListaFinanceiro = ({ type }) => {
   const navigate = useNavigate();
@@ -284,6 +285,7 @@ const ListaFinanceiro = ({ type }) => {
                   {entries.length > 0 ? (
                     entries.map(entry => {
                       const installmentDenominator = entry.has_down_payment ? entry.total_installments - 1 : entry.total_installments;
+                      const isLinkedToColeta = !!entry.coleta_id; // Check if linked to coleta
                       return (
                         <TableRow key={entry.id} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
                           <TableCell data-label="Documento">{entry.document_number || 'N/A'}</TableCell>
@@ -302,27 +304,97 @@ const ListaFinanceiro = ({ type }) => {
                             </span>
                           </TableCell>
                           <TableCell className="text-right actions-cell">
-                             <div className="flex justify-end items-center gap-1">
-                              <Button variant="ghost" size="icon" title="Registrar Pagamento" className="text-green-400 hover:text-green-300 rounded-xl" onClick={() => handleOpenPaymentModal(entry)} disabled={entry.status === 'paid' || entry.status === 'canceled'}>
-                                  <Banknote className="h-4 w-4" />
-                              </Button>
-                              <Button variant="ghost" size="icon" title="Histórico de Pagamentos" className="text-yellow-400 hover:text-yellow-300 rounded-xl" onClick={() => handleOpenHistoryModal(entry)}><Edit className="h-4 w-4" /></Button>
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button variant="ghost" size="icon" title="Excluir" className="text-red-400 hover:text-red-300 rounded-xl"><Trash2 className="h-4 w-4" /></Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent className="bg-emerald-900 border-emerald-700 text-white rounded-xl">
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
-                                    <AlertDialogDescription className="text-emerald-300">Essa ação não pode ser desfeita. Isso deletará permanentemente o lançamento {entry.document_number || entry.description}.</AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel className="border-gray-500 text-gray-300 rounded-xl">Cancelar</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => handleDelete(entry.id, entry.description)} className="bg-red-500 hover:bg-red-600 rounded-xl">Deletar</AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                             </div>
+                            <TooltipProvider>
+                              <div className="flex justify-end items-center gap-1">
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon" 
+                                      title="Registrar Pagamento" 
+                                      className={`text-green-400 hover:text-green-300 rounded-xl ${isLinkedToColeta ? 'opacity-50 cursor-not-allowed' : ''}`} 
+                                      onClick={() => handleOpenPaymentModal(entry)} 
+                                      disabled={entry.status === 'paid' || entry.status === 'canceled' || isLinkedToColeta}
+                                    >
+                                        <Banknote className="h-4 w-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  {isLinkedToColeta && (
+                                    <TooltipContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
+                                      <p>Pagamentos de coletas são gerenciados automaticamente.</p>
+                                    </TooltipContent>
+                                  )}
+                                </Tooltip>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon" 
+                                      title="Histórico de Pagamentos" 
+                                      className={`text-yellow-400 hover:text-yellow-300 rounded-xl ${isLinkedToColeta ? 'opacity-50 cursor-not-allowed' : ''}`} 
+                                      onClick={() => handleOpenHistoryModal(entry)}
+                                      disabled={isLinkedToColeta}
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  {isLinkedToColeta && (
+                                    <TooltipContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
+                                      <p>Histórico de pagamentos de coletas é gerenciado automaticamente.</p>
+                                    </TooltipContent>
+                                  )}
+                                </Tooltip>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon" 
+                                      title="Editar" 
+                                      className={`text-yellow-400 hover:text-yellow-300 rounded-xl ${isLinkedToColeta ? 'opacity-50 cursor-not-allowed' : ''}`} 
+                                      onClick={() => navigate(`/app/financeiro/${type}/editar/${entry.id}`)}
+                                      disabled={isLinkedToColeta}
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  {isLinkedToColeta && (
+                                    <TooltipContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
+                                      <p>Lançamentos de coletas devem ser editados na coleta de origem.</p>
+                                    </TooltipContent>
+                                  )}
+                                </Tooltip>
+                                <AlertDialog>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        title="Excluir" 
+                                        className={`text-red-400 hover:text-red-300 rounded-xl ${isLinkedToColeta ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                        disabled={isLinkedToColeta}
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    {isLinkedToColeta && (
+                                      <TooltipContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
+                                        <p>Lançamentos de coletas devem ser excluídos na coleta de origem.</p>
+                                      </TooltipContent>
+                                    )}
+                                  </Tooltip>
+                                  <AlertDialogContent className="bg-emerald-900 border-emerald-700 text-white rounded-xl">
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                                      <AlertDialogDescription className="text-emerald-300">Essa ação não pode ser desfeita. Isso deletará permanentemente o lançamento {entry.document_number || entry.description}.</AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel className="border-gray-500 text-gray-300 rounded-xl">Cancelar</AlertDialogCancel>
+                                      <AlertDialogAction onClick={() => handleDelete(entry.id, entry.description)} className="bg-red-500 hover:bg-red-600 rounded-xl">Deletar</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </div>
+                            </TooltipProvider>
                           </TableCell>
                         </TableRow>
                       )
