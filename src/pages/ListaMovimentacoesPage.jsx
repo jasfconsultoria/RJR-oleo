@@ -252,7 +252,7 @@ const ListaMovimentacoesPage = () => {
                 <TableBody>
                   {movimentacoes.length > 0 ? (
                     movimentacoes.map(mov => {
-                      const isLinkedToColeta = !!mov.coleta_id; // Updated logic
+                      const isLinkedToColeta = !!mov.coleta_id;
                       return (
                         <TableRow key={mov.id} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
                           <TableCell data-label="Data">{format(parseISO(mov.data), 'dd/MM/yyyy HH:mm', { locale: ptBR })}</TableCell>
@@ -292,7 +292,7 @@ const ListaMovimentacoesPage = () => {
                                     </TooltipContent>
                                   )}
                                 </Tooltip>
-                                {/* Botão Excluir */}
+                                {/* Botão Excluir - Replicando a estrutura da ListaFinanceiro */}
                                 <AlertDialog>
                                   <Tooltip>
                                     <TooltipTrigger asChild>
@@ -301,7 +301,7 @@ const ListaMovimentacoesPage = () => {
                                         size="icon" 
                                         title="Excluir Movimentação" 
                                         className={`text-red-400 hover:text-red-300 rounded-xl ${isLinkedToColeta ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                        disabled={isLinkedToColeta} // Apply disabled based on new logic
+                                        disabled={isLinkedToColeta}
                                       >
                                         <Trash2 className="h-4 w-4" />
                                       </Button>
