@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Pagination } from '@/components/ui/pagination';
 import { logAction } from '@/lib/logger';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, startOfMonth, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import ClienteSearchableSelect from '@/components/ClienteSearchableSelect';
 import ProdutoSearchableSelect from '@/components/estoque/ProdutoSearchableSelect';
@@ -21,6 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { formatNumber } from '@/lib/utils';
 import MovimentacaoViewDialog from '@/components/estoque/MovimentacaoViewDialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { DatePicker } from '@/components/ui/date-picker'; // Import DatePicker
 
 const ListaMovimentacoesPage = () => {
   const navigate = useNavigate();
@@ -32,8 +33,8 @@ const ListaMovimentacoesPage = () => {
     clientSearchText: '', // For client text search in ClienteSearchableSelect
     selectedClienteId: null, // For the ClienteSearchableSelect's selected ID
     selectedProdutoId: null,
-    startDate: '',
-    endDate: '',
+    startDate: startOfMonth(new Date()), // Default to first day of current month
+    endDate: endOfMonth(new Date()),     // Default to last day of current month
     type: 'all', // 'entrada', 'saida', 'all'
   });
   const debouncedFilters = useDebounce(filters, 500);
@@ -116,10 +117,10 @@ const ListaMovimentacoesPage = () => {
     // as direct filtering on nested arrays in PostgREST is complex/not directly supported for `select` with `count`.
     // The `count` will be for the unfiltered set, and then we filter `data` locally.
     if (debouncedFilters.startDate) {
-      query = query.gte('data', debouncedFilters.startDate);
+      query = query.gte('data', format(debouncedFilters.startDate, 'yyyy-MM-dd'));
     }
     if (debouncedFilters.endDate) {
-      query = query.lte('data', debouncedFilters.endDate);
+      query = query.lte('data', format(debouncedFilters.endDate, 'yyyy-MM-dd'));
     }
     if (debouncedFilters.type !== 'all') {
       query = query.eq('tipo', debouncedFilters.type);
@@ -209,7 +210,8 @@ const ListaMovimentacoesPage = () => {
         </motion.div>
 
         <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 md:p-6 space-y-4 relative z-10">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            {/* Buscar */}
             <div>
               <Label htmlFor="searchTerm" className="block text-white mb-1 text-sm">Buscar</Label>
               <div className="relative">
@@ -220,46 +222,63 @@ const ListaMovimentacoesPage = () => {
                   placeholder="Nº Doc, Observação..."
                   value={filters.searchTerm}
                   onChange={(e) => handleFilterChange('searchTerm', e.target.value)}
-                  className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60 rounded-xl"
+                  className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60 rounded-xl h-10 text-sm"
                 />
               </div>
             </div>
+            {/* Cliente */}
             <div>
               <ClienteSearchableSelect
                 labelText="Cliente"
                 value={filters.selectedClienteId}
                 onChange={(value) => handleFilterChange('selectedClienteId', value)}
-                searchTerm={filters.clientSearchText} // Pass controlled search term
-                onSearchTermChange={(text) => handleFilterChange('clientSearchText', text)} // Update controlled search term
+                searchTerm={filters.clientSearchText}
+                onSearchTermChange={(text) => handleFilterChange('clientSearchText', text)}
+                inputClassName="h-10 text-sm"
               />
             </div>
+            {/* Produto */}
             <div>
               <ProdutoSearchableSelect
                 labelText="Produto"
                 value={filters.selectedProdutoId}
                 onChange={(product) => handleFilterChange('selectedProdutoId', product ? product.id : null)}
+                inputClassName="h-10 text-sm"
               />
             </div>
+            {/* Tipo */}
             <div>
               <Label htmlFor="type" className="block text-white mb-1 text-sm">Tipo</Label>
               <Select value={filters.type} onValueChange={(value) => handleFilterChange('type', value)}>
-                <SelectTrigger className="bg-white/20 border-white/30 text-white rounded-xl">
-                  <SelectValue placeholder="Todos os Tipos" />
+                <SelectTrigger className="bg-white/20 border-white/30 text-white rounded-xl h-10 text-sm">
+                  <SelectValue placeholder="Todos" />
                 </SelectTrigger>
-                <SelectContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
+                <SelectContent className="bg-gray-800 text-white border-gray-700 rounded-xl text-sm">
                   <SelectItem value="all">Todos</SelectItem>
                   <SelectItem value="entrada">Entrada</SelectItem>
                   <SelectItem value="saida">Saída</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+            {/* Data Início */}
             <div>
               <Label htmlFor="startDate" className="block text-white mb-1 text-sm">Data Início</Label>
-              <Input id="startDate" type="date" value={filters.startDate} onChange={(e) => handleFilterChange('startDate', e.target.value)} className="bg-white/20 border-white/30 text-white rounded-xl" />
+              <DatePicker
+                date={filters.startDate}
+                setDate={(date) => handleFilterChange('startDate', date)}
+                className="w-full bg-white/20 border-white/30 text-white rounded-xl h-10 text-sm"
+                inputClassName="h-10 text-sm"
+              />
             </div>
+            {/* Data Fim */}
             <div>
               <Label htmlFor="endDate" className="block text-white mb-1 text-sm">Data Fim</Label>
-              <Input id="endDate" type="date" value={filters.endDate} onChange={(e) => handleFilterChange('endDate', e.target.value)} className="bg-white/20 border-white/30 text-white rounded-xl" />
+              <DatePicker
+                date={filters.endDate}
+                setDate={(date) => handleFilterChange('endDate', date)}
+                className="w-full bg-white/20 border-white/30 text-white rounded-xl h-10 text-sm"
+                inputClassName="h-10 text-sm"
+              />
             </div>
           </div>
         </div>

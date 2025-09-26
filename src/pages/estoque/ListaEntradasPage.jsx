@@ -13,13 +13,13 @@ import { Label } from '@/components/ui/label';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Pagination } from '@/components/ui/pagination';
 import { logAction } from '@/lib/logger';
-import { format, parseISO, startOfMonth, endOfMonth } from 'date-fns'; // Adicionado startOfMonth e endOfMonth
+import { format, parseISO, startOfMonth, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import ClienteSearchableSelect from '@/components/ui/ClienteSearchableSelect';
 import ProdutoSearchableSelect from '@/components/estoque/ProdutoSearchableSelect';
 import { formatNumber } from '@/lib/utils';
 import MovimentacaoViewDialog from '@/components/estoque/MovimentacaoViewDialog';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"; // Import Tooltip components
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const ListaEntradasPage = () => {
   const navigate = useNavigate();
@@ -30,8 +30,8 @@ const ListaEntradasPage = () => {
     searchTerm: '',
     clientSearchTerm: '',
     selectedProdutoId: null,
-    startDate: format(startOfMonth(new Date()), 'yyyy-MM-dd'), // Default para o primeiro dia do mês
-    endDate: format(endOfMonth(new Date()), 'yyyy-MM-dd'), // Default para o último dia do mês
+    startDate: format(startOfMonth(new Date()), 'yyyy-MM-dd'),
+    endDate: format(endOfMonth(new Date()), 'yyyy-MM-dd'),
   });
   const debouncedFilters = useDebounce(filters, 500);
   const [currentPage, setCurrentPage] = useState(1);
@@ -65,6 +65,7 @@ const ListaEntradasPage = () => {
         origem,
         document_number,
         observacao,
+        coleta_id,
         cliente:clientes(nome, nome_fantasia),
         itens_entrada_saida(
           id,
@@ -137,6 +138,11 @@ const ListaEntradasPage = () => {
     setViewingMovimentacao(mov);
   };
 
+  // Função auxiliar para verificar se a movimentação está vinculada a coleta
+  const isMovimentacaoVinculadaColeta = (movimentacao) => {
+    return movimentacao.origem === 'coleta' || movimentacao.coleta_id != null;
+  };
+
   const totalPages = Math.ceil(totalCount / pageSize);
 
   return (
@@ -156,8 +162,8 @@ const ListaEntradasPage = () => {
         </motion.div>
 
         <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 md:p-6 space-y-4 relative z-10">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end"> {/* Alterado para lg:grid-cols-5 e adicionado items-end */}
-            <div className="lg:col-span-1"> {/* Ocupa 1 coluna em telas grandes */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
+            <div className="lg:col-span-1">
               <Label htmlFor="searchTerm" className="block text-white mb-1 text-sm">Buscar</Label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/70" />
@@ -171,7 +177,7 @@ const ListaEntradasPage = () => {
                 />
               </div>
             </div>
-            <div className="lg:col-span-2"> {/* Ocupa 2 colunas em telas grandes */}
+            <div className="lg:col-span-2">
               <Label htmlFor="clientSearch" className="block text-white mb-1 text-sm">Cliente</Label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/70" />
@@ -185,14 +191,14 @@ const ListaEntradasPage = () => {
                 />
               </div>
             </div>
-            <div className="lg:col-span-1"> {/* Ocupa 1 coluna em telas grandes */}
+            <div className="lg:col-span-1">
               <ProdutoSearchableSelect
                 labelText="Produto"
                 value={filters.selectedProdutoId}
                 onChange={(product) => handleFilterChange('selectedProdutoId', product ? product.id : null)}
               />
             </div>
-            <div className="lg:col-span-1 grid grid-cols-2 gap-4"> {/* Agrupamento de datas */}
+            <div className="lg:col-span-1 grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="startDate" className="block text-white mb-1 text-sm">Data Início</Label>
                 <Input id="startDate" type="date" value={filters.startDate} onChange={(e) => handleFilterChange('startDate', e.target.value)} className="bg-white/20 border-white/30 text-white rounded-xl" />
@@ -225,61 +231,110 @@ const ListaEntradasPage = () => {
                 </TableHeader>
                 <TableBody>
                   {movimentacoes.length > 0 ? (
-                    movimentacoes.map(mov => (
-                      <TableRow key={mov.id} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
-                        <TableCell data-label="Nº Documento">{mov.document_number || 'N/A'}</TableCell>
-                        <TableCell data-label="Data">{format(parseISO(mov.data), 'dd/MM/yyyy HH:mm', { locale: ptBR })}</TableCell>
-                        <TableCell data-label="Cliente">{mov.cliente?.nome_fantasia ? `${mov.cliente.nome} - ${mov.cliente.nome_fantasia}` : mov.cliente?.nome || 'N/A'}</TableCell>
-                        <TableCell data-label="Origem" className="capitalize">{mov.origem}</TableCell>
-                        <TableCell data-label="Itens">
-                          {mov.itens_entrada_saida.map((item, idx) => (
-                            <div key={idx} className="text-xs">
-                              {item.produto.nome}: {formatNumber(item.quantidade)} {item.produto.unidade}
-                            </div>
-                          ))}
-                        </TableCell>
-                        <TableCell className="text-right actions-cell">
-                           <div className="flex justify-end items-center gap-2">
-                            <Button variant="ghost" size="icon" className="text-blue-400 hover:text-blue-300 rounded-xl" onClick={() => handleViewMovimentacao(mov)}><Eye className="h-4 w-4" /></Button>
+                    movimentacoes.map(mov => {
+                      const isVinculadaColeta = isMovimentacaoVinculadaColeta(mov);
+
+                      return (
+                        <TableRow key={mov.id} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
+                          <TableCell data-label="Nº Documento">{mov.document_number || 'N/A'}</TableCell>
+                          <TableCell data-label="Data">{format(parseISO(mov.data), 'dd/MM/yyyy HH:mm', { locale: ptBR })}</TableCell>
+                          <TableCell data-label="Cliente">{mov.cliente?.nome_fantasia ? `${mov.cliente.nome} - ${mov.cliente.nome_fantasia}` : mov.cliente?.nome || 'N/A'}</TableCell>
+                          <TableCell data-label="Origem" className="capitalize">{mov.origem}</TableCell>
+                          <TableCell data-label="Itens">
+                            {mov.itens_entrada_saida.map((item, idx) => (
+                              <div key={idx} className="text-xs">
+                                {item.produto.nome}: {formatNumber(item.quantidade)} {item.produto.unidade}
+                              </div>
+                            ))}
+                          </TableCell>
+                          <TableCell className="text-right actions-cell">
                             <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className={`text-yellow-400 hover:text-yellow-300 rounded-xl ${mov.origem === 'coleta' ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                    onClick={() => navigate(`/app/estoque/entradas/editar/${mov.id}`)}
-                                    disabled={mov.origem === 'coleta'}
-                                  >
-                                    <Edit className="h-4 w-4" />
-                                  </Button>
-                                </TooltipTrigger>
-                                {mov.origem === 'coleta' && (
+                              <div className="flex justify-end items-center gap-2">
+                                {/* Botão Visualizar */}
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="text-blue-400 hover:text-blue-300 rounded-xl" onClick={() => handleViewMovimentacao(mov)}>
+                                      <Eye className="h-4 w-4" />
+                                    </Button>
+                                  </TooltipTrigger>
                                   <TooltipContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
-                                    <p>Movimentações de coleta devem ser editadas na coleta de origem.</p>
+                                    <p>Visualizar entrada</p>
                                   </TooltipContent>
+                                </Tooltip>
+
+                                {/* Botão Editar */}
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className={`text-yellow-400 hover:text-yellow-300 rounded-xl ${isVinculadaColeta ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                      onClick={() => !isVinculadaColeta && navigate(`/app/estoque/entradas/editar/${mov.id}`)}
+                                      disabled={isVinculadaColeta}
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
+                                    <p>{isVinculadaColeta ? "Entradas de coletas devem ser editadas na coleta de origem." : "Editar entrada"}</p>
+                                  </TooltipContent>
+                                </Tooltip>
+
+                                {/* Botão Excluir - Lógica condicional */}
+                                {isVinculadaColeta ? (
+                                  // Botão desabilitado quando vinculado a coleta
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        className="opacity-50 cursor-not-allowed text-red-400 rounded-xl"
+                                        disabled
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
+                                      <p>Entradas de coletas devem ser excluídas na coleta de origem.</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                ) : (
+                                  // Botão habilitado com AlertDialog quando NÃO vinculado a coleta
+                                  <AlertDialog>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <AlertDialogTrigger asChild>
+                                          <Button variant="ghost" size="icon" className="text-red-400 hover:text-red-300 rounded-xl">
+                                            <Trash2 className="h-4 w-4" />
+                                          </Button>
+                                        </AlertDialogTrigger>
+                                      </TooltipTrigger>
+                                      <TooltipContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
+                                        <p>Excluir entrada</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                    <AlertDialogContent className="bg-emerald-900 border-emerald-700 text-white rounded-xl">
+                                      <AlertDialogHeader>
+                                        <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                                        <AlertDialogDescription className="text-emerald-300">
+                                          Essa ação não pode ser desfeita. Isso deletará permanentemente a entrada de estoque.
+                                        </AlertDialogDescription>
+                                      </AlertDialogHeader>
+                                      <AlertDialogFooter>
+                                        <AlertDialogCancel className="border-gray-500 text-gray-300 rounded-xl">Cancelar</AlertDialogCancel>
+                                        <AlertDialogAction onClick={() => handleDelete(mov.id)} className="bg-red-500 hover:bg-red-600 rounded-xl">
+                                          Deletar
+                                        </AlertDialogAction>
+                                      </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                  </AlertDialog>
                                 )}
-                              </Tooltip>
+                              </div>
                             </TooltipProvider>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="icon" className="text-red-400 hover:text-red-300 rounded-xl"><Trash2 className="h-4 w-4" /></Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent className="bg-emerald-900 border-emerald-700 text-white rounded-xl">
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
-                                  <AlertDialogDescription className="text-emerald-300">Essa ação não pode ser desfeita. Isso deletará permanentemente a entrada de estoque.</AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel className="border-gray-500 text-gray-300 rounded-xl">Cancelar</AlertDialogCancel>
-                                  <AlertDialogAction onClick={() => handleDelete(mov.id)} className="bg-red-500 hover:bg-red-600 rounded-xl">Deletar</AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                           </div>
-                        </TableCell>
-                      </TableRow>
-                    ))
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })
                   ) : (
                     <TableRow><TableCell colSpan="6" className="text-center text-gray-400 py-10">Nenhuma entrada encontrada.</TableCell></TableRow>
                   )}
