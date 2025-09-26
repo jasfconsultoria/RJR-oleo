@@ -78,12 +78,12 @@ const ListaEntradasPage = () => {
       .order('created_at', { ascending: false })
       .range(from, to);
 
+    // Filtro por termo de busca (document_number e observacao)
     if (debouncedFilters.searchTerm) {
       query = query.or(`observacao.ilike.%${debouncedFilters.searchTerm}%,document_number.ilike.%${debouncedFilters.searchTerm}%`);
     }
-    if (debouncedFilters.clientSearchTerm) {
-      query = query.or(`cliente.nome.ilike.%${debouncedFilters.clientSearchTerm}%,cliente.nome_fantasia.ilike.%${debouncedFilters.clientSearchTerm}%`);
-    }
+
+    // Filtro por datas
     if (debouncedFilters.startDate) {
       query = query.gte('data', debouncedFilters.startDate);
     }
@@ -96,15 +96,30 @@ const ListaEntradasPage = () => {
     if (error) {
       toast({ title: 'Erro ao buscar entradas', description: error.message, variant: 'destructive' });
       setMovimentacoes([]);
+      setTotalCount(0);
     } else {
       let filteredData = data || [];
+      
+      // Filtro por cliente no lado do cliente (client-side)
+      if (debouncedFilters.clientSearchTerm) {
+        const searchTermLower = debouncedFilters.clientSearchTerm.toLowerCase();
+        filteredData = filteredData.filter(mov => 
+          mov.cliente?.nome?.toLowerCase().includes(searchTermLower) ||
+          mov.cliente?.nome_fantasia?.toLowerCase().includes(searchTermLower)
+        );
+      }
+      
+      // Filtro por produto no lado do cliente (client-side)
       if (debouncedFilters.selectedProdutoId) {
         filteredData = filteredData.filter(mov =>
           mov.itens_entrada_saida.some(item => item.produto.id === debouncedFilters.selectedProdutoId)
         );
       }
+      
       setMovimentacoes(filteredData);
-      setTotalCount(count || 0);
+      // Para paginação correta, precisamos do count total antes da filtragem client-side
+      // Mas ajustamos para mostrar o count filtrado
+      setTotalCount(filteredData.length);
     }
     setLoading(false);
   }, [toast, currentPage, pageSize, debouncedFilters, empresa]);

@@ -18,7 +18,7 @@ import { ptBR } from 'date-fns/locale';
 import ClienteSearchableSelect from '@/components/ClienteSearchableSelect';
 import ProdutoSearchableSelect from '@/components/estoque/ProdutoSearchableSelect';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { formatNumber, escapePostgrestLikePattern } from '@/lib/utils';
+import { formatNumber } from '@/lib/utils';
 import MovimentacaoViewDialog from '@/components/estoque/MovimentacaoViewDialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { DatePicker } from '@/components/ui/date-picker';
@@ -29,13 +29,12 @@ const ListaMovimentacoesPage = () => {
   const [movimentacoes, setMovimentacoes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
-    searchTerm: '', // For 'Nº Doc, Observação...'
-    clientSearchText: '', // For client text search in ClienteSearchableSelect
-    selectedClienteId: null, // For the ClienteSearchableSelect's selected ID
+    searchTerm: '',
+    clientSearchTerm: '', // Alterado para usar o mesmo padrão das outras páginas
     selectedProdutoId: null,
-    startDate: startOfMonth(new Date()), // Default to first day of current month
-    endDate: endOfMonth(new Date()),     // Default to last day of current month
-    type: 'all', // 'entrada', 'saida', 'all'
+    startDate: startOfMonth(new Date()),
+    endDate: endOfMonth(new Date()),
+    type: 'all',
   });
   const debouncedFilters = useDebounce(filters, 500);
   const [currentPage, setCurrentPage] = useState(1);
@@ -81,43 +80,10 @@ const ListaMovimentacoesPage = () => {
       .order('created_at', { ascending: false })
       .range(from, to);
 
+    // Filtros do servidor
     if (debouncedFilters.searchTerm) {
-      const escapedSearchTerm = escapePostgrestLikePattern(debouncedFilters.searchTerm);
-      query = query.or(`observacao.ilike.%${escapedSearchTerm}%,document_number.ilike.%${escapedSearchTerm}%`);
+      query = query.or(`observacao.ilike.%${debouncedFilters.searchTerm}%,document_number.ilike.%${debouncedFilters.searchTerm}%`);
     }
-    
-    // Apply client filter based on selected ID or search text
-    if (debouncedFilters.selectedClienteId) {
-      query = query.eq('cliente_id', debouncedFilters.selectedClienteId);
-    } else if (debouncedFilters.clientSearchText) {
-      const escapedClientSearchText = escapePostgrestLikePattern(debouncedFilters.clientSearchText);
-      const { data: matchingClients, error: clientSearchError } = await supabase
-        .from('clientes')
-        .select('id')
-        .or(`nome.ilike.%${escapedClientSearchText}%,nome_fantasia.ilike.%${escapedClientSearchText}%`);
-
-      if (clientSearchError) {
-        console.error("Error fetching matching clients for stock movements:", clientSearchError);
-        toast({ title: 'Erro ao buscar clientes para filtro', description: clientSearchError.message, variant: 'destructive' });
-        setMovimentacoes([]);
-        setTotalCount(0);
-        setLoading(false);
-        return;
-      } else {
-        const clientIds = matchingClients.map(c => c.id);
-        if (clientIds.length === 0) {
-          setMovimentacoes([]);
-          setTotalCount(0);
-          setLoading(false);
-          return;
-        }
-        query = query.in('cliente_id', clientIds);
-      }
-    }
-
-    // Filtering by product ID requires client-side filtering after fetching,
-    // as direct filtering on nested arrays in PostgREST is complex/not directly supported for `select` with `count`.
-    // The `count` will be for the unfiltered set, and then we filter `data` locally.
     if (debouncedFilters.startDate) {
       query = query.gte('data', format(debouncedFilters.startDate, 'yyyy-MM-dd'));
     }
@@ -133,15 +99,28 @@ const ListaMovimentacoesPage = () => {
     if (error) {
       toast({ title: 'Erro ao buscar movimentações', description: error.message, variant: 'destructive' });
       setMovimentacoes([]);
+      setTotalCount(0);
     } else {
       let filteredData = data || [];
+      
+      // Filtro por cliente no lado do cliente (client-side)
+      if (debouncedFilters.clientSearchTerm) {
+        const searchTermLower = debouncedFilters.clientSearchTerm.toLowerCase();
+        filteredData = filteredData.filter(mov => 
+          mov.cliente?.nome?.toLowerCase().includes(searchTermLower) ||
+          mov.cliente?.nome_fantasia?.toLowerCase().includes(searchTermLower)
+        );
+      }
+      
+      // Filtro por produto no lado do cliente (client-side)
       if (debouncedFilters.selectedProdutoId) {
         filteredData = filteredData.filter(mov =>
           mov.itens_entrada_saida.some(item => item.produto.id === debouncedFilters.selectedProdutoId)
         );
       }
+      
       setMovimentacoes(filteredData);
-      setTotalCount(count || 0); // Note: count might be inaccurate if client-side filtering is applied
+      setTotalCount(filteredData.length);
     }
     setLoading(false);
   }, [toast, currentPage, pageSize, debouncedFilters, empresa]);
@@ -213,9 +192,9 @@ const ListaMovimentacoesPage = () => {
 
         <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 md:p-6 space-y-4 relative z-10">
           {/* Primeira linha de filtros */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
             {/* Buscar */}
-            <div>
+            <div className="lg:col-span-1">
               <Label htmlFor="searchTerm" className="block text-white mb-1 text-sm">Buscar</Label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/70" />
@@ -229,26 +208,34 @@ const ListaMovimentacoesPage = () => {
                 />
               </div>
             </div>
+            
             {/* Cliente */}
-            <div>
-              <ClienteSearchableSelect
-                labelText="Cliente"
-                value={filters.selectedClienteId}
-                onChange={(value) => handleFilterChange('selectedClienteId', value)}
-                searchTerm={filters.clientSearchText}
-                onSearchTermChange={(text) => handleFilterChange('clientSearchText', text)}
-              />
+            <div className="lg:col-span-2">
+              <Label htmlFor="clientSearch" className="block text-white mb-1 text-sm">Cliente</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/70" />
+                <Input
+                  id="clientSearch"
+                  type="search"
+                  placeholder="Buscar por nome do cliente..."
+                  value={filters.clientSearchTerm}
+                  onChange={(e) => handleFilterChange('clientSearchTerm', e.target.value)}
+                  className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60 rounded-xl"
+                />
+              </div>
             </div>
+
             {/* Produto */}
-            <div>
+            <div className="lg:col-span-1">
               <ProdutoSearchableSelect
                 labelText="Produto"
                 value={filters.selectedProdutoId}
                 onChange={(product) => handleFilterChange('selectedProdutoId', product ? product.id : null)}
               />
             </div>
+
             {/* Tipo */}
-            <div>
+            <div className="lg:col-span-1">
               <Label htmlFor="type" className="block text-white mb-1 text-sm">Tipo</Label>
               <Select value={filters.type} onValueChange={(value) => handleFilterChange('type', value)}>
                 <SelectTrigger className="bg-white/20 border-white/30 text-white rounded-xl">
@@ -264,9 +251,9 @@ const ListaMovimentacoesPage = () => {
           </div>
 
           {/* Segunda linha de filtros */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4"> {/* Adicionado mt-4 para espaçamento */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
             {/* Data Início */}
-            <div>
+            <div className="lg:col-span-1">
               <Label htmlFor="startDate" className="block text-white mb-1 text-sm">Data Início</Label>
               <DatePicker
                 date={filters.startDate}
@@ -274,8 +261,9 @@ const ListaMovimentacoesPage = () => {
                 className="w-full bg-white/20 border-white/30 text-white rounded-xl"
               />
             </div>
+            
             {/* Data Fim */}
-            <div>
+            <div className="lg:col-span-1">
               <Label htmlFor="endDate" className="block text-white mb-1 text-sm">Data Fim</Label>
               <DatePicker
                 date={filters.endDate}
@@ -307,7 +295,7 @@ const ListaMovimentacoesPage = () => {
                 <TableBody>
                   {movimentacoes.length > 0 ? (
                     movimentacoes.map(mov => {
-                      const isLinkedToColeta = isMovimentacaoVinculadaColeta(mov);
+                      const isVinculadaColeta = isMovimentacaoVinculadaColeta(mov);
 
                       return (
                         <TableRow key={mov.id} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
@@ -316,7 +304,9 @@ const ListaMovimentacoesPage = () => {
                             {getMovementIcon(mov.tipo)} {mov.tipo}
                           </TableCell>
                           <TableCell data-label="Origem" className="capitalize">{mov.origem}</TableCell>
-                          <TableCell data-label="Cliente">{mov.cliente?.nome || 'N/A'}</TableCell>
+                          <TableCell data-label="Cliente">
+                            {mov.cliente?.nome_fantasia ? `${mov.cliente.nome} - ${mov.cliente.nome_fantasia}` : mov.cliente?.nome || 'N/A'}
+                          </TableCell>
                           <TableCell data-label="Itens">
                             {mov.itens_entrada_saida.map((item, idx) => (
                               <div key={idx} className="text-xs">
@@ -327,58 +317,85 @@ const ListaMovimentacoesPage = () => {
                           <TableCell className="text-right actions-cell">
                             <TooltipProvider>
                               <div className="flex justify-end items-center gap-2">
-                                <Button variant="ghost" size="icon" className="text-blue-400 hover:text-blue-300 rounded-xl" onClick={() => handleViewMovimentacao(mov)}><Eye className="h-4 w-4" /></Button>
+                                {/* Botão Visualizar */}
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="text-blue-400 hover:text-blue-300 rounded-xl" onClick={() => handleViewMovimentacao(mov)}>
+                                      <Eye className="h-4 w-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
+                                    <p>Visualizar movimentação</p>
+                                  </TooltipContent>
+                                </Tooltip>
+
                                 {/* Botão Editar */}
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <Button 
                                       variant="ghost" 
                                       size="icon" 
-                                      title="Editar Movimentação" 
-                                      className={`text-yellow-400 hover:text-yellow-300 rounded-xl ${isLinkedToColeta ? 'opacity-50 cursor-not-allowed' : ''}`} 
-                                      onClick={() => navigate(getEditRoute(mov))}
-                                      disabled={isLinkedToColeta}
+                                      className={`text-yellow-400 hover:text-yellow-300 rounded-xl ${isVinculadaColeta ? 'opacity-50 cursor-not-allowed' : ''}`} 
+                                      onClick={() => !isVinculadaColeta && navigate(getEditRoute(mov))}
+                                      disabled={isVinculadaColeta}
                                     >
                                       <Edit className="h-4 w-4" />
                                     </Button>
                                   </TooltipTrigger>
-                                  {isLinkedToColeta && (
-                                    <TooltipContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
-                                      <p>Movimentações de coletas devem ser editadas na coleta de origem.</p>
-                                    </TooltipContent>
-                                  )}
+                                  <TooltipContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
+                                    <p>{isVinculadaColeta ? "Movimentações de coletas devem ser editadas na coleta de origem." : "Editar movimentação"}</p>
+                                  </TooltipContent>
                                 </Tooltip>
-                                {/* Botão Excluir */}
-                                <AlertDialog>
+
+                                {/* Botão Excluir - Lógica condicional */}
+                                {isVinculadaColeta ? (
+                                  // Botão desabilitado quando vinculado a coleta
                                   <Tooltip>
                                     <TooltipTrigger asChild>
                                       <Button 
                                         variant="ghost" 
                                         size="icon" 
-                                        title="Excluir" 
-                                        className={`text-red-400 hover:text-red-300 rounded-xl ${isLinkedToColeta ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                        disabled={isLinkedToColeta}
+                                        className="opacity-50 cursor-not-allowed text-red-400 rounded-xl"
+                                        disabled
                                       >
                                         <Trash2 className="h-4 w-4" />
                                       </Button>
                                     </TooltipTrigger>
-                                    {isLinkedToColeta && (
-                                      <TooltipContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
-                                        <p>Movimentações de coletas devem ser excluídas na coleta de origem.</p>
+                                    <TooltipContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
+                                      <p>Movimentações de coletas devem ser excluídas na coleta de origem.</p>
                                     </TooltipContent>
-                                  )}
-                                </Tooltip>
-                                  <AlertDialogContent className="bg-emerald-900 border-emerald-700 text-white rounded-xl">
-                                    <AlertDialogHeader>
-                                      <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
-                                      <AlertDialogDescription className="text-emerald-300">Essa ação não pode ser desfeita. Isso deletará permanentemente a movimentação.</AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                      <AlertDialogCancel className="border-gray-500 text-gray-300 rounded-xl">Cancelar</AlertDialogCancel>
-                                      <AlertDialogAction onClick={() => handleDelete(mov.id)} className="bg-red-500 hover:bg-red-600 rounded-xl">Deletar</AlertDialogAction>
-                                    </AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
+                                  </Tooltip>
+                                ) : (
+                                  // Botão habilitado com AlertDialog quando NÃO vinculado a coleta
+                                  <AlertDialog>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <AlertDialogTrigger asChild>
+                                          <Button variant="ghost" size="icon" className="text-red-400 hover:text-red-300 rounded-xl">
+                                            <Trash2 className="h-4 w-4" />
+                                          </Button>
+                                        </AlertDialogTrigger>
+                                      </TooltipTrigger>
+                                      <TooltipContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
+                                        <p>Excluir movimentação</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                    <AlertDialogContent className="bg-emerald-900 border-emerald-700 text-white rounded-xl">
+                                      <AlertDialogHeader>
+                                        <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                                        <AlertDialogDescription className="text-emerald-300">
+                                          Essa ação não pode ser desfeita. Isso deletará permanentemente a movimentação.
+                                        </AlertDialogDescription>
+                                      </AlertDialogHeader>
+                                      <AlertDialogFooter>
+                                        <AlertDialogCancel className="border-gray-500 text-gray-300 rounded-xl">Cancelar</AlertDialogCancel>
+                                        <AlertDialogAction onClick={() => handleDelete(mov.id)} className="bg-red-500 hover:bg-red-600 rounded-xl">
+                                          Deletar
+                                        </AlertDialogAction>
+                                      </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                  </AlertDialog>
+                                )}
                               </div>
                             </TooltipProvider>
                           </TableCell>
