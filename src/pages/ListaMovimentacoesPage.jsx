@@ -253,6 +253,8 @@ const ListaMovimentacoesPage = () => {
                   {movimentacoes.length > 0 ? (
                     movimentacoes.map(mov => {
                       const isLinkedToColeta = !!mov.coleta_id;
+                      // DEBUG: Log para verificar o valor de coleta_id
+                      console.log('Movimentacao ID:', mov.id, 'Coleta ID:', mov.coleta_id, 'Is Linked:', isLinkedToColeta);
                       return (
                         <TableRow key={mov.id} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
                           <TableCell data-label="Data">{format(parseISO(mov.data), 'dd/MM/yyyy HH:mm', { locale: ptBR })}</TableCell>
@@ -292,7 +294,7 @@ const ListaMovimentacoesPage = () => {
                                     </TooltipContent>
                                   )}
                                 </Tooltip>
-                                {/* Botão Excluir - Recriado com a estrutura da ListaFinanceiro */}
+                                {/* Botão Excluir */}
                                 <AlertDialog>
                                   <Tooltip>
                                     <TooltipTrigger asChild>
