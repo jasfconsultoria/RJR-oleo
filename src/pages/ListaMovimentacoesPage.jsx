@@ -20,6 +20,7 @@ import ProdutoSearchableSelect from '@/components/estoque/ProdutoSearchableSelec
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { formatNumber } from '@/lib/utils';
 import MovimentacaoViewDialog from '@/components/estoque/MovimentacaoViewDialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"; // Import Tooltip components
 
 const ListaMovimentacoesPage = () => {
   const navigate = useNavigate();
@@ -249,44 +250,82 @@ const ListaMovimentacoesPage = () => {
                 </TableHeader>
                 <TableBody>
                   {movimentacoes.length > 0 ? (
-                    movimentacoes.map(mov => (
-                      <TableRow key={mov.id} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
-                        <TableCell data-label="Data">{format(parseISO(mov.data), 'dd/MM/yyyy HH:mm', { locale: ptBR })}</TableCell>
-                        <TableCell data-label="Tipo" className="capitalize flex items-center gap-2">
-                          {getMovementIcon(mov.tipo)} {mov.tipo}
-                        </TableCell>
-                        <TableCell data-label="Origem" className="capitalize">{mov.origem}</TableCell>
-                        <TableCell data-label="Cliente">{mov.cliente?.nome || 'N/A'}</TableCell>
-                        <TableCell data-label="Itens">
-                          {mov.itens_entrada_saida.map((item, idx) => (
-                            <div key={idx} className="text-xs">
-                              {item.produto.nome}: {formatNumber(item.quantidade)} {item.produto.unidade}
-                            </div>
-                          ))}
-                        </TableCell>
-                        <TableCell className="text-right actions-cell">
-                           <div className="flex justify-end items-center gap-2">
-                            <Button variant="ghost" size="icon" className="text-blue-400 hover:text-blue-300 rounded-xl" onClick={() => handleViewMovimentacao(mov)}><Eye className="h-4 w-4" /></Button>
-                            <Button variant="ghost" size="icon" className="text-yellow-400 hover:text-yellow-300 rounded-xl" onClick={() => navigate(getEditRoute(mov))}><Edit className="h-4 w-4" /></Button>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="icon" className="text-red-400 hover:text-red-300 rounded-xl"><Trash2 className="h-4 w-4" /></Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent className="bg-emerald-900 border-emerald-700 text-white rounded-xl">
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
-                                  <AlertDialogDescription className="text-emerald-300">Essa ação não pode ser desfeita. Isso deletará permanentemente a movimentação de {mov.tipo}.</AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel className="border-gray-500 text-gray-300 rounded-xl">Cancelar</AlertDialogCancel>
-                                  <AlertDialogAction onClick={() => handleDelete(mov.id)} className="bg-red-500 hover:bg-red-600 rounded-xl">Deletar</AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                           </div>
-                        </TableCell>
-                      </TableRow>
-                    ))
+                    movimentacoes.map(mov => {
+                      const isLinkedToColeta = mov.origem === 'coleta';
+                      return (
+                        <TableRow key={mov.id} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
+                          <TableCell data-label="Data">{format(parseISO(mov.data), 'dd/MM/yyyy HH:mm', { locale: ptBR })}</TableCell>
+                          <TableCell data-label="Tipo" className="capitalize flex items-center gap-2">
+                            {getMovementIcon(mov.tipo)} {mov.tipo}
+                          </TableCell>
+                          <TableCell data-label="Origem" className="capitalize">{mov.origem}</TableCell>
+                          <TableCell data-label="Cliente">{mov.cliente?.nome || 'N/A'}</TableCell>
+                          <TableCell data-label="Itens">
+                            {mov.itens_entrada_saida.map((item, idx) => (
+                              <div key={idx} className="text-xs">
+                                {item.produto.nome}: {formatNumber(item.quantidade)} {item.produto.unidade}
+                              </div>
+                            ))}
+                          </TableCell>
+                          <TableCell className="text-right actions-cell">
+                            <TooltipProvider>
+                              <div className="flex justify-end items-center gap-2">
+                                <Button variant="ghost" size="icon" className="text-blue-400 hover:text-blue-300 rounded-xl" onClick={() => handleViewMovimentacao(mov)}><Eye className="h-4 w-4" /></Button>
+                                {/* Botão Editar */}
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon" 
+                                      className={`text-yellow-400 hover:text-yellow-300 rounded-xl ${isLinkedToColeta ? 'opacity-50 cursor-not-allowed' : ''}`} 
+                                      onClick={() => navigate(getEditRoute(mov))}
+                                      disabled={isLinkedToColeta}
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  {isLinkedToColeta && (
+                                    <TooltipContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
+                                      <p>Movimentações de coletas devem ser editadas na coleta de origem.</p>
+                                    </TooltipContent>
+                                  )}
+                                </Tooltip>
+                                {/* Botão Excluir */}
+                                <AlertDialog>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        className={`text-red-400 hover:text-red-300 rounded-xl ${isLinkedToColeta ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                        disabled={isLinkedToColeta}
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    {isLinkedToColeta && (
+                                      <TooltipContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
+                                        <p>Movimentações de coletas devem ser excluídas na coleta de origem.</p>
+                                      </TooltipContent>
+                                    )}
+                                  </Tooltip>
+                                  <AlertDialogContent className="bg-emerald-900 border-emerald-700 text-white rounded-xl">
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                                      <AlertDialogDescription className="text-emerald-300">Essa ação não pode ser desfeita. Isso deletará permanentemente a movimentação de {mov.tipo}.</AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel className="border-gray-500 text-gray-300 rounded-xl">Cancelar</AlertDialogCancel>
+                                      <AlertDialogAction onClick={() => handleDelete(mov.id)} className="bg-red-500 hover:bg-red-600 rounded-xl">Deletar</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </div>
+                            </TooltipProvider>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })
                   ) : (
                     <TableRow><TableCell colSpan="6" className="text-center text-gray-400 py-10">Nenhuma movimentação encontrada.</TableCell></TableRow>
                   )}
