@@ -286,6 +286,8 @@ const ListaFinanceiro = ({ type }) => {
                     entries.map(entry => {
                       const installmentDenominator = entry.has_down_payment ? entry.total_installments - 1 : entry.total_installments;
                       const isLinkedToColeta = !!entry.coleta_id; // Check if linked to coleta
+                      const isPaidOrCanceled = entry.status === 'paid' || entry.status === 'canceled';
+
                       return (
                         <TableRow key={entry.id} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
                           <TableCell data-label="Documento">{entry.document_number || 'N/A'}</TableCell>
@@ -306,63 +308,62 @@ const ListaFinanceiro = ({ type }) => {
                           <TableCell className="text-right actions-cell">
                             <TooltipProvider>
                               <div className="flex justify-end items-center gap-1">
+                                {/* Botão Registrar Pagamento */}
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <Button 
                                       variant="ghost" 
                                       size="icon" 
                                       title="Registrar Pagamento" 
-                                      className={`text-green-400 hover:text-green-300 rounded-xl ${isLinkedToColeta ? 'opacity-50 cursor-not-allowed' : ''}`} 
+                                      className={`text-green-400 hover:text-green-300 rounded-xl ${isPaidOrCanceled ? 'opacity-50 cursor-not-allowed' : ''}`} 
                                       onClick={() => handleOpenPaymentModal(entry)} 
-                                      disabled={entry.status === 'paid' || entry.status === 'canceled' || isLinkedToColeta}
+                                      disabled={isPaidOrCanceled}
                                     >
                                         <Banknote className="h-4 w-4" />
                                     </Button>
                                   </TooltipTrigger>
-                                  {isLinkedToColeta && (
+                                  {isPaidOrCanceled && (
                                     <TooltipContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
-                                      <p>Pagamentos de coletas são gerenciados automaticamente.</p>
+                                      <p>Não é possível registrar pagamento para lançamentos quitados ou cancelados.</p>
                                     </TooltipContent>
                                   )}
                                 </Tooltip>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button 
-                                      variant="ghost" 
-                                      size="icon" 
-                                      title="Histórico de Pagamentos" 
-                                      className={`text-yellow-400 hover:text-yellow-300 rounded-xl ${isLinkedToColeta ? 'opacity-50 cursor-not-allowed' : ''}`} 
-                                      onClick={() => handleOpenHistoryModal(entry)}
-                                      disabled={isLinkedToColeta}
-                                    >
-                                      <Edit className="h-4 w-4" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  {isLinkedToColeta && (
-                                    <TooltipContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
-                                      <p>Histórico de pagamentos de coletas é gerenciado automaticamente.</p>
-                                    </TooltipContent>
-                                  )}
-                                </Tooltip>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button 
-                                      variant="ghost" 
-                                      size="icon" 
-                                      title="Editar" 
-                                      className={`text-yellow-400 hover:text-yellow-300 rounded-xl ${isLinkedToColeta ? 'opacity-50 cursor-not-allowed' : ''}`} 
-                                      onClick={() => navigate(`/app/financeiro/${type}/editar/${entry.id}`)}
-                                      disabled={isLinkedToColeta}
-                                    >
-                                      <Edit className="h-4 w-4" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  {isLinkedToColeta && (
-                                    <TooltipContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
-                                      <p>Lançamentos de coletas devem ser editados na coleta de origem.</p>
-                                    </TooltipContent>
-                                  )}
-                                </Tooltip>
+
+                                {/* Botão Histórico de Pagamentos (Detalhes do Pagamento) */}
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  title="Detalhes do Pagamento" 
+                                  className="text-blue-400 hover:text-blue-300 rounded-xl" 
+                                  onClick={() => handleOpenHistoryModal(entry)}
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                                
+                                {/* Botão Editar Lançamento (ocultar se quitado, desabilitar se vinculado a coleta) */}
+                                {!isPaidOrCanceled && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        title="Editar Lançamento" 
+                                        className={`text-yellow-400 hover:text-yellow-300 rounded-xl ${isLinkedToColeta ? 'opacity-50 cursor-not-allowed' : ''}`} 
+                                        onClick={() => navigate(`/app/financeiro/${type}/editar/${entry.id}`)}
+                                        disabled={isLinkedToColeta}
+                                      >
+                                        <Edit className="h-4 w-4" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    {isLinkedToColeta && (
+                                      <TooltipContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
+                                        <p>Lançamentos de coletas devem ser editados na coleta de origem.</p>
+                                      </TooltipContent>
+                                    )}
+                                  </Tooltip>
+                                )}
+
+                                {/* Botão Excluir */}
                                 <AlertDialog>
                                   <Tooltip>
                                     <TooltipTrigger asChild>
