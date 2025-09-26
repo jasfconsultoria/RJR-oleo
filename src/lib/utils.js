@@ -1,6 +1,6 @@
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { format, parseISO, isValid } from 'date-fns';
+import { format, parseISO, isValid, differenceInCalendarMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { formatInTimeZone } from 'date-fns-tz';
 
@@ -132,4 +132,20 @@ export function formatDateTimeWithTimezone(dateString, timezone = 'America/Sao_P
     console.error("Failed to format date-time with timezone:", e);
     return "-";
   }
+}
+
+/**
+ * Calcula a diferença em meses entre duas datas.
+ * @param {Date | string} startDate - A data de início.
+ * @param {Date | string} endDate - A data de fim.
+ * @returns {number} A diferença em meses.
+ */
+export function getMonthsDifference(startDate, endDate) {
+  const start = startDate instanceof Date ? startDate : parseISO(startDate);
+  const end = endDate instanceof Date ? endDate : parseISO(endDate);
+
+  if (!isValid(start) || !isValid(end)) {
+    return 0;
+  }
+  return differenceInCalendarMonths(end, start);
 }
