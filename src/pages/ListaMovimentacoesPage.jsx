@@ -252,7 +252,6 @@ const ListaMovimentacoesPage = () => {
                   {movimentacoes.length > 0 ? (
                     movimentacoes.map(mov => {
                       const isLinkedToColeta = mov.origem?.toLowerCase() === 'coleta';
-                      console.log(`Mov ID: ${mov.id}, Origem: ${mov.origem}, isLinkedToColeta: ${isLinkedToColeta}`); // DEBUG LOG
                       return (
                         <TableRow key={mov.id} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
                           <TableCell data-label="Data">{format(parseISO(mov.data), 'dd/MM/yyyy HH:mm', { locale: ptBR })}</TableCell>
@@ -294,17 +293,16 @@ const ListaMovimentacoesPage = () => {
                                 {/* Botão Excluir */}
                                 <AlertDialog>
                                   <Tooltip>
-                                    {/* AQUI ESTÁ A CORREÇÃO: AlertDialogTrigger com disabled={isLinkedToColeta} */}
-                                    <AlertDialogTrigger asChild disabled={isLinkedToColeta}>
+                                    <TooltipTrigger asChild>
                                       <Button 
                                         variant="ghost" 
                                         size="icon" 
                                         className={`text-red-400 hover:text-red-300 rounded-xl ${isLinkedToColeta ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                        // A propriedade 'disabled' no Button interno é redundante se o Trigger já a tem
+                                        disabled={isLinkedToColeta} // APLICADO DIRETAMENTE AQUI
                                       >
                                         <Trash2 className="h-4 w-4" />
                                       </Button>
-                                    </AlertDialogTrigger>
+                                    </TooltipTrigger>
                                     {isLinkedToColeta && (
                                       <TooltipContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
                                         <p>Movimentações de coletas devem ser excluídas na coleta de origem.</p>
