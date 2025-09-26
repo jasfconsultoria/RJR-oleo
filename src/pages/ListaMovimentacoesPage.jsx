@@ -294,12 +294,13 @@ const ListaMovimentacoesPage = () => {
                                 {/* Botão Excluir */}
                                 <AlertDialog>
                                   <Tooltip>
-                                    <AlertDialogTrigger asChild disabled={isLinkedToColeta}> {/* AQUI ESTÁ A CORREÇÃO */}
+                                    {/* AQUI ESTÁ A CORREÇÃO: AlertDialogTrigger com disabled={isLinkedToColeta} */}
+                                    <AlertDialogTrigger asChild disabled={isLinkedToColeta}>
                                       <Button 
                                         variant="ghost" 
                                         size="icon" 
                                         className={`text-red-400 hover:text-red-300 rounded-xl ${isLinkedToColeta ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                        // disabled={isLinkedToColeta} // Removido daqui, agora está no AlertDialogTrigger
+                                        // A propriedade 'disabled' no Button interno é redundante se o Trigger já a tem
                                       >
                                         <Trash2 className="h-4 w-4" />
                                       </Button>
