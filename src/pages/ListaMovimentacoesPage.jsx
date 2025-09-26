@@ -294,16 +294,16 @@ const ListaMovimentacoesPage = () => {
                                 {/* Botão Excluir */}
                                 <AlertDialog>
                                   <Tooltip>
-                                    <TooltipTrigger asChild>
+                                    <AlertDialogTrigger asChild disabled={isLinkedToColeta}> {/* AQUI ESTÁ A CORREÇÃO */}
                                       <Button 
                                         variant="ghost" 
                                         size="icon" 
                                         className={`text-red-400 hover:text-red-300 rounded-xl ${isLinkedToColeta ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                        disabled={isLinkedToColeta}
+                                        // disabled={isLinkedToColeta} // Removido daqui, agora está no AlertDialogTrigger
                                       >
                                         <Trash2 className="h-4 w-4" />
                                       </Button>
-                                    </TooltipTrigger>
+                                    </AlertDialogTrigger>
                                     {isLinkedToColeta && (
                                       <TooltipContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
                                         <p>Movimentações de coletas devem ser excluídas na coleta de origem.</p>
