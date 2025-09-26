@@ -114,9 +114,11 @@ const ListaColetas = () => {
         toast({ title: 'Erro ao carregar coletas', description: error.message, variant: 'destructive' });
         setColetas([]);
         setTotalCount(0);
+        console.error("Erro ao carregar coletas:", error); // Adicionado para depuração
     } else {
         setColetas(data || []);
         setTotalCount(count || 0);
+        console.log("Dados de coletas carregados:", data); // Adicionado para depuração
     }
     setLoading(false);
   }, [profile, profileLoading, sortConfig, debouncedColetaSearchTerm, debouncedClientSearchTerm, debouncedStartDate, debouncedEndDate, empresa, toast, currentPage, pageSize]);
