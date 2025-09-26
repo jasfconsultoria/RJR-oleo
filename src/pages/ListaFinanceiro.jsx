@@ -340,28 +340,26 @@ const ListaFinanceiro = ({ type }) => {
                                   <Eye className="h-4 w-4" />
                                 </Button>
                                 
-                                {/* Botão Editar Lançamento (ocultar se quitado, desabilitar se vinculado a coleta) */}
-                                {!isPaidOrCanceled && (
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Button 
-                                        variant="ghost" 
-                                        size="icon" 
-                                        title="Editar Lançamento" 
-                                        className={`text-yellow-400 hover:text-yellow-300 rounded-xl ${isLinkedToColeta ? 'opacity-50 cursor-not-allowed' : ''}`} 
-                                        onClick={() => navigate(`/app/financeiro/${type}/editar/${entry.id}`)}
-                                        disabled={isLinkedToColeta}
-                                      >
-                                        <Edit className="h-4 w-4" />
-                                      </Button>
-                                    </TooltipTrigger>
-                                    {isLinkedToColeta && (
-                                      <TooltipContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
-                                        <p>Lançamentos de coletas devem ser editados na coleta de origem.</p>
-                                      </TooltipContent>
-                                    )}
-                                  </Tooltip>
-                                )}
+                                {/* Botão Editar Lançamento (visível para todos os status, desabilitado se vinculado a coleta) */}
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon" 
+                                      title="Editar Lançamento" 
+                                      className={`text-yellow-400 hover:text-yellow-300 rounded-xl ${isLinkedToColeta ? 'opacity-50 cursor-not-allowed' : ''}`} 
+                                      onClick={() => navigate(`/app/financeiro/${type}/editar/${entry.id}`)}
+                                      disabled={isLinkedToColeta}
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  {isLinkedToColeta && (
+                                    <TooltipContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
+                                      <p>Lançamentos de coletas devem ser editados na coleta de origem.</p>
+                                    </TooltipContent>
+                                  )}
+                                </Tooltip>
 
                                 {/* Botão Excluir */}
                                 <AlertDialog>
