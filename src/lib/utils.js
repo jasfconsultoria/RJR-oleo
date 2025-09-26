@@ -149,3 +149,74 @@ export function getMonthsDifference(startDate, endDate) {
   }
   return differenceInCalendarMonths(end, start);
 }
+
+/**
+ * Converte um valor numérico em sua representação por extenso em português do Brasil.
+ * @param {number | string} valor - O valor a ser convertido.
+ * @returns {string} O valor por extenso.
+ */
+export function valorPorExtenso(valor) {
+  const unidades = ['', 'um', 'dois', 'três', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove'];
+  const dezenas = ['', 'dez', 'vinte', 'trinta', 'quarenta', 'cinquenta', 'sessenta', 'setenta', 'oitenta', 'noventa'];
+  const centenas = ['', 'cento', 'duzentos', 'trezentos', 'quatrocentos', 'quinhentos', 'seiscentos', 'setecentos', 'oitocentos', 'novecentos'];
+  const especiais = ['dez', 'onze', 'doze', 'treze', 'quatorze', 'quinze', 'dezesseis', 'dezessete', 'dezoito', 'dezenove'];
+  const milhares = ['', 'mil', 'milhões', 'bilhões', 'trilhões'];
+
+  function numeroParaExtenso(n) {
+    if (n === 0) return '';
+    if (n < 10) return unidades[n];
+    if (n >= 10 && n < 20) return especiais[n - 10];
+    if (n >= 20 && n < 100) {
+      return dezenas[Math.floor(n / 10)] + (n % 10 !== 0 ? ' e ' + unidades[n % 10] : '');
+    }
+    if (n >= 100 && n < 1000) {
+      if (n === 100) return 'cem';
+      return centenas[Math.floor(n / 100)] + (n % 100 !== 0 ? ' e ' + numeroParaExtenso(n % 100) : '');
+    }
+    return '';
+  }
+
+  let num = parseFloat(valor);
+  if (isNaN(num)) return '';
+
+  let inteiro = Math.floor(num);
+  let centavos = Math.round((num - inteiro) * 100);
+
+  let extenso = '';
+  let i = 0;
+
+  if (inteiro === 0) {
+    extenso = 'zero';
+  } else {
+    while (inteiro > 0) {
+      let parte = inteiro % 1000;
+      inteiro = Math.floor(inteiro / 1000);
+
+      if (parte > 0) {
+        let sParte = numeroParaExtenso(parte);
+        if (i === 1 && parte === 1) { // "mil" singular
+          sParte = 'mil';
+        } else if (i > 0) { // Plural para milhões, bilhões, etc.
+          sParte += ' ' + milhares[i];
+        }
+        
+        if (extenso === '') {
+          extenso = sParte;
+        } else {
+          extenso = sParte + (parte < 100 && i > 0 ? ' e ' : ' ') + extenso;
+        }
+      }
+      i++;
+    }
+  }
+
+  let resultado = extenso.trim();
+  resultado += (num === 1 ? ' real' : ' reais');
+
+  if (centavos > 0) {
+    resultado += ' e ' + numeroParaExtenso(centavos);
+    resultado += (centavos === 1 ? ' centavo' : ' centavos');
+  }
+
+  return resultado.charAt(0).toUpperCase() + resultado.slice(1);
+}
