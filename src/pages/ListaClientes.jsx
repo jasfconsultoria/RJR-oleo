@@ -247,30 +247,30 @@ const ListaClientes = ({ personType = 'pessoa' }) => { // Accept personType prop
                 <Table className="responsive-table">
                   <TableHeader>
                     <TableRow className="hover:bg-white/10 border-b border-white/20 text-xs">
-                      <th onClick={() => requestSort('nome')} className="cursor-pointer text-white p-2 text-left w-[35%]"> {/* Ajustado para 35% */}
+                      <th onClick={() => requestSort('nome')} className="cursor-pointer text-white p-2 text-left w-[25%]"> {/* Diminuído para 25% */}
                         <div className="flex items-center">Razão Social / Nome Fantasia {getSortIcon('nome')}</div>
                       </th>
-                      <th onClick={() => requestSort('cnpj_cpf')} className="cursor-pointer text-white p-2 text-left w-[18%]"> {/* Ajustado para 18% */}
+                      <th onClick={() => requestSort('cnpj_cpf')} className="cursor-pointer text-white p-2 text-left w-[18%]">
                         <div className="flex items-center">CNPJ/CPF {getSortIcon('cnpj_cpf')}</div>
                       </th>
-                      <th onClick={() => requestSort('municipio')} className="cursor-pointer text-white p-2 text-left w-[22%]"> {/* Ajustado para 22% */}
+                      <th onClick={() => requestSort('municipio')} className="cursor-pointer text-white p-2 text-left w-[32%]"> {/* Aumentado para 32% */}
                         <div className="flex items-center">Localização {getSortIcon('municipio')}</div>
                       </th>
-                      <th className="text-left text-white p-2 w-[15%]">Contrato</th> {/* Ajustado para 15% */}
-                      <th className="text-right text-white p-2 w-[10%]">Ações</th> {/* Ajustado para 10% e alinhado à direita */}
+                      <th className="text-left text-white p-2 w-[15%]">Contrato</th>
+                      <th className="text-left text-white p-2 w-[10%]">Ações</th> {/* Alinhado à esquerda */}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {clientes.length > 0 ? clientes.map((cliente) => (
                       <TableRow key={cliente.id} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
-                        <TableCell data-label="Razão Social / Nome Fantasia" className="font-medium p-2 truncate min-w-0"> {/* Adicionado truncate e min-w-0 */}
+                        <TableCell data-label="Razão Social / Nome Fantasia" className="font-medium p-2 truncate min-w-0">
                           {cliente.nome_fantasia ? `${cliente.nome} - ${cliente.nome_fantasia}` : cliente.nome}
                         </TableCell>
                         <TableCell data-label="CNPJ/CPF" className="p-2">{formatCnpjCpf(cliente.cnpj_cpf)}</TableCell>
                         <TableCell data-label="Localização" className="p-2">{cliente.municipio}, {cliente.estado}</TableCell>
                         <TableCell data-label="Contrato" className="p-2">{getContractStatus(cliente.id)}</TableCell>
-                        <TableCell className="p-2 actions-cell text-right"> {/* Alinhado à direita */}
-                          <div className="flex justify-end items-center gap-1">
+                        <TableCell className="p-2 actions-cell text-left"> {/* Alinhado à esquerda */}
+                          <div className="flex justify-start items-center gap-1"> {/* Alterado para justify-start */}
                             <Button variant="ghost" size="icon" title="Ver Contratos" onClick={() => navigate(`/app/cadastro/contratos?clienteId=${cliente.id}`)}>
                                 <FileText className="h-4 w-4 text-cyan-400" />
                             </Button>
@@ -307,7 +307,7 @@ const ListaClientes = ({ personType = 'pessoa' }) => { // Accept personType prop
                       </TableRow>
                     )) : (
                       <TableRow>
-                        <TableCell colSpan={5} className="h-24 text-center text-white/70"> {/* Adjusted colspan */}
+                        <TableCell colSpan={5} className="h-24 text-center text-white/70">
                           Nenhum{singularArticle === 'a' ? 'a' : ''} {singularNoun} encontrado{singularArticle === 'a' ? 'a' : ''}.
                         </TableCell>
                       </TableRow>
