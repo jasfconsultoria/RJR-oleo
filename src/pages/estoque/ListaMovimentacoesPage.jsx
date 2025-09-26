@@ -21,7 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { formatNumber } from '@/lib/utils';
 import MovimentacaoViewDialog from '@/components/estoque/MovimentacaoViewDialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { DatePicker } from '@/components/ui/date-picker'; // Import DatePicker
+import { DatePicker } from '@/components/ui/date-picker';
 
 const ListaMovimentacoesPage = () => {
   const navigate = useNavigate();
@@ -222,7 +222,7 @@ const ListaMovimentacoesPage = () => {
                   placeholder="Nº Doc, Observação..."
                   value={filters.searchTerm}
                   onChange={(e) => handleFilterChange('searchTerm', e.target.value)}
-                  className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60 rounded-xl h-10 text-sm"
+                  className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60 rounded-xl h-8 text-xs"
                 />
               </div>
             </div>
@@ -234,7 +234,7 @@ const ListaMovimentacoesPage = () => {
                 onChange={(value) => handleFilterChange('selectedClienteId', value)}
                 searchTerm={filters.clientSearchText}
                 onSearchTermChange={(text) => handleFilterChange('clientSearchText', text)}
-                inputClassName="h-10 text-sm"
+                inputClassName="h-8 text-xs"
               />
             </div>
             {/* Produto */}
@@ -243,17 +243,17 @@ const ListaMovimentacoesPage = () => {
                 labelText="Produto"
                 value={filters.selectedProdutoId}
                 onChange={(product) => handleFilterChange('selectedProdutoId', product ? product.id : null)}
-                inputClassName="h-10 text-sm"
+                inputClassName="h-8 text-xs"
               />
             </div>
             {/* Tipo */}
             <div>
               <Label htmlFor="type" className="block text-white mb-1 text-sm">Tipo</Label>
               <Select value={filters.type} onValueChange={(value) => handleFilterChange('type', value)}>
-                <SelectTrigger className="bg-white/20 border-white/30 text-white rounded-xl h-10 text-sm">
+                <SelectTrigger className="bg-white/20 border-white/30 text-white rounded-xl h-8 text-xs">
                   <SelectValue placeholder="Todos" />
                 </SelectTrigger>
-                <SelectContent className="bg-gray-800 text-white border-gray-700 rounded-xl text-sm">
+                <SelectContent className="bg-gray-800 text-white border-gray-700 rounded-xl text-xs">
                   <SelectItem value="all">Todos</SelectItem>
                   <SelectItem value="entrada">Entrada</SelectItem>
                   <SelectItem value="saida">Saída</SelectItem>
@@ -266,8 +266,8 @@ const ListaMovimentacoesPage = () => {
               <DatePicker
                 date={filters.startDate}
                 setDate={(date) => handleFilterChange('startDate', date)}
-                className="w-full bg-white/20 border-white/30 text-white rounded-xl h-10 text-sm"
-                inputClassName="h-10 text-sm"
+                className="w-full bg-white/20 border-white/30 text-white rounded-xl h-8 text-xs"
+                inputClassName="h-8 text-xs"
               />
             </div>
             {/* Data Fim */}
@@ -276,8 +276,8 @@ const ListaMovimentacoesPage = () => {
               <DatePicker
                 date={filters.endDate}
                 setDate={(date) => handleFilterChange('endDate', date)}
-                className="w-full bg-white/20 border-white/30 text-white rounded-xl h-10 text-sm"
-                inputClassName="h-10 text-sm"
+                className="w-full bg-white/20 border-white/30 text-white rounded-xl h-8 text-xs"
+                inputClassName="h-8 text-xs"
               />
             </div>
           </div>
