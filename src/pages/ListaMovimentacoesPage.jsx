@@ -294,12 +294,12 @@ const ListaMovimentacoesPage = () => {
                                 <AlertDialog>
                                   <Tooltip>
                                     <TooltipTrigger asChild>
-                                      <AlertDialogTrigger asChild>
+                                      <AlertDialogTrigger asChild disabled={isLinkedToColeta}> {/* AlertDialogTrigger recebe disabled */}
                                         <Button 
                                           variant="ghost" 
                                           size="icon" 
                                           className={`text-red-400 hover:text-red-300 rounded-xl ${isLinkedToColeta ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                          disabled={isLinkedToColeta} 
+                                          disabled={isLinkedToColeta} /* O Button também recebe disabled */
                                         >
                                           <Trash2 className="h-4 w-4" />
                                         </Button>
