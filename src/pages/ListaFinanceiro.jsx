@@ -68,23 +68,36 @@ const ListaFinanceiro = ({ type }) => {
     const startDateISO = debouncedStartDate || null;
     const endDateISO = debouncedEndDate || null;
 
-    const { data, error, count } = await supabase.rpc('get_financeiro_detailed_report', {
+    const commonRpcParams = {
       p_start_date: startDateISO,
       p_end_date: endDateISO,
       p_type: type,
       p_status: statusFilter === 'all' ? null : statusFilter,
       p_client_search_term: debouncedSearchTerm || debouncedClientSearchTerm || null,
       p_cost_center: null, // Cost center filter is not implemented in ListaFinanceiro
+    };
+
+    // Fetch paginated data
+    const { data: entriesData, error: entriesError } = await supabase.rpc('get_financeiro_detailed_report', {
+      ...commonRpcParams,
       p_offset: from,
       p_limit: pageSize,
     });
 
-    if (error) {
-      toast({ title: `Erro ao buscar ${title}s`, description: `Falha na consulta: ${error.message}`, variant: 'destructive' });
+    // Fetch total count
+    const { data: countData, error: countError } = await supabase.rpc('get_financeiro_detailed_report_count', commonRpcParams);
+
+    if (entriesError) {
+      toast({ title: `Erro ao buscar ${title}s`, description: `Falha na consulta: ${entriesError.message}`, variant: 'destructive' });
       setEntries([]);
+      setTotalCount(0);
+    } else if (countError) {
+      toast({ title: `Erro ao buscar contagem de ${title}s`, description: `Falha na consulta de contagem: ${countError.message}`, variant: 'destructive' });
+      setEntries(entriesData || []);
+      setTotalCount(0); // Set to 0 if count fails
     } else {
-      setEntries(data || []);
-      setTotalCount(count || 0);
+      setEntries(entriesData || []);
+      setTotalCount(countData || 0);
     }
     setLoading(false);
   }, [toast, currentPage, pageSize, type, debouncedSearchTerm, debouncedClientSearchTerm, statusFilter, debouncedStartDate, debouncedEndDate, empresa, title]);
@@ -434,13 +447,15 @@ const ListaFinanceiro = ({ type }) => {
             )}
         </div>
 
-        <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPageChange={setCurrentPage}
-          pageSize={pageSize}
-          totalCount={totalCount}
-        />
+        {totalCount > 0 && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            pageSize={pageSize}
+            totalCount={totalCount}
+          />
+        )}
       </div>
       {selectedEntry && (
         <PaymentDialog
