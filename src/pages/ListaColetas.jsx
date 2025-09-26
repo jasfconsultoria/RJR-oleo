@@ -9,7 +9,7 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { useProfile } from '@/contexts/ProfileContext';
 import ColetasFilters from '@/components/coletas/ColetasFilters';
 import ColetasTable from '@/components/coletas/ColetasTable';
-import { startOfMonth, format, endOfDay, parseISO, endOfMonth } from 'date-fns';
+import { startOfMonth, format, endOfDay, parseISO, endOfMonth, subDays } from 'date-fns';
 import { logAction } from '@/lib/logger';
 import { Pagination } from '@/components/ui/pagination';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -19,8 +19,8 @@ const ListaColetas = () => {
   const [coletas, setColetas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
-    startDate: startOfMonth(new Date()),
-    endDate: endOfMonth(new Date()),
+    startDate: subDays(new Date(), 30), // Default to last 30 days
+    endDate: new Date(), // Default to today
     clienteId: null,
     numeroColetaTerm: '',
     clienteNameTerm: '',
@@ -149,6 +149,17 @@ const ListaColetas = () => {
     setFilters(prev => ({...prev, [field]: value }));
   };
 
+  const handleClearFilters = () => {
+    setFilters({
+      startDate: subDays(new Date(), 30),
+      endDate: new Date(),
+      clienteId: null,
+      numeroColetaTerm: '',
+      clienteNameTerm: '',
+    });
+    setCurrentPage(1);
+  };
+
   const totalPages = Math.ceil(totalCount / pageSize);
 
   if (profileLoading || loading || !empresa) {
@@ -183,6 +194,7 @@ const ListaColetas = () => {
           clients={clients}
           filters={filters}
           onFilterChange={handleFilterChange}
+          onClearFilters={handleClearFilters}
         />
 
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white/10 backdrop-blur-sm rounded-xl relative z-10">
