@@ -292,7 +292,7 @@ const ListaMovimentacoesPage = () => {
                                     </TooltipContent>
                                   )}
                                 </Tooltip>
-                                {/* Botão Excluir - Replicando a estrutura da ListaFinanceiro */}
+                                {/* Botão Excluir - Recriado com a estrutura da ListaFinanceiro */}
                                 <AlertDialog>
                                   <Tooltip>
                                     <TooltipTrigger asChild>
