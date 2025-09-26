@@ -175,6 +175,22 @@ const ListaFinanceiro = ({ type }) => {
     return entry.cliente_fornecedor_fantasy_name ? `${entry.cliente_fornecedor_name} - ${entry.cliente_fornecedor_fantasy_name}` : entry.cliente_fornecedor_name;
   };
 
+  const CustomTooltip = ({ active, payload, label }) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="p-2 bg-gray-800/80 border border-gray-600 rounded-xl text-white">
+          <p className="label font-bold">{`Mês: ${label}`}</p>
+          <p className="text-emerald-400">{`Valor Total : ${formatCurrency(payload[0].value)}`}</p>
+          <p className="text-blue-400">{`Valor Pago : ${formatCurrency(payload[1].value)}`}</p>
+          <p className="text-yellow-400">{`Saldo : ${formatCurrency(payload[2].value)}`}</p>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  const totalPages = Math.ceil(totalCount / pageSize);
+
   return (
     <>
       <Helmet><title>Lista de {title}s - RJR Óleo</title></Helmet>
@@ -277,13 +293,15 @@ const ListaFinanceiro = ({ type }) => {
                     <th className="p-2 text-right text-white">Pago</th>
                     <th className="p-2 text-right text-white">Saldo</th>
                     <th className="p-2 text-center text-white">Status</th>
-                    <th className="p-2 text-right text-white">Ações</th>
+                    <th className="p-2 text-left text-white">Centro Custo</th>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {entries.length > 0 ? (
                     entries.map(entry => {
                       const installmentDenominator = entry.has_down_payment ? entry.total_installments - 1 : entry.total_installments;
+                      // Determine if the delete button should be disabled
+                      const isDeleteDisabled = type === 'debito' && entry.coleta_id;
                       return (
                         <TableRow key={entry.id} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
                           <TableCell data-label="Documento">{entry.document_number || 'N/A'}</TableCell>
@@ -309,16 +327,29 @@ const ListaFinanceiro = ({ type }) => {
                               <Button variant="ghost" size="icon" title="Histórico de Pagamentos" className="text-yellow-400 hover:text-yellow-300 rounded-xl" onClick={() => handleOpenHistoryModal(entry)}><Edit className="h-4 w-4" /></Button>
                               <AlertDialog>
                                 <AlertDialogTrigger asChild>
-                                  <Button variant="ghost" size="icon" title="Excluir" className="text-red-400 hover:text-red-300 rounded-xl"><Trash2 className="h-4 w-4" /></Button>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    title="Excluir" 
+                                    className={`text-red-400 hover:text-red-300 rounded-xl ${isDeleteDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    disabled={isDeleteDisabled}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
                                 </AlertDialogTrigger>
                                 <AlertDialogContent className="bg-emerald-900 border-emerald-700 text-white rounded-xl">
                                   <AlertDialogHeader>
                                     <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
-                                    <AlertDialogDescription className="text-emerald-300">Essa ação não pode ser desfeita. Isso deletará permanentemente o lançamento {entry.document_number || entry.description}.</AlertDialogDescription>
+                                    <AlertDialogDescription className="text-emerald-300">
+                                      Esta ação não pode ser desfeita. Isso excluirá permanentemente o lançamento {entry.document_number || entry.description}.
+                                      {isDeleteDisabled && <p className="mt-2 text-yellow-400">Este débito está vinculado a uma coleta e não pode ser excluído diretamente aqui.</p>}
+                                    </AlertDialogDescription>
                                   </AlertDialogHeader>
                                   <AlertDialogFooter>
                                     <AlertDialogCancel className="border-gray-500 text-gray-300 rounded-xl">Cancelar</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => handleDelete(entry.id, entry.description)} className="bg-red-500 hover:bg-red-600 rounded-xl">Deletar</AlertDialogAction>
+                                    <AlertDialogAction onClick={() => handleDelete(entry.id, entry.description)} className="bg-red-500 hover:bg-red-600 rounded-xl" disabled={isDeleteDisabled}>
+                                      Excluir
+                                    </AlertDialogAction>
                                   </AlertDialogFooter>
                                 </AlertDialogContent>
                               </AlertDialog>
@@ -370,7 +401,7 @@ const ListaFinanceiro = ({ type }) => {
           pageSize={pageSize}
           totalCount={totalCount}
         />
-      </div>
+      )}
       {selectedEntry && (
         <PaymentDialog
             key={dialogKey}
