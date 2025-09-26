@@ -159,15 +159,51 @@ const FinanceiroForm = ({ type }) => {
       return;
     }
     setLoading(true);
-    toast({
-        title: 'Função em Desenvolvimento',
-        description: 'A edição de lançamentos parcelados está sendo ajustada. Por favor, exclua o lançamento e crie-o novamente.',
-        variant: 'destructive',
-        duration: 10000,
-    });
-    navigate(`/app/financeiro/${type}`);
-    setLoading(false);
-  }, [id, isEditing, navigate, toast, type]);
+    try {
+      const { data: entryData, error: entryError } = await supabase
+        .from('credito_debito')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (entryError) throw entryError;
+
+      const { data: clientData, error: clientError } = await supabase
+        .from('clientes')
+        .select('id, nome, nome_fantasia, cnpj_cpf')
+        .eq('id', entryData.pessoa_id)
+        .single();
+
+      if (clientError) console.error('Erro ao buscar dados do cliente/fornecedor:', clientError);
+
+      handleUpdateRawFormData({
+        document_number: entryData.document_number || '',
+        issue_date: entryData.issue_date,
+        model: entryData.model || 'Recibo',
+        pessoa_id: entryData.pessoa_id,
+        cliente_fornecedor_name: clientData?.nome || entryData.cliente_fornecedor_name || '',
+        cliente_fornecedor_fantasy_name: clientData?.nome_fantasia || entryData.cliente_fornecedor_fantasy_name || '',
+        cnpj_cpf: clientData?.cnpj_cpf || entryData.cnpj_cpf || '',
+        description: entryData.description || '',
+        total_value: String(entryData.total_value || '0').replace('.', ','),
+        payment_method: entryData.payment_method || 'pix',
+        cost_center: entryData.cost_center || 'ADMINISTRAÇÃO',
+        notes: entryData.notes || '',
+        // Para edição de um único lançamento, não precisamos de down_payment ou installments_number
+        down_payment: '0,00',
+        installments_number: 0,
+        installments: [],
+        single_due_date: entryData.issue_date, // A data de vencimento é a própria data de emissão para um único lançamento
+      });
+      // Limpar dados de auto-save ao carregar para edição
+      clearSavedData();
+    } catch (error) {
+      toast({ title: 'Erro ao carregar lançamento', description: error.message, variant: 'destructive' });
+      navigate(`/app/financeiro/${type}`);
+    } finally {
+      setLoading(false);
+    }
+  }, [id, isEditing, navigate, toast, type, handleUpdateRawFormData, clearSavedData]);
 
   useEffect(() => {
     fetchEntry();
@@ -206,13 +242,13 @@ const FinanceiroForm = ({ type }) => {
     handleUpdateRawFormData({ installments: installmentsData });
   }, [handleUpdateRawFormData]);
 
-  const showInstallments = parsedTotalValue > 0 && parsedDownPayment >= 0 && parsedTotalValue > parsedDownPayment;
+  const showInstallmentsGeneration = parsedTotalValue > 0 && parsedDownPayment >= 0 && parsedTotalValue > parsedDownPayment && !isEditing;
 
   useEffect(() => {
-    if (!showInstallments) {
+    if (!showInstallmentsGeneration) {
       handleInstallmentsChange([]);
     }
-  }, [showInstallments, handleInstallmentsChange]);
+  }, [showInstallmentsGeneration, handleInstallmentsChange]);
 
   const handleNewClientSuccess = (newClient) => {
     setIsNewClientModalOpen(false);
@@ -251,70 +287,95 @@ const FinanceiroForm = ({ type }) => {
 
     setSaving(true);
 
-    if (isEditing) {
-        toast({ title: 'Função em desenvolvimento', description: 'A edição de lançamentos parcelados está sendo ajustada.', variant: 'destructive' });
-        setSaving(false);
-        return;
-    }
-
-    const lancamentoId = uuidv4();
-    
-    let downPaymentPayload = null;
-    let installmentsPayload = [];
-    let totalInstallmentsCount = 0;
-
-    if (parsedDownPayment === 0 && parsedTotalValue > 0) {
-        installmentsPayload.push({
-            amount: parsedTotalValue,
-            date: format(formData.single_due_date, 'yyyy-MM-dd'), // Use formData.single_due_date
-            number: 1
-        });
-        totalInstallmentsCount = 1;
-    } else if (parsedDownPayment > 0) {
-        downPaymentPayload = {
-            amount: parsedDownPayment,
-            date: format(formData.issue_date, 'yyyy-MM-dd')
-        };
-        totalInstallmentsCount = 1;
-        
-        if (showInstallments) {
-            installmentsPayload = formData.installments.map(inst => ({
-                amount: inst.expected_amount,
-                date: format(inst.issue_date, 'yyyy-MM-dd'),
-                number: inst.installment_number
-            }));
-            totalInstallmentsCount += installmentsPayload.length;
-        }
-    }
-
-    const rpcParams = {
-        p_lancamento_id: lancamentoId,
-        p_type: type,
-        p_document_number: formData.document_number || null,
-        p_model: formData.model,
-        p_pessoa_id: formData.pessoa_id,
-        p_cliente_fornecedor_name: formData.cliente_fornecedor_name,
-        p_cliente_fornecedor_fantasy_name: formData.cliente_fornecedor_fantasy_name || null,
-        p_cnpj_cpf: unmask(formData.cnpj_cpf) || null,
-        p_description: formData.description,
-        p_payment_method: formData.payment_method,
-        p_cost_center: formData.cost_center,
-        p_notes: formData.notes,
-        p_user_id: user.id,
-        p_total_installments: totalInstallmentsCount,
-        p_down_payment: downPaymentPayload,
-        p_installments: installmentsPayload
+    const basePayload = {
+      document_number: formData.document_number || null,
+      model: formData.model,
+      pessoa_id: formData.pessoa_id,
+      cliente_fornecedor_name: formData.cliente_fornecedor_name,
+      cliente_fornecedor_fantasy_name: formData.cliente_fornecedor_fantasy_name || null,
+      cnpj_cpf: unmask(formData.cnpj_cpf) || null,
+      description: formData.description,
+      payment_method: formData.payment_method,
+      cost_center: formData.cost_center,
+      notes: formData.notes,
+      user_id: user.id,
+      issue_date: format(formData.issue_date, 'yyyy-MM-dd'),
+      total_value: parsedTotalValue,
+      // Ao editar um lançamento individual, o valor pago e o saldo são recalculados pelo trigger
+      // ou gerenciados via PaymentDialog. Não os definimos diretamente aqui.
+      // O status também será atualizado pelo trigger get_pagamento_status
     };
 
-    const { data, error } = await supabase.rpc('create_financeiro_lancamento', rpcParams);
-
-    if (error || (data && !data.success)) {
-      const errorMessage = error?.message || data?.message || 'Ocorreu um erro desconhecido.';
-      toast({ title: `Erro ao cadastrar ${title}`, description: errorMessage, variant: 'destructive' });
-      await logAction(`create_${type}_failed`, { error: errorMessage, entry_description: formData.description });
+    let result;
+    if (isEditing) {
+      // Para edição, atualiza diretamente o registro credito_debito específico
+      const { data, error } = await supabase
+        .from('credito_debito')
+        .update(basePayload)
+        .eq('id', id)
+        .select()
+        .single();
+      result = { data, error };
     } else {
-      toast({ title: `${title} cadastrado com sucesso!`, description: `${formData.description} foi salvo com todas as parcelas.` });
-      await logAction(`create_${type}_success`, { lancamento_id: data.lancamento_id, entry_description: formData.description });
+      // Para novos lançamentos, usa a função RPC para lidar com entrada e parcelas
+      const lancamentoId = uuidv4();
+      let downPaymentPayload = null;
+      let installmentsPayload = [];
+      let totalInstallmentsCount = 0;
+
+      if (parsedDownPayment === 0 && parsedTotalValue > 0) {
+          installmentsPayload.push({
+              amount: parsedTotalValue,
+              date: format(formData.single_due_date, 'yyyy-MM-dd'),
+              number: 1
+          });
+          totalInstallmentsCount = 1;
+      } else if (parsedDownPayment > 0) {
+          downPaymentPayload = {
+              amount: parsedDownPayment,
+              date: format(formData.issue_date, 'yyyy-MM-dd')
+          };
+          totalInstallmentsCount = 1;
+          
+          if (showInstallmentsGeneration) { // Use showInstallmentsGeneration here
+              installmentsPayload = formData.installments.map(inst => ({
+                   amount: inst.expected_amount,
+                  date: format(inst.issue_date, 'yyyy-MM-dd'),
+                  number: inst.installment_number
+              }));
+              totalInstallmentsCount += installmentsPayload.length;
+          }
+      }
+
+      const rpcParams = {
+          p_lancamento_id: lancamentoId,
+          p_type: type,
+          p_document_number: basePayload.document_number,
+          p_model: basePayload.model,
+          p_pessoa_id: basePayload.pessoa_id,
+          p_cliente_fornecedor_name: basePayload.cliente_fornecedor_name ,
+          p_cliente_fornecedor_fantasy_name: basePayload.cliente_fornecedor_fantasy_name,
+          p_cnpj_cpf: basePayload.cnpj_cpf,
+          p_description : basePayload.description,
+          p_payment_method: basePayload.payment_method,
+          p_cost_center: basePayload.cost_center,
+          p_notes: basePayload.notes,
+          p_user_id: basePayload.user_id,
+          p_total_installments: totalInstallmentsCount,
+          p_down_payment: downPaymentPayload,
+          p_installments: installmentsPayload
+      };
+
+      result = await supabase.rpc('create_financeiro_lancamento', rpcParams);
+    }
+
+    if (result.error || (result.data && !result.data.success)) {
+      const errorMessage = result.error?.message || result.data?.message || 'Ocorreu um erro desconhecido.';
+      toast({ title: `Erro ao ${isEditing ? 'atualizar' : 'cadastrar'} ${title}`, description: errorMessage, variant: 'destructive' });
+      await logAction(`${isEditing ? 'update' : 'create'}_${type}_failed`, { error: errorMessage, entry_description: formData.description });
+    } else {
+      toast({ title: `${title} ${isEditing ? 'atualizado' : 'cadastrado'} com sucesso!`, description: `${formData.description} foi salvo.` });
+      await logAction(`${isEditing ? 'update' : 'create'}_${type}_success`, { lancamento_id: result.data?.lancamento_id || id, entry_description: formData.description });
       clearSavedData(); // Clear auto-saved data on successful submission
       navigate(`/app/financeiro/${type}`);
     }
@@ -371,20 +432,22 @@ const FinanceiroForm = ({ type }) => {
                 isEditing={isEditing}
               />
 
-              <InstallmentDetails
-                formData={formData}
-                handleInputChange={handleInputChange}
-                downPaymentInputRef={downPaymentInputRef}
-                downPaymentError={downPaymentError}
-                singleDueDate={formData.single_due_date} // Use formData.single_due_date
-                setSingleDueDate={(date) => handleUpdateRawFormData({ single_due_date: date })} // Update via handleUpdateRawFormData
-                parsedTotalValue={parsedTotalValue}
-                parsedDownPayment={parsedDownPayment}
-                showInstallments={showInstallments}
-                handleInstallmentsChange={handleInstallmentsChange}
-                existingInstallments={existingInstallments}
-                isEditing={isEditing}
-              />
+              {!isEditing && ( // Oculta a seção de parcelas em modo de edição
+                <InstallmentDetails
+                  formData={formData}
+                  handleInputChange={handleInputChange}
+                  downPaymentInputRef={downPaymentInputRef}
+                  downPaymentError={downPaymentError}
+                  singleDueDate={formData.single_due_date} // Use formData.single_due_date
+                  setSingleDueDate={(date) => handleUpdateRawFormData({ single_due_date: date })} // Update via handleUpdateRawFormData
+                  parsedTotalValue={parsedTotalValue}
+                  parsedDownPayment={parsedDownPayment}
+                  showInstallments={showInstallmentsGeneration}
+                  handleInstallmentsChange={handleInstallmentsChange}
+                  existingInstallments={existingInstallments}
+                  isEditing={isEditing}
+                />
+              )}
 
               <FinanceiroFormActions 
                 onBackPath={onBackPath} 
