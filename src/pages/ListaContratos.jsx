@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Pagination } from '@/components/ui/pagination';
 import { logAction } from '@/lib/logger';
-import { formatDateWithTimezone } from '@/lib/utils';
+import { formatDateWithTimezone, escapePostgrestLikePattern } from '@/lib/utils';
 import ContratoViewModal from '@/components/contratos/ContratoViewModal';
 import { motion } from 'framer-motion';
 // Removido: import ClienteSearchableSelect from '@/components/ui/ClienteSearchableSelect';
@@ -73,7 +73,7 @@ const ListaContratos = () => {
   //           setClientesMap(map);
   //       }
   //   };
-  //   fetchClientes();
+  //   fetchAllClientes();
   // }, [toast]);
 
   const fetchContratos = useCallback(async () => {
@@ -91,10 +91,11 @@ const ListaContratos = () => {
         query = query.eq('cliente_id', filterById);
     } else if (debouncedClientSearchTerm) {
         // If no direct ID filter, use text search
+        const escapedClientSearchTerm = escapePostgrestLikePattern(debouncedClientSearchTerm);
         const { data: matchingClients, error: clientError } = await supabase
             .from('clientes')
             .select('id')
-            .or(`nome.ilike.%${debouncedClientSearchTerm}%,nome_fantasia.ilike.%${debouncedClientSearchTerm}%`);
+            .or(`nome.ilike.%${escapedClientSearchTerm}%,nome_fantasia.ilike.%${escapedClientSearchTerm}%`);
         if (clientError) {
             console.error("Error fetching matching clients for contracts:", clientError);
             toast({ title: 'Erro ao buscar clientes para filtro', description: clientError.message, variant: 'destructive' });
@@ -115,7 +116,8 @@ const ListaContratos = () => {
     }
 
     if (debouncedContratoSearchTerm) {
-      query = query.ilike('numero_contrato', `%${debouncedContratoSearchTerm}%`);
+      const escapedContratoSearchTerm = escapePostgrestLikePattern(debouncedContratoSearchTerm);
+      query = query.ilike('numero_contrato', `%${escapedContratoSearchTerm}%`);
     }
     
     const { data, error, count } = await query;

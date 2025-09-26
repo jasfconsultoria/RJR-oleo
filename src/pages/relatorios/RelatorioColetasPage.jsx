@@ -12,7 +12,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
     import { format, subDays, endOfDay, parseISO, isValid } from 'date-fns';
     import { ptBR } from 'date-fns/locale';
     import * as XLSX from 'xlsx';
-    import { formatCurrency, formatNumber } from '@/lib/utils';
+    import { formatCurrency, formatNumber, escapePostgrestLikePattern } from '@/lib/utils';
     import { useDebounce } from '@/hooks/useDebounce';
     import { Input } from '@/components/ui/input';
     import { SearchableSelect } from '@/components/ui/SearchableSelect';
@@ -90,7 +90,10 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 
         if (currentFilters.estado && currentFilters.estado !== 'all') query = query.eq('estado', currentFilters.estado);
         if (currentFilters.municipio && currentFilters.municipio !== 'all') query = query.eq('municipio', currentFilters.municipio);
-        if (currentFilters.clientSearchTerm) query = query.or(`pessoa.nome.ilike.%${currentFilters.clientSearchTerm}%,pessoa.nome_fantasia.ilike.%${currentFilters.clientSearchTerm}%`); // Filtrar por nome do cliente
+        if (currentFilters.clientSearchTerm) {
+          const escapedSearchTerm = escapePostgrestLikePattern(currentFilters.clientSearchTerm);
+          query = query.or(`pessoa.nome.ilike.%${escapedSearchTerm}%,pessoa.nome_fantasia.ilike.%${escapedSearchTerm}%`); // Filtrar por nome do cliente
+        }
         if (currentFilters.userId && currentFilters.userId !== 'all') query = query.eq('user_id', currentFilters.userId);
         if (currentFilters.startDate) query = query.gte('data_coleta', currentFilters.startDate);
         if (currentFilters.endDate) {
@@ -155,7 +158,10 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
           let query = supabase.from('coletas').select('*, pessoa:clientes(nome, nome_fantasia), usuario:profiles(full_name)'); // Added nome_fantasia
           if (filters.estado && filters.estado !== 'all') query = query.eq('estado', filters.estado);
           if (filters.municipio && filters.municipio !== 'all') query = query.eq('municipio', filters.municipio);
-          if (filters.clientSearchTerm) query = query.or(`pessoa.nome.ilike.%${filters.clientSearchTerm}%,pessoa.nome_fantasia.ilike.%${filters.clientSearchTerm}%`); // Filtrar por nome do cliente
+          if (filters.clientSearchTerm) {
+            const escapedSearchTerm = escapePostgrestLikePattern(filters.clientSearchTerm);
+            query = query.or(`pessoa.nome.ilike.%${escapedSearchTerm}%,pessoa.nome_fantasia.ilike.%${escapedSearchTerm}%`); // Filtrar por nome do cliente
+          }
           if (filters.userId && filters.userId !== 'all') query = query.eq('user_id', filters.userId);
           if (filters.startDate) query = query.gte('data_coleta', filters.startDate);
           if (filters.endDate) {

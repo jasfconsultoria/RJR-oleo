@@ -18,7 +18,7 @@ import { ptBR } from 'date-fns/locale';
 import ClienteSearchableSelect from '@/components/ClienteSearchableSelect';
 import ProdutoSearchableSelect from '@/components/estoque/ProdutoSearchableSelect';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { formatNumber } from '@/lib/utils';
+import { formatNumber, escapePostgrestLikePattern } from '@/lib/utils';
 import MovimentacaoViewDialog from '@/components/estoque/MovimentacaoViewDialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { DatePicker } from '@/components/ui/date-picker';
@@ -82,17 +82,19 @@ const ListaMovimentacoesPage = () => {
       .range(from, to);
 
     if (debouncedFilters.searchTerm) {
-      query = query.or(`observacao.ilike.%${debouncedFilters.searchTerm}%,document_number.ilike.%${debouncedFilters.searchTerm}%`);
+      const escapedSearchTerm = escapePostgrestLikePattern(debouncedFilters.searchTerm);
+      query = query.or(`observacao.ilike.%${escapedSearchTerm}%,document_number.ilike.%${escapedSearchTerm}%`);
     }
     
     // Apply client filter based on selected ID or search text
     if (debouncedFilters.selectedClienteId) {
       query = query.eq('cliente_id', debouncedFilters.selectedClienteId);
     } else if (debouncedFilters.clientSearchText) {
+      const escapedClientSearchText = escapePostgrestLikePattern(debouncedFilters.clientSearchText);
       const { data: matchingClients, error: clientSearchError } = await supabase
         .from('clientes')
         .select('id')
-        .or(`nome.ilike.%${debouncedFilters.clientSearchText}%,nome_fantasia.ilike.%${debouncedFilters.clientSearchText}%`);
+        .or(`nome.ilike.%${escapedClientSearchText}%,nome_fantasia.ilike.%${escapedClientSearchText}%`);
 
       if (clientSearchError) {
         console.error("Error fetching matching clients for stock movements:", clientSearchError);

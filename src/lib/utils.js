@@ -252,3 +252,10 @@ export function valorPorExtenso(valor) {
 
   return extenso.filter(Boolean).join(' ').trim();
 }
+
+export function escapePostgrestLikePattern(pattern) {
+  // Escapa caracteres que têm significado especial em padrões LIKE do SQL: %, _, \
+  // Também escapa $ se estiver causando problemas no parser de filtros do PostgREST.
+  // A substituição usa '\\$&' para inserir uma barra invertida antes do caractere correspondente.
+  return pattern.replace(/[%_\\$]/g, '\\$&');
+}

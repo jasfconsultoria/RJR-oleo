@@ -14,6 +14,7 @@ import { logAction } from '@/lib/logger';
 import { Pagination } from '@/components/ui/pagination';
 import { useDebounce } from '@/hooks/useDebounce';
 import { ReciboViewDialog } from '@/components/coletas/ReciboViewDialog';
+import { escapePostgrestLikePattern } from '@/lib/utils';
 
 const ListaColetas = () => {
   const [coletas, setColetas] = useState([]);
@@ -59,6 +60,7 @@ const ListaColetas = () => {
   const fetchPeriodTotals = useCallback(async () => {
     if (profileLoading || !profile || !empresa) return;
 
+    // RPC functions handle SQL directly, so client-side escaping for LIKE patterns is not needed here.
     let query = supabase.rpc('get_coletas_totals', {
         p_start_date: debouncedColetaSearchTerm ? null : (debouncedStartDate || null),
         p_end_date: debouncedColetaSearchTerm ? null : (debouncedEndDate || null),
@@ -91,11 +93,13 @@ const ListaColetas = () => {
     let query = supabase.from('v_coletas_com_status').select('*', { count: 'exact' }); // Use a nova view
 
     if (debouncedColetaSearchTerm) {
+        const escapedSearchTerm = escapePostgrestLikePattern(debouncedColetaSearchTerm);
         // Aplica a busca diretamente na view
-        query = query.or(`numero_coleta::text.ilike.%${debouncedColetaSearchTerm}%,cliente_nome.ilike.%${debouncedColetaSearchTerm}%,cliente_nome_fantasia.ilike.%${debouncedColetaSearchTerm}%`);
+        query = query.or(`numero_coleta::text.ilike.%${escapedSearchTerm}%,cliente_nome.ilike.%${escapedSearchTerm}%,cliente_nome_fantasia.ilike.%${escapedSearchTerm}%`);
     } else {
         if (debouncedClientSearchTerm) { // Filtrar por nome do cliente
-            query = query.or(`cliente_nome.ilike.%${debouncedClientSearchTerm}%,cliente_nome_fantasia.ilike.%${debouncedClientSearchTerm}%`);
+            const escapedClientSearchTerm = escapePostgrestLikePattern(debouncedClientSearchTerm);
+            query = query.or(`cliente_nome.ilike.%${escapedClientSearchTerm}%,cliente_nome_fantasia.ilike.%${escapedClientSearchTerm}%`);
         }
         if (debouncedStartDate) {
             query = query.gte('data_coleta', debouncedStartDate);

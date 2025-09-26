@@ -26,7 +26,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { PlusCircle, Edit, Trash2, Search, Loader2, ChevronUp, ChevronDown, Users, FileText } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useProfile } from '@/contexts/ProfileContext';
-import { formatCnpjCpf } from '@/lib/utils';
+import { formatCnpjCpf, escapePostgrestLikePattern } from '@/lib/utils';
 import { logAction } from '@/lib/logger';
 import { Pagination } from '@/components/ui/pagination';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -111,7 +111,8 @@ const ListaClientes = ({ personType = 'pessoa' }) => { // Accept personType prop
       .select('id, nome, nome_fantasia, cnpj_cpf, municipio, estado', { count: 'exact' }); // Include nome_fantasia
 
     if (debouncedSearchTerm) {
-      query = query.or(`nome.ilike.%${debouncedSearchTerm}%,nome_fantasia.ilike.%${debouncedSearchTerm}%,cnpj_cpf.ilike.%${debouncedSearchTerm}%,municipio.ilike.%${debouncedSearchTerm}%,estado.ilike.%${debouncedSearchTerm}%`);
+      const escapedSearchTerm = escapePostgrestLikePattern(debouncedSearchTerm);
+      query = query.or(`nome.ilike.%${escapedSearchTerm}%,nome_fantasia.ilike.%${escapedSearchTerm}%,cnpj_cpf.ilike.%${escapedSearchTerm}%,municipio.ilike.%${escapedSearchTerm}%,estado.ilike.%${escapedSearchTerm}%`);
     }
 
     query = query.order(sortConfig.key, { ascending: sortConfig.direction === 'asc' }).range(from, to);
