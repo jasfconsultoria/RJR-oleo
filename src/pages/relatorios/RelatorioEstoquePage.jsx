@@ -71,9 +71,16 @@ const RelatorioEstoquePage = () => {
     const endDateISO = filters.endDate ? format(endOfDay(filters.endDate), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx") : null;
     
     // Use selectedProductId for product search term if available, otherwise use productSearchTerm
-    const effectiveProductSearchTerm = filters.selectedProductId 
-        ? (await supabase.from('produtos').select('nome').eq('id', filters.selectedProductId).single()).data?.nome 
-        : filters.productSearchTerm;
+    let effectiveProductSearchTerm = filters.productSearchTerm;
+    if (filters.selectedProductId) {
+        const { data: productData, error: productError } = await supabase.from('produtos').select('nome').eq('id', filters.selectedProductId).single();
+        if (productError) {
+            console.error("Erro ao buscar nome do produto para filtro:", productError);
+            effectiveProductSearchTerm = null; // Fallback if product name can't be fetched
+        } else {
+            effectiveProductSearchTerm = productData?.nome;
+        }
+    }
 
     const commonRpcParams = {
       p_start_date: startDateISO,
@@ -150,9 +157,16 @@ const RelatorioEstoquePage = () => {
     const startDateISO = filters.startDate ? format(filters.startDate, 'yyyy-MM-dd') : null;
     const endDateISO = filters.endDate ? format(endOfDay(filters.endDate), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx") : null;
     
-    const effectiveProductSearchTerm = filters.selectedProductId 
-        ? (await supabase.from('produtos').select('nome').eq('id', filters.selectedProductId).single()).data?.nome 
-        : filters.productSearchTerm;
+    let effectiveProductSearchTerm = filters.productSearchTerm;
+    if (filters.selectedProductId) {
+        const { data: productData, error: productError } = await supabase.from('produtos').select('nome').eq('id', filters.selectedProductId).single();
+        if (productError) {
+            console.error("Erro ao buscar nome do produto para exportação:", productError);
+            effectiveProductSearchTerm = null;
+        } else {
+            effectiveProductSearchTerm = productData?.nome;
+        }
+    }
 
     const commonRpcParams = {
       p_start_date: startDateISO,
