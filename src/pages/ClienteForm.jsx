@@ -17,7 +17,7 @@ import { logAction } from '@/lib/logger';
 import { validateCnpjCpf as validateCnpjCpfFormat } from '@/lib/validators';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { unmask } from '@/lib/utils';
-import { useAutoSave } from '@/hooks/useAutoSave'; // Import the new hook
+import { useAutoSave } from '@/hooks/useAutoSave';
 
 const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', onCancel }) => {
   const { id } = useParams();
@@ -44,8 +44,8 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
 
   const autoSaveKey = id ? `autoSave_clienteForm_edit_${id}` : `autoSave_clienteForm_new_${personType}`;
 
-  // Use the new useAutoSave hook
-  const [formData, setFormData, clearSavedData, savedData] = useAutoSave(autoSaveKey, {
+  // Define a função para o estado inicial vazio
+  const getEmptyFormData = useCallback(() => ({
     nome: '',
     nome_fantasia: '',
     cnpj_cpf: '',
@@ -55,9 +55,42 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
     municipio: '',
     endereco: '',
     referencia: '',
-  }, true); // shouldLoad is always true to enable autosave for both new and edit forms
+  }), []);
 
-  const [loading, setLoading] = useState(false);
+  // Novo estado para os dados iniciais carregados do DB
+  const [initialClientData, setInitialClientData] = useState(getEmptyFormData);
+  const [isInitialDataLoading, setIsInitialDataLoading] = useState(true);
+
+  // Efeito para carregar os dados iniciais do cliente do DB para edição
+  useEffect(() => {
+    const loadInitialClientData = async () => {
+      if (!isEditing) {
+        setIsInitialDataLoading(false); // Para novos formulários, não há dados do DB para carregar
+        return;
+      }
+      setIsInitialDataLoading(true);
+      const { data, error } = await supabase
+        .from('clientes')
+        .select('*')
+        .eq('id', id)
+        .single();
+      if (error) {
+        toast({ title: 'Erro ao buscar cliente', description: error.message, variant: 'destructive' });
+        if (!isModal) navigate(`/app/cadastro/${personType}s`);
+        setInitialClientData(getEmptyFormData()); // Fallback para vazio
+      } else if (data) {
+        setInitialClientData(data); // Define os dados do DB como iniciais para o useAutoSave
+      }
+      setIsInitialDataLoading(false);
+    };
+    loadInitialClientData();
+  }, [id, isEditing, navigate, toast, isModal, personType, getEmptyFormData]);
+
+  // Usa o useAutoSave com initialClientData.
+  // O hook useAutoSave primeiro verifica o localStorage para autoSaveKey.
+  // Se encontrado, ele usa isso. Se não, ele usa initialClientData.
+  const [formData, setFormData, clearSavedData] = useAutoSave(autoSaveKey, initialClientData, true);
+
   const [saving, setSaving] = useState(false);
   const [isCnpjCpfChecking, setIsCnpjCpfChecking] = useState(false);
   const [cnpjCpfError, setCnpjCpfError] = useState('');
@@ -136,44 +169,6 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
   const handleTelefoneBlur = (e) => {
     validateTelefone(e.target.value);
   };
-
-  const fetchCliente = useCallback(async () => {
-    if (!isEditing) {
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    const { data, error } = await supabase
-      .from('clientes')
-      .select('*')
-      .eq('id', id)
-      .single();
-    if (error) {
-      toast({ title: 'Erro ao buscar cliente', description: error.message, variant: 'destructive' });
-      if (!isModal) navigate(`/app/cadastro/${personType}s`);
-    } else if (data) {
-      const loadedData = {
-        nome: data.nome || '',
-        nome_fantasia: data.nome_fantasia || '',
-        cnpj_cpf: data.cnpj_cpf || '',
-        telefone: data.telefone || '',
-        email: data.email || '',
-        estado: data.estado || '',
-        municipio: data.municipio || '',
-        endereco: data.endereco || '',
-        referencia: data.referencia || '',
-      };
-      // Only load from DB if there's no saved data for this specific edit session
-      if (!savedData || Object.keys(savedData).length === 0) {
-        setFormData(loadedData);
-      }
-    }
-    setLoading(false);
-  }, [id, isEditing, navigate, toast, setFormData, isModal, personType, savedData]);
-
-  useEffect(() => {
-    fetchCliente();
-  }, [fetchCliente]);
 
   const handleStateChange = (estado) => {
     setFormData((prev) => ({ ...prev, estado, municipio: '' }));
@@ -275,7 +270,8 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
     setSaving(false);
   };
 
-  if (loading) {
+  // O estado de carregamento agora depende de `isInitialDataLoading`
+  if (isInitialDataLoading) {
     return (
       <div className="flex justify-center items-center h-full">
         <Loader2 className="w-8 h-8 animate-spin text-emerald-400" />
@@ -295,19 +291,19 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
         className={isModal ? "" : "max-w-4xl mx-auto p-4"}
       >
         <Card className="bg-white/10 backdrop-blur-sm border-white/20 text-white rounded-xl shadow-lg">
-          <CardHeader className="pb-2"> {/* Reduced padding */}
-            <CardTitle className="text-xl font-bold flex items-center gap-2 text-emerald-300"> {/* Reduced font size */}
-              <UserPlus className="w-5 h-5" /> {/* Reduced icon size */}
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xl font-bold flex items-center gap-2 text-emerald-300">
+              <UserPlus className="w-5 h-5" />
               {pageTitle}
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-3 pt-0 space-y-3"> {/* Reduced padding and spacing */}
-            <form onSubmit={handleSubmit} className="space-y-3"> {/* Reduced spacing */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3"> {/* Reduced gap */}
+          <CardContent className="p-3 pt-0 space-y-3">
+            <form onSubmit={handleSubmit} className="space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                   <Label htmlFor="cnpj_cpf" className="text-xs flex items-center gap-1"> {/* Reduced font size */}
+                   <Label htmlFor="cnpj_cpf" className="text-xs flex items-center gap-1">
                     CNPJ/CPF <span className="text-red-500">*</span>
-                    {isCnpjCpfChecking && <Loader2 className="w-3 h-3 animate-spin" />} {/* Reduced icon size */}
+                    {isCnpjCpfChecking && <Loader2 className="w-3 h-3 animate-spin" />}
                   </Label>
                   <IMaskInput
                     mask={[
@@ -328,7 +324,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
                    {cnpjCpfError && <p className="text-red-500 text-xs mt-1">{cnpjCpfError}</p>}
                 </div>
                 <div>
-                  <Label htmlFor="telefone" className="text-xs">Telefone <span className="text-red-500">*</span></Label> {/* Reduced font size */}
+                  <Label htmlFor="telefone" className="text-xs">Telefone <span className="text-red-500">*</span></Label>
                   <IMaskInput
                     mask={[{ mask: '(00) 0000-0000' }, { mask: '(00) 00000-0000' }]}
                     as={Input}
@@ -345,64 +341,64 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
                   {telefoneError && <p className="text-red-500 text-xs mt-1">{telefoneError}</p>}
                 </div>
                 <div className="md:col-span-2">
-                  <Label htmlFor="nome" className="text-xs">Razão Social <span className="text-red-500">*</span></Label> {/* Reduced font size */}
-                  <Input id="nome" name="nome" value={formData.nome} onChange={handleChange} placeholder={`Razão Social d${article} ${titleLabel.toLowerCase()}`} required className="bg-white/5 border-white/20 rounded-xl h-8 text-xs" /> {/* Reduced height and font size */}
+                  <Label htmlFor="nome" className="text-xs">Razão Social <span className="text-red-500">*</span></Label>
+                  <Input id="nome" name="nome" value={formData.nome} onChange={handleChange} placeholder={`Razão Social d${article} ${titleLabel.toLowerCase()}`} required className="bg-white/5 border-white/20 rounded-xl h-8 text-xs" />
                 </div>
                 <div className="md:col-span-2">
-                  <Label htmlFor="nome_fantasia" className="text-xs">Nome Fantasia</Label> {/* Reduced font size */}
-                  <Input id="nome_fantasia" name="nome_fantasia" value={formData.nome_fantasia} onChange={handleChange} placeholder={`Nome Fantasia d${article} ${titleLabel.toLowerCase()}`} className="bg-white/5 border-white/20 rounded-xl h-8 text-xs" /> {/* Reduced height and font size */}
+                  <Label htmlFor="nome_fantasia" className="text-xs">Nome Fantasia</Label>
+                  <Input id="nome_fantasia" name="nome_fantasia" value={formData.nome_fantasia} onChange={handleChange} placeholder={`Nome Fantasia d${article} ${titleLabel.toLowerCase()}`} className="bg-white/5 border-white/20 rounded-xl h-8 text-xs" />
                 </div>
                 <div className="md:col-span-2">
-                  <Label htmlFor="email" className="text-xs">Email</Label> {/* Reduced font size */}
-                  <Input id="email" name="email" type="email" value={formData.email} onChange={handleChange} placeholder={`email d${article} ${titleLabel.toLowerCase()}`} className="bg-white/5 border-white/20 rounded-xl h-8 text-xs" /> {/* Reduced height and font size */}
+                  <Label htmlFor="email" className="text-xs">Email</Label>
+                  <Input id="email" name="email" type="email" value={formData.email} onChange={handleChange} placeholder={`email d${article} ${titleLabel.toLowerCase()}`} className="bg-white/5 border-white/20 rounded-xl h-8 text-xs" />
                 </div>
                 <div>
-                  <Label htmlFor="estado" className="text-xs">Estado <span className="text-red-500">*</span></Label> {/* Reduced font size */}
+                  <Label htmlFor="estado" className="text-xs">Estado <span className="text-red-500">*</span></Label>
                   <Select onValueChange={handleStateChange} value={formData.estado} required>
-                    <SelectTrigger className="bg-white/5 border-white/20 rounded-xl h-8 text-xs"> {/* Reduced height and font size */}
+                    <SelectTrigger className="bg-white/5 border-white/20 rounded-xl h-8 text-xs">
                       <SelectValue placeholder="Selecione o Estado" />
                     </SelectTrigger>
-                    <SelectContent className="bg-gray-800 text-white border-gray-700 rounded-xl text-xs"> {/* Reduced font size */}
+                    <SelectContent className="bg-gray-800 text-white border-gray-700 rounded-xl text-xs">
                       {estados.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
                 <div>
-                  <Label htmlFor="municipio" className="text-xs">Município</Label> {/* Reduced font size */}
+                  <Label htmlFor="municipio" className="text-xs">Município</Label>
                    <SearchableSelect
                       options={municipiosOptions}
                       value={formData.municipio}
                       onChange={handleMunicipioChange}
                       placeholder="Selecione o Município"
                       disabled={!formData.estado}
-                      inputClassName="h-8 text-xs" // Reduced height and font size
-                      contentClassName="text-xs" // Reduced font size
+                      inputClassName="h-8 text-xs"
+                      contentClassName="text-xs"
                     />
                 </div>
                 <div className="md:col-span-2">
-                  <Label htmlFor="endereco" className="text-xs">Endereço</Label> {/* Reduced font size */}
-                  <Input id="endereco" name="endereco" value={formData.endereco} onChange={handleChange} placeholder={`Endereço d${article} ${titleLabel.toLowerCase()}`} className="bg-white/5 border-white/20 rounded-xl h-8 text-xs" /> {/* Reduced height and font size */}
+                  <Label htmlFor="endereco" className="text-xs">Endereço</Label>
+                  <Input id="endereco" name="endereco" value={formData.endereco} onChange={handleChange} placeholder={`Endereço d${article} ${titleLabel.toLowerCase()}`} className="bg-white/5 border-white/20 rounded-xl h-8 text-xs" />
                 </div>
                 <div className="md:col-span-2">
-                  <Label htmlFor="referencia" className="text-xs">Ponto de Referência</Label> {/* Reduced font size */}
-                  <Input id="referencia" name="referencia" value={formData.referencia} onChange={handleChange} placeholder={`Ex: Próximo à padaria d${article} ${titleLabel.toLowerCase()}`} className="bg-white/5 border-white/20 rounded-xl h-8 text-xs" /> {/* Reduced height and font size */}
+                  <Label htmlFor="referencia" className="text-xs">Ponto de Referência</Label>
+                  <Input id="referencia" name="referencia" value={formData.referencia} onChange={handleChange} placeholder={`Ex: Próximo à padaria d${article} ${titleLabel.toLowerCase()}`} className="bg-white/5 border-white/20 rounded-xl h-8 text-xs" />
                 </div>
               </div>
 
-              <div className="flex justify-between items-center pt-4"> {/* Reduced padding */}
+              <div className="flex justify-between items-center pt-4">
                 {isModal ? (
                   <Button type="button" onClick={onCancel} variant="outline" className="rounded-xl h-8 px-2 text-xs">
                     <ArrowLeft className="w-3 h-3 mr-1" />
                     Voltar
                   </Button>
                 ) : (
-                  <Button type="button" onClick={() => navigate(`/app/cadastro/${personType}s`)} variant="outline" className="rounded-xl h-8 px-2 text-xs"> {/* Reduced height, padding, font size */}
-                    <ArrowLeft className="w-3 h-3 mr-1" /> {/* Reduced icon size */}
+                  <Button type="button" onClick={() => navigate(`/app/cadastro/${personType}s`)} variant="outline" className="rounded-xl h-8 px-2 text-xs">
+                    <ArrowLeft className="w-3 h-3 mr-1" />
                     Voltar
                   </Button>
                 )}
-                <Button type="submit" disabled={saving || isCnpjCpfChecking} className="bg-emerald-600 hover:bg-emerald-700 rounded-xl h-8 px-2 text-xs"> {/* Reduced height, padding, font size */}
-                  {saving ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Save className="w-3 h-3 mr-1" />} {/* Reduced icon size */}
+                <Button type="submit" disabled={saving || isCnpjCpfChecking} className="bg-emerald-600 hover:bg-emerald-700 rounded-xl h-8 px-2 text-xs">
+                  {saving ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Save className="w-3 h-3 mr-1" />}
                   {saving ? 'Salvando...' : 'Salvar'}
                 </Button>
               </div>
