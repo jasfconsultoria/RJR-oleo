@@ -210,7 +210,8 @@ const ListaMovimentacoesPage = () => {
         </motion.div>
 
         <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 md:p-6 space-y-4 relative z-10">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          {/* Primeira linha de filtros */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Buscar */}
             <div>
               <Label htmlFor="searchTerm" className="block text-white mb-1 text-sm">Buscar</Label>
@@ -222,7 +223,7 @@ const ListaMovimentacoesPage = () => {
                   placeholder="Nº Doc, Observação..."
                   value={filters.searchTerm}
                   onChange={(e) => handleFilterChange('searchTerm', e.target.value)}
-                  className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60 rounded-xl h-8 text-xs"
+                  className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60 rounded-xl"
                 />
               </div>
             </div>
@@ -234,7 +235,6 @@ const ListaMovimentacoesPage = () => {
                 onChange={(value) => handleFilterChange('selectedClienteId', value)}
                 searchTerm={filters.clientSearchText}
                 onSearchTermChange={(text) => handleFilterChange('clientSearchText', text)}
-                inputClassName="h-8 text-xs"
               />
             </div>
             {/* Produto */}
@@ -243,31 +243,33 @@ const ListaMovimentacoesPage = () => {
                 labelText="Produto"
                 value={filters.selectedProdutoId}
                 onChange={(product) => handleFilterChange('selectedProdutoId', product ? product.id : null)}
-                inputClassName="h-8 text-xs"
               />
             </div>
             {/* Tipo */}
             <div>
               <Label htmlFor="type" className="block text-white mb-1 text-sm">Tipo</Label>
               <Select value={filters.type} onValueChange={(value) => handleFilterChange('type', value)}>
-                <SelectTrigger className="bg-white/20 border-white/30 text-white rounded-xl h-8 text-xs">
+                <SelectTrigger className="bg-white/20 border-white/30 text-white rounded-xl">
                   <SelectValue placeholder="Todos" />
                 </SelectTrigger>
-                <SelectContent className="bg-gray-800 text-white border-gray-700 rounded-xl text-xs">
+                <SelectContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
                   <SelectItem value="all">Todos</SelectItem>
                   <SelectItem value="entrada">Entrada</SelectItem>
                   <SelectItem value="saida">Saída</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          {/* Segunda linha de filtros */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4"> {/* Adicionado mt-4 para espaçamento */}
             {/* Data Início */}
             <div>
               <Label htmlFor="startDate" className="block text-white mb-1 text-sm">Data Início</Label>
               <DatePicker
                 date={filters.startDate}
                 setDate={(date) => handleFilterChange('startDate', date)}
-                className="w-full bg-white/20 border-white/30 text-white rounded-xl h-8 text-xs"
-                inputClassName="h-8 text-xs"
+                className="w-full bg-white/20 border-white/30 text-white rounded-xl"
               />
             </div>
             {/* Data Fim */}
@@ -276,8 +278,7 @@ const ListaMovimentacoesPage = () => {
               <DatePicker
                 date={filters.endDate}
                 setDate={(date) => handleFilterChange('endDate', date)}
-                className="w-full bg-white/20 border-white/30 text-white rounded-xl h-8 text-xs"
-                inputClassName="h-8 text-xs"
+                className="w-full bg-white/20 border-white/30 text-white rounded-xl"
               />
             </div>
           </div>
@@ -362,9 +363,9 @@ const ListaMovimentacoesPage = () => {
                                     {isLinkedToColeta && (
                                       <TooltipContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
                                         <p>Movimentações de coletas devem ser excluídas na coleta de origem.</p>
-                                      </TooltipContent>
-                                    )}
-                                  </Tooltip>
+                                    </TooltipContent>
+                                  )}
+                                </Tooltip>
                                   <AlertDialogContent className="bg-emerald-900 border-emerald-700 text-white rounded-xl">
                                     <AlertDialogHeader>
                                       <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
