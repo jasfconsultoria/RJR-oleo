@@ -434,6 +434,15 @@ const ListaFinanceiro = ({ type }) => {
             )}
         </div>
 
+        {/* Debugging info for pagination */}
+        <div className="text-white text-sm text-center mt-4">
+          <p>Total de Registros: {totalCount}</p>
+          <p>Total de Páginas: {totalPages}</p>
+          {totalCount > 0 && totalPages <= 1 && (
+            <p className="text-emerald-300">A paginação não é exibida para uma única página de resultados.</p>
+          )}
+        </div>
+
         <Pagination
           currentPage={currentPage}
           totalPages={totalPages}
