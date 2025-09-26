@@ -45,7 +45,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
   const autoSaveKey = id ? `autoSave_clienteForm_${id}` : `autoSave_clienteForm_new_${personType}`;
 
   // Use the new useAutoSave hook
-  const [formData, setFormData, clearSavedData] = useAutoSave(autoSaveKey, {
+  const [formData, setFormData, clearSavedData, savedData] = useAutoSave(autoSaveKey, {
     nome: '',
     nome_fantasia: '',
     cnpj_cpf: '',
@@ -81,7 +81,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
       return false;
     }
     if (!validateCnpjCpfFormat(value)) {
-      setCnpjCpfError('O número digitado não possui um dígito verificador (DV) válido.');
+      setCnpjCnpjCpfError('O número digitado não possui um dígito verificador (DV) válido.');
       return false;
     }
 
@@ -152,8 +152,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
       toast({ title: 'Erro ao buscar cliente', description: error.message, variant: 'destructive' });
       if (!isModal) navigate(`/app/cadastro/${personType}s`);
     } else if (data) {
-      setFormData((prev) => ({
-        ...prev,
+      const loadedData = {
         nome: data.nome || '',
         nome_fantasia: data.nome_fantasia || '',
         cnpj_cpf: data.cnpj_cpf || '',
@@ -163,7 +162,8 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
         municipio: data.municipio || '',
         endereco: data.endereco || '',
         referencia: data.referencia || '',
-      }));
+      };
+      setFormData(loadedData); // This will also trigger autosave with the loaded data
     }
     setLoading(false);
   }, [id, isEditing, navigate, toast, setFormData, isModal, personType]);
