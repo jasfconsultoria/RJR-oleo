@@ -67,6 +67,7 @@ const ListaMovimentacoesPage = () => {
         origem,
         observacao,
         cliente:clientes(nome),
+        coleta_id,
         itens_entrada_saida(
           id,
           quantidade,
@@ -251,7 +252,7 @@ const ListaMovimentacoesPage = () => {
                 <TableBody>
                   {movimentacoes.length > 0 ? (
                     movimentacoes.map(mov => {
-                      const isLinkedToColeta = mov.origem?.toLowerCase() === 'coleta';
+                      const isLinkedToColeta = !!mov.coleta_id; // Updated logic
                       return (
                         <TableRow key={mov.id} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
                           <TableCell data-label="Data">{format(parseISO(mov.data), 'dd/MM/yyyy HH:mm', { locale: ptBR })}</TableCell>
@@ -277,6 +278,7 @@ const ListaMovimentacoesPage = () => {
                                     <Button 
                                       variant="ghost" 
                                       size="icon" 
+                                      title="Editar Movimentação" 
                                       className={`text-yellow-400 hover:text-yellow-300 rounded-xl ${isLinkedToColeta ? 'opacity-50 cursor-not-allowed' : ''}`} 
                                       onClick={() => navigate(getEditRoute(mov))}
                                       disabled={isLinkedToColeta}
@@ -290,15 +292,37 @@ const ListaMovimentacoesPage = () => {
                                     </TooltipContent>
                                   )}
                                 </Tooltip>
-                                {/* Botão Excluir - TEMPORARIAMENTE ISOLADO PARA DEBUG */}
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon" 
-                                  className={`text-red-400 hover:text-red-300 rounded-xl opacity-50 cursor-not-allowed`}
-                                  disabled={true} // FORÇANDO DESABILITADO PARA TESTE
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
+                                {/* Botão Excluir */}
+                                <AlertDialog>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        title="Excluir Movimentação" 
+                                        className={`text-red-400 hover:text-red-300 rounded-xl ${isLinkedToColeta ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                        disabled={isLinkedToColeta} // Apply disabled based on new logic
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    {isLinkedToColeta && (
+                                      <TooltipContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
+                                        <p>Movimentações de coletas devem ser excluídas na coleta de origem.</p>
+                                      </TooltipContent>
+                                    )}
+                                  </Tooltip>
+                                  <AlertDialogContent className="bg-emerald-900 border-emerald-700 text-white rounded-xl">
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                                      <AlertDialogDescription className="text-emerald-300">Essa ação não pode ser desfeita. Isso deletará permanentemente a movimentação.</AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel className="border-gray-500 text-gray-300 rounded-xl">Cancelar</AlertDialogCancel>
+                                      <AlertDialogAction onClick={() => handleDelete(mov.id)} className="bg-red-500 hover:bg-red-600 rounded-xl">Deletar</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
                               </div>
                             </TooltipProvider>
                           </TableCell>
