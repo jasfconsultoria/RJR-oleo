@@ -101,7 +101,7 @@ export function ColetaStep2({ data, onBack, onNext, onUpdate, empresaTimezone })
               value={data.quantidade_coletada}
               onAccept={(value) => onUpdate({ quantidade_coletada: value })}
               placeholder="Ex: 150,50"
-              className="bg-white/20 border-white/30 text-white placeholder:text-white/60 text-lg py-4 pr-12"
+              className="bg-white/20 border-white/30 text-white placeholder:text-white/60 text-lg py-4 pl-4 pr-12 rounded-xl"
               required
             />
             <span className="absolute right-4 top-1/2 transform -translate-y-1/2 text-white/60 font-medium">kg</span>
