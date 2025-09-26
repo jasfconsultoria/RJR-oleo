@@ -15,7 +15,7 @@ import { Pagination } from '@/components/ui/pagination';
 import { logAction } from '@/lib/logger';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import ClienteSearchableSelect from '@/components/ui/ClienteSearchableSelect';
+import ClienteSearchableSelect from '@/components/ClienteSearchableSelect';
 import ProdutoSearchableSelect from '@/components/estoque/ProdutoSearchableSelect';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { formatNumber } from '@/lib/utils';
@@ -28,12 +28,13 @@ const ListaMovimentacoesPage = () => {
   const [movimentacoes, setMovimentacoes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
-    searchTerm: '',
-    selectedClienteId: null,
+    searchTerm: '', // For 'Nº Doc, Observação...'
+    clientSearchText: '', // For client text search in ClienteSearchableSelect
+    selectedClienteId: null, // For the ClienteSearchableSelect's selected ID
     selectedProdutoId: null,
     startDate: '',
     endDate: '',
-    type: 'all',
+    type: 'all', // 'entrada', 'saida', 'all'
   });
   const debouncedFilters = useDebounce(filters, 500);
   const [currentPage, setCurrentPage] = useState(1);
@@ -66,12 +67,13 @@ const ListaMovimentacoesPage = () => {
         tipo,
         origem,
         observacao,
-        cliente:clientes(nome),
+        document_number,
+        cliente:clientes(id, nome, nome_fantasia),
         coleta_id,
         itens_entrada_saida(
           id,
           quantidade,
-          produto:produtos(nome, unidade)
+          produto:produtos(id, nome, unidade)
         )
       `, { count: 'exact' })
       .order('data', { ascending: false })
@@ -79,11 +81,40 @@ const ListaMovimentacoesPage = () => {
       .range(from, to);
 
     if (debouncedFilters.searchTerm) {
-      query = query.ilike('observacao', `%${debouncedFilters.searchTerm}%`);
+      query = query.or(`observacao.ilike.%${debouncedFilters.searchTerm}%,document_number.ilike.%${debouncedFilters.searchTerm}%`);
     }
+    
+    // Apply client filter based on selected ID or search text
     if (debouncedFilters.selectedClienteId) {
       query = query.eq('cliente_id', debouncedFilters.selectedClienteId);
+    } else if (debouncedFilters.clientSearchText) {
+      const { data: matchingClients, error: clientSearchError } = await supabase
+        .from('clientes')
+        .select('id')
+        .or(`nome.ilike.%${debouncedFilters.clientSearchText}%,nome_fantasia.ilike.%${debouncedFilters.clientSearchText}%`);
+
+      if (clientSearchError) {
+        console.error("Error fetching matching clients for stock movements:", clientSearchError);
+        toast({ title: 'Erro ao buscar clientes para filtro', description: clientSearchError.message, variant: 'destructive' });
+        setMovimentacoes([]);
+        setTotalCount(0);
+        setLoading(false);
+        return;
+      } else {
+        const clientIds = matchingClients.map(c => c.id);
+        if (clientIds.length === 0) {
+          setMovimentacoes([]);
+          setTotalCount(0);
+          setLoading(false);
+          return;
+        }
+        query = query.in('cliente_id', clientIds);
+      }
     }
+
+    // Filtering by product ID requires client-side filtering after fetching,
+    // as direct filtering on nested arrays in PostgREST is complex/not directly supported for `select` with `count`.
+    // The `count` will be for the unfiltered set, and then we filter `data` locally.
     if (debouncedFilters.startDate) {
       query = query.gte('data', debouncedFilters.startDate);
     }
@@ -107,7 +138,7 @@ const ListaMovimentacoesPage = () => {
         );
       }
       setMovimentacoes(filteredData);
-      setTotalCount(count || 0);
+      setTotalCount(count || 0); // Note: count might be inaccurate if client-side filtering is applied
     }
     setLoading(false);
   }, [toast, currentPage, pageSize, debouncedFilters, empresa]);
@@ -186,7 +217,7 @@ const ListaMovimentacoesPage = () => {
                 <Input
                   id="searchTerm"
                   type="search"
-                  placeholder="Observação..."
+                  placeholder="Nº Doc, Observação..."
                   value={filters.searchTerm}
                   onChange={(e) => handleFilterChange('searchTerm', e.target.value)}
                   className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60 rounded-xl"
@@ -198,6 +229,8 @@ const ListaMovimentacoesPage = () => {
                 labelText="Cliente"
                 value={filters.selectedClienteId}
                 onChange={(value) => handleFilterChange('selectedClienteId', value)}
+                searchTerm={filters.clientSearchText} // Pass controlled search term
+                onSearchTermChange={(text) => handleFilterChange('clientSearchText', text)} // Update controlled search term
               />
             </div>
             <div>
@@ -252,7 +285,7 @@ const ListaMovimentacoesPage = () => {
                 <TableBody>
                   {movimentacoes.length > 0 ? (
                     movimentacoes.map(mov => {
-                      const isVinculadaColeta = isMovimentacaoVinculadaColeta(mov);
+                      const isLinkedToColeta = isMovimentacaoVinculadaColeta(mov);
 
                       return (
                         <TableRow key={mov.id} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
@@ -272,85 +305,58 @@ const ListaMovimentacoesPage = () => {
                           <TableCell className="text-right actions-cell">
                             <TooltipProvider>
                               <div className="flex justify-end items-center gap-2">
-                                {/* Botão Visualizar */}
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="text-blue-400 hover:text-blue-300 rounded-xl" onClick={() => handleViewMovimentacao(mov)}>
-                                      <Eye className="h-4 w-4" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
-                                    <p>Visualizar movimentação</p>
-                                  </TooltipContent>
-                                </Tooltip>
-
+                                <Button variant="ghost" size="icon" className="text-blue-400 hover:text-blue-300 rounded-xl" onClick={() => handleViewMovimentacao(mov)}><Eye className="h-4 w-4" /></Button>
                                 {/* Botão Editar */}
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <Button 
                                       variant="ghost" 
                                       size="icon" 
-                                      className={`text-yellow-400 hover:text-yellow-300 rounded-xl ${isVinculadaColeta ? 'opacity-50 cursor-not-allowed' : ''}`} 
-                                      onClick={() => !isVinculadaColeta && navigate(getEditRoute(mov))}
-                                      disabled={isVinculadaColeta}
+                                      title="Editar Movimentação" 
+                                      className={`text-yellow-400 hover:text-yellow-300 rounded-xl ${isLinkedToColeta ? 'opacity-50 cursor-not-allowed' : ''}`} 
+                                      onClick={() => navigate(getEditRoute(mov))}
+                                      disabled={isLinkedToColeta}
                                     >
                                       <Edit className="h-4 w-4" />
                                     </Button>
                                   </TooltipTrigger>
-                                  <TooltipContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
-                                    <p>{isVinculadaColeta ? "Movimentações de coletas devem ser editadas na coleta de origem." : "Editar movimentação"}</p>
-                                  </TooltipContent>
+                                  {isLinkedToColeta && (
+                                    <TooltipContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
+                                      <p>Movimentações de coletas devem ser editadas na coleta de origem.</p>
+                                    </TooltipContent>
+                                  )}
                                 </Tooltip>
-
-                                {/* Botão Excluir - Lógica condicional */}
-                                {isVinculadaColeta ? (
-                                  // Botão desabilitado quando vinculado a coleta
+                                {/* Botão Excluir */}
+                                <AlertDialog>
                                   <Tooltip>
                                     <TooltipTrigger asChild>
                                       <Button 
                                         variant="ghost" 
                                         size="icon" 
-                                        className="opacity-50 cursor-not-allowed text-red-400 rounded-xl"
-                                        disabled
+                                        title="Excluir" 
+                                        className={`text-red-400 hover:text-red-300 rounded-xl ${isLinkedToColeta ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                        disabled={isLinkedToColeta}
                                       >
                                         <Trash2 className="h-4 w-4" />
                                       </Button>
                                     </TooltipTrigger>
-                                    <TooltipContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
-                                      <p>Movimentações de coletas devem ser excluídas na coleta de origem.</p>
-                                    </TooltipContent>
-                                  </Tooltip>
-                                ) : (
-                                  // Botão habilitado com AlertDialog quando NÃO vinculado a coleta
-                                  <AlertDialog>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <AlertDialogTrigger asChild>
-                                          <Button variant="ghost" size="icon" className="text-red-400 hover:text-red-300 rounded-xl">
-                                            <Trash2 className="h-4 w-4" />
-                                          </Button>
-                                        </AlertDialogTrigger>
-                                      </TooltipTrigger>
+                                    {isLinkedToColeta && (
                                       <TooltipContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
-                                        <p>Excluir movimentação</p>
+                                        <p>Movimentações de coletas devem ser excluídas na coleta de origem.</p>
                                       </TooltipContent>
-                                    </Tooltip>
-                                    <AlertDialogContent className="bg-emerald-900 border-emerald-700 text-white rounded-xl">
-                                      <AlertDialogHeader>
-                                        <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
-                                        <AlertDialogDescription className="text-emerald-300">
-                                          Essa ação não pode ser desfeita. Isso deletará permanentemente a movimentação.
-                                        </AlertDialogDescription>
-                                      </AlertDialogHeader>
-                                      <AlertDialogFooter>
-                                        <AlertDialogCancel className="border-gray-500 text-gray-300 rounded-xl">Cancelar</AlertDialogCancel>
-                                        <AlertDialogAction onClick={() => handleDelete(mov.id)} className="bg-red-500 hover:bg-red-600 rounded-xl">
-                                          Deletar
-                                        </AlertDialogAction>
-                                      </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                  </AlertDialog>
-                                )}
+                                    )}
+                                  </Tooltip>
+                                  <AlertDialogContent className="bg-emerald-900 border-emerald-700 text-white rounded-xl">
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                                      <AlertDialogDescription className="text-emerald-300">Essa ação não pode ser desfeita. Isso deletará permanentemente a movimentação.</AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel className="border-gray-500 text-gray-300 rounded-xl">Cancelar</AlertDialogCancel>
+                                      <AlertDialogAction onClick={() => handleDelete(mov.id)} className="bg-red-500 hover:bg-red-600 rounded-xl">Deletar</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
                               </div>
                             </TooltipProvider>
                           </TableCell>
