@@ -244,7 +244,7 @@ const RelatorioEstoquePage = () => {
 
         <Card className="bg-white/10 backdrop-blur-sm border-white/10 text-white rounded-xl relative z-20">
           <CardContent className="pt-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end"> {/* Alterado para lg:grid-cols-5 */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
               <div className="lg:col-span-2"> {/* Produto ocupa 2 colunas */}
                 <ProdutoSearchableSelect
                   labelText="Produto"
@@ -253,7 +253,7 @@ const RelatorioEstoquePage = () => {
                   placeholder="Buscar por produto..."
                 />
               </div>
-              <div className="lg:col-span-1"> {/* Tipo de Movimentação ocupa 1 coluna */}
+              <div>
                 <Label htmlFor="typeFilter" className="block text-white mb-1 text-sm">Tipo de Movimentação</Label>
                 <Select value={filters.type} onValueChange={(value) => handleFilterChange('type', value)}>
                   <SelectTrigger className="bg-white/20 border-white/30 text-white rounded-xl">
@@ -266,7 +266,7 @@ const RelatorioEstoquePage = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="lg:col-span-2 grid grid-cols-2 gap-4"> {/* Datas agrupadas em 2 colunas */}
+              <div className="grid grid-cols-2 gap-4"> {/* Datas agrupadas em 2 colunas */}
                 <div>
                   <Label htmlFor="startDate" className="block text-white mb-1 text-sm">Data Início</Label>
                   <DatePicker
