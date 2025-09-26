@@ -14,20 +14,31 @@ const ClienteSearchableSelect = ({
   onChange, // callback for when a client is selected (id)
   loading: parentLoading = false,
   disabled = false,
+  // New props for controlled search term
+  searchTerm: controlledSearchTerm, // The search text from parent
+  onSearchTermChange, // Callback to update parent's search text
 }) => {
-  const [searchTerm, setSearchTerm] = useState('');
+  // Internal state for dropdown visibility and client list
   const [clients, setClients] = useState([]);
   const [loadingClients, setLoadingClients] = useState(true);
   const [showDropdown, setShowDropdown] = useState(false);
   const { toast } = useToast();
   const containerRef = useRef(null);
 
+  // Use internal state for the input value if not controlled, otherwise use controlledSearchTerm
+  const [internalSearchTerm, setInternalSearchTerm] = useState(controlledSearchTerm || '');
+
+  // Sync internalSearchTerm with controlledSearchTerm
+  useEffect(() => {
+    setInternalSearchTerm(controlledSearchTerm || '');
+  }, [controlledSearchTerm]);
+
   useEffect(() => {
     const fetchClients = async () => {
       setLoadingClients(true);
       const { data, error } = await supabase
         .from('clientes')
-        .select('id, nome, nome_fantasia, cnpj_cpf, municipio, estado') // Added nome_fantasia
+        .select('id, nome, nome_fantasia, cnpj_cpf, municipio, estado')
         .order('nome', { ascending: true });
 
       if (error) {
@@ -46,25 +57,29 @@ const ClienteSearchableSelect = ({
     if (value && clients.length > 0) {
       const selected = clients.find(c => c.id === value);
       if (selected) {
-        setSearchTerm(selected.nome_fantasia ? `${selected.nome} - ${selected.nome_fantasia}` : selected.nome);
+        const displayValue = selected.nome_fantasia ? `${selected.nome} - ${selected.nome_fantasia}` : selected.nome;
+        setInternalSearchTerm(displayValue);
+        onSearchTermChange && onSearchTermChange(displayValue); // Also update parent's search term
       }
-    } else if (!value) {
-      setSearchTerm('');
+    } else if (!value && !controlledSearchTerm) { // Only clear if no value and no controlled search term
+      setInternalSearchTerm('');
+      onSearchTermChange && onSearchTermChange('');
     }
-  }, [value, clients]);
+  }, [value, clients, controlledSearchTerm, onSearchTermChange]);
 
   const filteredClients = useMemo(() => {
-    if (!searchTerm) return clients;
+    if (!internalSearchTerm) return clients;
     return clients.filter(client =>
-      client.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (client.nome_fantasia && client.nome_fantasia.toLowerCase().includes(searchTerm.toLowerCase())) || // Search by nome_fantasia
-      (client.cnpj_cpf && formatCnpjCpf(client.cnpj_cpf).toLowerCase().includes(searchTerm.toLowerCase()))
+      client.nome.toLowerCase().includes(internalSearchTerm.toLowerCase()) ||
+      (client.nome_fantasia && client.nome_fantasia.toLowerCase().includes(internalSearchTerm.toLowerCase())) ||
+      (client.cnpj_cpf && formatCnpjCpf(client.cnpj_cpf).toLowerCase().includes(internalSearchTerm.toLowerCase()))
     );
-  }, [clients, searchTerm]);
+  }, [clients, internalSearchTerm]);
 
   const handleInputChange = (e) => {
     const val = e.target.value;
-    setSearchTerm(val);
+    setInternalSearchTerm(val);
+    onSearchTermChange && onSearchTermChange(val); // Notify parent of text change
     if (!val) {
       onChange(null); // Clear selected client if input is empty
     }
@@ -73,13 +88,16 @@ const ClienteSearchableSelect = ({
 
   const handleSelect = (client) => {
     onChange(client.id);
-    setSearchTerm(client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome);
+    const displayValue = client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome;
+    setInternalSearchTerm(displayValue);
+    onSearchTermChange && onSearchTermChange(displayValue); // Also update parent's search term
     setShowDropdown(false);
   };
 
   const handleClear = () => {
     onChange(null);
-    setSearchTerm('');
+    setInternalSearchTerm('');
+    onSearchTermChange && onSearchTermChange(''); // Clear parent's search term
     setShowDropdown(false);
   };
 
@@ -88,13 +106,13 @@ const ClienteSearchableSelect = ({
   };
 
   const handleBlur = (e) => {
-    // Delay hiding dropdown to allow click on item
     setTimeout(() => {
       if (containerRef.current && !containerRef.current.contains(document.activeElement)) {
         setShowDropdown(false);
         // If no client is selected and input is not empty, reset to previous selected or empty
-        if (!value && searchTerm && !clients.some(c => (c.nome_fantasia ? `${c.nome} - ${c.nome_fantasia}` : c.nome) === searchTerm)) {
-          setSearchTerm('');
+        if (!value && internalSearchTerm && !clients.some(c => (c.nome_fantasia ? `${c.nome} - ${c.nome_fantasia}` : c.nome) === internalSearchTerm)) {
+          setInternalSearchTerm('');
+          onSearchTermChange && onSearchTermChange('');
         }
       }
     }, 100);
@@ -110,7 +128,7 @@ const ClienteSearchableSelect = ({
         <Input
           id="client-search-select"
           type="text"
-          value={searchTerm}
+          value={internalSearchTerm} // Use internalSearchTerm
           onChange={handleInputChange}
           onFocus={handleFocus}
           onBlur={handleBlur}
@@ -120,7 +138,7 @@ const ClienteSearchableSelect = ({
           disabled={disabled || isLoading}
         />
         {isLoading && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 animate-spin" />}
-        {!isLoading && searchTerm && (
+        {!isLoading && internalSearchTerm && (
           <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-white/70 hover:text-white rounded-full" onClick={handleClear}>
             <X className="h-4 w-4" />
           </Button>
@@ -137,7 +155,7 @@ const ClienteSearchableSelect = ({
             filteredClients.map(client => (
               <div
                 key={client.id}
-                onClick={() => handleSelect(client)}
+                onMouseDown={() => handleSelect(client)}
                 className="p-3 hover:bg-emerald-50 cursor-pointer border-b border-gray-100 last:border-b-0"
               >
                 <div className="font-medium text-gray-900">{client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome}</div>

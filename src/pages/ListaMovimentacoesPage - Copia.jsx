@@ -28,9 +28,9 @@ const ListaMovimentacoesPage = () => {
   const [movimentacoes, setMovimentacoes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
-    searchTerm: '', // For 'Observação...'
+    searchTerm: '',
     clientSearchText: '', // New state for client text search
-    selectedClienteId: null, // For the ClienteSearchableSelect's selected ID
+    selectedClienteId: null,
     selectedProdutoId: null,
     startDate: '',
     endDate: '',
@@ -67,7 +67,7 @@ const ListaMovimentacoesPage = () => {
         tipo,
         origem,
         observacao,
-        cliente:clientes(id, nome, nome_fantasia), // Select client ID, name, and fantasy name
+        cliente:clientes(id, nome, nome_fantasia),
         coleta_id,
         itens_entrada_saida(
           id,
@@ -83,16 +83,9 @@ const ListaMovimentacoesPage = () => {
       query = query.ilike('observacao', `%${debouncedFilters.searchTerm}%`);
     }
     
-    // Apply client filter based on selected ID or search text
     if (debouncedFilters.selectedClienteId) {
       query = query.eq('cliente_id', debouncedFilters.selectedClienteId);
     } else if (debouncedFilters.clientSearchText) {
-      // If no specific client ID is selected, but there's search text,
-      // filter by client name or fantasy name using a subquery or RPC if needed.
-      // For now, let's try to filter directly on the joined 'cliente' relationship.
-      // This might require a different approach if PostgREST doesn't support direct filtering on joined columns this way.
-      // The error message suggests it's trying to do this, but with incorrect syntax.
-      // A more robust way is to first find client IDs matching the search text, then filter by those IDs.
       const { data: matchingClients, error: clientSearchError } = await supabase
         .from('clientes')
         .select('id')
