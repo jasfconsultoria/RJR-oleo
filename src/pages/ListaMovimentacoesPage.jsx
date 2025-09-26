@@ -7,7 +7,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, PlusCircle, Edit, Trash2, Search, ListChecks, ArrowDownSquare, ArrowUpSquare, Eye } from 'lucide-react';
+import { Loader2, PlusCircle, Edit, Search, ListChecks, ArrowDownSquare, ArrowUpSquare, Eye } from 'lucide-react';
 import { useDebounce } from '@/hooks/useDebounce';
 import { Label } from '@/components/ui/label';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -131,16 +131,17 @@ const ListaMovimentacoesPage = () => {
     setFilters(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleDelete = async (id) => {
-    const { error } = await supabase.from('entrada_saida').delete().eq('id', id);
-    if (error) {
-      toast({ title: 'Erro ao deletar movimentação', description: error.message, variant: 'destructive' });
-    } else {
-      await logAction('delete_stock_movement', { movimentacao_id: id });
-      toast({ title: 'Movimentação deletada com sucesso' });
-      fetchMovimentacoes();
-    }
-  };
+  // A função handleDelete foi removida, pois o botão de exclusão não estará mais presente.
+  // const handleDelete = async (id) => {
+  //   const { error } = await supabase.from('entrada_saida').delete().eq('id', id);
+  //   if (error) {
+  //     toast({ title: 'Erro ao deletar movimentação', description: error.message, variant: 'destructive' });
+  //   } else {
+  //     await logAction('delete_stock_movement', { movimentacao_id: id });
+  //     toast({ title: 'Movimentação deletada com sucesso' });
+  //     fetchMovimentacoes();
+  //   }
+  // };
 
   const handleViewMovimentacao = (mov) => {
     setViewingMovimentacao(mov);
