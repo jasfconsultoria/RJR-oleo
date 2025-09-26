@@ -292,25 +292,23 @@ const ListaMovimentacoesPage = () => {
                                 </Tooltip>
                                 {/* Botão Excluir */}
                                 <AlertDialog>
-                                  <AlertDialogTrigger asChild>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <Button 
-                                          variant="ghost" 
-                                          size="icon" 
-                                          className={`text-red-400 hover:text-red-300 rounded-xl ${isLinkedToColeta ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                          disabled={isLinkedToColeta} 
-                                        >
-                                          <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                      </TooltipTrigger>
-                                      {isLinkedToColeta && (
-                                        <TooltipContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
-                                          <p>Movimentações de coletas devem ser excluídas na coleta de origem.</p>
-                                        </TooltipContent>
-                                      )}
-                                    </Tooltip>
-                                  </AlertDialogTrigger>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        className={`text-red-400 hover:text-red-300 rounded-xl ${isLinkedToColeta ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                        disabled={isLinkedToColeta} // APLICADO DIRETAMENTE AQUI
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    {isLinkedToColeta && (
+                                      <TooltipContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
+                                        <p>Movimentações de coletas devem ser excluídas na coleta de origem.</p>
+                                      </TooltipContent>
+                                    )}
+                                  </Tooltip>
                                   <AlertDialogContent className="bg-emerald-900 border-emerald-700 text-white rounded-xl">
                                     <AlertDialogHeader>
                                       <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
