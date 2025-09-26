@@ -141,8 +141,6 @@ const ListaFinanceiro = ({ type }) => {
     setIsHistoryModalOpen(true);
   };
 
-  const totalPages = Math.ceil(totalCount / pageSize);
-
   const getStatusBadge = (status) => {
     switch (status) {
       case 'paid':
