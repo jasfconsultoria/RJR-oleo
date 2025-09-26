@@ -252,7 +252,7 @@ const ListaMovimentacoesPage = () => {
                 <TableBody>
                   {movimentacoes.length > 0 ? (
                     movimentacoes.map(mov => {
-                      // const isLinkedToColeta = !!mov.coleta_id; // Lógica removida
+                      const isLinkedToColeta = !!mov.coleta_id;
                       return (
                         <TableRow key={mov.id} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
                           <TableCell data-label="Data">{format(parseISO(mov.data), 'dd/MM/yyyy HH:mm', { locale: ptBR })}</TableCell>
@@ -279,20 +279,20 @@ const ListaMovimentacoesPage = () => {
                                       variant="ghost" 
                                       size="icon" 
                                       title="Editar Movimentação" 
-                                      className={`text-yellow-400 hover:text-yellow-300 rounded-xl`} 
+                                      className={`text-yellow-400 hover:text-yellow-300 rounded-xl ${isLinkedToColeta ? 'opacity-50 cursor-not-allowed' : ''}`} 
                                       onClick={() => navigate(getEditRoute(mov))}
-                                      // disabled={isLinkedToColeta} // Lógica removida
+                                      disabled={isLinkedToColeta}
                                     >
                                       <Edit className="h-4 w-4" />
                                     </Button>
                                   </TooltipTrigger>
-                                  {/* {isLinkedToColeta && ( // Lógica removida
+                                  {isLinkedToColeta && (
                                     <TooltipContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
                                       <p>Movimentações de coletas devem ser editadas na coleta de origem.</p>
                                     </TooltipContent>
-                                  )} */}
+                                  )}
                                 </Tooltip>
-                                {/* Botão Excluir - REMOVIDO */}
+                                {/* O botão Excluir foi removido daqui */}
                               </div>
                             </TooltipProvider>
                           </TableCell>
