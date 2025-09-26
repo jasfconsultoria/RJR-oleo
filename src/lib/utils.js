@@ -1,254 +1,135 @@
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { format, parseISO, isValid, differenceInMonths } from 'date-fns';
+import { format, parseISO, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { utcToZonedTime } from 'date-fns-tz';
+import { formatInTimeZone } from 'date-fns-tz';
 
 export function cn(...inputs) {
   return twMerge(clsx(inputs));
 }
 
-export function formatCurrency(value) {
-  if (value === null || value === undefined || isNaN(value)) {
-    return 'R$ 0,00';
-  }
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  }).format(value);
-}
-
+/**
+ * Converte uma string formatada como moeda brasileira (ex: "1.234,56") para um número float.
+ * Remove separadores de milhares (pontos) e substitui a vírgula decimal por ponto.
+ * @param {string | number} value - O valor a ser parseado.
+ * @returns {number} O valor numérico parseado, ou 0 se for inválido.
+ */
 export function parseCurrency(value) {
   if (typeof value !== 'string') {
     return parseFloat(value) || 0;
   }
-  const cleaned = value.replace(/\./g, '').replace(',', '.');
-  return parseFloat(cleaned) || 0;
+  // Remove separadores de milhares (pontos) e substitui a vírgula decimal por ponto
+  const cleanedValue = value.replace(/\./g, '').replace(',', '.');
+  const parsed = parseFloat(cleanedValue);
+  return isNaN(parsed) ? 0 : parsed;
 }
 
+/**
+ * Formata um número para o formato de moeda brasileira (ex: "R$ 1.234,56").
+ * @param {number | string} value - O valor a ser formatado.
+ * @returns {string} O valor formatado como moeda.
+ */
+export function formatCurrency(value) {
+  if (typeof value !== 'number' && typeof value !== 'string') {
+    return 'R$ 0,00';
+  }
+  const num = parseFloat(value);
+  if (isNaN(num)) {
+    return 'R$ 0,00';
+  }
+  return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+/**
+ * Formata um número para o formato numérico brasileiro (ex: "1.234,56").
+ * @param {number | string} value - O valor a ser formatado.
+ * @param {number} decimals - Número de casas decimais.
+ * @returns {string} O valor formatado como número.
+ */
+export function formatNumber(value, decimals = 2) {
+  if (typeof value !== 'number' && typeof value !== 'string') {
+    return '0,00';
+  }
+  const num = parseFloat(value);
+  if (isNaN(num)) {
+    return '0,00';
+  }
+  return num.toLocaleString('pt-BR', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+}
+
+/**
+ * Formata um CNPJ ou CPF.
+ * @param {string} value - O CNPJ/CPF sem formatação.
+ * @returns {string} O CNPJ/CPF formatado.
+ */
 export function formatCnpjCpf(value) {
   if (!value) return '';
   const cleaned = String(value).replace(/\D/g, '');
-  if (cleaned.length === 11) {
-    return cleaned.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+  if (cleaned.length <= 11) {
+    return cleaned.replace(/(\d{3})(\d)/, '$1.$2')
+                  .replace(/(\d{3})(\d)/, '$1.$2')
+                  .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+  } else {
+    return cleaned.replace(/^(\d{2})(\d)/, '$1.$2')
+                  .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
+                  .replace(/\.(\d{3})(\d)/, '.$1/$2')
+                  .replace(/(\d{4})(\d)/, '$1-$2');
   }
-  if (cleaned.length === 14) {
-    return cleaned.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
-  }
-  return value;
 }
 
-export function formatNumber(value, options = {}) {
-  if (value === null || value === undefined || isNaN(value)) {
-    return '0';
-  }
-  const defaultOptions = {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-    ...options,
-  };
-  return new Intl.NumberFormat('pt-BR', defaultOptions).format(value);
-}
-
+/**
+ * Remove a máscara de um valor (deixa apenas dígitos).
+ * @param {string} value - O valor mascarado.
+ * @returns {string} O valor sem máscara.
+ */
 export function unmask(value) {
   if (typeof value !== 'string') return value;
   return value.replace(/\D/g, '');
 }
 
-export function validateCnpjCpf(value) {
-  const cleaned = unmask(value);
-  if (cleaned.length === 11) {
-    return validateCpf(cleaned);
-  }
-  if (cleaned.length === 14) {
-    return validateCnpj(cleaned);
-  }
-  return false;
-}
-
-function validateCpf(cpf) {
-  cpf = cpf.replace(/[^\d]+/g, '');
-  if (cpf.length !== 11 || !!cpf.match(/(\d)\1{10}/)) return false;
-  let sum = 0;
-  let remainder;
-  for (let i = 1; i <= 9; i++) sum = sum + parseInt(cpf.substring(i - 1, i)) * (11 - i);
-  remainder = (sum * 10) % 11;
-  if ((remainder === 10) || (remainder === 11)) remainder = 0;
-  if (remainder !== parseInt(cpf.substring(9, 10))) return false;
-  sum = 0;
-  for (let i = 1; i <= 10; i++) sum = sum + parseInt(cpf.substring(i - 1, i)) * (12 - i);
-  remainder = (sum * 10) % 11;
-  if ((remainder === 10) || (remainder === 11)) remainder = 0;
-  if (remainder !== parseInt(cpf.substring(10, 11))) return false;
-  return true;
-}
-
-function validateCnpj(cnpj) {
-  cnpj = cnpj.replace(/[^\d]+/g, '');
-  if (cnpj.length !== 14 || !!cnpj.match(/(\d)\1{13}/)) return false;
-  let size = cnpj.length - 2;
-  let numbers = cnpj.substring(0, size);
-  let digits = cnpj.substring(size);
-  let sum = 0;
-  let pos = size - 7;
-  for (let i = size; i >= 1; i--) {
-    sum += parseInt(numbers.charAt(size - i)) * pos--;
-    if (pos < 2) pos = 9;
-  }
-  let result = sum % 11 < 2 ? 0 : 11 - sum % 11;
-  if (result !== parseInt(digits.charAt(0))) return false;
-  size = size + 1;
-  numbers = cnpj.substring(0, size);
-  sum = 0;
-  pos = size - 7;
-  for (let i = size; i >= 1; i--) {
-    sum += parseInt(numbers.charAt(size - i)) * pos--;
-    if (pos < 2) pos = 9;
-  }
-  result = sum % 11 < 2 ? 0 : 11 - sum % 11;
-  if (result !== parseInt(digits.charAt(1))) return false;
-  return true;
-}
-
+/**
+ * Formata uma data para o padrão ISO (yyyy-MM-dd).
+ * @param {Date | string} date - A data a ser formatada.
+ * @returns {string} A data formatada em ISO, ou string vazia se inválida.
+ */
 export function formatToISODate(date) {
-  if (!date) return null;
-  if (typeof date === 'string') {
-    const parsedDate = parseISO(date);
-    return isValid(parsedDate) ? format(parsedDate, 'yyyy-MM-dd') : null;
-  }
-  return isValid(date) ? format(date, 'yyyy-MM-dd') : null;
+  if (!date) return '';
+  const d = date instanceof Date ? date : parseISO(date);
+  return isValid(d) ? format(d, 'yyyy-MM-dd') : '';
 }
 
-export function formatDateWithTimezone(dateInput, timezone = 'America/Sao_Paulo') {
-  if (!dateInput) return 'N/A';
-
-  let dateObject;
-  if (dateInput instanceof Date) {
-    dateObject = dateInput;
-  } else if (typeof dateInput === 'string') {
-    const parsedDate = parseISO(dateInput);
-    if (!isValid(parsedDate)) {
-      console.error("Invalid date string provided to formatDateWithTimezone:", dateInput);
-      return 'Data inválida';
-    }
-    dateObject = parsedDate;
-  } else {
-    console.error("Unexpected dateInput type to formatDateWithTimezone:", typeof dateInput, dateInput);
-    return 'Data inválida';
-  }
-
+/**
+ * Formata uma string de data para o formato dd/MM/yyyy com fuso horário.
+ * @param {string} dateString - A string da data (ISO).
+ * @param {string} timezone - O fuso horário (ex: 'America/Sao_Paulo').
+ * @returns {string} A data formatada.
+ */
+export function formatDateWithTimezone(dateString, timezone = 'America/Sao_Paulo') {
+  if (!dateString) return '-';
   try {
-    const zonedDate = utcToZonedTime(dateObject, timezone);
-    return format(zonedDate, 'dd/MM/yyyy', { locale: ptBR });
+    const date = parseISO(dateString);
+    if (!isValid(date)) return '-';
+    return formatInTimeZone(date, timezone, 'dd/MM/yyyy', { locale: ptBR });
   } catch (e) {
-    console.error("Error formatting date with timezone:", e, dateInput, timezone);
-    return 'Data inválida';
+    console.error("Failed to format date with timezone:", e);
+    return "-";
   }
 }
 
-export function getMonthsDifference(dateFrom, dateTo) {
-  if (!dateFrom || !dateTo) return 0;
-  const d1 = dateFrom instanceof Date ? dateFrom : parseISO(dateFrom);
-  const d2 = dateTo instanceof Date ? dateTo : parseISO(dateTo);
-  if (!isValid(d1) || !isValid(d2)) return 0;
-  return differenceInMonths(d2, d1);
-}
-
-// Helper function to convert numbers to Portuguese words (for internal use by valorPorExtenso)
-const unidades = ['', 'um', 'dois', 'três', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove'];
-const dezenas = ['', 'dez', 'vinte', 'trinta', 'quarenta', 'cinquenta', 'sessenta', 'setenta', 'oitenta', 'noventa'];
-const centenas = ['', 'cento', 'duzentos', 'trezentos', 'quatrocentos', 'quinhentos', 'seiscentos', 'setecentos', 'oitocentos', 'novecentos'];
-const especiais = ['dez', 'onze', 'doze', 'treze', 'quatorze', 'quinze', 'dezesseis', 'dezessete', 'dezoito', 'dezenove'];
-
-function _numeroParaExtenso(num) {
-  if (num === 0) return ''; // Return empty for zero when used as part of a larger number
-  if (num < 0) return 'menos ' + _numeroParaExtenso(Math.abs(num));
-
-  let s = String(num);
-  let extenso = [];
-
-  function converterGrupo(n) {
-    let str = '';
-    let c = Math.floor(n / 100);
-    let d = Math.floor((n % 100) / 10);
-    let u = n % 10;
-
-    if (c > 0) {
-      str += (c === 1 && (d > 0 || u > 0)) ? 'cento e ' : centenas[c] + ' ';
-    }
-
-    if (d > 1) {
-      str += dezenas[d] + (u > 0 ? ' e ' : '');
-    } else if (d === 1) {
-      str += especiais[u] + ' ';
-      return str.trim();
-    }
-
-    if (u > 0 && d !== 1) {
-      str += unidades[u] + ' ';
-    }
-    return str.trim();
+/**
+ * Formata uma string de data e hora para o formato dd/MM/yyyy HH:mm com fuso horário.
+ * @param {string} dateString - A string da data e hora (ISO).
+ * @param {string} timezone - O fuso horário (ex: 'America/Sao_Paulo').
+ * @returns {string} A data e hora formatadas.
+ */
+export function formatDateTimeWithTimezone(dateString, timezone = 'America/Sao_Paulo') {
+  if (!dateString) return '-';
+  try {
+    const date = parseISO(dateString);
+    if (!isValid(date)) return '-';
+    return formatInTimeZone(date, timezone, 'dd/MM/yyyy HH:mm', { locale: ptBR });
+  } catch (e) {
+    console.error("Failed to format date-time with timezone:", e);
+    return "-";
   }
-
-  let grupos = [];
-  while (s.length > 0) {
-    grupos.unshift(parseInt(s.slice(-3)));
-    s = s.slice(0, -3);
-  }
-
-  const sufixos = ['', 'mil', 'milhões', 'bilhões', 'trilhões'];
-
-  for (let i = 0; i < grupos.length; i++) {
-    let grupo = grupos[grupos.length - 1 - i];
-    if (grupo === 0) continue;
-
-    let parte = converterGrupo(grupo);
-    let sufixo = sufixos[i];
-
-    if (i === 1 && grupo === 1) { // "mil" singular
-      extenso.unshift('mil');
-    } else if (i > 1 && grupo > 1) { // "milhões", "bilhões" plural
-      extenso.unshift(sufixo);
-      extenso.unshift(parte);
-    } else if (i > 1 && grupo === 1) { // "um milhão", "um bilhão"
-      extenso.unshift(sufixo.slice(0, -1)); // remove 's'
-      extenso.unshift('um');
-    } else {
-      extenso.unshift(sufixo);
-      extenso.unshift(parte);
-    }
-  }
-
-  return extenso.filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
-}
-
-export function valorPorExtenso(valor) {
-  if (valor === null || valor === undefined || isNaN(valor)) {
-    return 'zero reais';
-  }
-
-  const partes = valor.toFixed(2).split('.');
-  const reais = parseInt(partes[0], 10);
-  const centavos = parseInt(partes[1], 10);
-
-  let extenso = [];
-
-  if (reais > 0) {
-    extenso.push(_numeroParaExtenso(reais));
-    extenso.push(reais === 1 ? 'real' : 'reais');
-  }
-
-  if (centavos > 0) {
-    if (reais > 0) {
-      extenso.push('e');
-    }
-    extenso.push(_numeroParaExtenso(centavos));
-    extenso.push(centavos === 1 ? 'centavo' : 'centavos');
-  }
-
-  if (reais === 0 && centavos === 0) {
-    return 'zero reais';
-  }
-
-  return extenso.filter(Boolean).join(' ').trim();
 }
