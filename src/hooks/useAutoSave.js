@@ -10,20 +10,20 @@ import { useState, useEffect, useCallback } from 'react';
  */
 export const useAutoSave = (key, initialValue, shouldLoad = true) => {
   const [state, setState] = useState(() => {
-    if (shouldLoad) {
-      try {
-        const storedValue = localStorage.getItem(key);
-        return storedValue ? JSON.parse(storedValue) : initialValue;
-      } catch (error) {
-        console.error("Error loading from localStorage:", error);
-        return initialValue;
-      }
+    if (typeof window === 'undefined' || !shouldLoad) {
+      return initialValue;
     }
-    return initialValue;
+    try {
+      const storedValue = localStorage.getItem(key);
+      return storedValue ? JSON.parse(storedValue) : initialValue;
+    } catch (error) {
+      console.error("Error loading from localStorage:", error);
+      return initialValue;
+    }
   });
 
   useEffect(() => {
-    if (shouldLoad) {
+    if (shouldLoad && typeof window !== 'undefined') {
       try {
         localStorage.setItem(key, JSON.stringify(state));
       } catch (error) {
@@ -33,10 +33,12 @@ export const useAutoSave = (key, initialValue, shouldLoad = true) => {
   }, [key, state, shouldLoad]);
 
   const clearSavedData = useCallback(() => {
-    try {
-      localStorage.removeItem(key);
-    } catch (error) {
-      console.error("Error clearing from localStorage:", error);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.removeItem(key);
+      } catch (error) {
+        console.error("Error clearing from localStorage:", error);
+      }
     }
   }, [key]);
 

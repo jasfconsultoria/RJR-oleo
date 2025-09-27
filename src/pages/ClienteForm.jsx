@@ -12,7 +12,7 @@ import { ArrowLeft, Save, UserPlus, Loader2 } from 'lucide-react';
 import { IMaskInput } from 'react-imask';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { estados, getMunicipios } from '@/lib/location';
-import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { useAuth } => '@/contexts/SupabaseAuthContext';
 import { logAction } from '@/lib/logger';
 import { validateCnpjCpf as validateCnpjCpfFormat } from '@/lib/validators';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
@@ -86,6 +86,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
         .single();
       if (error) {
         toast({ title: 'Erro ao buscar cliente', description: error.message, variant: 'destructive' });
+        // Redireciona para a lista específica de clientes ou fornecedores
         if (!isModal) navigate(`/app/cadastro/${personType}s`);
         setFormData(getEmptyFormData()); // Fallback to empty form
       } else if (data) {
@@ -96,6 +97,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
     } catch (error) {
       console.error("Error fetching client data:", error);
       toast({ title: 'Erro inesperado', description: 'Não foi possível carregar os dados do cliente.', variant: 'destructive' });
+      // Redireciona para a lista específica de clientes ou fornecedores
       if (!isModal) navigate(`/app/cadastro/${personType}s`);
       setFormData(getEmptyFormData());
     } finally {
