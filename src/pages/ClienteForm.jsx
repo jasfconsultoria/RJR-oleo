@@ -12,7 +12,7 @@ import { ArrowLeft, Save, UserPlus, Loader2 } from 'lucide-react';
 import { IMaskInput } from 'react-imask';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { estados, getMunicipios } from '@/lib/location';
-import { useAuth } => '@/contexts/SupabaseAuthContext';
+import { useAuth } from '@/contexts/SupabaseAuthContext'; // Correção aqui
 import { logAction } from '@/lib/logger';
 import { validateCnpjCpf as validateCnpjCpfFormat } from '@/lib/validators';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
@@ -328,7 +328,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
                     className={`w-full flex h-8 rounded-xl border ${cnpjCpfError ? 'border-red-500' : 'border-white/20'} bg-white/5 px-3 py-2 text-xs ring-offset-background file:border-0 file:bg-transparent file:text-xs file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50`}
                     required
                   />
-                   {cnpjCpfError && <p className="text-red-500 text-xs mt-1">{cnpjCpfError}</p>}
+                   {cnpjCpfError && <p className="text-red-500 text-xs mt-1">{cnpjCnpjCpfError}</p>}
                 </div>
                 <div>
                   <Label htmlFor="telefone" className="text-xs">Telefone <span className="text-red-500">*</span></Label>
