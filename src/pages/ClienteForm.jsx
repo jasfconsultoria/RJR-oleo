@@ -44,7 +44,6 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
 
   const autoSaveKey = id ? `autoSave_clienteForm_edit_${id}` : `autoSave_clienteForm_new_${personType}`;
 
-  // Define a função para o estado inicial vazio
   const getEmptyFormData = useCallback(() => ({
     nome: '',
     nome_fantasia: '',
@@ -57,40 +56,12 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
     referencia: '',
   }), []);
 
-  // Novo estado para os dados iniciais carregados do DB
-  const [initialClientData, setInitialClientData] = useState(getEmptyFormData);
-  const [isInitialDataLoading, setIsInitialDataLoading] = useState(true);
+  // Initialize formData using useAutoSave.
+  // In edit mode, we will explicitly load data from DB and clear auto-save.
+  // In new mode, it will load from auto-save or use getEmptyFormData().
+  const [formData, setFormData, clearSavedData] = useAutoSave(autoSaveKey, getEmptyFormData(), true);
 
-  // Efeito para carregar os dados iniciais do cliente do DB para edição
-  useEffect(() => {
-    const loadInitialClientData = async () => {
-      if (!isEditing) {
-        setIsInitialDataLoading(false); // Para novos formulários, não há dados do DB para carregar
-        return;
-      }
-      setIsInitialDataLoading(true);
-      const { data, error } = await supabase
-        .from('clientes')
-        .select('*')
-        .eq('id', id)
-        .single();
-      if (error) {
-        toast({ title: 'Erro ao buscar cliente', description: error.message, variant: 'destructive' });
-        if (!isModal) navigate(`/app/cadastro/${personType}s`);
-        setInitialClientData(getEmptyFormData()); // Fallback para vazio
-      } else if (data) {
-        setInitialClientData(data); // Define os dados do DB como iniciais para o useAutoSave
-      }
-      setIsInitialDataLoading(false);
-    };
-    loadInitialClientData();
-  }, [id, isEditing, navigate, toast, isModal, personType, getEmptyFormData]);
-
-  // Usa o useAutoSave com initialClientData.
-  // O hook useAutoSave primeiro verifica o localStorage para autoSaveKey.
-  // Se encontrado, ele usa isso. Se não, ele usa initialClientData.
-  const [formData, setFormData, clearSavedData] = useAutoSave(autoSaveKey, initialClientData, true);
-
+  const [loading, setLoading] = useState(true); // This loading state is for initial DB fetch
   const [saving, setSaving] = useState(false);
   const [isCnpjCpfChecking, setIsCnpjCpfChecking] = useState(false);
   const [cnpjCpfError, setCnpjCpfError] = useState('');
@@ -100,6 +71,41 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
     if (!formData.estado) return [];
     return getMunicipios(formData.estado).map(m => ({ value: m, label: m })).sort((a, b) => a.label.localeCompare(b.label));
   }, [formData.estado]);
+
+  const fetchClientData = useCallback(async () => {
+    if (!isEditing) {
+      setLoading(false); // No DB data to fetch for new forms
+      return;
+    }
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('clientes')
+        .select('*')
+        .eq('id', id)
+        .single();
+      if (error) {
+        toast({ title: 'Erro ao buscar cliente', description: error.message, variant: 'destructive' });
+        if (!isModal) navigate(`/app/cadastro/${personType}s`);
+        setFormData(getEmptyFormData()); // Fallback to empty form
+      } else if (data) {
+        // Explicitly set formData with fetched data and clear auto-saved draft
+        setFormData(data);
+        clearSavedData(); 
+      }
+    } catch (error) {
+      console.error("Error fetching client data:", error);
+      toast({ title: 'Erro inesperado', description: 'Não foi possível carregar os dados do cliente.', variant: 'destructive' });
+      if (!isModal) navigate(`/app/cadastro/${personType}s`);
+      setFormData(getEmptyFormData());
+    } finally {
+      setLoading(false);
+    }
+  }, [id, isEditing, navigate, toast, isModal, personType, getEmptyFormData, setFormData, clearSavedData]);
+
+  useEffect(() => {
+    fetchClientData();
+  }, [fetchClientData]); // Rerun when fetchClientData changes (which includes id, isEditing)
 
   const validateAndCheckCnpjCpf = useCallback(async (value) => {
     const unmaskedValue = unmask(value);
@@ -270,8 +276,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
     setSaving(false);
   };
 
-  // O estado de carregamento agora depende de `isInitialDataLoading`
-  if (isInitialDataLoading) {
+  if (loading) { // Use the local loading state for initial DB fetch
     return (
       <div className="flex justify-center items-center h-full">
         <Loader2 className="w-8 h-8 animate-spin text-emerald-400" />
