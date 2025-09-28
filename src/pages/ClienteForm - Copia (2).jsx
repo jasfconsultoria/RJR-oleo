@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Helmet } from 'react-helmet';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
@@ -16,11 +16,11 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { validateCnpjCpf as validateCnpjCpfFormat } from '@/lib/validators';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { unmask } from '@/lib/utils';
-import { useAutoSave } from '@/hooks/useAutoSave';
 
 const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', onCancel }) => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
   const { user } = useAuth();
   const isEditing = Boolean(id) && !isModal;
@@ -28,7 +28,6 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
   const telefoneInputRef = useRef(null);
 
   const hasFetchedInitialData = useRef(false);
-  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
 
   const getLabels = (type) => {
     switch (type) {
@@ -56,17 +55,32 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
     referencia: '',
   });
 
-  // ✅ CORREÇÃO: Estratégia revisada de auto-save
-  const autoSaveKey = id ? `clienteForm_edit_${id}` : `clienteForm_new_${personType}`;
-  
-  // ✅ CORREÇÃO: Para edição, NÃO carregar do auto-save inicialmente
-  const shouldLoadFromAutoSave = !isEditing;
-  
-  const [formData, setFormData, clearSavedData] = useAutoSave(
-    autoSaveKey,
-    getEmptyFormData(),
-    shouldLoadFromAutoSave
-  );
+  // Função para salvar dados na URL
+  const saveToURL = useCallback((data) => {
+    const params = new URLSearchParams();
+    Object.entries(data).forEach(([key, value]) => {
+      if (value) params.set(key, value);
+    });
+    setSearchParams(params, { replace: true });
+  }, [setSearchParams]);
+
+  // Função para carregar dados da URL
+  const loadFromURL = useCallback(() => {
+    const data = getEmptyFormData();
+    Object.keys(data).forEach(key => {
+      const value = searchParams.get(key);
+      if (value) data[key] = value;
+    });
+    return data;
+  }, [searchParams]);
+
+  // Estado inicial - carrega da URL ou usa vazio
+  const [formData, setFormData] = useState(() => loadFromURL());
+
+  // Atualiza a URL sempre que os dados mudam
+  useEffect(() => {
+    saveToURL(formData);
+  }, [formData, saveToURL]);
 
   const [loading, setLoading] = useState(isEditing);
   const [saving, setSaving] = useState(false);
@@ -79,12 +93,9 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
     return getMunicipios(formData.estado).map(m => ({ value: m, label: m })).sort((a, b) => a.label.localeCompare(b.label));
   }, [formData.estado]);
 
-  // ✅ CORREÇÃO: Fetch dos dados do banco com lógica correta
+  // Função para buscar dados do cliente
   const fetchClientData = useCallback(async () => {
-    if (hasFetchedInitialData.current || !isEditing) {
-      setInitialLoadComplete(true);
-      return;
-    }
+    if (hasFetchedInitialData.current || !isEditing) return;
 
     setLoading(true);
     
@@ -102,14 +113,11 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
           variant: 'destructive' 
         });
       } else if (data) {
-        // ✅ CORREÇÃO: Carrega dados do banco diretamente
-        console.log('Dados carregados do banco:', data);
-        setFormData(data);
-        
-        // Limpa qualquer auto-save anterior para este registro
-        setTimeout(() => {
-          clearSavedData();
-        }, 500);
+        // Só preenche se não houver dados na URL
+        const hasURLData = Array.from(searchParams.keys()).length > 0;
+        if (!hasURLData) {
+          setFormData(data);
+        }
       }
     } catch (error) {
       console.error("Error fetching client data:", error);
@@ -121,26 +129,15 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
     } finally {
       setLoading(false);
       hasFetchedInitialData.current = true;
-      setInitialLoadComplete(true);
     }
-  }, [id, isEditing, toast, setFormData, clearSavedData]);
+  }, [id, isEditing, toast, searchParams]);
 
-  // ✅ CORREÇÃO: Buscar dados do banco apenas se estiver editando
+  // Busca dados apenas uma vez
   useEffect(() => {
-    if (isEditing && !hasFetchedInitialData.current) {
+    if (isEditing) {
       fetchClientData();
-    } else if (!isEditing) {
-      setInitialLoadComplete(true);
     }
-  }, [isEditing, fetchClientData]);
-
-  // ✅ CORREÇÃO: Resetar flags quando o ID mudar
-  useEffect(() => {
-    if (id) {
-      hasFetchedInitialData.current = false;
-      setInitialLoadComplete(false);
-    }
-  }, [id]);
+  }, [isEditing]);
 
   const validateAndCheckCnpjCpf = useCallback(async (value) => {
     const unmaskedValue = unmask(value);
@@ -231,10 +228,15 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
+  // ✅ CORREÇÃO DAS ROTAS - VOLTA PARA A LISTA CORRETA
   const handleBack = () => {
+    // Limpa a URL ao voltar
+    setSearchParams({}, { replace: true });
+    
     if (isModal) {
       onCancel();
     } else {
+      // ✅ NAVEGAÇÃO CORRIGIDA - VOLTA PARA A LISTA ESPECÍFICA
       if (personType === 'fornecedor') {
         navigate('/app/cadastro/fornecedores');
       } else if (personType === 'cliente') {
@@ -330,13 +332,14 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
         description: `${formData.nome} foi salvo.` 
       });
       
-      clearSavedData();
+      // Limpa a URL após salvar
+      setSearchParams({}, { replace: true });
       hasFetchedInitialData.current = false;
-      setInitialLoadComplete(false);
       
       if (onSaveSuccess) {
         onSaveSuccess(data);
       } else {
+        // Navega para a lista correta após salvar
         if (personType === 'fornecedor') {
           navigate('/app/cadastro/fornecedores');
         } else if (personType === 'cliente') {
@@ -350,22 +353,11 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
     setSaving(false);
   };
 
-  // ✅ CORREÇÃO: Mostrar loading apenas durante o fetch inicial
   if (loading) {
     return (
       <div className="flex justify-center items-center h-full">
         <Loader2 className="w-8 h-8 animate-spin text-emerald-400" />
         <span className="ml-2">Carregando dados...</span>
-      </div>
-    );
-  }
-
-  // ✅ CORREÇÃO: Só renderizar o formulário após o carregamento inicial completo
-  if (!initialLoadComplete) {
-    return (
-      <div className="flex justify-center items-center h-full">
-        <Loader2 className="w-8 h-8 animate-spin text-emerald-400" />
-        <span className="ml-2">Preparando formulário...</span>
       </div>
     );
   }
@@ -386,9 +378,6 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
             <CardTitle className="text-xl font-bold flex items-center gap-2 text-emerald-300">
               <UserPlus className="w-5 h-5" />
               {pageTitle}
-              {!isEditing && (
-                <span className="text-xs text-yellow-400 ml-2">(Rascunho automático)</span>
-              )}
             </CardTitle>
           </CardHeader>
           <CardContent className="p-3 pt-0 space-y-3">
@@ -408,14 +397,14 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
                     ref={cnpjCpfInputRef}
                     id="cnpj_cpf"
                     name="cnpj_cpf"
-                    value={formData.cnpj_cpf || ''}
+                    value={formData.cnpj_cpf}
                     onAccept={(value) => handleMaskedChange(String(value), 'cnpj_cpf')}
                     onBlur={handleCnpjCpfBlur}
                     placeholder={`Digite o CNPJ ou CPF d${article} ${titleLabel.toLowerCase()}`}
                     className={`w-full flex h-8 rounded-xl border ${cnpjCpfError ? 'border-red-500' : 'border-white/20'} bg-white/5 px-3 py-2 text-xs ring-offset-background file:border-0 file:bg-transparent file:text-xs file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50`}
                     required
                   />
-                  {cnpjCpfError && <p className="text-red-500 text-xs mt-1">{cnpjCnpjCpfError}</p>}
+                  {cnpjCpfError && <p className="text-red-500 text-xs mt-1">{cnpjCpfError}</p>}
                 </div>
                 
                 <div>
@@ -428,7 +417,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
                     ref={telefoneInputRef}
                     id="telefone"
                     name="telefone"
-                    value={formData.telefone || ''}
+                    value={formData.telefone}
                     onAccept={(value) => handleMaskedChange(String(value), 'telefone')}
                     onBlur={handleTelefoneBlur}
                     placeholder="(00) 00000-0000"
@@ -443,7 +432,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
                   <Input 
                     id="nome" 
                     name="nome" 
-                    value={formData.nome || ''} 
+                    value={formData.nome} 
                     onChange={handleChange} 
                     placeholder={`Razão Social d${article} ${titleLabel.toLowerCase()}`} 
                     required 
@@ -456,7 +445,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
                   <Input 
                     id="nome_fantasia" 
                     name="nome_fantasia" 
-                    value={formData.nome_fantasia || ''} 
+                    value={formData.nome_fantasia} 
                     onChange={handleChange} 
                     placeholder={`Nome Fantasia d${article} ${titleLabel.toLowerCase()}`} 
                     className="bg-white/5 border-white/20 rounded-xl h-8 text-xs" 
@@ -469,7 +458,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
                     id="email" 
                     name="email" 
                     type="email" 
-                    value={formData.email || ''} 
+                    value={formData.email} 
                     onChange={handleChange} 
                     placeholder={`email d${article} ${titleLabel.toLowerCase()}`} 
                     className="bg-white/5 border-white/20 rounded-xl h-8 text-xs" 
@@ -478,8 +467,9 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
                 
                 <div>
                   <Label htmlFor="estado" className="text-xs">Estado <span className="text-red-500">*</span></Label>
-                  <Select onValueChange={handleStateChange} value={formData.estado || ''} required>
+                  <Select onValueChange={handleStateChange} value={formData.estado} required>
                     <SelectTrigger className="bg-white/5 border-white/20 rounded-xl text-xs px-3 py-2">
+                      {/* Removido h-8 daqui */}
                       <SelectValue placeholder="Selecione o Estado" />
                     </SelectTrigger>
                     <SelectContent className="bg-gray-800 text-white border-gray-700 rounded-xl text-xs">
@@ -494,7 +484,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
                   <Label htmlFor="municipio" className="text-xs">Município</Label>
                   <SearchableSelect
                     options={municipiosOptions}
-                    value={formData.municipio || ''}
+                    value={formData.municipio}
                     onChange={handleMunicipioChange}
                     placeholder="Selecione o Município"
                     disabled={!formData.estado}
@@ -507,7 +497,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
                   <Input 
                     id="endereco" 
                     name="endereco" 
-                    value={formData.endereco || ''} 
+                    value={formData.endereco} 
                     onChange={handleChange} 
                     placeholder={`Endereço d${article} ${titleLabel.toLowerCase()}`} 
                     className="bg-white/5 border-white/20 rounded-xl h-8 text-xs" 
@@ -519,7 +509,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
                   <Input 
                     id="referencia" 
                     name="referencia" 
-                    value={formData.referencia || ''} 
+                    value={formData.referencia} 
                     onChange={handleChange} 
                     placeholder={`Ex: Próximo à padaria d${article} ${titleLabel.toLowerCase()}`} 
                     className="bg-white/5 border-white/20 rounded-xl h-8 text-xs" 

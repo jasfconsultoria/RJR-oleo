@@ -70,10 +70,11 @@ const FinanceiroForm = ({ type }) => {
   }), []);
 
   const autoSaveKey = id ? `financeiroForm_edit_${id}` : `financeiroForm_new_${type}`;
-  const [rawFormData, setRawFormData, clearSavedData, savedData] = useAutoSave(
+  // ✅ CORREÇÃO: Mudar de !isEditing para true (ou remover o parâmetro)
+  const [rawFormData, setRawFormData, clearSavedData] = useAutoSave(
     autoSaveKey,
-    getInitialFormData(type),
-    !isEditing // Only load from auto-save if not in edit mode
+    getInitialFormData(),
+    true // ✅ SEMPRE carregar do auto-save, independente do modo
   );
 
   // Process rawFormData to get Date objects for component use

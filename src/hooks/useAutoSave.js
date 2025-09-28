@@ -1,46 +1,48 @@
 import { useState, useEffect, useCallback } from 'react';
 
-/**
- * Custom hook for auto-saving form data to local storage.
- *
- * @param {string} key - The key to use for storing data in local storage.
- * @param {any} initialValue - The initial value for the state.
- * @param {boolean} [shouldLoad=true] - Whether to load data from local storage on mount.
- * @returns {[any, Function, Function]} - [state, setState, clearSavedData]
- */
-export const useAutoSave = (key, initialValue, shouldLoad = true) => {
-  const [state, setState] = useState(() => {
-    if (typeof window === 'undefined' || !shouldLoad) {
-      return initialValue;
+export const useAutoSave = (key, initialData, shouldLoadFromStorage = true) => {
+  // ✅ CORREÇÃO: Remover a negação lógica que causava o problema
+  const [data, setData] = useState(() => {
+    if (typeof window === 'undefined' || !shouldLoadFromStorage) {
+      return initialData;
     }
+    
     try {
-      const storedValue = localStorage.getItem(key);
-      return storedValue ? JSON.parse(storedValue) : initialValue;
+      const saved = localStorage.getItem(key);
+      if (saved) {
+        return JSON.parse(saved);
+      }
     } catch (error) {
-      console.error("Error loading from localStorage:", error);
-      return initialValue;
+      console.error('Error loading from localStorage:', error);
     }
+    
+    return initialData;
   });
 
-  useEffect(() => {
-    if (shouldLoad && typeof window !== 'undefined') {
-      try {
-        localStorage.setItem(key, JSON.stringify(state));
-      } catch (error) {
-        console.error("Error saving to localStorage:", error);
+  // ... resto do hook mantido igual
+  const setDataWithSave = useCallback((newData) => {
+    setData(prev => {
+      const result = typeof newData === 'function' ? newData(prev) : newData;
+      
+      // Salva no localStorage
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem(key, JSON.stringify(result));
+        } catch (error) {
+          console.error('Error saving to localStorage:', error);
+        }
       }
-    }
-  }, [key, state, shouldLoad]);
+      
+      return result;
+    });
+  }, [key]);
 
   const clearSavedData = useCallback(() => {
     if (typeof window !== 'undefined') {
-      try {
-        localStorage.removeItem(key);
-      } catch (error) {
-        console.error("Error clearing from localStorage:", error);
-      }
+      localStorage.removeItem(key);
     }
-  }, [key]);
+    setData(initialData);
+  }, [key, initialData]);
 
-  return [state, setState, clearSavedData];
+  return [data, setDataWithSave, clearSavedData];
 };
