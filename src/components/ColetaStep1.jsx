@@ -22,7 +22,7 @@ const tiposColeta = [
   { id: 'Doação', nome: 'Doação' },
 ];
 
-export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone, isFormDirty, clearSavedData }) { // Atualizado para isFormDirty
+export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }) {
   const navigate = useNavigate();
   const [allClients, setAllClients] = useState([]);
   const [filteredClients, setFilteredClients] = useState([]);

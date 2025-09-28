@@ -69,7 +69,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
   const [isCnpjCpfChecking, setIsCnpjCpfChecking] = useState(false);
   const [cnpjCpfError, setCnpjCpfError] = useState('');
   const [telefoneError, setTelefoneError] = useState('');
-  const [isFormDirty, setIsFormDirty] = useState(false); // Renomeado de hasAutoSaveData
+  const [hasAutoSaveData, setHasAutoSaveData] = useState(false);
 
   const municipiosOptions = useMemo(() => {
     if (!formData.estado) return [];
@@ -80,7 +80,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem(autoSaveKey);
-      setIsFormDirty(!!saved); // Atualizado para setIsFormDirty
+      setHasAutoSaveData(!!saved);
     }
   }, [autoSaveKey]);
 
@@ -111,7 +111,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
             value === '' || value === null || value === undefined
           );
           
-          if (isAutoSaveEmpty || !isFormDirty) { // Atualizado para isFormDirty
+          if (isAutoSaveEmpty || !hasAutoSaveData) {
             console.log('Usando dados do banco (auto-save vazio)');
             return data;
           } else {
@@ -135,7 +135,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
       setLoading(false);
       hasFetchedInitialData.current = true;
     }
-  }, [id, isEditing, toast, setFormData, isFormDirty]); // Atualizado para isFormDirty
+  }, [id, isEditing, toast, setFormData, hasAutoSaveData]);
 
   // ✅ CORREÇÃO: Buscar dados do banco apenas se estiver editando
   useEffect(() => {
@@ -389,7 +389,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
             <CardTitle className="text-xl font-bold flex items-center gap-2 text-emerald-300">
               <UserPlus className="w-5 h-5" />
               {pageTitle}
-              {isFormDirty && ( // Atualizado para isFormDirty
+              {hasAutoSaveData && (
                 <span className="text-xs text-yellow-400 ml-2">(Alterações não salvas)</span>
               )}
             </CardTitle>
@@ -542,7 +542,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
                 </Button>
                 
                 <div className="flex gap-2">
-                  {isFormDirty && ( // Atualizado para isFormDirty
+                  {hasAutoSaveData && (
                     <Button 
                       type="button"
                       onClick={clearSavedData}
