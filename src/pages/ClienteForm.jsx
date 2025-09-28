@@ -487,7 +487,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
                     onChange={handleMunicipioChange}
                     placeholder="Selecione o Município"
                     disabled={!formData.estado}
-                    inputClassName="h-8 text-xs" 
+                    inputClassName="h-8 text-xs px-3 py-2" 
                     contentClassName="text-xs"
                   />
                 </div>
