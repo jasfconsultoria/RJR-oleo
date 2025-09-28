@@ -68,6 +68,8 @@ const CertificadoPage = () => {
     !isEditMode 
   );
 
+  const [isFormDirty, setIsFormDirty] = useState(false); // Renomeado de hasAutoSaveData
+
   const { 
     cliente_id, 
     cliente_nome, 
@@ -110,6 +112,14 @@ const CertificadoPage = () => {
       setIsClienteSelected(!!currentSavedData.cliente_id);
     }
   }, [isEditMode, savedData, setLocalFormData, processDateValue, clearSavedData]);
+
+  // ✅ CORREÇÃO: Verificar se há dados no auto-save
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('certificado-form-data');
+      setIsFormDirty(!!saved); // Atualizado para setIsFormDirty
+    }
+  }, []);
 
   // Buscar todos os clientes com contratos ativos
   useEffect(() => {

@@ -30,6 +30,8 @@ const UserFormPage = () => {
   const [selectedEstado, setSelectedEstado] = useState('');
   const [isAccountLinkDialogOpen, setIsAccountLinkDialogOpen] = useState(false); // State for account link dialog
 
+  const [isFormDirty, setIsFormDirty] = useState(false); // Renomeado de hasAutoSaveData
+
   const fetchUser = useCallback(async (userId) => {
     setLoading(true);
     const { data, error } = await supabase.rpc('get_all_users');
@@ -49,7 +51,7 @@ const UserFormPage = () => {
       setUserFormData({
         full_name: user.full_name || '',
         email: user.email || '',
-        password: '',
+        password: '', // Password is not editable here
         role: user.role || 'coletor',
         estado: user.estado || '',
         municipio: user.municipio || '',

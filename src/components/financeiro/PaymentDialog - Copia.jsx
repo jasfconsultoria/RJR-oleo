@@ -1,56 +1,30 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+"use client";
+
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CalendarIcon, DollarSign, Banknote, Info, Loader2, Trash2 } from 'lucide-react';
+import { CalendarIcon, DollarSign, Banknote, Info, Loader2 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
 import { formatCurrency, parseCurrency, formatDateWithTimezone } from '@/lib/utils';
 import { DatePicker } from '@/components/ui/date-picker';
 import { IMaskInput } from 'react-imask';
 import { logAction } from '@/lib/logger';
-import { useAutoSave } from '@/hooks/useAutoSave';
 
 const PaymentDialog = ({ isOpen, onClose, entry, onSuccess, initialPaidAmount, initialPaymentMethod }) => {
-  const [accounts, setAccounts] = useState([]);
+  const [paidAmount, setPaidAmount] = useState(initialPaidAmount ? String(initialPaidAmount).replace('.', ',') : '0,00');
+  const [paymentDate, setPaymentDate] = useState(new Date());
+  const [paymentMethod, setPaymentMethod] = useState(initialPaymentMethod || 'pix');
+  const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
+  const [accounts, setAccounts] = useState([]);
+  const [selectedAccount, setSelectedAccount] = useState(null);
   const { toast } = useToast();
 
   const [empresaTimezone, setEmpresaTimezone] = useState('America/Sao_Paulo');
-
-  // ✅ AUTO-SAVE: Chave única baseada no entry.id
-  const autoSaveKey = entry ? `paymentDialog_${entry.id}` : 'paymentDialog_new';
-  
-  // ✅ AUTO-SAVE: Dados iniciais
-  const getInitialPaymentData = useCallback(() => ({
-    paidAmount: initialPaidAmount ? String(initialPaidAmount).replace('.', ',') : '0,00',
-    paymentDate: new Date(),
-    paymentMethod: initialPaymentMethod || 'pix',
-    notes: '',
-    selectedAccount: null,
-  }), [initialPaidAmount, initialPaymentMethod]);
-
-  // ✅ AUTO-SAVE: Hook de auto-save
-  const [paymentData, setPaymentData, clearSavedData, hasSavedData] = useAutoSave(
-    autoSaveKey,
-    getInitialPaymentData(),
-    true // Sempre carregar do auto-save
-  );
-
-  const {
-    paidAmount,
-    paymentDate,
-    paymentMethod,
-    notes,
-    selectedAccount
-  } = paymentData;
-
-  // ✅ AUTO-SAVE: Função para atualizar dados
-  const updatePaymentData = useCallback((updates) => {
-    setPaymentData(prev => ({ ...prev, ...updates }));
-  }, [setPaymentData]);
 
   useEffect(() => {
     const fetchEmpresaTimezone = async () => {
@@ -81,32 +55,23 @@ const PaymentDialog = ({ isOpen, onClose, entry, onSuccess, initialPaidAmount, i
     } else {
       setAccounts(data || []);
       const defaultAccount = data.find(acc => acc.is_default);
-      if (defaultAccount && !selectedAccount) {
-        updatePaymentData({ selectedAccount: defaultAccount.id });
-      } else if (data.length > 0 && !selectedAccount) {
-        updatePaymentData({ selectedAccount: data[0].id });
+      if (defaultAccount) {
+        setSelectedAccount(defaultAccount.id);
+      } else if (data.length > 0) {
+        setSelectedAccount(data[0].id);
       }
     }
-  }, [entry, toast, selectedAccount, updatePaymentData]);
+  }, [entry, toast]);
 
-  // ✅ AUTO-SAVE: Resetar dados quando o dialog abrir
   useEffect(() => {
     if (isOpen && entry) {
-      // Se não há dados salvos, usar os valores iniciais
-      if (!hasSavedData()) {
-        updatePaymentData(getInitialPaymentData());
-      }
+      setPaidAmount(initialPaidAmount ? String(initialPaidAmount).replace('.', ',') : String(entry.amount_balance || '0,00').replace('.', ','));
+      setPaymentDate(new Date());
+      setPaymentMethod(initialPaymentMethod || 'pix');
+      setNotes('');
       fetchAccounts();
     }
-  }, [isOpen, entry, fetchAccounts, updatePaymentData, getInitialPaymentData, hasSavedData]);
-
-  // ✅ AUTO-SAVE: Limpar dados quando fechar
-  useEffect(() => {
-    if (!isOpen) {
-      // Não limpar automaticamente - manter para continuar de onde parou
-      // clearSavedData();
-    }
-  }, [isOpen, clearSavedData]);
+  }, [isOpen, entry, fetchAccounts, initialPaidAmount, initialPaymentMethod]);
 
   const handleRegisterPayment = async () => {
     setLoading(true);
@@ -154,9 +119,6 @@ const PaymentDialog = ({ isOpen, onClose, entry, onSuccess, initialPaidAmount, i
         payment_method: paymentMethod,
         account_id: selectedAccount,
       });
-      
-      // ✅ AUTO-SAVE: Limpar dados após sucesso
-      clearSavedData();
       onSuccess();
       onClose();
     } catch (error) {
@@ -173,13 +135,6 @@ const PaymentDialog = ({ isOpen, onClose, entry, onSuccess, initialPaidAmount, i
     }
   };
 
-  // ✅ AUTO-SAVE: Função para limpar dados manualmente
-  const handleClearDraft = () => {
-    clearSavedData();
-    updatePaymentData(getInitialPaymentData());
-    toast({ title: 'Rascunho limpo', description: 'Os dados não salvos foram removidos.', variant: 'default' });
-  };
-
   const getAccountDisplayName = (account) => {
     if (!account) return 'N/A';
     const defaultTag = account.is_default ? ' (Padrão)' : '';
@@ -191,22 +146,9 @@ const PaymentDialog = ({ isOpen, onClose, entry, onSuccess, initialPaidAmount, i
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="bg-emerald-900 border-emerald-700 text-white rounded-xl max-w-md">
+      <DialogContent className="bg-emerald-900 border-emerald-700 text-white rounded-xl">
         <DialogHeader>
-          <DialogTitle className="flex items-center justify-between">
-            <span>Registrar Pagamento</span>
-            {hasSavedData() && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleClearDraft}
-                className="text-yellow-400 hover:text-yellow-300 hover:bg-yellow-400/10"
-                title="Limpar rascunho"
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            )}
-          </DialogTitle>
+          <DialogTitle>Registrar Pagamento</DialogTitle>
           <DialogDescription className="text-emerald-300">
             Para: <span className="font-bold">{entityName}</span> - Pagamento de {entry?.description}.
           </DialogDescription>
@@ -214,9 +156,6 @@ const PaymentDialog = ({ isOpen, onClose, entry, onSuccess, initialPaidAmount, i
             <p>Valor da Parcela: <span className="font-bold text-white">{formatCurrency(entry?.total_value || 0)}</span></p>
             <p>Valor Pago: <span className="font-bold text-white">{formatCurrency(entry?.paid_amount || 0)}</span></p>
             <p className="text-lg font-bold text-yellow-400">Saldo Devedor: {formatCurrency(entry?.amount_balance || 0)}</p>
-            {hasSavedData() && (
-              <p className="text-xs text-yellow-400 mt-1">✓ Rascunho salvo automaticamente</p>
-            )}
           </div>
         </DialogHeader>
         <div className="space-y-4 py-4">
@@ -224,7 +163,7 @@ const PaymentDialog = ({ isOpen, onClose, entry, onSuccess, initialPaidAmount, i
             <Label htmlFor="paymentMethod" className="text-white flex items-center gap-2">
               <Banknote className="w-4 h-4" /> Forma de Pagamento *
             </Label>
-            <Select value={paymentMethod} onValueChange={(value) => updatePaymentData({ paymentMethod: value })}>
+            <Select value={paymentMethod} onValueChange={setPaymentMethod}>
               <SelectTrigger className="bg-white/10 border-white/30 text-white rounded-xl h-10 text-base">
                 <SelectValue placeholder="Selecione a forma de pagamento" />
               </SelectTrigger>
@@ -242,7 +181,7 @@ const PaymentDialog = ({ isOpen, onClose, entry, onSuccess, initialPaidAmount, i
             <Label htmlFor="account" className="text-white flex items-center gap-2">
               <Banknote className="w-4 h-4" /> Conta Movimento *
             </Label>
-            <Select value={selectedAccount} onValueChange={(value) => updatePaymentData({ selectedAccount: value })}>
+            <Select value={selectedAccount} onValueChange={setSelectedAccount}>
               <SelectTrigger className="bg-white/10 border-white/30 text-white rounded-xl h-10 text-base">
                 <SelectValue placeholder="Selecione a conta" />
               </SelectTrigger>
@@ -282,7 +221,7 @@ const PaymentDialog = ({ isOpen, onClose, entry, onSuccess, initialPaidAmount, i
               id="paidAmount"
               type="text"
               value={paidAmount}
-              onAccept={(value) => updatePaymentData({ paidAmount: value })}
+              onAccept={(value) => setPaidAmount(value)}
               placeholder="0,00"
               className="bg-white/10 border-white/30 text-white placeholder:text-white/60 rounded-xl h-10 text-base px-3 py-2"
               required
@@ -295,7 +234,7 @@ const PaymentDialog = ({ isOpen, onClose, entry, onSuccess, initialPaidAmount, i
             </Label>
             <DatePicker
               date={paymentDate}
-              setDate={(date) => updatePaymentData({ paymentDate: date })}
+              setDate={setPaymentDate}
               className="w-full bg-white/10 border-white/30 text-white rounded-xl"
             />
           </div>
@@ -307,19 +246,15 @@ const PaymentDialog = ({ isOpen, onClose, entry, onSuccess, initialPaidAmount, i
             <Input
               id="notes"
               value={notes}
-              onChange={(e) => updatePaymentData({ notes: e.target.value })}
+              onChange={(e) => setNotes(e.target.value)}
               placeholder="Adicione uma observação sobre o pagamento..."
               className="bg-white/10 border-white/30 text-white placeholder:text-white/60 rounded-xl h-10 text-base"
             />
           </div>
         </div>
-        <DialogFooter className="flex flex-col sm:flex-row gap-2">
-          <Button type="button" variant="outline" onClick={onClose} className="rounded-xl flex-1">Cancelar</Button>
-          <Button 
-            onClick={handleRegisterPayment} 
-            disabled={loading || !selectedAccount} 
-            className="bg-emerald-600 hover:bg-emerald-700 rounded-xl flex-1"
-          >
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onClose} className="rounded-xl">Cancelar</Button>
+          <Button onClick={handleRegisterPayment} disabled={loading || !selectedAccount} className="bg-emerald-600 hover:bg-emerald-700 rounded-xl">
             {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Registrar Pagamento'}
           </Button>
         </DialogFooter>

@@ -25,7 +25,7 @@ const ColetaForm = () => {
   const [empresaTimezone, setEmpresaTimezone] = useState('America/Sao_Paulo');
 
   const hasFetchedInitialData = useRef(false);
-  const [hasAutoSaveData, setHasAutoSaveData] = useState(false);
+  const [isFormDirty, setIsFormDirty] = useState(false); // Renomeado de hasAutoSaveData
 
   useEffect(() => {
     const fetchEmpresaTimezone = async () => {
@@ -83,7 +83,7 @@ const ColetaForm = () => {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem(autoSaveKey);
-      setHasAutoSaveData(!!saved);
+      setIsFormDirty(!!saved); // Atualizado para setIsFormDirty
     }
   }, [autoSaveKey]);
 
@@ -149,7 +149,7 @@ const ColetaForm = () => {
           (Array.isArray(value) && value.length === 0)
         );
         
-        if (isAutoSaveEmpty || !hasAutoSaveData) {
+        if (isAutoSaveEmpty || !isFormDirty) { // Atualizado para isFormDirty
           console.log('Usando dados do banco (auto-save vazio)');
           return entryDataFromDB;
         } else {
@@ -162,7 +162,7 @@ const ColetaForm = () => {
         }
       });
     }
-  }, [id, isEditing, navigate, setRawColetaData, toast, empresaTimezone, hasAutoSaveData]);
+  }, [id, isEditing, navigate, setRawColetaData, toast, empresaTimezone, isFormDirty]); // Atualizado para isFormDirty
 
   // ✅ CORREÇÃO: Buscar dados do banco apenas se estiver editando
   useEffect(() => {
@@ -336,7 +336,7 @@ const ColetaForm = () => {
           </h1>
           <p className="text-emerald-200 text-sm md:text-lg">
             Siga as etapas para registrar os dados da coleta.
-            {hasAutoSaveData && (
+            {isFormDirty && ( // Atualizado para isFormDirty
               <span className="text-yellow-400 ml-2">(Alterações não salvas)</span>
             )}
           </p>
@@ -380,7 +380,7 @@ const ColetaForm = () => {
               isEditing={isEditing}
               profile={profile}
               empresaTimezone={empresaTimezone}
-              hasAutoSaveData={hasAutoSaveData}
+              isFormDirty={isFormDirty} // Atualizado para isFormDirty
               clearSavedData={clearSavedData}
             />
           )}
@@ -392,7 +392,7 @@ const ColetaForm = () => {
               onBack={prevStep}
               onUpdate={updateColetaData}
               empresaTimezone={empresaTimezone}
-              hasAutoSaveData={hasAutoSaveData}
+              isFormDirty={isFormDirty} // Atualizado para isFormDirty
               clearSavedData={clearSavedData}
             />
           )}
@@ -406,7 +406,7 @@ const ColetaForm = () => {
               clearSavedData={clearSavedData}
               empresaTimezone={empresaTimezone}
               collectorName={profile?.full_name || user?.email}
-              hasAutoSaveData={hasAutoSaveData}
+              isFormDirty={isFormDirty} // Atualizado para isFormDirty
             />
           )}
         </AnimatePresence>

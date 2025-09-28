@@ -26,7 +26,7 @@ const FinanceiroForm = ({ type }) => {
   const downPaymentInputRef = useRef(null);
 
   const hasFetchedInitialData = useRef(false);
-  const [hasAutoSaveData, setHasAutoSaveData] = useState(false);
+  const [isFormDirty, setIsFormDirty] = useState(false); // Renomeado de hasAutoSaveData
 
   // Chave única para o localStorage, dependendo se é crédito ou débito
   const localStorageKey = `financeiroForm_isNewClientModalOpen_${type}`;
@@ -85,7 +85,7 @@ const FinanceiroForm = ({ type }) => {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem(autoSaveKey);
-      setHasAutoSaveData(!!saved);
+      setIsFormDirty(!!saved); // Atualizado para setIsFormDirty
     }
   }, [autoSaveKey]);
 
@@ -201,7 +201,7 @@ const FinanceiroForm = ({ type }) => {
           (Array.isArray(value) && value.length === 0)
         );
         
-        if (isAutoSaveEmpty || !hasAutoSaveData) {
+        if (isAutoSaveEmpty || !isFormDirty) { // Atualizado para isFormDirty
           console.log('Usando dados do banco (auto-save vazio)');
           return entryDataWithClient;
         } else {
@@ -220,7 +220,7 @@ const FinanceiroForm = ({ type }) => {
       setLoading(false);
       hasFetchedInitialData.current = true;
     }
-  }, [id, isEditing, navigate, toast, type, setRawFormData, hasAutoSaveData]);
+  }, [id, isEditing, navigate, toast, type, setRawFormData, isFormDirty]); // Atualizado para isFormDirty
 
   // ✅ CORREÇÃO: Buscar dados do banco apenas se estiver editando
   useEffect(() => {
@@ -458,7 +458,7 @@ const FinanceiroForm = ({ type }) => {
             <CardTitle className="text-2xl md:text-3xl font-bold flex items-center gap-3 text-emerald-300">
               <DollarSign className="w-8 h-8" />
               {isEditing ? `Editar ${title}` : `Novo ${title}`}
-              {hasAutoSaveData && (
+              {isFormDirty && ( // Atualizado para isFormDirty
                 <span className="text-sm text-yellow-400 ml-2">(Alterações não salvas)</span>
               )}
             </CardTitle>
@@ -515,7 +515,7 @@ const FinanceiroForm = ({ type }) => {
                 </Button>
                 
                 <div className="flex gap-2">
-                  {hasAutoSaveData && (
+                  {isFormDirty && ( // Atualizado para isFormDirty
                     <Button 
                       type="button"
                       onClick={clearSavedData}

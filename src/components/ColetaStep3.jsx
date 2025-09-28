@@ -12,7 +12,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/customSupabaseClient';
 import { ReciboViewDialog } from '@/components/coletas/ReciboViewDialog';
 
-export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData, empresaTimezone, collectorName }) {
+export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData, empresaTimezone, collectorName, isFormDirty }) { // Atualizado para isFormDirty
   const [resultadoFinal, setResultadoFinal] = useState('0,00');
   const [showReciboDialog, setShowReciboDialog] = useState(false);
   const [savedColeta, setSavedColeta] = useState(null);

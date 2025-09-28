@@ -10,7 +10,7 @@ import { format, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { IMaskInput } from 'react-imask'; // Adicionado IMaskInput
 
-export function ColetaStep2({ data, onBack, onNext, onUpdate, empresaTimezone }) {
+export function ColetaStep2({ data, onBack, onNext, onUpdate, empresaTimezone, isFormDirty, clearSavedData }) { // Atualizado para isFormDirty
   const { toast } = useToast();
   const isCompra = data.tipo_coleta === 'Compra';
   const isDoacao = data.tipo_coleta === 'Doação';
