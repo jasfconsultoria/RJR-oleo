@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -24,6 +24,9 @@ const ColetaForm = () => {
   const { profile } = useProfile();
   const [empresaTimezone, setEmpresaTimezone] = useState('America/Sao_Paulo');
 
+  const hasFetchedInitialData = useRef(false);
+  const [hasAutoSaveData, setHasAutoSaveData] = useState(false);
+
   useEffect(() => {
     const fetchEmpresaTimezone = async () => {
       const { data, error } = await supabase.from('empresa').select('timezone').single();
@@ -47,7 +50,7 @@ const ColetaForm = () => {
       municipio: '',
       estado: '',
       telefone: '',
-      data_coleta: nowInEmpresaTimezone, // This should be a Date object
+      data_coleta: nowInEmpresaTimezone,
       hora_coleta: format(nowInEmpresaTimezone, 'HH:mm'),
       fator: '6',
       tipo_coleta: 'Troca',
@@ -69,12 +72,20 @@ const ColetaForm = () => {
     return (dateValue instanceof Date && isValid(dateValue)) ? dateValue : defaultValue;
   }, []);
 
-  // Use rawColetaData for auto-save storage (always ISO string for dates)
+  // ✅ CORREÇÃO: Estratégia simplificada - SEMPRE carregar do auto-save primeiro
   const [rawColetaData, setRawColetaData, clearSavedData] = useAutoSave(
     autoSaveKey,
-    isEditing ? {} : getInitialColetaData('America/Sao_Paulo'),
-    !isEditing
+    getInitialColetaData('America/Sao_Paulo'),
+    true // ✅ SEMPRE carregar do auto-save
   );
+
+  // ✅ CORREÇÃO: Verificar se há dados no auto-save
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(autoSaveKey);
+      setHasAutoSaveData(!!saved);
+    }
+  }, [autoSaveKey]);
 
   // Processed coletaData for component usage (Date objects)
   const coletaData = useMemo(() => {
@@ -92,45 +103,86 @@ const ColetaForm = () => {
     }
   }, [user, rawColetaData.user_id, setRawColetaData]);
 
-  useEffect(() => {
-    const fetchColeta = async () => {
-      if (isEditing) {
-        const { data, error } = await supabase
-          .from('coletas')
-          .select('*, pessoa:clientes (*)')
-          .eq('id', id)
-          .single();
+  // ✅ CORREÇÃO: Fetch dos dados com lógica de merge
+  const fetchColeta = useCallback(async () => {
+    if (!isEditing) {
+      return;
+    }
 
-        if (error) {
-          toast({ title: "Erro", description: "Coleta não encontrada.", variant: "destructive" });
-          navigate('/app/coletas');
+    const { data, error } = await supabase
+      .from('coletas')
+      .select('*, pessoa:clientes (*)')
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      toast({ title: "Erro", description: "Coleta não encontrada.", variant: "destructive" });
+      navigate('/app/coletas');
+    } else {
+      const fullDateUTC = new Date(data.data_coleta);
+      const zonedDate = utcToZonedTime(fullDateUTC, empresaTimezone);
+      const formattedTime = data.hora_coleta || format(zonedDate, 'HH:mm');
+
+      const entryDataFromDB = {
+        ...data,
+        cliente: data.pessoa?.nome || data.cliente_nome,
+        cliente_id: data.cliente_id,
+        cnpj_cpf: data.pessoa?.cnpj_cpf,
+        endereco: data.pessoa?.endereco,
+        email: data.pessoa?.email,
+        municipio: data.pessoa?.municipio,
+        estado: data.pessoa?.estado,
+        telefone: data.pessoa?.telefone,
+        tipo_coleta: data.tipo_coleta,
+        data_coleta: zonedDate.toISOString(), // Store as ISO string in rawColetaData
+        hora_coleta: formattedTime,
+        valor_compra: String(data.valor_compra || '0').replace('.', ','),
+        quantidade_coletada: String(data.quantidade_coletada || '').replace('.', ','),
+      };
+
+      // ✅ CORREÇÃO: Merge inteligente entre auto-save e dados do banco
+      setRawColetaData(prevFormData => {
+        // Se não há dados no auto-save ou estão vazios, usa os dados do banco
+        const isAutoSaveEmpty = Object.values(prevFormData).every(value => 
+          value === '' || value === null || value === undefined || 
+          (typeof value === 'string' && value.trim() === '') ||
+          (Array.isArray(value) && value.length === 0)
+        );
+        
+        if (isAutoSaveEmpty || !hasAutoSaveData) {
+          console.log('Usando dados do banco (auto-save vazio)');
+          return entryDataFromDB;
         } else {
-          const fullDateUTC = new Date(data.data_coleta);
-          const zonedDate = utcToZonedTime(fullDateUTC, empresaTimezone);
-          const formattedTime = data.hora_coleta || format(zonedDate, 'HH:mm');
-
-          const updatedColetaData = {
-            ...data,
-            cliente: data.pessoa?.nome || data.cliente_nome,
-            cliente_id: data.cliente_id,
-            cnpj_cpf: data.pessoa?.cnpj_cpf,
-            endereco: data.pessoa?.endereco,
-            email: data.pessoa?.email,
-            municipio: data.pessoa?.municipio,
-            estado: data.pessoa?.estado,
-            telefone: data.pessoa?.telefone,
-            tipo_coleta: data.tipo_coleta,
-            data_coleta: zonedDate.toISOString(), // Store as ISO string in rawColetaData
-            hora_coleta: formattedTime,
-            valor_compra: String(data.valor_compra || '0').replace('.', ','),
-            quantidade_coletada: String(data.quantidade_coletada || '').replace('.', ','),
+          // Se há dados no auto-save, faz merge mantendo alterações do usuário
+          console.log('Fazendo merge entre auto-save e dados do banco');
+          return {
+            ...entryDataFromDB, // Dados base do banco
+            ...prevFormData // Preserva alterações do auto-save (tem prioridade)
           };
-          setRawColetaData(updatedColetaData);
         }
-      }
-    };
-    fetchColeta();
-  }, [id, isEditing, navigate, setRawColetaData, toast, empresaTimezone, getInitialColetaData]);
+      });
+    }
+  }, [id, isEditing, navigate, setRawColetaData, toast, empresaTimezone, hasAutoSaveData]);
+
+  // ✅ CORREÇÃO: Buscar dados do banco apenas se estiver editando
+  useEffect(() => {
+    if (isEditing && !hasFetchedInitialData.current) {
+      // Pequeno delay para garantir que o auto-save carregou primeiro
+      const timer = setTimeout(() => {
+        fetchColeta();
+        hasFetchedInitialData.current = true;
+      }, 100);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isEditing, fetchColeta]);
+
+  // ✅ CORREÇÃO: Resetar flag quando o ID mudar
+  useEffect(() => {
+    if (id) {
+      hasFetchedInitialData.current = false;
+    }
+  }, [id]);
 
   const nextStep = () => {
     setCurrentStep(prev => prev < 3 ? prev + 1 : prev);
@@ -223,13 +275,11 @@ const ColetaForm = () => {
     }
 
     // A criação/atualização do lançamento financeiro agora é responsabilidade do trigger 'process_recibo_signature_actions'
-    // que é acionado na upsert da tabela 'recibos'.
-    // Portanto, aqui, apenas garantimos que um registro de recibo exista para a coleta.
     const { data: reciboEntry, error: reciboError } = await supabase
       .from('recibos')
       .upsert({ 
         coleta_id: savedData.id,
-        assinatura_url: isEditing ? null : undefined // Se estiver editando, a assinatura pode ser invalidada
+        assinatura_url: isEditing ? null : undefined
       }, { onConflict: 'coleta_id' })
       .select()
       .single();
@@ -244,6 +294,10 @@ const ColetaForm = () => {
       cliente_nome: savedData.cliente_nome,
       numero_coleta: savedData.numero_coleta 
     });
+
+    // ✅ CORREÇÃO: Limpar auto-save apenas após salvar com sucesso
+    clearSavedData();
+    hasFetchedInitialData.current = false;
 
     if(returnData) {
       const { data: cliente } = await supabase.from('clientes').select('cnpj_cpf, endereco').eq('id', clienteId).single();
@@ -282,6 +336,9 @@ const ColetaForm = () => {
           </h1>
           <p className="text-emerald-200 text-sm md:text-lg">
             Siga as etapas para registrar os dados da coleta.
+            {hasAutoSaveData && (
+              <span className="text-yellow-400 ml-2">(Alterações não salvas)</span>
+            )}
           </p>
         </motion.div>
 
@@ -323,6 +380,8 @@ const ColetaForm = () => {
               isEditing={isEditing}
               profile={profile}
               empresaTimezone={empresaTimezone}
+              hasAutoSaveData={hasAutoSaveData}
+              clearSavedData={clearSavedData}
             />
           )}
           {currentStep === 2 && (
@@ -333,6 +392,8 @@ const ColetaForm = () => {
               onBack={prevStep}
               onUpdate={updateColetaData}
               empresaTimezone={empresaTimezone}
+              hasAutoSaveData={hasAutoSaveData}
+              clearSavedData={clearSavedData}
             />
           )}
           {currentStep === 3 && (
@@ -345,6 +406,7 @@ const ColetaForm = () => {
               clearSavedData={clearSavedData}
               empresaTimezone={empresaTimezone}
               collectorName={profile?.full_name || user?.email}
+              hasAutoSaveData={hasAutoSaveData}
             />
           )}
         </AnimatePresence>

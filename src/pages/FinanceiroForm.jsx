@@ -10,12 +10,12 @@ import { ArrowLeft, Save, DollarSign, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { logAction } from '@/lib/logger';
 import { unmask, parseCurrency } from '@/lib/utils';
-import { format, addDays, parseISO, isValid } from 'date-fns'; // Import parseISO and isValid
+import { format, addDays, parseISO, isValid } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
 import { FinanceiroFormFields } from '@/components/financeiro/FinanceiroFormFields';
 import { InstallmentDetails } from '@/components/financeiro/InstallmentDetails';
 import { FinanceiroFormActions } from '@/components/financeiro/FinanceiroFormActions';
-import { useAutoSave } from '@/hooks/useAutoSave'; // Import useAutoSave
+import { useAutoSave } from '@/hooks/useAutoSave';
 
 const FinanceiroForm = ({ type }) => {
   const { id } = useParams();
@@ -24,6 +24,9 @@ const FinanceiroForm = ({ type }) => {
   const { user } = useAuth();
   const isEditing = Boolean(id);
   const downPaymentInputRef = useRef(null);
+
+  const hasFetchedInitialData = useRef(false);
+  const [hasAutoSaveData, setHasAutoSaveData] = useState(false);
 
   // Chave única para o localStorage, dependendo se é crédito ou débito
   const localStorageKey = `financeiroForm_isNewClientModalOpen_${type}`;
@@ -49,10 +52,10 @@ const FinanceiroForm = ({ type }) => {
     setHydrated(true);
   }, []);
 
-  // Initial state for useAutoSave
-  const getInitialFormData = useCallback((currentType) => ({
+  // ✅ CORREÇÃO: Initial state para useAutoSave
+  const getInitialFormData = useCallback(() => ({
     document_number: '',
-    issue_date: new Date().toISOString(), // Store as ISO string
+    issue_date: new Date().toISOString(),
     model: 'Recibo',
     pessoa_id: null,
     cliente_fornecedor_name: '',
@@ -61,21 +64,30 @@ const FinanceiroForm = ({ type }) => {
     description: '',
     total_value: '',
     payment_method: 'pix',
-    cost_center: 'ADMINISTRAÇÃO', // Default, will be updated by fetched data
+    cost_center: 'ADMINISTRAÇÃO',
     notes: '',
     down_payment: '0,00',
     installments_number: 0,
     installments: [],
-    single_due_date: addDays(new Date(), 30).toISOString(), // Store as ISO string
+    single_due_date: addDays(new Date(), 30).toISOString(),
   }), []);
 
+  // ✅ CORREÇÃO: Estratégia simplificada - SEMPRE carregar do auto-save primeiro
   const autoSaveKey = id ? `financeiroForm_edit_${id}` : `financeiroForm_new_${type}`;
-  // ✅ CORREÇÃO: Mudar de !isEditing para true (ou remover o parâmetro)
+  
   const [rawFormData, setRawFormData, clearSavedData] = useAutoSave(
     autoSaveKey,
     getInitialFormData(),
-    true // ✅ SEMPRE carregar do auto-save, independente do modo
+    true // ✅ SEMPRE carregar do auto-save
   );
+
+  // ✅ CORREÇÃO: Verificar se há dados no auto-save
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(autoSaveKey);
+      setHasAutoSaveData(!!saved);
+    }
+  }, [autoSaveKey]);
 
   // Process rawFormData to get Date objects for component use
   const formData = useMemo(() => {
@@ -91,25 +103,7 @@ const FinanceiroForm = ({ type }) => {
     return processed;
   }, [rawFormData]);
 
-  // Update rawFormData (which triggers auto-save)
-  const handleUpdateRawFormData = useCallback((updates) => {
-    setRawFormData(prev => {
-      const newRaw = { ...prev };
-      for (const key in updates) {
-        if (updates.hasOwnProperty(key)) {
-          let value = updates[key];
-          if (value instanceof Date) {
-            newRaw[key] = value.toISOString();
-          } else {
-            newRaw[key] = value;
-          }
-        }
-      }
-      return newRaw;
-    });
-  }, [setRawFormData]);
-
-  const [loading, setLoading] = useState(true); // Keep local loading state for initial fetches
+  const [loading, setLoading] = useState(isEditing);
   const [saving, setSaving] = useState(false);
   const [existingInstallments, setExistingInstallments] = useState([]);
   const [downPaymentError, setDownPaymentError] = useState('');
@@ -137,10 +131,10 @@ const FinanceiroForm = ({ type }) => {
       setCostCenters(data.map(cc => ({ value: cc.nome, label: cc.nome })));
       // Set default cost center if not already set and data exists
       if (!formData.cost_center && data.length > 0) {
-        handleUpdateRawFormData({ cost_center: data[0].nome });
+        setRawFormData(prev => ({ ...prev, cost_center: data[0].nome }));
       }
     }
-  }, [toast, formData.cost_center, handleUpdateRawFormData]);
+  }, [toast, formData.cost_center, setRawFormData]);
 
   useEffect(() => {
     fetchCostCenters();
@@ -154,11 +148,13 @@ const FinanceiroForm = ({ type }) => {
     }
   }, [parsedDownPayment, parsedTotalValue]);
 
+  // ✅ CORREÇÃO: Fetch dos dados com lógica de merge
   const fetchEntry = useCallback(async () => {
     if (!isEditing) {
       setLoading(false);
       return;
     }
+
     setLoading(true);
     try {
       const { data: entryData, error: entryError } = await supabase
@@ -177,38 +173,91 @@ const FinanceiroForm = ({ type }) => {
 
       if (clientError) console.error('Erro ao buscar dados do cliente/fornecedor:', clientError);
 
-      handleUpdateRawFormData({
-        document_number: entryData.document_number || '',
-        issue_date: entryData.issue_date,
-        model: entryData.model || 'Recibo',
-        pessoa_id: entryData.pessoa_id,
-        cliente_fornecedor_name: clientData?.nome || entryData.cliente_fornecedor_name || '',
-        cliente_fornecedor_fantasy_name: clientData?.nome_fantasia || entryData.cliente_fornecedor_fantasy_name || '',
-        cnpj_cpf: clientData?.cnpj_cpf || entryData.cnpj_cpf || '',
-        description: entryData.description || '',
-        total_value: String(entryData.total_value || '0').replace('.', ','),
-        payment_method: entryData.payment_method || 'pix',
-        cost_center: entryData.cost_center || 'ADMINISTRAÇÃO',
-        notes: entryData.notes || '',
-        // Para edição de um único lançamento, não precisamos de down_payment ou installments_number
-        down_payment: '0,00',
-        installments_number: 0,
-        installments: [],
-        single_due_date: entryData.issue_date, // A data de vencimento é a própria data de emissão para um único lançamento
+      // ✅ CORREÇÃO: Merge inteligente entre auto-save e dados do banco
+      setRawFormData(prevFormData => {
+        const entryDataWithClient = {
+          document_number: entryData.document_number || '',
+          issue_date: entryData.issue_date,
+          model: entryData.model || 'Recibo',
+          pessoa_id: entryData.pessoa_id,
+          cliente_fornecedor_name: clientData?.nome || entryData.cliente_fornecedor_name || '',
+          cliente_fornecedor_fantasy_name: clientData?.nome_fantasia || entryData.cliente_fornecedor_fantasy_name || '',
+          cnpj_cpf: clientData?.cnpj_cpf || entryData.cnpj_cpf || '',
+          description: entryData.description || '',
+          total_value: String(entryData.total_value || '0').replace('.', ','),
+          payment_method: entryData.payment_method || 'pix',
+          cost_center: entryData.cost_center || 'ADMINISTRAÇÃO',
+          notes: entryData.notes || '',
+          down_payment: '0,00',
+          installments_number: 0,
+          installments: [],
+          single_due_date: entryData.issue_date,
+        };
+
+        // Se não há dados no auto-save ou estão vazios, usa os dados do banco
+        const isAutoSaveEmpty = Object.values(prevFormData).every(value => 
+          value === '' || value === null || value === undefined || 
+          (typeof value === 'string' && value.trim() === '') ||
+          (Array.isArray(value) && value.length === 0)
+        );
+        
+        if (isAutoSaveEmpty || !hasAutoSaveData) {
+          console.log('Usando dados do banco (auto-save vazio)');
+          return entryDataWithClient;
+        } else {
+          // Se há dados no auto-save, faz merge mantendo alterações do usuário
+          console.log('Fazendo merge entre auto-save e dados do banco');
+          return {
+            ...entryDataWithClient, // Dados base do banco
+            ...prevFormData // Preserva alterações do auto-save (tem prioridade)
+          };
+        }
       });
-      // Limpar dados de auto-save ao carregar para edição
-      clearSavedData();
     } catch (error) {
       toast({ title: 'Erro ao carregar lançamento', description: error.message, variant: 'destructive' });
       navigate(`/app/financeiro/${type}`);
     } finally {
       setLoading(false);
+      hasFetchedInitialData.current = true;
     }
-  }, [id, isEditing, navigate, toast, type, handleUpdateRawFormData, clearSavedData]);
+  }, [id, isEditing, navigate, toast, type, setRawFormData, hasAutoSaveData]);
 
+  // ✅ CORREÇÃO: Buscar dados do banco apenas se estiver editando
   useEffect(() => {
-    fetchEntry();
-  }, [fetchEntry]);
+    if (isEditing) {
+      // Pequeno delay para garantir que o auto-save carregou primeiro
+      const timer = setTimeout(() => {
+        fetchEntry();
+      }, 100);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isEditing, fetchEntry]);
+
+  // ✅ CORREÇÃO: Resetar flag quando o ID mudar
+  useEffect(() => {
+    if (id) {
+      hasFetchedInitialData.current = false;
+    }
+  }, [id]);
+
+  // ✅ CORREÇÃO: Função para atualizar o estado de forma consistente
+  const handleUpdateRawFormData = useCallback((updates) => {
+    setRawFormData(prev => {
+      const newRaw = { ...prev };
+      for (const key in updates) {
+        if (updates.hasOwnProperty(key)) {
+          let value = updates[key];
+          if (value instanceof Date) {
+            newRaw[key] = value.toISOString();
+          } else {
+            newRaw[key] = value;
+          }
+        }
+      }
+      return newRaw;
+    });
+  }, [setRawFormData]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -302,9 +351,6 @@ const FinanceiroForm = ({ type }) => {
       user_id: user.id,
       issue_date: format(formData.issue_date, 'yyyy-MM-dd'),
       total_value: parsedTotalValue,
-      // Ao editar um lançamento individual, o valor pago e o saldo são recalculados pelo trigger
-      // ou gerenciados via PaymentDialog. Não os definimos diretamente aqui.
-      // O status também será atualizado pelo trigger get_pagamento_status
     };
 
     let result;
@@ -338,7 +384,7 @@ const FinanceiroForm = ({ type }) => {
           };
           totalInstallmentsCount = 1;
           
-          if (showInstallmentsGeneration) { // Use showInstallmentsGeneration here
+          if (showInstallmentsGeneration) {
               installmentsPayload = formData.installments.map(inst => ({
                    amount: inst.expected_amount,
                   date: format(inst.issue_date, 'yyyy-MM-dd'),
@@ -377,7 +423,11 @@ const FinanceiroForm = ({ type }) => {
     } else {
       toast({ title: `${title} ${isEditing ? 'atualizado' : 'cadastrado'} com sucesso!`, description: `${formData.description} foi salvo.` });
       await logAction(`${isEditing ? 'update' : 'create'}_${type}_success`, { lancamento_id: result.data?.lancamento_id || id, entry_description: formData.description });
-      clearSavedData(); // Clear auto-saved data on successful submission
+      
+      // ✅ CORREÇÃO: Limpar auto-save apenas após salvar com sucesso
+      clearSavedData();
+      hasFetchedInitialData.current = false;
+      
       navigate(`/app/financeiro/${type}`);
     }
     setSaving(false);
@@ -408,6 +458,9 @@ const FinanceiroForm = ({ type }) => {
             <CardTitle className="text-2xl md:text-3xl font-bold flex items-center gap-3 text-emerald-300">
               <DollarSign className="w-8 h-8" />
               {isEditing ? `Editar ${title}` : `Novo ${title}`}
+              {hasAutoSaveData && (
+                <span className="text-sm text-yellow-400 ml-2">(Alterações não salvas)</span>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -433,14 +486,14 @@ const FinanceiroForm = ({ type }) => {
                 isEditing={isEditing}
               />
 
-              {!isEditing && ( // Oculta a seção de parcelas em modo de edição
+              {!isEditing && (
                 <InstallmentDetails
                   formData={formData}
                   handleInputChange={handleInputChange}
                   downPaymentInputRef={downPaymentInputRef}
                   downPaymentError={downPaymentError}
-                  singleDueDate={formData.single_due_date} // Use formData.single_due_date
-                  setSingleDueDate={(date) => handleUpdateRawFormData({ single_due_date: date })} // Update via handleUpdateRawFormData
+                  singleDueDate={formData.single_due_date}
+                  setSingleDueDate={(date) => handleUpdateRawFormData({ single_due_date: date })}
                   parsedTotalValue={parsedTotalValue}
                   parsedDownPayment={parsedDownPayment}
                   showInstallments={showInstallmentsGeneration}
@@ -450,11 +503,39 @@ const FinanceiroForm = ({ type }) => {
                 />
               )}
 
-              <FinanceiroFormActions 
-                onBackPath={onBackPath} 
-                isSaving={saving} 
-                isEditing={isEditing} 
-              />
+              <div className="flex justify-between items-center pt-6">
+                <Button 
+                  type="button" 
+                  onClick={() => navigate(onBackPath)} 
+                  variant="outline" 
+                  className="rounded-xl"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Voltar
+                </Button>
+                
+                <div className="flex gap-2">
+                  {hasAutoSaveData && (
+                    <Button 
+                      type="button"
+                      onClick={clearSavedData}
+                      variant="outline"
+                      className="rounded-xl text-yellow-400 border-yellow-400"
+                    >
+                      Descartar Alterações
+                    </Button>
+                  )}
+                  
+                  <Button 
+                    type="submit" 
+                    disabled={saving} 
+                    className="bg-emerald-600 hover:bg-emerald-700 rounded-xl"
+                  >
+                    {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                    {saving ? 'Salvando...' : isEditing ? 'Atualizar' : 'Cadastrar'}
+                  </Button>
+                </div>
+              </div>
             </form>
           </CardContent>
         </Card>

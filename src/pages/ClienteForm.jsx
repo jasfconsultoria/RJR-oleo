@@ -28,7 +28,6 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
   const telefoneInputRef = useRef(null);
 
   const hasFetchedInitialData = useRef(false);
-  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
 
   const getLabels = (type) => {
     switch (type) {
@@ -56,16 +55,13 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
     referencia: '',
   });
 
-  // ✅ CORREÇÃO: Estratégia revisada de auto-save
+  // ✅ CORREÇÃO: Estratégia simplificada - SEMPRE carregar do auto-save primeiro
   const autoSaveKey = id ? `clienteForm_edit_${id}` : `clienteForm_new_${personType}`;
-  
-  // ✅ CORREÇÃO: Para edição, NÃO carregar do auto-save inicialmente
-  const shouldLoadFromAutoSave = !isEditing;
   
   const [formData, setFormData, clearSavedData] = useAutoSave(
     autoSaveKey,
     getEmptyFormData(),
-    shouldLoadFromAutoSave
+    true // ✅ SEMPRE carregar do auto-save
   );
 
   const [loading, setLoading] = useState(isEditing);
@@ -73,18 +69,24 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
   const [isCnpjCpfChecking, setIsCnpjCpfChecking] = useState(false);
   const [cnpjCpfError, setCnpjCpfError] = useState('');
   const [telefoneError, setTelefoneError] = useState('');
+  const [hasAutoSaveData, setHasAutoSaveData] = useState(false);
 
   const municipiosOptions = useMemo(() => {
     if (!formData.estado) return [];
     return getMunicipios(formData.estado).map(m => ({ value: m, label: m })).sort((a, b) => a.label.localeCompare(b.label));
   }, [formData.estado]);
 
-  // ✅ CORREÇÃO: Fetch dos dados do banco com lógica correta
-  const fetchClientData = useCallback(async () => {
-    if (hasFetchedInitialData.current || !isEditing) {
-      setInitialLoadComplete(true);
-      return;
+  // ✅ CORREÇÃO: Verificar se há dados no auto-save
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(autoSaveKey);
+      setHasAutoSaveData(!!saved);
     }
+  }, [autoSaveKey]);
+
+  // ✅ CORREÇÃO: Fetch dos dados do banco com lógica de merge
+  const fetchClientData = useCallback(async () => {
+    if (hasFetchedInitialData.current || !isEditing) return;
 
     setLoading(true);
     
@@ -102,14 +104,25 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
           variant: 'destructive' 
         });
       } else if (data) {
-        // ✅ CORREÇÃO: Carrega dados do banco diretamente
-        console.log('Dados carregados do banco:', data);
-        setFormData(data);
-        
-        // Limpa qualquer auto-save anterior para este registro
-        setTimeout(() => {
-          clearSavedData();
-        }, 500);
+        // ✅ CORREÇÃO: Merge inteligente entre auto-save e dados do banco
+        setFormData(prevFormData => {
+          // Se não há dados no auto-save ou estão vazios, usa os dados do banco
+          const isAutoSaveEmpty = Object.values(prevFormData).every(value => 
+            value === '' || value === null || value === undefined
+          );
+          
+          if (isAutoSaveEmpty || !hasAutoSaveData) {
+            console.log('Usando dados do banco (auto-save vazio)');
+            return data;
+          } else {
+            // Se há dados no auto-save, faz merge mantendo alterações do usuário
+            console.log('Fazendo merge entre auto-save e dados do banco');
+            return {
+              ...data,        // Dados base do banco
+              ...prevFormData // Preserva alterações do auto-save (tem prioridade)
+            };
+          }
+        });
       }
     } catch (error) {
       console.error("Error fetching client data:", error);
@@ -121,24 +134,25 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
     } finally {
       setLoading(false);
       hasFetchedInitialData.current = true;
-      setInitialLoadComplete(true);
     }
-  }, [id, isEditing, toast, setFormData, clearSavedData]);
+  }, [id, isEditing, toast, setFormData, hasAutoSaveData]);
 
   // ✅ CORREÇÃO: Buscar dados do banco apenas se estiver editando
   useEffect(() => {
-    if (isEditing && !hasFetchedInitialData.current) {
-      fetchClientData();
-    } else if (!isEditing) {
-      setInitialLoadComplete(true);
+    if (isEditing) {
+      // Pequeno delay para garantir que o auto-save carregou primeiro
+      const timer = setTimeout(() => {
+        fetchClientData();
+      }, 100);
+      
+      return () => clearTimeout(timer);
     }
   }, [isEditing, fetchClientData]);
 
-  // ✅ CORREÇÃO: Resetar flags quando o ID mudar
+  // ✅ CORREÇÃO: Resetar flag quando o ID mudar
   useEffect(() => {
     if (id) {
       hasFetchedInitialData.current = false;
-      setInitialLoadComplete(false);
     }
   }, [id]);
 
@@ -330,9 +344,9 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
         description: `${formData.nome} foi salvo.` 
       });
       
+      // ✅ CORREÇÃO: Limpar auto-save apenas após salvar com sucesso
       clearSavedData();
       hasFetchedInitialData.current = false;
-      setInitialLoadComplete(false);
       
       if (onSaveSuccess) {
         onSaveSuccess(data);
@@ -350,22 +364,11 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
     setSaving(false);
   };
 
-  // ✅ CORREÇÃO: Mostrar loading apenas durante o fetch inicial
   if (loading) {
     return (
       <div className="flex justify-center items-center h-full">
         <Loader2 className="w-8 h-8 animate-spin text-emerald-400" />
         <span className="ml-2">Carregando dados...</span>
-      </div>
-    );
-  }
-
-  // ✅ CORREÇÃO: Só renderizar o formulário após o carregamento inicial completo
-  if (!initialLoadComplete) {
-    return (
-      <div className="flex justify-center items-center h-full">
-        <Loader2 className="w-8 h-8 animate-spin text-emerald-400" />
-        <span className="ml-2">Preparando formulário...</span>
       </div>
     );
   }
@@ -386,8 +389,8 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
             <CardTitle className="text-xl font-bold flex items-center gap-2 text-emerald-300">
               <UserPlus className="w-5 h-5" />
               {pageTitle}
-              {!isEditing && (
-                <span className="text-xs text-yellow-400 ml-2">(Rascunho automático)</span>
+              {hasAutoSaveData && (
+                <span className="text-xs text-yellow-400 ml-2">(Alterações não salvas)</span>
               )}
             </CardTitle>
           </CardHeader>
@@ -415,7 +418,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
                     className={`w-full flex h-8 rounded-xl border ${cnpjCpfError ? 'border-red-500' : 'border-white/20'} bg-white/5 px-3 py-2 text-xs ring-offset-background file:border-0 file:bg-transparent file:text-xs file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50`}
                     required
                   />
-                  {cnpjCpfError && <p className="text-red-500 text-xs mt-1">{cnpjCnpjCpfError}</p>}
+                  {cnpjCpfError && <p className="text-red-500 text-xs mt-1">{cnpjCpfError}</p>}
                 </div>
                 
                 <div>
@@ -538,14 +541,27 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
                   Voltar
                 </Button>
                 
-                <Button 
-                  type="submit" 
-                  disabled={saving || isCnpjCpfChecking} 
-                  className="bg-emerald-600 hover:bg-emerald-700 rounded-xl h-8 px-2 text-xs"
-                >
-                  {saving ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Save className="w-3 h-3 mr-1" />}
-                  {saving ? 'Salvando...' : 'Salvar'}
-                </Button>
+                <div className="flex gap-2">
+                  {hasAutoSaveData && (
+                    <Button 
+                      type="button"
+                      onClick={clearSavedData}
+                      variant="outline"
+                      className="rounded-xl h-8 px-2 text-xs text-yellow-400 border-yellow-400"
+                    >
+                      Descartar Alterações
+                    </Button>
+                  )}
+                  
+                  <Button 
+                    type="submit" 
+                    disabled={saving || isCnpjCpfChecking} 
+                    className="bg-emerald-600 hover:bg-emerald-700 rounded-xl h-8 px-2 text-xs"
+                  >
+                    {saving ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Save className="w-3 h-3 mr-1" />}
+                    {saving ? 'Salvando...' : 'Salvar'}
+                  </Button>
+                </div>
               </div>
             </form>
           </CardContent>
