@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Helmet } from 'react-helmet';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
@@ -13,59 +13,20 @@ import { IMaskInput } from 'react-imask';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { estados, getMunicipios } from '@/lib/location';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
-import { logAction } from '@/lib/logger';
 import { validateCnpjCpf as validateCnpjCpfFormat } from '@/lib/validators';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { unmask } from '@/lib/utils';
 
-// Hook customizado para sessionStorage
-const useSessionAutoSave = (key, initialValue) => {
-  const [value, setValue] = useState(() => {
-    if (typeof window === 'undefined') return initialValue;
-    
-    try {
-      const item = sessionStorage.getItem(key);
-      return item ? JSON.parse(item) : initialValue;
-    } catch (error) {
-      console.warn(`Error reading sessionStorage key "${key}":`, error);
-      return initialValue;
-    }
-  });
-
-  const setStoredValue = useCallback((newValue) => {
-    setValue(newValue);
-    if (typeof window !== 'undefined') {
-      try {
-        sessionStorage.setItem(key, JSON.stringify(newValue));
-      } catch (error) {
-        console.warn(`Error setting sessionStorage key "${key}":`, error);
-      }
-    }
-  }, [key]);
-
-  const clearStoredValue = useCallback(() => {
-    setValue(initialValue);
-    if (typeof window !== 'undefined') {
-      try {
-        sessionStorage.removeItem(key);
-      } catch (error) {
-        console.warn(`Error clearing sessionStorage key "${key}":`, error);
-      }
-    }
-  }, [key, initialValue]);
-
-  return [value, setStoredValue, clearStoredValue];
-};
-
 const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', onCancel }) => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
   const { user } = useAuth();
   const isEditing = Boolean(id) && !isModal;
   const cnpjCpfInputRef = useRef(null);
   const telefoneInputRef = useRef(null);
-  
+
   const hasFetchedInitialData = useRef(false);
 
   const getLabels = (type) => {
@@ -82,9 +43,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
   const { title: titleLabel, article, pageVerb } = getLabels(personType);
   const pageTitle = isEditing ? `Editar ${titleLabel}` : `${pageVerb} ${titleLabel}`;
 
-  const sessionKey = `clienteForm_${personType}_${id || 'new'}`;
-
-  const getEmptyFormData = useCallback(() => ({
+  const getEmptyFormData = () => ({
     nome: '',
     nome_fantasia: '',
     cnpj_cpf: '',
@@ -94,29 +53,50 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
     municipio: '',
     endereco: '',
     referencia: '',
-  }), []);
+  });
 
-  const [formData, setFormData, clearSessionData] = useSessionAutoSave(
-    sessionKey, 
-    getEmptyFormData()
-  );
+  // Função para salvar dados na URL
+  const saveToURL = useCallback((data) => {
+    const params = new URLSearchParams();
+    Object.entries(data).forEach(([key, value]) => {
+      if (value) params.set(key, value);
+    });
+    setSearchParams(params, { replace: true });
+  }, [setSearchParams]);
+
+  // Função para carregar dados da URL
+  const loadFromURL = useCallback(() => {
+    const data = getEmptyFormData();
+    Object.keys(data).forEach(key => {
+      const value = searchParams.get(key);
+      if (value) data[key] = value;
+    });
+    return data;
+  }, [searchParams]);
+
+  // Estado inicial - carrega da URL ou usa vazio
+  const [formData, setFormData] = useState(() => loadFromURL());
+
+  // Atualiza a URL sempre que os dados mudam
+  useEffect(() => {
+    saveToURL(formData);
+  }, [formData, saveToURL]);
 
   const [loading, setLoading] = useState(isEditing);
   const [saving, setSaving] = useState(false);
   const [isCnpjCpfChecking, setIsCnpjCpfChecking] = useState(false);
   const [cnpjCpfError, setCnpjCpfError] = useState('');
   const [telefoneError, setTelefoneError] = useState('');
-  
+
   const municipiosOptions = useMemo(() => {
     if (!formData.estado) return [];
     return getMunicipios(formData.estado).map(m => ({ value: m, label: m })).sort((a, b) => a.label.localeCompare(b.label));
   }, [formData.estado]);
 
-  // Função para buscar dados do cliente - CORRIGIDA
+  // Função para buscar dados do cliente
   const fetchClientData = useCallback(async () => {
     if (hasFetchedInitialData.current || !isEditing) return;
 
-    console.log('Buscando dados do cliente ID:', id);
     setLoading(true);
     
     try {
@@ -127,16 +107,17 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
         .single();
 
       if (error) {
-        console.error('Erro ao buscar dados:', error);
         toast({ 
           title: 'Erro ao buscar dados', 
           description: error.message, 
           variant: 'destructive' 
         });
       } else if (data) {
-        console.log('Dados encontrados:', data);
-        // SEMPRE preenche com dados do banco quando está editando
-        setFormData(data);
+        // Só preenche se não houver dados na URL
+        const hasURLData = Array.from(searchParams.keys()).length > 0;
+        if (!hasURLData) {
+          setFormData(data);
+        }
       }
     } catch (error) {
       console.error("Error fetching client data:", error);
@@ -149,26 +130,14 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
       setLoading(false);
       hasFetchedInitialData.current = true;
     }
-  }, [id, isEditing, toast, setFormData]);
+  }, [id, isEditing, toast, searchParams]);
 
-  // useEffect CORRIGIDO - busca dados imediatamente ao carregar
+  // Busca dados apenas uma vez
   useEffect(() => {
     if (isEditing) {
-      console.log('Iniciando busca de dados para edição');
       fetchClientData();
     }
-  }, [isEditing]); // Removida a dependência fetchClientData
-
-  // Auto-save em tempo real
-  useEffect(() => {
-    if (typeof window !== 'undefined' && !loading) {
-      try {
-        sessionStorage.setItem(sessionKey, JSON.stringify(formData));
-      } catch (error) {
-        console.warn('Error auto-saving form data:', error);
-      }
-    }
-  }, [formData, sessionKey, loading]);
+  }, [isEditing]);
 
   const validateAndCheckCnpjCpf = useCallback(async (value) => {
     const unmaskedValue = unmask(value);
@@ -258,23 +227,24 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
     }
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
-
-  // Função VOLTAR CORRIGIDA - precisa ser absoluta
-  const handleBack = () => {
-    if (isModal) {
-      onCancel();
+// ✅ CORREÇÃO DAS ROTAS - VOLTA PARA A LISTA CORRETA
+const handleBack = () => {
+  // Limpa a URL ao voltar
+  setSearchParams({}, { replace: true });
+  
+  if (isModal) {
+    onCancel();
+  } else {
+    // ✅ NAVEGAÇÃO CORRIGIDA - VOLTA PARA A LISTA ESPECÍFICA
+    if (personType === 'fornecedor') {
+      navigate('/app/cadastro/fornecedores');
+    } else if (personType === 'cliente') {
+      navigate('/app/cadastro/clientes');
     } else {
-      // CORREÇÃO: Navegação absoluta para a lista correta
-      if (personType === 'fornecedor') {
-        navigate('/app/cadastro/fornecedores');
-      } else if (personType === 'cliente') {
-        navigate('/app/cadastro/clientes');
-      } else {
-        navigate('/app/cadastro');
-      }
+      navigate('/app/cadastro');
     }
-  };
-
+  }
+};
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
@@ -360,7 +330,8 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
         description: `${formData.nome} foi salvo.` 
       });
       
-      clearSessionData();
+      // Limpa a URL após salvar
+      setSearchParams({}, { replace: true });
       hasFetchedInitialData.current = false;
       
       if (onSaveSuccess) {
@@ -376,6 +347,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
         }
       }
     }
+
 
     setSaving(false);
   };
@@ -411,7 +383,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
             <form onSubmit={handleSubmit} className="space-y-3">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <Label htmlFor="cnpj_cpf" className="text-xs flex items-center gap-1">
+                  <Label htmlFor="cnpj_cpf" className="text-xs flex items-center gap-1"> {/* Keep flex for loader */}
                     CNPJ/CPF <span className="text-red-500">*</span>
                     {isCnpjCpfChecking && <Loader2 className="w-3 h-3 animate-spin" />}
                   </Label>
@@ -435,7 +407,9 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
                 </div>
                 
                 <div>
-                  <Label htmlFor="telefone" className="text-xs">Telefone <span className="text-red-500">*</span></Label>
+                  <Label htmlFor="telefone" className="text-xs flex items-center gap-1"> {/* Added flex for consistency */}
+                    Telefone <span className="text-red-500">*</span>
+                  </Label>
                   <IMaskInput
                     mask={[{ mask: '(00) 0000-0000' }, { mask: '(00) 00000-0000' }]}
                     as={Input}
@@ -493,7 +467,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
                 <div>
                   <Label htmlFor="estado" className="text-xs">Estado <span className="text-red-500">*</span></Label>
                   <Select onValueChange={handleStateChange} value={formData.estado} required>
-                    <SelectTrigger className="bg-white/5 border-white/20 rounded-xl h-8 text-xs">
+                    <SelectTrigger className="bg-white/5 border-white/20 rounded-xl h-8 text-xs px-3 py-2"> {/* Added px-3 py-2 */}
                       <SelectValue placeholder="Selecione o Estado" />
                     </SelectTrigger>
                     <SelectContent className="bg-gray-800 text-white border-gray-700 rounded-xl text-xs">
@@ -512,7 +486,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
                     onChange={handleMunicipioChange}
                     placeholder="Selecione o Município"
                     disabled={!formData.estado}
-                    inputClassName="h-8 text-xs"
+                    inputClassName="h-8 text-xs px-3 py-2" {/* Added px-3 py-2 */}
                     contentClassName="text-xs"
                   />
                 </div>
