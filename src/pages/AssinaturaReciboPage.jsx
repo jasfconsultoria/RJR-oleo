@@ -26,30 +26,6 @@ const AssinaturaReciboPage = () => {
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [debitEntryForPayment, setDebitEntryForPayment] = useState(null);
 
-  // NEW: State to store essential product IDs
-  // REMOVED: Product ID states are no longer needed on the client as logic is in trigger
-  // const [frituraProductId, setFrituraProductId] = useState(null);
-  // const [sojaNovoProductId, setSojaNovoProductId] = useState(null);
-
-  // REMOVED: Fetch product IDs logic is no longer needed on the client
-  // useEffect(() => {
-  //   const fetchProductIds = async () => {
-  //     try {
-  //       const { data: frituraId, error: frituraError } = await supabase.rpc('get_product_id_by_name_and_type', { p_product_name: 'Óleo de fritura', p_product_type: 'coletado' });
-  //       if (frituraError) throw frituraError;
-  //       setFrituraProductId(frituraId);
-
-  //       const { data: sojaNovoId, error: sojaNovoError } = await supabase.rpc('get_product_id_by_name_and_type', { p_product_name: 'Óleo de soja novo (900ml)', p_product_type: 'novo' });
-  //       if (sojaNovoError) throw sojaNovoError;
-  //       setSojaNovoProductId(sojaNovoId);
-  //     } catch (err) {
-  //       console.error('Erro ao buscar IDs de produtos essenciais:', err);
-  //       toast({ title: 'Erro', description: 'Não foi possível carregar IDs de produtos essenciais para o estoque.', variant: 'destructive' });
-  //     }
-  //   };
-  //   fetchProductIds();
-  // }, [toast]);
-
   const fetchReciboData = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -88,164 +64,6 @@ const AssinaturaReciboPage = () => {
     window.close();
   };
 
-  // REMOVED: syncEstoqueWithColeta function is no longer needed on the client
-  // const syncEstoqueWithColeta = useCallback(async (coletaId, coletaData) => {
-  //   try {
-  //     console.log('Sincronizando estoque para coleta:', coletaId, coletaData);
-
-  //     if (!frituraProductId) {
-  //       throw new Error('ID do produto "Óleo de fritura" não disponível.');
-  //     }
-
-  //     // 1. Fetch Existing Stock Movements
-  //     const { data: existingMovementsRaw, error: fetchExistingError } = await supabase
-  //         .from('entrada_saida')
-  //         .select(`
-  //             id,
-  //             tipo,
-  //             coleta_id,
-  //             document_number,
-  //             observacao,
-  //             data,
-  //             user_id,
-  //             itens_entrada_saida(
-  //                 id,
-  //                 produto_id,
-  //                 quantidade
-  //             )
-  //         `)
-  //         .eq('coleta_id', coletaId);
-
-  //     if (fetchExistingError) throw new Error(`Erro ao buscar movimentações de estoque existentes: ${fetchExistingError.message}`);
-
-  //     const existingMovements = existingMovementsRaw || [];
-  //     const processedExistingMovementIds = new Set(); // To track which existing movements are updated/kept
-
-  //     // 2. Determine Desired Stock Movements
-  //     const desiredMovements = [];
-  //     const quantidadeColetada = parseFloat(coletaData.quantidade_coletada) || 0;
-  //     const quantidadeEntregue = parseFloat(coletaData.quantidade_entregue) || 0;
-
-  //     // Movement for collected oil (always an 'entrada')
-  //     if (quantidadeColetada > 0 && frituraProductId) {
-  //         desiredMovements.push({
-  //             type: 'entrada',
-  //             product_id: frituraProductId,
-  //             quantity: quantidadeColetada,
-  //             document_number: coletaData.numero_coleta?.toString().padStart(6, '0'),
-  //             observacao: `Entrada de óleo de fritura referente à coleta Nº ${coletaData.numero_coleta?.toString().padStart(6, '0')}.`,
-  //             user_id: coletaData.user_id,
-  //             data: coletaData.data_coleta, // This is already ISO string from ColetaForm
-  //         });
-  //     }
-
-  //     // Movement for new oil delivered (only for 'Troca' and if quantity > 0)
-  //     if (coletaData.tipo_coleta === 'Troca' && quantidadeEntregue > 0 && sojaNovoProductId) {
-  //         desiredMovements.push({
-  //             type: 'saida',
-  //             product_id: sojaNovoProductId,
-  //             quantity: quantidadeEntregue,
-  //             document_number: coletaData.numero_coleta?.toString().padStart(6, '0'),
-  //             observacao: `Saída de óleo de soja novo referente à coleta Nº ${coletaData.numero_coleta?.toString().padStart(6, '0')} (Troca).`,
-  //             user_id: coletaData.user_id,
-  //             data: coletaData.data_coleta, // This is already ISO string from ColetaForm
-  //         });
-  //     }
-
-  //     // 3. Reconcile (Upsert/Update)
-  //     for (const desiredMov of desiredMovements) {
-  //         let foundExisting = false;
-  //         for (const existingMov of existingMovements) {
-  //             const existingItem = existingMov.itens_entrada_saida?.[0]; // Assuming one item per entrada_saida for coletas
-  //             if (existingMov.tipo === desiredMov.type && existingItem?.produto_id === desiredMov.product_id) {
-  //                 // Update existing movement
-  //                 const { error: updateMovError } = await supabase
-  //                     .from('entrada_saida')
-  //                     .update({
-  //                         data: desiredMov.data,
-  //                         document_number: desiredMov.document_number,
-  //                         observacao: desiredMov.observacao,
-  //                         user_id: desiredMov.user_id,
-  //                         updated_at: new Date().toISOString(),
-  //                     })
-  //                     .eq('id', existingMov.id);
-  //                 if (updateMovError) throw new Error(`Erro ao atualizar movimentação de estoque (header): ${updateMovError.message}`);
-
-  //                 const { error: updateItemError } = await supabase
-  //                     .from('itens_entrada_saida')
-  //                     .update({
-  //                         quantidade: desiredMov.quantity,
-  //                         updated_at: new Date().toISOString(),
-  //                     })
-  //                     .eq('id', existingItem.id);
-  //                 if (updateItemError) throw new Error(`Erro ao atualizar item de movimentação de estoque: ${updateItemError.message}`);
-
-  //                 processedExistingMovementIds.add(existingMov.id);
-  //                 foundExisting = true;
-  //                 break; // Move to the next desired movement
-  //             }
-  //         }
-
-  //         if (!foundExisting) {
-  //             // Create new movement
-  //             const { data: newMovHeader, error: insertMovError } = await supabase
-  //                 .from('entrada_saida')
-  //                 .insert({
-  //                     coleta_id: coletaId,
-  //                     tipo: desiredMov.type,
-  //                     origem: 'coleta', // Always 'coleta' for these movements
-  //                     document_number: desiredMov.document_number,
-  //                     observacao: desiredMov.observacao,
-  //                     user_id: desiredMov.user_id,
-  //                     data: desiredMov.data,
-  //                     created_at: new Date().toISOString(),
-  //                     updated_at: new Date().toISOString(),
-  //                 })
-  //                 .select('id')
-  //                 .single();
-  //             if (insertMovError) throw new Error(`Erro ao criar nova movimentação de estoque (header): ${insertMovError.message}`);
-
-  //             const { error: insertItemError } = await supabase
-  //                 .from('itens_entrada_saida')
-  //                 .insert({
-  //                     entrada_saida_id: newMovHeader.id,
-  //                     produto_id: desiredMov.product_id,
-  //                     quantidade: desiredMov.quantity,
-  //                     created_at: new Date().toISOString(),
-  //                     updated_at: new Date().toISOString(),
-  //                 });
-  //             if (insertItemError) throw new Error(`Erro ao criar novo item de movimentação de estoque: ${insertItemError.message}`);
-  //         }
-  //     }
-
-  //     // 4. Delete Obsolete Movements
-  //     for (const existingMov of existingMovements) {
-  //         if (!processedExistingMovementIds.has(existingMov.id)) {
-  //             // Delete associated items first
-  //             const { error: deleteItemsError } = await supabase
-  //                 .from('itens_entrada_saida')
-  //                 .delete()
-  //                 .eq('entrada_saida_id', existingMov.id);
-  //             if (deleteItemsError) console.error(`Erro ao deletar itens de movimentação obsoletos para ${existingMov.id}:`, deleteItemsError);
-
-  //             // Then delete the header
-  //             const { error: deleteMovError } = await supabase
-  //                 .from('entrada_saida')
-  //                 .delete()
-  //                 .eq('id', existingMov.id);
-  //             if (deleteMovError) console.error(`Erro ao deletar movimentação de estoque obsoleta ${existingMov.id}:`, deleteMovError);
-  //         }
-  //     }
-
-  //     console.log('Sincronização de estoque concluída para coleta:', coletaId);
-  //     return true;
-
-  //   } catch (error) {
-  //     console.error('Erro na sincronização de estoque:', error);
-  //     throw error;
-  //   }
-  // }, [frituraProductId, sojaNovoProductId, toast]);
-
   const handleSubmit = async () => {
     if (sigCanvas.current.isEmpty()) {
       toast({ title: 'Assinatura em branco', description: 'Por favor, assine no campo indicado.', variant: 'destructive' });
@@ -267,10 +85,6 @@ const AssinaturaReciboPage = () => {
       const { data: urlData } = supabase.storage.from('recibos').getPublicUrl(uploadData.path);
       const publicUrl = urlData.publicUrl;
 
-      // REMOVED: Client-side stock sync call. Now handled by Supabase trigger.
-      // await syncEstoqueWithColeta(coleta.id, coleta);
-      // console.log('Estoque sincronizado com sucesso');
-
       // ✅ SEGUNDO: Salvar a assinatura do recibo (o trigger fará o resto)
       const { error: upsertError } = await supabase
         .from('recibos')
@@ -282,6 +96,9 @@ const AssinaturaReciboPage = () => {
       if (upsertError) throw upsertError;
         
       toast({ title: 'Recibo assinado com sucesso!', description: 'Estoque e financeiro sincronizados.' });
+
+      // Add a small delay to ensure trigger completes and data is committed
+      await new Promise(resolve => setTimeout(resolve, 500)); 
 
       // ✅ TERCEIRO: Para coletas do tipo 'Compra', abrir diálogo de pagamento
       if (coleta.tipo_coleta === 'Compra') {
