@@ -545,7 +545,10 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
                   {hasAutoSaveData && (
                     <Button 
                       type="button"
-                      onClick={clearSavedData}
+                      onClick={() => {
+                        clearSavedData();
+                        handleBack();
+                      }}
                       variant="outline"
                       className="rounded-xl h-8 px-2 text-xs text-yellow-400 border-yellow-400"
                     >

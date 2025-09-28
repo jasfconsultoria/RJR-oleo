@@ -317,6 +317,12 @@ const FinanceiroForm = ({ type }) => {
     handleUpdateRawFormData({ cost_center: newCostCenter.nome });
   };
 
+  // ✅ CORREÇÃO: Função para descartar alterações e voltar para a lista
+  const handleDiscardChanges = () => {
+    clearSavedData(); // Limpa os dados do auto-save
+    navigate(onBackPath); // Navega de volta para a lista
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -518,7 +524,7 @@ const FinanceiroForm = ({ type }) => {
                   {hasAutoSaveData && (
                     <Button 
                       type="button"
-                      onClick={clearSavedData}
+                      onClick={handleDiscardChanges} // ✅ CORREÇÃO: Usa a nova função handleDiscardChanges
                       variant="outline"
                       className="rounded-xl text-yellow-400 border-yellow-400"
                     >

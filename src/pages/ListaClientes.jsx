@@ -8,6 +8,7 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableHead, // Importado TableHead
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
@@ -36,7 +37,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useProfile } from '@/contexts/ProfileContext';
-import { formatCnpjCpf, escapePostgrestLikePattern } from '@/lib/utils';
+import { formatCnpjCpf, escapePostgrestLikePattern, cn } from '@/lib/utils'; // Importado cn
 import { logAction } from '@/lib/logger';
 import { Pagination } from '@/components/ui/pagination';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -46,11 +47,11 @@ const CONFIG = {
   PAGE_SIZE_DEFAULT: 25,
   DEBOUNCE_DELAY: 500,
   TABLE_COLUMNS: {
-    nome: { label: 'Razão Social / Nome Fantasia', width: '25%' },
-    cnpj_cpf: { label: 'CNPJ/CPF', width: '18%' },
-    municipio: { label: 'Localização', width: '32%' },
-    contrato: { label: 'Contrato', width: '15%' },
-    acoes: { label: 'Ações', width: '10%' }
+    nome: { label: 'Razão Social / Nome Fantasia', width: 'w-[25%]' }, // Alterado para classe Tailwind
+    cnpj_cpf: { label: 'CNPJ/CPF', width: 'w-[18%]' },
+    municipio: { label: 'Localização', width: 'w-[32%]' },
+    contrato: { label: 'Contrato', width: 'w-[15%]' },
+    acoes: { label: 'Ações', width: 'w-[10%]' }
   }
 };
 
@@ -272,7 +273,7 @@ const useClientesList = (personType, profile) => {
 };
 
 // Componente para o cabeçalho da tabela
-const TableHeaderSortable = ({ columnKey, label, sortConfig, onSort }) => {
+const TableHeaderSortable = ({ columnKey, label, sortConfig, onSort, className }) => { // Adicionado className
   const getSortIcon = () => {
     if (sortConfig.key !== columnKey) return null;
     return sortConfig.direction === 'asc' 
@@ -281,15 +282,14 @@ const TableHeaderSortable = ({ columnKey, label, sortConfig, onSort }) => {
   };
 
   return (
-    <th 
+    <TableHead // Usando TableHead do shadcn/ui
       onClick={() => onSort(columnKey)} 
-      className="cursor-pointer text-white p-2 text-left"
-      style={{ width: CONFIG.TABLE_COLUMNS[columnKey]?.width }}
+      className={cn("cursor-pointer text-emerald-300", className)} // Usando cn para mesclar classes
     >
       <div className="flex items-center">
         {label} {getSortIcon()}
       </div>
-    </th>
+    </TableHead>
   );
 };
 
@@ -329,14 +329,12 @@ const RowActions = ({
   const navigate = useNavigate();
 
   return (
-    <div className="flex justify-start items-center gap-1">
+    <div className="flex justify-end items-center gap-1"> {/* Alinhado à direita para desktop */}
       <Button 
         variant="ghost" 
         size="icon" 
         title="Ver Contratos" 
         onClick={() => navigate(`/app/cadastro/contratos?clienteId=${cliente.id}`)}
-
-//        onClick={() => onViewContracts(cliente.id)}
       >
         <FileText className="h-4 w-4 text-cyan-400" />
       </Button>
@@ -489,31 +487,34 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
             ) : (
               <Table className="responsive-table">
                 <TableHeader>
-                  <TableRow className="hover:bg-white/10 border-b border-white/20 text-xs">
+                  <TableRow className="border-white/20 hover:bg-transparent"> {/* Padronizado */}
                     <TableHeaderSortable
                       columnKey="nome"
                       label="Razão Social / Nome Fantasia"
                       sortConfig={sortConfig}
                       onSort={requestSort}
+                      className={CONFIG.TABLE_COLUMNS.nome.width}
                     />
                     <TableHeaderSortable
                       columnKey="cnpj_cpf"
                       label="CNPJ/CPF"
                       sortConfig={sortConfig}
                       onSort={requestSort}
+                      className={CONFIG.TABLE_COLUMNS.cnpj_cpf.width}
                     />
                     <TableHeaderSortable
                       columnKey="municipio"
                       label="Localização"
                       sortConfig={sortConfig}
                       onSort={requestSort}
+                      className={CONFIG.TABLE_COLUMNS.municipio.width}
                     />
-                    <th className="text-left text-white p-2" style={{ width: '15%' }}>
+                    <TableHead className={cn("text-emerald-300", CONFIG.TABLE_COLUMNS.contrato.width)}> {/* Usando TableHead diretamente */}
                       Contrato
-                    </th>
-                    <th className="text-left text-white p-2" style={{ width: '10%' }}>
+                    </TableHead>
+                    <TableHead className={cn("text-emerald-300 text-right", CONFIG.TABLE_COLUMNS.acoes.width)}> {/* Usando TableHead diretamente, alinhado à direita */}
                       Ações
-                    </th>
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -525,26 +526,26 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
                       >
                         <TableCell 
                           data-label="Razão Social / Nome Fantasia" 
-                          className="font-medium p-2 truncate min-w-0"
+                          className="font-medium min-w-0" // Removido 'truncate'
                         >
                           {cliente.nome_fantasia 
                             ? `${cliente.nome} - ${cliente.nome_fantasia}` 
                             : cliente.nome
                           }
                         </TableCell>
-                        <TableCell data-label="CNPJ/CPF" className="p-2">
+                        <TableCell data-label="CNPJ/CPF">
                           {formatCnpjCpf(cliente.cnpj_cpf)}
                         </TableCell>
-                        <TableCell data-label="Localização" className="p-2">
+                        <TableCell data-label="Localização">
                           {cliente.municipio}, {cliente.estado}
                         </TableCell>
-                        <TableCell data-label="Contrato" className="p-2">
+                        <TableCell data-label="Contrato">
                           <ContractStatus 
                             clienteId={cliente.id} 
                             allContratos={allContratos} 
                           />
                         </TableCell>
-                        <TableCell className="p-2 actions-cell text-left">
+                        <TableCell className="actions-cell text-right"> {/* Alinhado à direita para desktop */}
                           <RowActions
                             cliente={cliente}
                             personType={personType}

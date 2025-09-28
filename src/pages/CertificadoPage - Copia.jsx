@@ -13,7 +13,7 @@ import { ArrowLeft, Loader2, FileText, CheckCircle, User } from 'lucide-react';
 import { logAction } from '@/lib/logger';
 import { formatToISODate, formatCnpjCpf } from '@/lib/utils';
 import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
+import html2canvas from 'html2canvas'; // Corrigido de html22canvas para html2canvas
 import { format, isValid, parseISO, endOfDay } from 'date-fns';
 import CertificadoPDF from '@/components/CertificadoPDF';
 import { Progress } from '@/components/ui/progress';
@@ -52,15 +52,6 @@ const CertificadoPage = () => {
   const isEditMode = !!id;
   const pdfContainerRef = useRef(null);
 
-  // ✅ IMPLEMENTAÇÃO IDÊNTICA AO CLIENTEFORM
-  const autoSaveKey = id ? `certificadoForm_edit_${id}` : `certificadoForm_new`;
-  const [formData, setFormData, clearSavedData] = useAutoSave(
-    autoSaveKey,
-    initialFormState,
-    true // ✅ SEMPRE carregar do auto-save
-  );
-
-  const [hasAutoSaveData, setHasAutoSaveData] = useState(false);
   const [pdfData, setPdfData] = useState(null);
   const [empresa, setEmpresa] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -70,6 +61,12 @@ const CertificadoPage = () => {
   const [filteredClients, setFilteredClients] = useState([]);
   const [showClienteDropdown, setShowClienteDropdown] = useState(false);
   const [isClienteSelected, setIsClienteSelected] = useState(false);
+
+  const [localFormData, setLocalFormData, clearSavedData, savedData] = useAutoSave(
+    'certificado-form-data',
+    initialFormState,
+    !isEditMode 
+  );
 
   const { 
     cliente_id, 
@@ -85,15 +82,7 @@ const CertificadoPage = () => {
     periodoFim, 
     data_emissao, 
     cliente 
-  } = formData;
-
-  // ✅ VERIFICAÇÃO DE AUTO-SAVE IDÊNTICA AO CLIENTEFORM
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem(autoSaveKey);
-      setHasAutoSaveData(!!saved);
-    }
-  }, [autoSaveKey, formData]); // ✅ Adicionei formData como dependência para atualizar quando houver mudanças
+  } = localFormData;
 
   const processDateValue = useCallback((dateValue, defaultValueFn) => {
     if (typeof dateValue === 'string') {
@@ -103,15 +92,24 @@ const CertificadoPage = () => {
     return (dateValue instanceof Date && isValid(dateValue)) ? dateValue : defaultValueFn();
   }, []);
 
-  // Carregar dados iniciais - SIMPLIFICADO
+  // Carregar dados iniciais
   useEffect(() => {
     if (isEditMode) {
-      // No modo edição, limpa o auto-save e busca do banco
       clearSavedData();
-      setHasAutoSaveData(false);
+      setLocalFormData(initialFormState);
+    } else {
+      const currentSavedData = savedData || {};
+      const dataToLoad = {
+        ...initialFormState,
+        ...currentSavedData,
+        periodoInicio: processDateValue(currentSavedData.periodoInicio, getFirstDayOfMonth),
+        periodoFim: processDateValue(currentSavedData.periodoFim, getTodayDate),
+        data_emissao: processDateValue(currentSavedData.data_emissao, () => new Date()),
+      };
+      setLocalFormData(dataToLoad);
+      setIsClienteSelected(!!currentSavedData.cliente_id);
     }
-    // No modo novo, o useAutoSave já carrega automaticamente
-  }, [isEditMode, clearSavedData]);
+  }, [isEditMode, savedData, setLocalFormData, processDateValue, clearSavedData]);
 
   // Buscar todos os clientes com contratos ativos
   useEffect(() => {
@@ -144,14 +142,14 @@ const CertificadoPage = () => {
     fetchAllClients();
   }, [toast]);
 
-  // Filtrar clientes baseado no termo de busca
+  // Filtrar clientes baseado no termo de busca (CORREÇÃO CRÍTICA)
   useEffect(() => {
     if (cliente && cliente.trim()) {
       const searchTerm = cliente.toLowerCase();
       const filtered = allClients.filter(client =>
         client.nome.toLowerCase().includes(searchTerm) ||
         (client.nome_fantasia && client.nome_fantasia.toLowerCase().includes(searchTerm)) ||
-        (client.cnpj_cpf && formatCnpjCpf(client.cnpj_cpf).toLowerCase().includes(searchTerm))
+        (client.cnpj_cpf && formatCnpjCpf(client.cnpj_cpf).toLowerCase().includes(searchTerm)) // Corrigido para usar formatCnpjCpf
       );
       setFilteredClients(filtered);
     } else {
@@ -194,7 +192,7 @@ const CertificadoPage = () => {
         if (clientError) throw clientError;
 
         // Atualizar formulário com dados do cliente
-        setFormData(prev => ({
+        setLocalFormData(prev => ({
           ...prev,
           cliente_id: clientData.id,
           cliente_nome: clientData.nome,
@@ -225,7 +223,7 @@ const CertificadoPage = () => {
     };
 
     fetchInitialData();
-  }, [id, isEditMode, toast, navigate, setFormData, processDateValue]);
+  }, [id, isEditMode, toast, navigate, setLocalFormData, processDateValue]);
 
   // Buscar dados da empresa para novo certificado
   useEffect(() => {
@@ -250,10 +248,10 @@ const CertificadoPage = () => {
   }, [isEditMode]);
 
   const handleInputChange = (name, value) => {
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setLocalFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  // Handler para seleção de cliente
+  // Handler para seleção de cliente (IDÊNTICO AO COLETASTEP1)
   const handleClientSelect = (client) => {
     const newFormData = {
       cliente_id: client.id,
@@ -268,17 +266,9 @@ const CertificadoPage = () => {
       cliente: client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome,
     };
 
-    setFormData(prev => ({ ...prev, ...newFormData }));
+    setLocalFormData(prev => ({ ...prev, ...newFormData }));
     setShowClienteDropdown(false);
     setIsClienteSelected(true);
-  };
-
-  // ✅ FUNÇÃO PARA DESCARTAR ALTERAÇÕES E VOLTAR
-  const handleDiscardChanges = () => {
-    clearSavedData();
-    setFormData(initialFormState);
-    setHasAutoSaveData(false);
-    navigate('/app/certificados'); // ✅ VOLTA PARA A LISTA DE CERTIFICADOS
   };
 
   const handleSubmit = async () => {
@@ -447,7 +437,6 @@ const CertificadoPage = () => {
       } else {
         await logAction('generate_certificate', { certificate_id: certData.id, client_id: cliente_id });
         clearSavedData();
-        setHasAutoSaveData(false);
       }
 
       setProgress(100);
@@ -534,10 +523,6 @@ const CertificadoPage = () => {
               <CardTitle className="text-2xl md:text-3xl font-bold flex items-center gap-3">
                 <FileText className="w-8 h-8 text-emerald-400" />
                 {isEditMode ? 'Editar' : 'Emissão de'} Certificado
-                {/* ✅ INDICADOR DE ALTERAÇÕES NÃO SALVAS */}
-                {hasAutoSaveData && (
-                  <span className="text-sm text-yellow-400 ml-2">(Alterações não salvas)</span>
-                )}
               </CardTitle>
               <CardDescription className="text-emerald-200/80">
                 {isEditMode 
@@ -559,7 +544,7 @@ const CertificadoPage = () => {
                     onChange={(e) => {
                       const dateString = e.target.value;
                       const newDate = dateString ? parseISO(dateString) : new Date();
-                      setFormData(prev => ({ 
+                      setLocalFormData(prev => ({ 
                         ...prev, 
                         data_emissao: isValid(newDate) ? newDate : new Date() 
                       }));
@@ -569,7 +554,7 @@ const CertificadoPage = () => {
                   />
                 </div>
                 
-                {/* Seletor de Cliente */}
+                {/* Seletor de Cliente - IDÊNTICO AO COLETASTEP1 */}
                 <div className="md:col-span-2 space-y-2 relative">
                   <Label htmlFor="cliente" className="text-white flex items-center gap-2">
                     <User className="w-4 h-4 text-emerald-400" />
@@ -656,7 +641,7 @@ const CertificadoPage = () => {
                       onChange={(e) => {
                         const dateString = e.target.value;
                         const newDate = dateString ? parseISO(dateString) : getFirstDayOfMonth();
-                        setFormData(prev => ({ 
+                        setLocalFormData(prev => ({ 
                           ...prev, 
                           periodoInicio: isValid(newDate) ? newDate : getFirstDayOfMonth() 
                         }));
@@ -673,7 +658,7 @@ const CertificadoPage = () => {
                       onChange={(e) => {
                         const dateString = e.target.value;
                         const newDate = dateString ? parseISO(dateString) : getTodayDate();
-                        setFormData(prev => ({ 
+                        setLocalFormData(prev => ({ 
                           ...prev, 
                           periodoFim: isValid(newDate) ? newDate : getTodayDate() 
                         }));
@@ -697,32 +682,18 @@ const CertificadoPage = () => {
                 Voltar
               </Button>
               
-              <div className="flex gap-2">
-                {/* ✅ BOTÃO DESCARTAR ALTERAÇÕES - AGORA VOLTA PARA A LISTA */}
-                {hasAutoSaveData && (
-                  <Button 
-                    type="button"
-                    onClick={handleDiscardChanges}
-                    variant="outline"
-                    className="rounded-xl h-8 px-2 text-xs text-yellow-400 border-yellow-400"
-                  >
-                    Descartar Alterações
-                  </Button>
+              <Button
+                onClick={handleSubmit}
+                disabled={isGenerating || !cliente_id || !periodoInicio || !periodoFim || !data_emissao}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl"
+              >
+                {isGenerating ? (
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                ) : (
+                  <FileText className="w-5 h-5 mr-2" />
                 )}
-                
-                <Button
-                  onClick={handleSubmit}
-                  disabled={isGenerating || !cliente_id || !periodoInicio || !periodoFim || !data_emissao}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl"
-                >
-                  {isGenerating ? (
-                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  ) : (
-                    <FileText className="w-5 h-5 mr-2" />
-                  )}
-                  {isEditMode ? 'Atualizar Certificado' : 'Gerar Certificado'}
-                </Button>
-              </div>
+                {isEditMode ? 'Atualizar Certificado' : 'Gerar Certificado'}
+              </Button>
             </CardFooter>
           </Card>
         </div>
