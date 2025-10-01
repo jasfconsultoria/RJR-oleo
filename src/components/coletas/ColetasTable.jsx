@@ -17,8 +17,8 @@ const ColetasTable = ({ coletas, sortConfig, requestSort, handleOpenRecibo, hand
 
   const getStatusBadge = (status) => {
     switch (status) {
-      case 'Finalizada':
-        return 'bg-green-500/20 text-green-300';
+      case 'Assinado': // Valor do banco de dados
+        return 'bg-green-500/20 text-green-300'; // Estilo para 'Finalizada'
       case 'Aguardando Assinatura':
         return 'bg-yellow-500/20 text-yellow-300';
       case 'Não Gerado':
@@ -51,7 +51,8 @@ const ColetasTable = ({ coletas, sortConfig, requestSort, handleOpenRecibo, hand
               </th>
               <th className="p-2 text-right text-white">Valor/Entregue (R$/Unidade)</th>
               <th className="p-2 text-center text-white">Status</th>
-              <th className="p-2 text-right text-white">Ações</th>
+              {/* Ajuste: Alinhamento do título da coluna "Ações" para a esquerda */}
+              <th className="p-2 text-left text-white">Ações</th>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -61,6 +62,7 @@ const ColetasTable = ({ coletas, sortConfig, requestSort, handleOpenRecibo, hand
                   <TableCell data-label="Nº Coleta" className="font-mono">{String(coleta.numero_coleta).padStart(6, '0')}</TableCell>
                   <TableCell data-label="Data">{formatDateWithTimezone(coleta.data_coleta, timezone)}</TableCell>
                   <TableCell data-label="Cliente">{coleta.cliente_nome_fantasia ? `${coleta.cliente_nome} - ${coleta.cliente_nome_fantasia}` : coleta.cliente_nome}</TableCell>
+                  {/* A coluna "Tipo" já está com 'capitalize', que é o estilo solicitado */}
                   <TableCell data-label="Tipo" className="capitalize">{coleta.tipo_coleta}</TableCell>
                   <TableCell data-label="Qtd. Coletada (kg)" className="text-right">{formatNumber(coleta.quantidade_coletada)}</TableCell>
                   <TableCell data-label="Valor/Entregue" className="text-right">
@@ -68,7 +70,8 @@ const ColetasTable = ({ coletas, sortConfig, requestSort, handleOpenRecibo, hand
                   </TableCell>
                   <TableCell data-label="Status" className="text-center">
                     <span className={`px-2 py-1 rounded-xl text-xs font-semibold ${getStatusBadge(coleta.status_recibo)}`}>
-                      {coleta.status_recibo}
+                      {/* Ajuste: Exibir 'Finalizada' se o status do DB for 'Assinado' */}
+                      {coleta.status_recibo === 'Assinado' ? 'Finalizada' : coleta.status_recibo}
                     </span>
                   </TableCell>
                   <TableCell className="text-right actions-cell">
