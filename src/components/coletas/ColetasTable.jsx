@@ -17,7 +17,7 @@ const ColetasTable = ({ coletas, sortConfig, requestSort, handleOpenRecibo, hand
 
   const getStatusBadge = (status) => {
     switch (status) {
-      case 'Assinado':
+      case 'Finalizada':
         return 'bg-green-500/20 text-green-300';
       case 'Aguardando Assinatura':
         return 'bg-yellow-500/20 text-yellow-300';
@@ -47,9 +47,10 @@ const ColetasTable = ({ coletas, sortConfig, requestSort, handleOpenRecibo, hand
                 <div className="flex items-center">Tipo {getSortIcon('tipo_coleta')}</div>
               </th>
               <th onClick={() => requestSort('quantidade_coletada')} className="cursor-pointer p-2 text-right text-white">
-                <div className="flex items-center justify-end">Qtd. (kg) {getSortIcon('quantidade_coletada')}</div>
+                <div className="flex items-center justify-end">Qtd. Coletada (kg) {getSortIcon('quantidade_coletada')}</div>
               </th>
-              <th className="p-2 text-center text-white">Recibo</th>
+              <th className="p-2 text-right text-white">Valor/Entregue (R$/Unidade)</th>
+              <th className="p-2 text-center text-white">Status</th>
               <th className="p-2 text-right text-white">Ações</th>
             </TableRow>
           </TableHeader>
@@ -61,25 +62,14 @@ const ColetasTable = ({ coletas, sortConfig, requestSort, handleOpenRecibo, hand
                   <TableCell data-label="Data">{formatDateWithTimezone(coleta.data_coleta, timezone)}</TableCell>
                   <TableCell data-label="Cliente">{coleta.cliente_nome_fantasia ? `${coleta.cliente_nome} - ${coleta.cliente_nome_fantasia}` : coleta.cliente_nome}</TableCell>
                   <TableCell data-label="Tipo" className="capitalize">{coleta.tipo_coleta}</TableCell>
-                  <TableCell data-label="Qtd. (kg)" className="text-right">{formatNumber(coleta.quantidade_coletada)}</TableCell>
-                  <TableCell data-label="Recibo" className="text-center">
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleOpenRecibo(coleta.id)}
-                            className={`rounded-xl ${coleta.status_recibo === 'Assinado' ? 'text-green-400 hover:text-green-300' : 'text-yellow-400 hover:text-yellow-300'}`}
-                          >
-                            {coleta.status_recibo === 'Assinado' ? <CheckCircle className="h-4 w-4" /> : <Clock className="h-4 w-4" />}
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
-                          <p>{coleta.status_recibo === 'Assinado' ? 'Recibo Assinado' : 'Recibo Aguardando Assinatura'}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+                  <TableCell data-label="Qtd. Coletada (kg)" className="text-right">{formatNumber(coleta.quantidade_coletada)}</TableCell>
+                  <TableCell data-label="Valor/Entregue" className="text-right">
+                    {coleta.tipo_coleta === 'Compra' ? formatCurrency(coleta.total_pago) : `${formatNumber(coleta.quantidade_entregue, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} Unidades`}
+                  </TableCell>
+                  <TableCell data-label="Status" className="text-center">
+                    <span className={`px-2 py-1 rounded-xl text-xs font-semibold ${getStatusBadge(coleta.status_recibo)}`}>
+                      {coleta.status_recibo}
+                    </span>
                   </TableCell>
                   <TableCell className="text-right actions-cell">
                     <div className="flex justify-end items-center gap-1">
@@ -88,8 +78,18 @@ const ColetasTable = ({ coletas, sortConfig, requestSort, handleOpenRecibo, hand
                         size="icon"
                         onClick={() => navigate(`/app/coletas/editar/${coleta.id}`)}
                         className="text-yellow-400 hover:text-yellow-300 rounded-xl"
+                        title="Editar Coleta"
                       >
                         <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleOpenRecibo(coleta.id)}
+                        className="text-blue-400 hover:text-blue-300 rounded-xl"
+                        title="Visualizar Recibo"
+                      >
+                        <FileText className="h-4 w-4" />
                       </Button>
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
@@ -97,6 +97,7 @@ const ColetasTable = ({ coletas, sortConfig, requestSort, handleOpenRecibo, hand
                             variant="ghost"
                             size="icon"
                             className="text-red-400 hover:text-red-300 rounded-xl"
+                            title="Excluir Coleta"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -123,7 +124,7 @@ const ColetasTable = ({ coletas, sortConfig, requestSort, handleOpenRecibo, hand
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan="7" className="text-center text-gray-400 py-10">
+                <TableCell colSpan="8" className="text-center text-gray-400 py-10">
                   Nenhuma coleta encontrada.
                 </TableCell>
               </TableRow>
@@ -133,9 +134,10 @@ const ColetasTable = ({ coletas, sortConfig, requestSort, handleOpenRecibo, hand
             <TableRow className="bg-black/20 font-bold text-white border-t-2 border-emerald-500 text-sm hidden md:table-row">
               <TableCell colSpan={4} className="p-2">TOTAIS DO PERÍODO</TableCell>
               <TableCell className="text-right p-2">{formatNumber(totals.coletado)} kg</TableCell>
-              <TableCell colSpan={2} className="p-2 text-right">
+              <TableCell className="text-right p-2">
                 {formatCurrency(totals.compras)} / {formatNumber(totals.entregue, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} Unidades
               </TableCell>
+              <TableCell colSpan={2} className="p-2"></TableCell>
             </TableRow>
           </TableFooter>
         </Table>
