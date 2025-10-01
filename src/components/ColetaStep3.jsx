@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Truck, CheckCircle, Droplets, ArrowLeft, DollarSign } from 'lucide-react';
+import { Truck, CheckCircle, Droplets, ArrowLeft, DollarSign, Loader2 } from 'lucide-react'; // Adicionado Loader2
 import { useToast } from '@/components/ui/use-toast';
 import { formatCnpjCpf, parseCurrency, formatCurrency } from '@/lib/utils';
 import { format, isValid } from 'date-fns';
@@ -17,6 +17,7 @@ export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData, em
   const [showReciboDialog, setShowReciboDialog] = useState(false);
   const [savedColeta, setSavedColeta] = useState(null);
   const [empresa, setEmpresa] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false); // Novo estado para controlar o envio
   const isCompra = data.tipo_coleta === 'Compra';
   const isDoacao = data.tipo_coleta === 'Doação';
   const { toast } = useToast();
@@ -51,33 +52,41 @@ export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData, em
   }, [data, isCompra, isDoacao]);
 
   const handleLancar = async () => {
-    const dataLancamento = new Date().toISOString();
-    
-    const calculatedFinalData = { 
-      ...(isCompra 
-        ? { total_pago: resultadoFinal }
-        : { quantidade_entregue: resultadoFinal }),
-      data_lancamento: dataLancamento 
-    };
-    
-    const updatedFullData = { ...data, ...calculatedFinalData };
-    
-    const { data: savedData, error } = await onSave(updatedFullData, true);
-    
-    if (error) {
-       toast({ title: 'Erro ao salvar coleta', description: error.message, variant: 'destructive' });
-       return;
-    }
+    setIsSubmitting(true); // Desabilita o botão imediatamente
+    try {
+      const dataLancamento = new Date().toISOString();
+      
+      const calculatedFinalData = { 
+        ...(isCompra 
+          ? { total_pago: resultadoFinal }
+          : { quantidade_entregue: resultadoFinal }),
+        data_lancamento: dataLancamento 
+      };
+      
+      const updatedFullData = { ...data, ...calculatedFinalData };
+      
+      const { data: savedData, error } = await onSave(updatedFullData, true);
+      
+      if (error) {
+         toast({ title: 'Erro ao salvar coleta', description: error.message, variant: 'destructive' });
+         return;
+      }
 
-    onUpdate(calculatedFinalData);
-    setSavedColeta(savedData); 
-    
-    toast({
-      title: "Coleta finalizada!",
-      description: "Dados salvos. Compartilhe o link para assinatura."
-    });
-    
-    setShowReciboDialog(true);
+      onUpdate(calculatedFinalData);
+      setSavedColeta(savedData); 
+      
+      toast({
+        title: "Coleta finalizada!",
+        description: "Dados salvos. Compartilhe o link para assinatura."
+      });
+      
+      setShowReciboDialog(true);
+    } catch (error) {
+      console.error("Erro ao lançar coleta:", error);
+      toast({ title: 'Erro inesperado', description: 'Ocorreu um erro ao finalizar a coleta.', variant: 'destructive' });
+    } finally {
+      setIsSubmitting(false); // Reabilita o botão em caso de erro, ou se o modal de recibo for fechado
+    }
   };
 
   const finishProcess = () => {
@@ -150,11 +159,12 @@ export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData, em
           </div>
 
           <div className="flex justify-between items-center pt-6">
-            <Button type="button" onClick={onBack} variant="outline" className="rounded-xl">
+            <Button type="button" onClick={onBack} variant="outline" className="rounded-xl" disabled={isSubmitting}>
               <ArrowLeft className="mr-2 h-4 w-4" /> Anterior
             </Button>
-            <Button onClick={handleLancar} className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl">
-              <CheckCircle className="w-5 h-5 mr-2" /> Lançar
+            <Button onClick={handleLancar} className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl" disabled={isSubmitting}>
+              {isSubmitting ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <CheckCircle className="w-5 h-5 mr-2" />}
+              {isSubmitting ? 'Lançando...' : 'Lançar'}
             </Button>
           </div>
         </div>
