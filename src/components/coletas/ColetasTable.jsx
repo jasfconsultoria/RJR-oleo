@@ -21,7 +21,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { Loader2, Edit, Trash2, FileText, ChevronUp, ChevronDown, DollarSign } from 'lucide-react';
+import { Loader2, Edit, Trash2, FileText, ChevronUp, ChevronDown } from 'lucide-react'; // Removed DollarSign
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { formatCurrency, formatNumber, cn } from '@/lib/utils';
@@ -88,9 +88,6 @@ const ColetasTable = ({
   const formatColetaDate = (dateString) => {
     if (!dateString) return 'N/A';
     try {
-      // Assuming dateString is already in the company's timezone or UTC and needs to be displayed in local time
-      // For simplicity, if it's already a local date string, format directly.
-      // If it's an ISO string, parse it and then format.
       const date = new Date(dateString);
       return format(date, 'dd/MM/yyyy', { locale: ptBR });
     } catch (e) {
@@ -156,17 +153,7 @@ const ColetasTable = ({
                         >
                           <FileText className="h-4 w-4" />
                         </Button>
-                        {isCompra && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => navigate(`/app/financeiro/debito/editar/${coleta.financeiro_id}`)} // Assuming financeiro_id is available
-                            title="Ver Lançamento Financeiro"
-                            className="text-green-400 hover:text-green-300 rounded-xl"
-                          >
-                            <DollarSign className="h-4 w-4" />
-                          </Button>
-                        )}
+                        {/* REMOVIDO: Botão de Visualizar Lançamento Financeiro */}
                         <Button
                           variant="ghost"
                           size="icon"
