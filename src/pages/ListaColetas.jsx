@@ -8,7 +8,7 @@ import { PlusCircle, Loader2, FileText } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useProfile } from '@/contexts/ProfileContext';
 import ColetasFilters from '@/components/coletas/ColetasFilters';
-import ColetasTable from '@/components/coletas/ColetasTable'; // Updated import
+import ColetasTable from '@/components/coletas/ColetasTable'; // Corrected import to .jsx
 import { startOfMonth, format, endOfDay, parseISO, endOfMonth } from 'date-fns';
 import { logAction } from '@/lib/logger';
 import { Pagination } from '@/components/ui/pagination';
