@@ -4,8 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
-import { Table, TableBody, TableCell, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
-import { Loader2, PlusCircle, Edit, Trash2, Search, DollarSign, Eye, Receipt, Banknote, Tag, ClipboardList, CalendarIcon } from 'lucide-react';
+import { Table, TableBody, TableCell, TableHeader, TableRow, TableFooter, TableHead } from '@/components/ui/table';
+import { Loader2, PlusCircle, Edit, Trash2, Search, DollarSign, Eye, Receipt, Banknote, Tag, ClipboardList, CalendarIcon, ChevronUp, ChevronDown } from 'lucide-react';
 import { useDebounce } from '@/hooks/useDebounce';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -21,6 +21,27 @@ import PaymentHistoryDialog from '@/components/financeiro/PaymentHistoryDialog';
 import { DatePicker } from '@/components/ui/date-picker'; // Import DatePicker
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"; // Import Tooltip components
 
+// Helper component for sortable table headers
+const TableHeaderSortable = ({ columnKey, label, sortConfig, onSort, className }) => {
+  const getSortIcon = () => {
+    if (sortConfig.key !== columnKey) return null;
+    return sortConfig.direction === 'asc'
+      ? <ChevronUp className="w-4 h-4 ml-1" />
+      : <ChevronDown className="w-4 h-4 ml-1" />;
+  };
+
+  return (
+    <TableHead
+      onClick={() => onSort(columnKey)}
+      className={cn("cursor-pointer text-emerald-300", className)}
+    >
+      <div className="flex items-center">
+        {label} {getSortIcon()}
+      </div>
+    </TableHead>
+  );
+};
+
 const ListaFinanceiro = ({ type }) => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -29,12 +50,12 @@ const ListaFinanceiro = ({ type }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [clientSearchTerm, setClientSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  // Inicializa startDate e endDate como objetos Date para o primeiro e último dia do mês atual
   const [startDate, setStartDate] = useState(startOfMonth(new Date()));
   const [endDate, setEndDate] = useState(endOfMonth(new Date()));
+  const [sortConfig, setSortConfig] = useState({ key: 'issue_date', direction: 'desc' }); // Novo estado de ordenação
+  
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
   const debouncedClientSearchTerm = useDebounce(clientSearchTerm, 500);
-  // Formata as datas para string 'yyyy-MM-dd' para as chamadas RPC
   const debouncedStartDate = useDebounce(startDate ? format(startDate, 'yyyy-MM-dd') : null, 500);
   const debouncedEndDate = useDebounce(endDate ? format(endDate, 'yyyy-MM-dd') : null, 500);
   const [currentPage, setCurrentPage] = useState(1);
@@ -75,6 +96,8 @@ const ListaFinanceiro = ({ type }) => {
       p_status: statusFilter === 'all' ? null : statusFilter,
       p_client_search_term: debouncedSearchTerm || debouncedClientSearchTerm || null,
       p_cost_center: null, // Cost center filter is not implemented in ListaFinanceiro
+      p_sort_column: sortConfig.key, // Passando a coluna para ordenação
+      p_sort_direction: sortConfig.direction, // Passando a direção para ordenação
     };
 
     // Fetch paginated data
@@ -100,7 +123,7 @@ const ListaFinanceiro = ({ type }) => {
       setTotalCount(countData || 0);
     }
     setLoading(false);
-  }, [toast, currentPage, pageSize, type, debouncedSearchTerm, debouncedClientSearchTerm, statusFilter, debouncedStartDate, debouncedEndDate, empresa, title]);
+  }, [toast, currentPage, pageSize, type, debouncedSearchTerm, debouncedClientSearchTerm, statusFilter, debouncedStartDate, debouncedEndDate, empresa, title, sortConfig]); // Adicionado sortConfig às dependências
 
   const fetchSummary = useCallback(async () => {
     if (!empresa) return;
@@ -130,7 +153,7 @@ const ListaFinanceiro = ({ type }) => {
   
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearchTerm, debouncedClientSearchTerm, statusFilter, debouncedStartDate, debouncedEndDate, pageSize]);
+  }, [debouncedSearchTerm, debouncedClientSearchTerm, statusFilter, debouncedStartDate, debouncedEndDate, pageSize, sortConfig]); // Adicionado sortConfig às dependências
 
   const handleDelete = async (id, description) => {
     const { error } = await supabase.from('credito_debito').delete().eq('id', id);
@@ -153,6 +176,15 @@ const ListaFinanceiro = ({ type }) => {
   const handleOpenHistoryModal = (entry) => {
     setSelectedEntry(entry);
     setIsHistoryModalOpen(true);
+  };
+
+  const requestSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+    setCurrentPage(1); // Resetar para a primeira página ao mudar a ordenação
   };
 
   const totalPages = Math.ceil(totalCount / pageSize);
@@ -282,16 +314,16 @@ const ListaFinanceiro = ({ type }) => {
               <Table className="responsive-table">
                 <TableHeader>
                   <TableRow className="hover:bg-transparent border-b border-white/20 text-xs">
-                    <th className="p-2 text-left text-white">Documento</th>
-                    <th className="p-2 text-left text-white">{entityLabel}</th>
-                    <th className="p-2 text-left text-white">Descrição</th>
-                    <th className="p-2 text-center text-white">Parcela</th>
-                    <th className="p-2 text-left text-white">Vencimento</th>
-                    <th className="p-2 text-right text-white">Valor</th>
-                    <th className="p-2 text-right text-white">Pago</th>
-                    <th className="p-2 text-right text-white">Saldo</th>
-                    <th className="p-2 text-center text-white">Status</th>
-                    <th className="p-2 text-right text-white">Ações</th>
+                    <TableHeaderSortable columnKey="document_number" label="Documento" sortConfig={sortConfig} onSort={requestSort} />
+                    <TableHeaderSortable columnKey="cliente_fornecedor_name" label={entityLabel} sortConfig={sortConfig} onSort={requestSort} />
+                    <TableHead className="p-2 text-left text-white">Descrição</TableHead> {/* Descrição não é sortável */}
+                    <TableHead className="p-2 text-center text-white">Parcela</TableHead> {/* Parcela não é sortável */}
+                    <TableHeaderSortable columnKey="issue_date" label="Vencimento" sortConfig={sortConfig} onSort={requestSort} />
+                    <TableHeaderSortable columnKey="total_value" label="Valor" sortConfig={sortConfig} onSort={requestSort} className="text-right" />
+                    <TableHeaderSortable columnKey="paid_amount" label="Pago" sortConfig={sortConfig} onSort={requestSort} className="text-right" />
+                    <TableHeaderSortable columnKey="amount_balance" label="Saldo" sortConfig={sortConfig} onSort={requestSort} className="text-right" />
+                    <TableHeaderSortable columnKey="status" label="Status" sortConfig={sortConfig} onSort={requestSort} className="text-center" />
+                    <TableHead className="p-2 text-right text-white">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
