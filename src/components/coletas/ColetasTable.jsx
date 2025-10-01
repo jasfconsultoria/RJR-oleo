@@ -21,7 +21,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { Loader2, Edit, Trash2, FileText, ChevronUp, ChevronDown } from 'lucide-react'; // Removed DollarSign
+import { Loader2, Edit, Trash2, FileText, ChevronUp, ChevronDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { formatCurrency, formatNumber, cn } from '@/lib/utils';
@@ -153,7 +153,6 @@ const ColetasTable = ({
                         >
                           <FileText className="h-4 w-4" />
                         </Button>
-                        {/* REMOVIDO: Botão de Visualizar Lançamento Financeiro */}
                         <Button
                           variant="ghost"
                           size="icon"
@@ -178,7 +177,7 @@ const ColetasTable = ({
                             <AlertDialogHeader>
                               <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
                               <AlertDialogDescription className="text-emerald-300">
-                                Esta ação não pode ser desfeita. Isso deletará permanentemente a coleta Nº {String(coleta.numero_coleta).padStart(6, '0')}.
+                                Esta ação não pode ser desfeita. Isso deletará permanentemente a coleta Nº {String(coleta.numero_coleta).padStart(6, '0')}, bem como todos os lançamentos financeiros e movimentações de estoque associados.
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
