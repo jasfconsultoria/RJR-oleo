@@ -328,16 +328,19 @@ const ListaFinanceiro = ({ type }) => {
                                       variant="ghost" 
                                       size="icon" 
                                       title="Registrar Pagamento" 
-                                      className={`text-green-400 hover:text-green-300 rounded-xl ${isPaidOrCanceled ? 'opacity-50 cursor-not-allowed' : ''}`} 
+                                      className={`text-green-400 hover:text-green-300 rounded-xl ${isPaidOrCanceled || isLinkedToColeta ? 'opacity-50 cursor-not-allowed' : ''}`} 
                                       onClick={() => handleOpenPaymentModal(entry)} 
-                                      disabled={isPaidOrCanceled}
+                                      disabled={isPaidOrCanceled || isLinkedToColeta}
                                     >
                                         <Banknote className="h-4 w-4" />
                                     </Button>
                                   </TooltipTrigger>
-                                  {isPaidOrCanceled && (
+                                  {(isPaidOrCanceled || isLinkedToColeta) && (
                                     <TooltipContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
-                                      <p>Não é possível registrar pagamento para lançamentos quitados ou cancelados.</p>
+                                      {isLinkedToColeta 
+                                        ? <p>Pagamentos de coletas são registrados via recibo.</p>
+                                        : <p>Não é possível registrar pagamento para lançamentos quitados ou cancelados.</p>
+                                      }
                                     </TooltipContent>
                                   )}
                                 </Tooltip>
