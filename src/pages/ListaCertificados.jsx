@@ -6,14 +6,14 @@ import { useToast } from '@/components/ui/use-toast';
 import { useProfile } from '@/contexts/ProfileContext';
 import { CertificadosHeader } from '@/components/certificados/CertificadosHeader';
 import { CertificadosFilters } from '@/components/certificados/CertificadosFilters';
-import { CertificadosTable } from '@/components/certificados/CertificadosTable';
+import CertificadosTable from '@/components/certificados/CertificadosTable'; // CORRIGIDO: Importação como default
 import { logAction } from '@/lib/logger';
 import { Pagination } from '@/components/ui/pagination';
 import { useDebounce } from '@/hooks/useDebounce';
 import { formatToISODate } from '@/lib/utils';
 import { motion } from 'framer-motion';
-import { startOfMonth, endOfMonth } from 'date-fns'; // Importar startOfMonth e endOfMonth
-import CertificadoViewModal from '@/components/certificados/CertificadoViewModal'; // Importar o novo modal
+import { startOfMonth, endOfMonth } from 'date-fns';
+import CertificadoViewModal from '@/components/certificados/CertificadoViewModal';
 
 const getTodayDate = () => new Date();
 const getFirstDayOfMonth = () => {
@@ -27,11 +27,10 @@ const ListaCertificados = () => {
   const [filters, setFilters] = useState({ 
     startDate: getFirstDayOfMonth(),
     endDate: getTodayDate(),
-    clientSearchTerm: '', // Alterado de selectedClientId para clientSearchTerm
+    clientSearchTerm: '',
   });
   const [sortConfig, setSortConfig] = useState({ key: 'data_emissao', direction: 'desc' });
   const { profile, loading: profileLoading } = useProfile();
-  // Removido: [clients, setClients] = useState([]);
   const [empresa, setEmpresa] = useState(null);
   const { toast } = useToast();
   const [currentPage, setCurrentPage] = useState(1);
@@ -40,8 +39,8 @@ const ListaCertificados = () => {
 
   const debouncedFilters = useDebounce(filters, 500);
 
-  const [isViewModalOpen, setIsViewModalOpen] = useState(false); // Estado para o modal de visualização
-  const [selectedCertificado, setSelectedCertificado] = useState(null); // Certificado selecionado para o modal
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [selectedCertificado, setSelectedCertificado] = useState(null);
 
   const pageSize = useMemo(() => empresa?.items_per_page || 25, [empresa]);
 
@@ -50,12 +49,8 @@ const ListaCertificados = () => {
       if (!profile) return;
       try {
         const [empresaDataRes] = await Promise.all([
-          // Removido: supabase.from('clientes').select(...)
           supabase.from('empresa').select('*').single(),
         ]);
-
-        // Removido: if (clientDataRes.error) throw clientDataRes.error;
-        // Removido: setClients(clientDataRes.data || []);
 
         if (empresaDataRes.error) throw empresaDataRes.error;
         setEmpresa(empresaDataRes.data);
@@ -98,7 +93,6 @@ const ListaCertificados = () => {
         } else {
             clientIds = matchingClients.map(c => c.id);
             if (clientIds.length === 0) {
-                // If a search term was provided but no clients matched, ensure no results are returned
                 setCertificados([]);
                 setTotalCount(0);
                 setLoading(false);
@@ -116,7 +110,6 @@ const ListaCertificados = () => {
       .gte('data_emissao', startDate.toISOString())
       .lte('data_emissao', endDate.toISOString());
 
-    // Aplicar filtro por IDs de cliente se houver
     if (clientIds.length > 0) {
         query = query.in('cliente_id', clientIds);
     }
@@ -230,9 +223,8 @@ const ListaCertificados = () => {
           endDate={filters.endDate ? formatToISODate(filters.endDate) : ''} 
         />
         <CertificadosFilters 
-          // Removido: clients={clients}
-          clientSearchTerm={filters.clientSearchTerm} // Passar o novo estado
-          setClientSearchTerm={(value) => handleFilterChange('clientSearchTerm', value)} // Passar o novo setter
+          clientSearchTerm={filters.clientSearchTerm}
+          setClientSearchTerm={(value) => handleFilterChange('clientSearchTerm', value)}
           startDate={filters.startDate}
           setStartDate={(value) => handleFilterChange('startDate', value)}
           endDate={filters.endDate}
@@ -249,7 +241,7 @@ const ListaCertificados = () => {
             handleEdit={handleEdit}
             handleDelete={handleDelete}
             timezone={empresa?.timezone} 
-            handleOpenViewModal={handleOpenViewModal} // Passar o novo handler
+            handleOpenViewModal={handleOpenViewModal}
           />
         </motion.div>
         <Pagination
