@@ -8,8 +8,8 @@ import { PlusCircle, Loader2, FileText } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useProfile } from '@/contexts/ProfileContext';
 import ColetasFilters from '@/components/coletas/ColetasFilters';
-import ColetasTable from '@/components/coletas/ColetasTable';
-import { startOfMonth, format, endOfDay, parseISO, endOfMonth } from 'date-fns'; // Adicionado endOfMonth
+import ColetasTable from '@/components/coletas/ColetasTable'; // Updated import
+import { startOfMonth, format, endOfDay, parseISO, endOfMonth } from 'date-fns';
 import { logAction } from '@/lib/logger';
 import { Pagination } from '@/components/ui/pagination';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -20,7 +20,7 @@ const ListaColetas = () => {
   const [coletas, setColetas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [coletaSearchTerm, setColetaSearchTerm] = useState('');
-  const [clientSearchTerm, setClientSearchTerm] = useState(''); // Novo estado para busca de cliente
+  const [clientSearchTerm, setClientSearchTerm] = useState('');
   
   const [sortConfig, setSortConfig] = useState({ key: 'numero_coleta', direction: 'desc' });
   const { profile, loading: profileLoading } = useProfile();
@@ -29,16 +29,15 @@ const ListaColetas = () => {
   const [selectedColeta, setSelectedColeta] = useState(null);
   const [empresa, setEmpresa] = useState(null);
 
-  // Inicializa startDate e endDate para o primeiro e último dia do mês atual
   const [startDate, setStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
-  const [endDate, setEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd')); // Alterado para endOfMonth
+  const [endDate, setEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
 
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [periodTotals, setPeriodTotals] = useState({ coletado: 0, compras: 0, entregue: 0 });
 
   const debouncedColetaSearchTerm = useDebounce(coletaSearchTerm, 500);
-  const debouncedClientSearchTerm = useDebounce(clientSearchTerm, 500); // Debounce para busca de cliente
+  const debouncedClientSearchTerm = useDebounce(clientSearchTerm, 500);
   const debouncedStartDate = useDebounce(startDate, 500);
   const debouncedEndDate = useDebounce(endDate, 500);
   const { toast } = useToast();
@@ -60,13 +59,12 @@ const ListaColetas = () => {
   const fetchPeriodTotals = useCallback(async () => {
     if (profileLoading || !profile || !empresa) return;
 
-    // RPC functions handle SQL directly, so client-side escaping for LIKE patterns is not needed here.
     let query = supabase.rpc('get_coletas_totals', {
         p_start_date: debouncedColetaSearchTerm ? null : (debouncedStartDate || null),
         p_end_date: debouncedColetaSearchTerm ? null : (debouncedEndDate || null),
-        p_cliente_id: null, // Removido filtro por ID
+        p_cliente_id: null,
         p_numero_coleta_term: debouncedColetaSearchTerm || null,
-        p_cliente_name_term: debouncedClientSearchTerm || null, // Novo parâmetro para busca por nome do cliente
+        p_cliente_name_term: debouncedClientSearchTerm || null,
     });
 
     const { data, error } = await query.single();
@@ -90,14 +88,13 @@ const ListaColetas = () => {
     const from = (currentPage - 1) * pageSize;
     const to = from + pageSize - 1;
 
-    let query = supabase.from('v_coletas_com_status').select('*', { count: 'exact' }); // Use a nova view
+    let query = supabase.from('v_coletas_com_status').select('*', { count: 'exact' });
 
     if (debouncedColetaSearchTerm) {
         const escapedSearchTerm = escapePostgrestLikePattern(debouncedColetaSearchTerm);
-        // Aplica a busca diretamente na view
         query = query.or(`numero_coleta::text.ilike.%${escapedSearchTerm}%,cliente_nome.ilike.%${escapedSearchTerm}%,cliente_nome_fantasia.ilike.%${escapedSearchTerm}%`);
     } else {
-        if (debouncedClientSearchTerm) { // Filtrar por nome do cliente
+        if (debouncedClientSearchTerm) {
             const escapedClientSearchTerm = escapePostgrestLikePattern(debouncedClientSearchTerm);
             query = query.or(`cliente_nome.ilike.%${escapedClientSearchTerm}%,cliente_nome_fantasia.ilike.%${escapedClientSearchTerm}%`);
         }
@@ -133,15 +130,14 @@ const ListaColetas = () => {
   useEffect(() => {
     setCurrentPage(1);
     if(coletaSearchTerm) {
-      setClientSearchTerm(''); // Limpa o filtro de cliente se estiver buscando por número de coleta
+      setClientSearchTerm('');
     }
-  }, [debouncedColetaSearchTerm, debouncedClientSearchTerm, debouncedStartDate, debouncedEndDate, pageSize, coletaSearchTerm]); // Atualizado para debouncedClientSearchTerm
+  }, [debouncedColetaSearchTerm, debouncedClientSearchTerm, debouncedStartDate, debouncedEndDate, pageSize, coletaSearchTerm]);
 
   const handleDelete = async (coletaId) => {
     const coletaToDelete = coletas.find(c => c.id === coletaId);
     if (!coletaToDelete) return;
 
-    // A exclusão ainda deve ser feita na tabela 'coletas', não na view
     const { error } = await supabase.from('coletas').delete().eq('id', coletaId);
     
     if (error) {
@@ -158,7 +154,6 @@ const ListaColetas = () => {
   const handleReciboAction = async (coletaId) => {
     const coleta = coletas.find(c => c.id === coletaId);
     if (coleta) {
-      // A assinatura_url já vem da view, não precisa buscar novamente
       setSelectedColeta({ ...coleta, assinatura_url: coleta.assinatura_url }); 
       setReciboModalOpen(true);
     }
@@ -199,8 +194,8 @@ const ListaColetas = () => {
         <ColetasFilters
           coletaSearchTerm={coletaSearchTerm}
           setColetaSearchTerm={setColetaSearchTerm}
-          clientSearchTerm={clientSearchTerm} // Passar o novo estado
-          setClientSearchTerm={setClientSearchTerm} // Passar o novo setter
+          clientSearchTerm={clientSearchTerm}
+          setClientSearchTerm={setClientSearchTerm}
           startDate={startDate}
           setStartDate={setStartDate}
           endDate={endDate}
@@ -216,6 +211,7 @@ const ListaColetas = () => {
               handleDelete={handleDelete}
               totals={periodTotals}
               timezone={empresa?.timezone}
+              loading={loading}
             />
         </motion.div>
 
@@ -234,8 +230,8 @@ const ListaColetas = () => {
             isOpen={reciboModalOpen}
             onClose={() => {
                 setReciboModalOpen(false);
-                fetchColetas(); // Recarrega a lista de coletas
-                fetchPeriodTotals(); // Recarrega os totais
+                fetchColetas();
+                fetchPeriodTotals();
             }}
          />
        )}
