@@ -330,8 +330,18 @@ const ListaFinanceiro = ({ type }) => {
                   {entries.length > 0 ? (
                     entries.map(entry => {
                       const installmentDenominator = entry.has_down_payment ? entry.total_installments - 1 : entry.total_installments;
-                      const isLinkedToColeta = !!entry.coleta_id; // Check if linked to coleta
+                      const isLinkedToColeta = !!entry.coleta_id;
+                      const isReceiptSigned = !!entry.recibo_assinatura_url; // NOVO: Verifica se o recibo está assinado
                       const isPaidOrCanceled = entry.status === 'paid' || entry.status === 'canceled';
+
+                      // NOVO: Lógica para desabilitar o botão de pagamento
+                      const isDisabledPayment = isPaidOrCanceled || (isLinkedToColeta && !isReceiptSigned);
+                      let paymentTooltipMessage = '';
+                      if (isPaidOrCanceled) {
+                        paymentTooltipMessage = 'Não é possível registrar pagamento para lançamentos quitados ou cancelados.';
+                      } else if (isLinkedToColeta && !isReceiptSigned) {
+                        paymentTooltipMessage = 'O recibo da coleta ainda não foi assinado. O pagamento é feito via recibo.';
+                      }
 
                       return (
                         <TableRow key={entry.id} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
@@ -360,19 +370,16 @@ const ListaFinanceiro = ({ type }) => {
                                       variant="ghost" 
                                       size="icon" 
                                       title="Registrar Pagamento" 
-                                      className={`text-green-400 hover:text-green-300 rounded-xl ${isPaidOrCanceled || isLinkedToColeta ? 'opacity-50 cursor-not-allowed' : ''}`} 
+                                      className={`text-green-400 hover:text-green-300 rounded-xl ${isDisabledPayment ? 'opacity-50 cursor-not-allowed' : ''}`} 
                                       onClick={() => handleOpenPaymentModal(entry)} 
-                                      disabled={isPaidOrCanceled || isLinkedToColeta}
+                                      disabled={isDisabledPayment}
                                     >
                                         <Banknote className="h-4 w-4" />
                                     </Button>
                                   </TooltipTrigger>
-                                  {(isPaidOrCanceled || isLinkedToColeta) && (
+                                  {isDisabledPayment && (
                                     <TooltipContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
-                                      {isLinkedToColeta 
-                                        ? <p>Pagamentos de coletas são registrados via recibo.</p>
-                                        : <p>Não é possível registrar pagamento para lançamentos quitados ou cancelados.</p>
-                                      }
+                                      <p>{paymentTooltipMessage}</p>
                                     </TooltipContent>
                                   )}
                                 </Tooltip>
