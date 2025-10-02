@@ -89,7 +89,7 @@ const ListaFinanceiro = ({ type }) => {
     const startDateISO = debouncedStartDate || null;
     const endDateISO = debouncedEndDate || null;
 
-    // Parâmetros para a função RPC get_financeiro_detailed_report como um OBJETO
+    // Parâmetros para a função RPC get_financeiro_detailed_receipt como um OBJETO
     const rpcParams = {
       p_start_date: startDateISO,
       p_end_date: endDateISO,
@@ -104,9 +104,9 @@ const ListaFinanceiro = ({ type }) => {
     };
 
     // Fetch paginated data
-    const { data: entriesData, error: entriesError } = await supabase.rpc('get_financeiro_detailed_report', rpcParams);
+    const { data: entriesData, error: entriesError } = await supabase.rpc('get_financeiro_detailed_receipt', rpcParams);
 
-    // Parâmetros para a função RPC get_financeiro_detailed_report_count como um OBJETO
+    // Parâmetros para a função RPC get_financeiro_detailed_receipt_count como um OBJETO
     const rpcCountParams = {
       p_start_date: startDateISO,
       p_end_date: endDateISO,
@@ -115,7 +115,7 @@ const ListaFinanceiro = ({ type }) => {
       p_client_search_term: debouncedSearchTerm || debouncedClientSearchTerm || null,
       p_cost_center: null, // p_cost_center
     };
-    const { data: countData, error: countError } = await supabase.rpc('get_financeiro_detailed_report_count', rpcCountParams);
+    const { data: countData, error: countError } = await supabase.rpc('get_financeiro_detailed_receipt_count', rpcCountParams);
 
     if (entriesError) {
       toast({ title: `Erro ao buscar ${title}s`, description: `Falha na consulta: ${entriesError.message}`, variant: 'destructive' });
@@ -134,7 +134,7 @@ const ListaFinanceiro = ({ type }) => {
 
   const fetchSummary = useCallback(async () => {
     if (!empresa) return;
-    // Parâmetros para a função RPC get_financeiro_summary como um OBJETO
+    // Parâmetros para a função RPC get_financeiro_summary_receipt como um OBJETO
     const rpcSummaryParams = {
       p_start_date: debouncedStartDate || null,
       p_end_date: debouncedEndDate || null,
@@ -143,7 +143,7 @@ const ListaFinanceiro = ({ type }) => {
       p_client_search_term: debouncedSearchTerm || debouncedClientSearchTerm || null,
       p_cost_center: null, // p_cost_center
     };
-    let { data, error } = await supabase.rpc('get_financeiro_summary', rpcSummaryParams);
+    let { data, error } = await supabase.rpc('get_financeiro_summary_receipt', rpcSummaryParams);
 
     if (error) {
       console.error("Erro ao buscar resumo financeiro:", error);
@@ -325,8 +325,8 @@ const ListaFinanceiro = ({ type }) => {
                   <TableRow className="hover:bg-transparent border-b border-white/20 text-xs">
                     <TableHeaderSortable columnKey="document_number" label="Documento" sortConfig={sortConfig} onSort={requestSort} />
                     <TableHeaderSortable columnKey="cliente_fornecedor_name" label={entityLabel} sortConfig={sortConfig} onSort={requestSort} />
-                    <TableHead className="p-2 text-left text-white">Descrição</TableHead> {/* Descrição não é sortável */}
-                    <TableHead className="p-2 text-center text-white">Parcela</TableHead> {/* Parcela não é sortável */}
+                    <TableHead className="p-2 text-left text-white">Descrição</TableHead>
+                    <TableHead className="p-2 text-center text-white">Parcela</TableHead>
                     <TableHeaderSortable columnKey="issue_date" label="Vencimento" sortConfig={sortConfig} onSort={requestSort} />
                     <TableHeaderSortable columnKey="total_value" label="Valor" sortConfig={sortConfig} onSort={requestSort} className="text-right" />
                     <TableHeaderSortable columnKey="paid_amount" label="Pago" sortConfig={sortConfig} onSort={requestSort} className="text-right" />
@@ -340,10 +340,9 @@ const ListaFinanceiro = ({ type }) => {
                     entries.map(entry => {
                       const installmentDenominator = entry.has_down_payment ? entry.total_installments - 1 : entry.total_installments;
                       const isLinkedToColeta = !!entry.coleta_id;
-                      const isReceiptSigned = !!entry.recibo_assinatura_url; // NOVO: Verifica se o recibo está assinado
+                      const isReceiptSigned = !!entry.recibo_assinatura_url;
                       const isPaidOrCanceled = entry.status === 'paid' || entry.status === 'canceled';
 
-                      // NOVO: Lógica para desabilitar o botão de pagamento
                       const isDisabledPayment = isPaidOrCanceled || (isLinkedToColeta && !isReceiptSigned);
                       let paymentTooltipMessage = '';
                       if (isPaidOrCanceled) {
