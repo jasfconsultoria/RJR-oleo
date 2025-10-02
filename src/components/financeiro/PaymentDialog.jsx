@@ -19,8 +19,7 @@ export const PaymentDialog = ({ isOpen, onClose, entry, onSuccess, initialPaidAm
   const [paymentDate, setPaymentDate] = useState(new Date());
   const [paymentMethod, setPaymentMethod] = useState(initialPaymentMethod || 'pix');
   const [notes, setNotes] = useState('');
-  const [loading, setLoading] = useState(false); // Existing loading state for initial data fetch
-  const [isSubmitting, setIsSubmitting] = useState(false); // NOVO: Estado para controlar o envio do formulário
+  const [loading, setLoading] = useState(false);
   const [accounts, setAccounts] = useState([]);
   const [selectedAccount, setSelectedAccount] = useState(null);
 
@@ -38,19 +37,10 @@ export const PaymentDialog = ({ isOpen, onClose, entry, onSuccess, initialPaidAm
 
   useEffect(() => {
     const fetchAccounts = async () => {
-      setLoading(true); // Set loading for account fetch
-      const { data: empresaData, error: empresaError } = await supabase.from('empresa').select('cnpj').single();
-      if (empresaError) {
-        console.error('Erro ao buscar CNPJ da empresa:', empresaError);
-        toast({ title: 'Erro', description: 'Não foi possível carregar o CNPJ da empresa.', variant: 'destructive' });
-        setLoading(false);
-        return;
-      }
-
       const { data, error } = await supabase
         .from('conta_corrente')
         .select('*')
-        .eq('cnpj_empresa', empresaData?.cnpj)
+        .eq('cnpj_empresa', (await supabase.from('empresa').select('cnpj').single()).data?.cnpj)
         .order('is_default', { ascending: false });
 
       if (error) {
@@ -62,7 +52,6 @@ export const PaymentDialog = ({ isOpen, onClose, entry, onSuccess, initialPaidAm
           setSelectedAccount(data.find(acc => acc.is_default)?.id || data[0].id);
         }
       }
-      setLoading(false); // Unset loading after account fetch
     };
     fetchAccounts();
   }, [toast]);
@@ -93,7 +82,7 @@ export const PaymentDialog = ({ isOpen, onClose, entry, onSuccess, initialPaidAm
       return;
     }
 
-    setIsSubmitting(true); // Ativa o estado de envio
+    setLoading(true);
     try {
       const { data, error } = await supabase.rpc('register_payment', {
         p_credito_debito_id: entry.id,
@@ -118,7 +107,7 @@ export const PaymentDialog = ({ isOpen, onClose, entry, onSuccess, initialPaidAm
       console.error('Erro ao registrar pagamento:', error);
       toast({ title: 'Erro ao registrar pagamento', description: error.message, variant: 'destructive' });
     } finally {
-      setIsSubmitting(false); // Desativa o estado de envio
+      setLoading(false);
     }
   };
 
@@ -149,7 +138,7 @@ export const PaymentDialog = ({ isOpen, onClose, entry, onSuccess, initialPaidAm
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <Label htmlFor="paymentMethod" className="text-white">Forma de Pagamento *</Label>
-            <Select value={paymentMethod} onValueChange={setPaymentMethod} disabled={isSubmitting || loading}>
+            <Select value={paymentMethod} onValueChange={setPaymentMethod} disabled={loading}>
               <SelectTrigger className="bg-white/10 border-white/30 text-white">
                 <SelectValue placeholder="Selecione a forma de pagamento" />
               </SelectTrigger>
@@ -166,22 +155,16 @@ export const PaymentDialog = ({ isOpen, onClose, entry, onSuccess, initialPaidAm
 
           <div className="space-y-2">
             <Label htmlFor="account" className="text-white">Conta Movimento *</Label>
-            <Select value={selectedAccount} onValueChange={setSelectedAccount} disabled={isSubmitting || loading}>
+            <Select value={selectedAccount} onValueChange={setSelectedAccount} disabled={loading}>
               <SelectTrigger className="bg-white/10 border-white/30 text-white">
                 <SelectValue placeholder="Selecione a conta" />
               </SelectTrigger>
               <SelectContent className="bg-gray-800 text-white border-gray-700">
-                {loading ? (
-                  <SelectItem value="loading" disabled>Carregando contas...</SelectItem>
-                ) : accounts.length > 0 ? (
-                  accounts.map(account => (
-                    <SelectItem key={account.id} value={account.id}>
-                      {account.banco} - Ag: {account.agencia} - Cta: {account.conta} {account.is_default && '(Padrão)'}
-                    </SelectItem>
-                  ))
-                ) : (
-                  <SelectItem value="no-accounts" disabled>Nenhuma conta encontrada</SelectItem>
-                )}
+                {accounts.map(account => (
+                  <SelectItem key={account.id} value={account.id}>
+                    {account.banco} - Ag: {account.agencia} - Cta: {account.conta} {account.is_default && '(Padrão)'}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -209,7 +192,7 @@ export const PaymentDialog = ({ isOpen, onClose, entry, onSuccess, initialPaidAm
               onAccept={(value) => setPaidAmount(value)}
               placeholder="0,00"
               className="bg-white/10 border-white/30 text-white placeholder:text-white/60"
-              disabled={isSubmitting}
+              disabled={loading}
             />
           </div>
 
@@ -221,7 +204,7 @@ export const PaymentDialog = ({ isOpen, onClose, entry, onSuccess, initialPaidAm
               date={paymentDate}
               setDate={setPaymentDate}
               className="w-full bg-white/10 border-white/30 text-white placeholder:text-white/60"
-              disabled={isSubmitting}
+              disabled={loading}
             />
           </div>
 
@@ -233,16 +216,16 @@ export const PaymentDialog = ({ isOpen, onClose, entry, onSuccess, initialPaidAm
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Adicione uma observação sobre o pagamento..."
               className="bg-white/10 border-white/30 text-white placeholder:text-white/60"
-              disabled={isSubmitting}
+              disabled={loading}
             />
           </div>
         </div>
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
+          <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
             Cancelar
           </Button>
-          <Button type="submit" onClick={handleRegisterPayment} disabled={isSubmitting}>
-            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Registrar Pagamento'}
+          <Button type="submit" onClick={handleRegisterPayment} disabled={loading}>
+            {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Registrar Pagamento'}
           </Button>
         </DialogFooter>
       </DialogContent>
