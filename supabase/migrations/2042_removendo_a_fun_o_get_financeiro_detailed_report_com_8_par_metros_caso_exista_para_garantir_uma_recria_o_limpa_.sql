@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS public.get_financeiro_detailed_report(text, text, date, integer, integer, date, text, text);
