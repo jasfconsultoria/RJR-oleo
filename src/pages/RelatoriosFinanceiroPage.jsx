@@ -131,7 +131,7 @@ const RelatoriosFinanceiroPage = () => {
 
   const fetchSummary = useCallback(async () => {
     if (!empresa) return;
-    // Parâmetros para a função RPC get_financeiro_summary como um OBJETO
+    // Parâmetros para a função RPC get_financeiro_summary_report como um OBJETO
     const rpcSummaryParams = {
       p_start_date: debouncedStartDate || null,
       p_end_date: debouncedEndDate || null,
@@ -140,7 +140,7 @@ const RelatoriosFinanceiroPage = () => {
       p_client_search_term: debouncedSearchTerm || debouncedClientSearchTerm || null,
       p_cost_center: null,
     };
-    let { data, error } = await supabase.rpc('get_financeiro_summary', rpcSummaryParams);
+    let { data, error } = await supabase.rpc('get_financeiro_summary_report', rpcSummaryParams); // <-- Alterado para get_financeiro_summary_report
 
     if (error) {
       console.error("Erro ao buscar resumo financeiro:", error);
