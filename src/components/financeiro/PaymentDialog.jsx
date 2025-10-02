@@ -1,93 +1,106 @@
-import React, { useState, useEffect, useCallback } from 'react';
+"use client";
+
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CalendarIcon, Loader2, Banknote } from 'lucide-react';
+import { CalendarIcon, DollarSign, Banknote, Info, Loader2 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
-import { formatCurrency, parseCurrency, formatToISODate } from '@/lib/utils';
+import { formatCurrency, parseCurrency, formatDateWithTimezone } from '@/lib/utils';
 import { DatePicker } from '@/components/ui/date-picker';
 import { IMaskInput } from 'react-imask';
-import { format, isValid, parseISO } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { logAction } from '@/lib/logger';
 
-export const PaymentDialog = ({ isOpen, onClose, entry, onSuccess, initialPaidAmount, initialPaymentMethod }) => {
-  const { toast } = useToast();
+const PaymentDialog = ({ isOpen, onClose, entry, onSuccess, initialPaidAmount, initialPaymentMethod }) => {
   const [paidAmount, setPaidAmount] = useState(initialPaidAmount ? String(initialPaidAmount).replace('.', ',') : '0,00');
   const [paymentDate, setPaymentDate] = useState(new Date());
   const [paymentMethod, setPaymentMethod] = useState(initialPaymentMethod || 'pix');
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [accounts, setAccounts] = useState([]);
   const [selectedAccount, setSelectedAccount] = useState(null);
+  const { toast } = useToast();
 
-  const parsedPaidAmount = parseCurrency(paidAmount);
-  const remainingBalance = entry ? entry.amount_balance : 0;
+  const [empresaTimezone, setEmpresaTimezone] = useState('America/Sao_Paulo');
 
   useEffect(() => {
-    if (entry) {
-      setPaidAmount(initialPaidAmount ? String(initialPaidAmount).replace('.', ',') : String(entry.amount_balance).replace('.', ','));
+    const fetchEmpresaTimezone = async () => {
+      const { data, error } = await supabase.from('empresa').select('timezone').single();
+      if (data?.timezone) {
+        setEmpresaTimezone(data.timezone);
+      }
+    };
+    fetchEmpresaTimezone();
+  }, []);
+
+  const fetchAccounts = useCallback(async () => {
+    if (!entry) return;
+    const { data: empresaData, error: empresaError } = await supabase.from('empresa').select('cnpj').single();
+    if (empresaError) {
+      toast({ title: 'Erro', description: 'Não foi possível carregar o CNPJ da empresa.', variant: 'destructive' });
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('conta_corrente')
+      .select('*')
+      .eq('cnpj_empresa', empresaData.cnpj)
+      .order('is_default', { ascending: false });
+
+    if (error) {
+      toast({ title: 'Erro', description: 'Não foi possível carregar as contas bancárias.', variant: 'destructive' });
+    } else {
+      setAccounts(data || []);
+      const defaultAccount = data.find(acc => acc.is_default);
+      if (defaultAccount) {
+        setSelectedAccount(defaultAccount.id);
+      } else if (data.length > 0) {
+        setSelectedAccount(data[0].id);
+      }
+    }
+  }, [entry, toast]);
+
+  useEffect(() => {
+    if (isOpen && entry) {
+      setPaidAmount(initialPaidAmount ? String(initialPaidAmount).replace('.', ',') : String(entry.amount_balance || '0,00').replace('.', ','));
       setPaymentDate(new Date());
       setPaymentMethod(initialPaymentMethod || 'pix');
       setNotes('');
+      fetchAccounts();
     }
-  }, [entry, initialPaidAmount, initialPaymentMethod]);
-
-  useEffect(() => {
-    const fetchAccounts = async () => {
-      const { data, error } = await supabase
-        .from('conta_corrente')
-        .select('*')
-        .eq('cnpj_empresa', (await supabase.from('empresa').select('cnpj').single()).data?.cnpj)
-        .order('is_default', { ascending: false });
-
-      if (error) {
-        console.error('Erro ao buscar contas correntes:', error);
-        toast({ title: 'Erro', description: 'Não foi possível carregar as contas bancárias.', variant: 'destructive' });
-      } else {
-        setAccounts(data || []);
-        if (data.length > 0) {
-          setSelectedAccount(data.find(acc => acc.is_default)?.id || data[0].id);
-        }
-      }
-    };
-    fetchAccounts();
-  }, [toast]);
+  }, [isOpen, entry, fetchAccounts, initialPaidAmount, initialPaymentMethod]);
 
   const handleRegisterPayment = async () => {
-    if (!entry) {
-      toast({ title: 'Erro', description: 'Nenhum lançamento selecionado para pagamento.', variant: 'destructive' });
-      return;
-    }
+    setIsSubmitting(true);
+    const parsedPaidAmount = parseCurrency(paidAmount);
+
     if (parsedPaidAmount <= 0) {
       toast({ title: 'Valor inválido', description: 'O valor a pagar deve ser maior que zero.', variant: 'destructive' });
-      return;
-    }
-    if (parsedPaidAmount > remainingBalance) {
-      toast({ title: 'Valor excedente', description: `O valor a pagar não pode ser maior que o saldo devedor (${formatCurrency(remainingBalance)}).`, variant: 'destructive' });
-      return;
-    }
-    if (!paymentDate) {
-      toast({ title: 'Data inválida', description: 'Por favor, selecione a data do pagamento.', variant: 'destructive' });
-      return;
-    }
-    if (!paymentMethod) {
-      toast({ title: 'Método de pagamento', description: 'Por favor, selecione a forma de pagamento.', variant: 'destructive' });
-      return;
-    }
-    if (!selectedAccount) {
-      toast({ title: 'Conta de Movimento', description: 'Por favor, selecione a conta de movimento.', variant: 'destructive' });
+      setIsSubmitting(false);
       return;
     }
 
-    setLoading(true);
+    if (!paymentDate) {
+      toast({ title: 'Data inválida', description: 'Por favor, selecione a data do pagamento.', variant: 'destructive' });
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (!selectedAccount) {
+      toast({ title: 'Conta de Movimento', description: 'Por favor, selecione uma conta de movimento.', variant: 'destructive' });
+      setIsSubmitting(false);
+      return;
+    }
+
     try {
       const { data, error } = await supabase.rpc('register_payment', {
         p_credito_debito_id: entry.id,
         p_paid_amount: parsedPaidAmount,
-        p_payment_date: formatToISODate(paymentDate),
+        p_payment_date: paymentDate.toISOString().split('T')[0], // Format to YYYY-MM-DD
         p_payment_method: paymentMethod,
         p_notes: notes,
         p_installment_number: entry.installment_number,
@@ -96,81 +109,102 @@ export const PaymentDialog = ({ isOpen, onClose, entry, onSuccess, initialPaidAm
         p_conta_corrente_id: selectedAccount,
       });
 
-      if (error || (data && !data.success)) {
-        throw new Error(error?.message || data?.message || 'Erro desconhecido ao registrar pagamento.');
-      }
+      if (error) throw error;
+      if (!data.success) throw new Error(data.message);
 
-      toast({ title: 'Pagamento registrado!', description: 'O pagamento foi salvo e o saldo atualizado.', variant: 'success' });
+      toast({ title: 'Pagamento registrado', description: data.message, variant: 'success' });
+      await logAction('register_payment_success', {
+        entry_id: entry.id,
+        payment_id: data.payment_id,
+        paid_amount: parsedPaidAmount,
+        payment_method: paymentMethod,
+        account_id: selectedAccount,
+      });
       onSuccess();
       onClose();
     } catch (error) {
-      console.error('Erro ao registrar pagamento:', error);
       toast({ title: 'Erro ao registrar pagamento', description: error.message, variant: 'destructive' });
+      await logAction('register_payment_failed', {
+        entry_id: entry.id,
+        error: error.message,
+        paid_amount: parsedPaidAmount,
+        payment_method: paymentMethod,
+        account_id: selectedAccount,
+      });
     } finally {
+      setIsSubmitting(false);
       setLoading(false);
     }
   };
 
-  const getClientDisplayName = (entryData) => {
-    return entryData.cliente_fornecedor_fantasy_name ? `${entryData.cliente_fornecedor_name} - ${entryData.cliente_fornecedor_fantasy_name}` : entryData.cliente_fornecedor_name;
+  const getAccountDisplayName = (account) => {
+    if (!account) return 'N/A';
+    const defaultTag = account.is_default ? ' (Padrão)' : '';
+    return `${account.banco} - Ag: ${account.agencia} - Cta: ${account.conta}${defaultTag}`;
   };
+
+  const entryTypeLabel = entry?.type === 'credito' ? 'receber' : 'pagar';
+  const entityName = entry?.cliente_fornecedor_fantasy_name ? `${entry.cliente_fornecedor_name} - ${entry.cliente_fornecedor_fantasy_name}` : entry?.cliente_fornecedor_name;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="bg-emerald-900 border-emerald-700 text-white max-w-md">
+      <DialogContent className="bg-emerald-900 border-emerald-700 text-white rounded-xl">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Banknote className="w-6 h-6 text-emerald-400" /> Registrar Pagamento
-          </DialogTitle>
+          <DialogTitle>Registrar Pagamento</DialogTitle>
           <DialogDescription className="text-emerald-300">
-            Preencha os detalhes para registrar o pagamento d{entry?.type === 'credito' ? 'o crédito' : 'o débito'}.
+            Para: <span className="font-bold">{entityName}</span> - Pagamento de {entry?.description}.
           </DialogDescription>
-        </DialogHeader>
-        {entry && (
-          <div className="space-y-2 text-sm">
-            <p className="text-emerald-200">Para: <span className="font-bold">{getClientDisplayName(entry)}</span></p>
-            <p className="text-emerald-200">{entry.description}</p>
-            <p className="text-emerald-200">Valor da Parcela: <span className="font-bold">{formatCurrency(entry.total_value)}</span></p>
-            <p className="text-emerald-200">Valor Pago: <span className="font-bold">{formatCurrency(entry.paid_amount)}</span></p>
-            <p className="text-yellow-400 text-lg font-bold">Saldo Devedor: {formatCurrency(remainingBalance)}</p>
+          <div className="mt-2 text-sm text-emerald-200">
+            <p>Valor da Parcela: <span className="font-bold text-white">{formatCurrency(entry?.total_value || 0)}</span></p>
+            <p>Valor Pago: <span className="font-bold text-white">{formatCurrency(entry?.paid_amount || 0)}</span></p>
+            <p className="text-lg font-bold text-yellow-400">Saldo Devedor: {formatCurrency(entry?.amount_balance || 0)}</p>
           </div>
-        )}
+        </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label htmlFor="paymentMethod" className="text-white">Forma de Pagamento *</Label>
-            <Select value={paymentMethod} onValueChange={setPaymentMethod} disabled={loading}>
-              <SelectTrigger className="bg-white/10 border-white/30 text-white">
+            <Label htmlFor="paymentMethod" className="text-white flex items-center gap-2">
+              <Banknote className="w-4 h-4" /> Forma de Pagamento *
+            </Label>
+            <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+              <SelectTrigger className="bg-white/10 border-white/30 text-white rounded-xl h-10 text-base">
                 <SelectValue placeholder="Selecione a forma de pagamento" />
               </SelectTrigger>
-              <SelectContent className="bg-gray-800 text-white border-gray-700">
-                <SelectItem value="pix">PIX</SelectItem>
+              <SelectContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
+                <SelectItem value="pix">Pix</SelectItem>
                 <SelectItem value="cash">Dinheiro</SelectItem>
                 <SelectItem value="bank_transfer">Transferência Bancária</SelectItem>
                 <SelectItem value="credit_card">Cartão de Crédito</SelectItem>
                 <SelectItem value="debit_card">Cartão de Débito</SelectItem>
-                <SelectItem value="boleto">Boleto</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="account" className="text-white">Conta Movimento *</Label>
-            <Select value={selectedAccount} onValueChange={setSelectedAccount} disabled={loading}>
-              <SelectTrigger className="bg-white/10 border-white/30 text-white">
+            <Label htmlFor="account" className="text-white flex items-center gap-2">
+              <Banknote className="w-4 h-4" /> Conta Movimento *
+            </Label>
+            <Select value={selectedAccount} onValueChange={setSelectedAccount}>
+              <SelectTrigger className="bg-white/10 border-white/30 text-white rounded-xl h-10 text-base">
                 <SelectValue placeholder="Selecione a conta" />
               </SelectTrigger>
-              <SelectContent className="bg-gray-800 text-white border-gray-700">
-                {accounts.map(account => (
-                  <SelectItem key={account.id} value={account.id}>
-                    {account.banco} - Ag: {account.agencia} - Cta: {account.conta} {account.is_default && '(Padrão)'}
-                  </SelectItem>
-                ))}
+              <SelectContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
+                {accounts.length > 0 ? (
+                  accounts.map(acc => (
+                    <SelectItem key={acc.id} value={acc.id}>
+                      {getAccountDisplayName(acc)}
+                    </SelectItem>
+                  ))
+                ) : (
+                  <SelectItem value="no-accounts" disabled>Nenhuma conta cadastrada</SelectItem>
+                )}
               </SelectContent>
             </Select>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="paidAmount" className="text-white">Valor a Pagar (R$) *</Label>
+            <Label htmlFor="paidAmount" className="text-white flex items-center gap-2">
+              <DollarSign className="w-4 h-4" /> Valor a Pagar (R$) *
+            </Label>
             <IMaskInput
               mask="num"
               blocks={{
@@ -191,8 +225,8 @@ export const PaymentDialog = ({ isOpen, onClose, entry, onSuccess, initialPaidAm
               value={paidAmount}
               onAccept={(value) => setPaidAmount(value)}
               placeholder="0,00"
-              className="bg-white/10 border-white/30 text-white placeholder:text-white/60"
-              disabled={loading}
+              className="bg-white/10 border-white/30 text-white placeholder:text-white/60 rounded-xl h-10 text-base px-3 py-2"
+              required
             />
           </div>
 
@@ -203,32 +237,33 @@ export const PaymentDialog = ({ isOpen, onClose, entry, onSuccess, initialPaidAm
             <DatePicker
               date={paymentDate}
               setDate={setPaymentDate}
-              className="w-full bg-white/10 border-white/30 text-white placeholder:text-white/60"
-              disabled={loading}
+              className="w-full bg-white/10 border-white/30 text-white rounded-xl"
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="notes" className="text-white">Observações</Label>
+            <Label htmlFor="notes" className="text-white flex items-center gap-2">
+              <Info className="w-4 h-4" /> Observações
+            </Label>
             <Input
               id="notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Adicione uma observação sobre o pagamento..."
-              className="bg-white/10 border-white/30 text-white placeholder:text-white/60"
-              disabled={loading}
+              className="bg-white/10 border-white/30 text-white placeholder:text-white/60 rounded-xl h-10 text-base"
             />
           </div>
         </div>
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
-            Cancelar
-          </Button>
-          <Button type="submit" onClick={handleRegisterPayment} disabled={loading}>
-            {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Registrar Pagamento'}
+          <Button type="button" variant="outline" onClick={onClose} className="rounded-xl">Cancelar</Button>
+          <Button onClick={handleRegisterPayment} disabled={isSubmitting || !selectedAccount} className="bg-emerald-600 hover:bg-emerald-700 rounded-xl">
+            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            {isSubmitting ? 'Registrando...' : 'Registrar Pagamento'}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 };
+
+export default PaymentDialog;

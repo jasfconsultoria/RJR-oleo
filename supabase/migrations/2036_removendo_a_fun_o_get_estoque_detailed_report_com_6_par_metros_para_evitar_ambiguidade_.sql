@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS public.get_estoque_detailed_report(date, date, text, text, integer, integer);

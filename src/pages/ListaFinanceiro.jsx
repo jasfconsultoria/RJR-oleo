@@ -89,26 +89,33 @@ const ListaFinanceiro = ({ type }) => {
     const startDateISO = debouncedStartDate || null;
     const endDateISO = debouncedEndDate || null;
 
-    const commonRpcParams = {
+    // Parâmetros para a função RPC get_financeiro_detailed_report como um OBJETO
+    const rpcParams = {
       p_start_date: startDateISO,
       p_end_date: endDateISO,
       p_type: type,
       p_status: statusFilter === 'all' ? null : statusFilter,
       p_client_search_term: debouncedSearchTerm || debouncedClientSearchTerm || null,
-      p_cost_center: null, // Cost center filter is not implemented in ListaFinanceiro
-      p_sort_column: sortConfig.key, // Passando a coluna para ordenação
-      p_sort_direction: sortConfig.direction, // Passando a direção para ordenação
+      p_cost_center: null, // p_cost_center (não implementado neste relatório)
+      p_offset: from,
+      p_limit: pageSize,
+      p_sort_column: sortConfig.key,
+      p_sort_direction: sortConfig.direction,
     };
 
     // Fetch paginated data
-    const { data: entriesData, error: entriesError } = await supabase.rpc('get_financeiro_detailed_report', {
-      ...commonRpcParams,
-      p_offset: from,
-      p_limit: pageSize,
-    });
+    const { data: entriesData, error: entriesError } = await supabase.rpc('get_financeiro_detailed_report', rpcParams);
 
-    // Fetch total count
-    const { data: countData, error: countError } = await supabase.rpc('get_financeiro_detailed_report_count', commonRpcParams);
+    // Parâmetros para a função RPC get_financeiro_detailed_report_count como um OBJETO
+    const rpcCountParams = {
+      p_start_date: startDateISO,
+      p_end_date: endDateISO,
+      p_type: type,
+      p_status: statusFilter === 'all' ? null : statusFilter,
+      p_client_search_term: debouncedSearchTerm || debouncedClientSearchTerm || null,
+      p_cost_center: null, // p_cost_center
+    };
+    const { data: countData, error: countError } = await supabase.rpc('get_financeiro_detailed_report_count', rpcCountParams);
 
     if (entriesError) {
       toast({ title: `Erro ao buscar ${title}s`, description: `Falha na consulta: ${entriesError.message}`, variant: 'destructive' });
@@ -127,14 +134,16 @@ const ListaFinanceiro = ({ type }) => {
 
   const fetchSummary = useCallback(async () => {
     if (!empresa) return;
-    let { data, error } = await supabase.rpc('get_financeiro_summary', {
+    // Parâmetros para a função RPC get_financeiro_summary como um OBJETO
+    const rpcSummaryParams = {
       p_start_date: debouncedStartDate || null,
       p_end_date: debouncedEndDate || null,
       p_type: type,
       p_status: statusFilter === 'all' ? null : statusFilter,
       p_client_search_term: debouncedSearchTerm || debouncedClientSearchTerm || null,
-      p_cost_center: null, // Cost center filter is not implemented in ListaFinanceiro
-    });
+      p_cost_center: null, // p_cost_center
+    };
+    let { data, error } = await supabase.rpc('get_financeiro_summary', rpcSummaryParams);
 
     if (error) {
       console.error("Erro ao buscar resumo financeiro:", error);
