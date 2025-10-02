@@ -16,7 +16,7 @@ import { formatCnpjCpf, formatCurrency, formatNumber, formatDateWithTimezone, cn
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { format, parseISO, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import PaymentDialog from '@/components/financeiro/PaymentDialog';
+import { PaymentDialog } from '@/components/financeiro/PaymentDialog'; // CORRIGIDO: Importação nomeada
 import PaymentHistoryDialog from '@/components/financeiro/PaymentHistoryDialog';
 import { DatePicker } from '@/components/ui/date-picker'; // Import DatePicker
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"; // Import Tooltip components
