@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { Recibo } from '@/components/Recibo';
 import { Loader2, Eraser, CheckCircle, AlertTriangle, XCircle } from 'lucide-react';
 import { Label } from '@/components/ui/label';
-import PaymentDialog from '@/components/financeiro/PaymentDialog';
+import { PaymentDialog } from '@/components/financeiro/PaymentDialog'; // CORRIGIDO: Importação nomeada
 
 const AssinaturaReciboPage = () => {
   const { id } = useParams();
