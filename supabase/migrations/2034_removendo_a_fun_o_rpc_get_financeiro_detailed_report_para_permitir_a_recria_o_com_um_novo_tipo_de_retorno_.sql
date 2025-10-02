@@ -1,0 +1,1 @@
+DROP FUNCTION public.get_financeiro_detailed_report(date,date,text,text,text,text,integer,integer,text,text);
