@@ -64,12 +64,9 @@ const RelatoriosFinanceiroPage = () => {
 
   const pageSize = useMemo(() => empresa?.items_per_page || 25, [empresa]);
 
-  // O tipo de relatório financeiro para esta página será 'debito' por padrão,
-  // mas pode ser ajustado se houver necessidade de relatórios de 'credito' também.
-  // Por enquanto, vamos focar no 'debito' como o relatório principal.
   const reportType = 'debito'; 
   const title = 'Relatório Financeiro';
-  const entityLabel = 'Cliente/Fornecedor'; // Mais genérico para relatório
+  const entityLabel = 'Cliente/Fornecedor';
 
   useEffect(() => {
     const fetchEmpresa = async () => {
@@ -87,32 +84,35 @@ const RelatoriosFinanceiroPage = () => {
 
     const startDateISO = debouncedStartDate || null;
     const endDateISO = debouncedEndDate || null;
+    const clientSearch = debouncedSearchTerm || debouncedClientSearchTerm || null;
+    const status = statusFilter === 'all' ? null : statusFilter;
+    const costCenter = null; // p_cost_center (não implementado neste relatório)
 
-    // Parâmetros para a nova função RPC get_financeiro_detailed_receipt
-    const rpcParams = {
-      p_start_date: startDateISO,
-      p_end_date: endDateISO,
-      p_type: reportType, // Usando o tipo definido para o relatório
-      p_status: statusFilter === 'all' ? null : statusFilter,
-      p_client_search_term: debouncedSearchTerm || debouncedClientSearchTerm || null,
-      p_cost_center: null,
-      p_offset: from,
-      p_limit: pageSize,
-    };
+    // Parâmetros para a função RPC get_financeiro_detailed_receipt como um ARRAY, na ordem exata da função SQL
+    const rpcParamsArray = [
+      clientSearch, // p_client_search_term
+      costCenter,   // p_cost_center
+      endDateISO,   // p_end_date
+      pageSize,     // p_limit
+      from,         // p_offset
+      startDateISO, // p_start_date
+      status,       // p_status
+      reportType    // p_type
+    ];
 
     // Fetch paginated data
-    const { data: entriesData, error: entriesError } = await supabase.rpc('get_financeiro_detailed_receipt', rpcParams);
+    const { data: entriesData, error: entriesError } = await supabase.rpc('get_financeiro_detailed_receipt', rpcParamsArray);
 
-    // Parâmetros para a nova função RPC get_financeiro_detailed_receipt_count
-    const rpcCountParams = {
-      p_start_date: startDateISO,
-      p_end_date: endDateISO,
-      p_type: reportType,
-      p_status: statusFilter === 'all' ? null : statusFilter,
-      p_client_search_term: debouncedSearchTerm || debouncedClientSearchTerm || null,
-      p_cost_center: null,
-    };
-    const { data: countData, error: countError } = await supabase.rpc('get_financeiro_detailed_receipt_count', rpcCountParams);
+    // Parâmetros para a função RPC get_financeiro_detailed_receipt_count como um ARRAY
+    const rpcCountParamsArray = [
+      startDateISO, // p_start_date
+      endDateISO,   // p_end_date
+      reportType,   // p_type
+      status,       // p_status
+      clientSearch, // p_client_search_term
+      costCenter    // p_cost_center
+    ];
+    const { data: countData, error: countError } = await supabase.rpc('get_financeiro_detailed_receipt_count', rpcCountParamsArray);
 
     if (entriesError) {
       toast({ title: `Erro ao buscar ${title}s`, description: `Falha na consulta: ${entriesError.message}`, variant: 'destructive' });
@@ -131,16 +131,22 @@ const RelatoriosFinanceiroPage = () => {
 
   const fetchSummary = useCallback(async () => {
     if (!empresa) return;
-    // Parâmetros para a nova função RPC get_financeiro_summary_receipt
-    const rpcSummaryParams = {
-      p_start_date: debouncedStartDate || null,
-      p_end_date: debouncedEndDate || null,
-      p_type: reportType,
-      p_status: statusFilter === 'all' ? null : statusFilter,
-      p_client_search_term: debouncedSearchTerm || debouncedClientSearchTerm || null,
-      p_cost_center: null,
-    };
-    let { data, error } = await supabase.rpc('get_financeiro_summary_receipt', rpcSummaryParams);
+    const startDateISO = debouncedStartDate || null;
+    const endDateISO = debouncedEndDate || null;
+    const clientSearch = debouncedSearchTerm || debouncedClientSearchTerm || null;
+    const status = statusFilter === 'all' ? null : statusFilter;
+    const costCenter = null; // p_cost_center
+
+    // Parâmetros para a função RPC get_financeiro_summary_receipt como um ARRAY
+    const rpcSummaryParamsArray = [
+      startDateISO, // p_start_date
+      endDateISO,   // p_end_date
+      reportType,   // p_type
+      status,       // p_status
+      clientSearch, // p_client_search_term
+      costCenter    // p_cost_center
+    ];
+    let { data, error } = await supabase.rpc('get_financeiro_summary_receipt', rpcSummaryParamsArray);
 
     if (error) {
       console.error("Erro ao buscar resumo financeiro:", error);
