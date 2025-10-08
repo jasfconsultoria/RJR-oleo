@@ -160,6 +160,11 @@ const ListaEstoque = () => {
     }
   };
 
+  const getClientDisplayName = (entry) => {
+    if (!entry.cliente_nome && !entry.cliente_nome_fantasia) return 'N/A';
+    return entry.cliente_nome_fantasia ? `${entry.cliente_nome_fantasia} - ${entry.cliente_nome}` : entry.cliente_nome;
+  };
+
   return (
     <>
       <Helmet><title>Relatório de Estoque - RJR Óleo</title></Helmet>
@@ -240,6 +245,7 @@ const ListaEstoque = () => {
                     <TableHeaderSortable columnKey="tipo" label="Tipo" sortConfig={sortConfig} onSort={requestSort} />
                     <TableHeaderSortable columnKey="document_number" label="Documento" sortConfig={sortConfig} onSort={requestSort} />
                     <TableHead className="p-2 text-left text-white">Origem</TableHead>
+                    <TableHead className="p-2 text-left text-white">Cliente</TableHead> {/* Adicionado cabeçalho Cliente */}
                     <TableHeaderSortable columnKey="produto_nome" label="Produto" sortConfig={sortConfig} onSort={requestSort} />
                     <TableHeaderSortable columnKey="quantidade" label="Quantidade" sortConfig={sortConfig} onSort={requestSort} className="text-right" />
                     <TableHead className="p-2 text-left text-white">Observação</TableHead>
@@ -258,6 +264,7 @@ const ListaEstoque = () => {
                         </TableCell>
                         <TableCell data-label="Documento">{entry.document_number || 'N/A'}</TableCell>
                         <TableCell data-label="Origem">{entry.origem}</TableCell>
+                        <TableCell data-label="Cliente">{getClientDisplayName(entry)}</TableCell> {/* Exibindo o nome do cliente */}
                         <TableCell data-label="Produto">
                           <div className="font-medium">{entry.produto_nome}</div>
                           <div className="text-xs text-gray-400">{entry.produto_codigo}</div>
@@ -267,13 +274,13 @@ const ListaEstoque = () => {
                       </TableRow>
                     ))
                   ) : (
-                    <TableRow><TableCell colSpan="7" className="text-center text-gray-400 py-10">Nenhum dado de estoque encontrado para os filtros selecionados.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan="8" className="text-center text-gray-400 py-10">Nenhum dado de estoque encontrado para os filtros selecionados.</TableCell></TableRow>
                   )}
                 </TableBody>
                 {entries.length > 0 && (
                   <TableFooter>
                     <TableRow className="bg-black/20 font-bold text-white border-t-2 border-emerald-500 text-sm hidden md:table-row">
-                      <TableCell colSpan={4} className="p-2">TOTAIS DO PERÍODO</TableCell>
+                      <TableCell colSpan={5} className="p-2">TOTAIS DO PERÍODO</TableCell>
                       <TableCell className="text-right p-2">Entradas: {formatNumber(summary.total_quantity_in)}</TableCell>
                       <TableCell className="text-right p-2">Saídas: {formatNumber(summary.total_quantity_out)}</TableCell>
                       <TableCell colSpan={1} className="p-2"></TableCell>
