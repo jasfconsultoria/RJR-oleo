@@ -8,7 +8,7 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableHead, // Importado TableHead
+  TableHead,
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
@@ -37,7 +37,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useProfile } from '@/contexts/ProfileContext';
-import { formatCnpjCpf, escapePostgrestLikePattern, cn } from '@/lib/utils'; // Importado cn
+import { formatCnpjCpf, escapePostgrestLikePattern, cn } from '@/lib/utils';
 import { logAction } from '@/lib/logger';
 import { Pagination } from '@/components/ui/pagination';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -47,7 +47,7 @@ const CONFIG = {
   PAGE_SIZE_DEFAULT: 25,
   DEBOUNCE_DELAY: 500,
   TABLE_COLUMNS: {
-    nome: { label: 'Razão Social / Nome Fantasia', width: 'w-[25%]' }, // Alterado para classe Tailwind
+    nome: { label: 'Nome Fantasia / Razão Social', width: 'w-[25%]' }, // Alterado label
     cnpj_cpf: { label: 'CNPJ/CPF', width: 'w-[18%]' },
     municipio: { label: 'Localização', width: 'w-[32%]' },
     contrato: { label: 'Contrato', width: 'w-[15%]' },
@@ -273,7 +273,7 @@ const useClientesList = (personType, profile) => {
 };
 
 // Componente para o cabeçalho da tabela
-const TableHeaderSortable = ({ columnKey, label, sortConfig, onSort, className }) => { // Adicionado className
+const TableHeaderSortable = ({ columnKey, label, sortConfig, onSort, className }) => {
   const getSortIcon = () => {
     if (sortConfig.key !== columnKey) return null;
     return sortConfig.direction === 'asc' 
@@ -282,9 +282,9 @@ const TableHeaderSortable = ({ columnKey, label, sortConfig, onSort, className }
   };
 
   return (
-    <TableHead // Usando TableHead do shadcn/ui
+    <TableHead
       onClick={() => onSort(columnKey)} 
-      className={cn("cursor-pointer text-emerald-300", className)} // Usando cn para mesclar classes
+      className={cn("cursor-pointer text-emerald-300", className)}
     >
       <div className="flex items-center">
         {label} {getSortIcon()}
@@ -329,7 +329,7 @@ const RowActions = ({
   const navigate = useNavigate();
 
   return (
-    <div className="flex justify-end items-center gap-1"> {/* Alinhado à direita para desktop */}
+    <div className="flex justify-end items-center gap-1">
       <Button 
         variant="ghost" 
         size="icon" 
@@ -487,10 +487,10 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
             ) : (
               <Table className="responsive-table">
                 <TableHeader>
-                  <TableRow className="border-white/20 hover:bg-transparent"> {/* Padronizado */}
+                  <TableRow className="border-white/20 hover:bg-transparent">
                     <TableHeaderSortable
                       columnKey="nome"
-                      label="Razão Social / Nome Fantasia"
+                      label="Nome Fantasia / Razão Social" // Alterado label
                       sortConfig={sortConfig}
                       onSort={requestSort}
                       className={CONFIG.TABLE_COLUMNS.nome.width}
@@ -509,10 +509,10 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
                       onSort={requestSort}
                       className={CONFIG.TABLE_COLUMNS.municipio.width}
                     />
-                    <TableHead className={cn("text-emerald-300", CONFIG.TABLE_COLUMNS.contrato.width)}> {/* Usando TableHead diretamente */}
+                    <TableHead className={cn("text-emerald-300", CONFIG.TABLE_COLUMNS.contrato.width)}>
                       Contrato
                     </TableHead>
-                    <TableHead className={cn("text-emerald-300 text-right", CONFIG.TABLE_COLUMNS.acoes.width)}> {/* Usando TableHead diretamente, alinhado à direita */}
+                    <TableHead className={cn("text-emerald-300 text-right", CONFIG.TABLE_COLUMNS.acoes.width)}>
                       Ações
                     </TableHead>
                   </TableRow>
@@ -525,11 +525,12 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
                         className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm"
                       >
                         <TableCell 
-                          data-label="Razão Social / Nome Fantasia" 
-                          className="font-medium min-w-0" // Removido 'truncate'
+                          data-label="Nome Fantasia / Razão Social" // Alterado data-label
+                          className="font-medium min-w-0"
                         >
+                          {/* Invertendo a ordem para Nome Fantasia - Razão Social */}
                           {cliente.nome_fantasia 
-                            ? `${cliente.nome} - ${cliente.nome_fantasia}` 
+                            ? `${cliente.nome_fantasia} - ${cliente.nome}` 
                             : cliente.nome
                           }
                         </TableCell>
@@ -545,7 +546,7 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
                             allContratos={allContratos} 
                           />
                         </TableCell>
-                        <TableCell className="actions-cell text-right"> {/* Alinhado à direita para desktop */}
+                        <TableCell className="actions-cell text-right">
                           <RowActions
                             cliente={cliente}
                             personType={personType}

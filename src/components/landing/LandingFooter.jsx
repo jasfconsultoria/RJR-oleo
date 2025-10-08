@@ -4,9 +4,9 @@ import { Link } from 'react-router-dom';
 
 const LandingFooter = () => {
   const telefones = [
-    { numero: '(63) 99289-6848', regiao: 'Tocantins' },
-    { numero: '(94) 99240-2020', regiao: 'Pará' },
-    { numero: '(99) 98402-8698', regiao: 'Maranhão' },
+    { numero: '(63) 99237-8989', regiao: 'Tocantins' },
+    { numero: '(94) 99115-8989', regiao: 'Pará' },
+    { numero: '(99) 99161-8989', regiao: 'Maranhão' },
   ];
 
   const getWhatsAppLink = (numero) => {

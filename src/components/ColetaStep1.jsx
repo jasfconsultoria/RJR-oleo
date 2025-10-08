@@ -98,9 +98,10 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
 
   useEffect(() => {
     if (data.cliente) {
+      const searchTerm = data.cliente.toLowerCase();
       const filtered = allClients.filter(client =>
-        client.nome.toLowerCase().includes(data.cliente.toLowerCase()) ||
-        (client.nome_fantasia && client.nome_fantasia.toLowerCase().includes(data.cliente.toLowerCase()))
+        (client.nome_fantasia && client.nome_fantasia.toLowerCase().includes(searchTerm)) ||
+        client.nome.toLowerCase().includes(searchTerm)
       );
       setFilteredClients(filtered);
     } else {
@@ -136,7 +137,8 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
 
     onUpdate({
       cliente_id: client.id,
-      cliente: client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome,
+      // Invertendo a ordem para Nome Fantasia - Razão Social
+      cliente: client.nome_fantasia ? `${client.nome_fantasia} - ${client.nome}` : client.nome,
       cnpj_cpf: client.cnpj_cpf,
       endereco: client.endereco,
       email: client.email,
@@ -248,10 +250,13 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
               {filteredClients.length > 0 ? filteredClients.map((client) => (
                 <div
                   key={client.id}
-                  onMouseDown={() => handleClienteSelect(client)} // Use onMouseDown to prevent blur from closing before click
+                  onMouseDown={() => handleClienteSelect(client)}
                   className="p-3 hover:bg-emerald-50 cursor-pointer border-b border-gray-100 last:border-b-0"
                 >
-                  <div className="font-medium text-gray-900">{client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome}</div>
+                  <div className="font-medium text-gray-900">
+                    {/* Invertendo a ordem para Nome Fantasia - Razão Social */}
+                    {client.nome_fantasia ? `${client.nome_fantasia} - ${client.nome}` : client.nome}
+                  </div>
                   <div className="text-sm text-gray-600">{formatCnpjCpf(client.cnpj_cpf)} - {client.municipio}/{client.estado}</div>
                 </div>
               )) : (
@@ -333,8 +338,8 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
             <div className="space-y-2">
-              <Label htmlFor="estado" className="text-white flex items-center gap-2"> {/* Adicionado flex para alinhamento */}
-                <MapPin className="w-4 h-4 opacity-0" /> {/* Ícone transparente para alinhar com o outro campo */}
+              <Label htmlFor="estado" className="text-white flex items-center gap-2">
+                <MapPin className="w-4 h-4 opacity-0" />
                 Estado *
               </Label>
                 <Select value={data.estado || ''} onValueChange={handleEstadoChange} required disabled={isClienteSelected}>
@@ -347,8 +352,8 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
                 </Select>
             </div>
             <div className="space-y-2">
-                <Label htmlFor="municipio" className="text-white flex items-center gap-2"> {/* Adicionado flex para alinhamento */}
-                  <MapPin className="w-4 h-4 opacity-0" /> {/* Ícone transparente para alinhar com o outro campo */}
+                <Label htmlFor="municipio" className="text-white flex items-center gap-2">
+                  <MapPin className="w-4 h-4 opacity-0" />
                   Município *
                 </Label>
                 <SearchableSelect
@@ -366,7 +371,7 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
             <div className="space-y-2">
               <Label htmlFor="tipo_coleta" className="text-white flex items-center gap-2">
-                <Calculator className="w-4 h-4 opacity-0" /> {/* Ícone transparente para alinhar com o outro campo */}
+                <Calculator className="w-4 h-4 opacity-0" />
                 Tipo de Coleta *
               </Label>
               <Select value={data.tipo_coleta} onValueChange={handleTipoColetaChange} required>

@@ -53,8 +53,7 @@ const LandingHero = () => {
         transition={{ duration: 0.8, delay: 0.4 }}
         className="text-base sm:text-lg md:text-xl text-emerald-100/80 max-w-xs sm:max-w-md md:max-w-3xl mt-4 px-4"
       >
-        A RJR Óleo é uma empresa especializada em coleta de óleo de origem vegetal e
-        animal, com operações nos estados do Pará, Tocantins e Maranhão.
+        A RJR Óleo é uma empresa especializada em coleta de óleo de fritura de origem animal e vegetal com operacaçoes nos estados do Pará, Tocantins e Maranhão.
       </motion.p>
     </main>
   );

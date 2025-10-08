@@ -9,7 +9,7 @@ const LandingPage = () => {
     <>
       <Helmet>
         <title>RJR Óleo - Coleta de Óleo de Fritura</title>
-        <meta name="description" content="RJR Óleo é uma empresa especializada em coleta de óleo de origem vegetal e animal, com operações nos estados do Pará, Tocantins e Maranhão." />
+        <meta name="description" content="A RJR Óleo é uma empresa especializada em coleta de óleo de fritura de origem animal e vegetal com operacaçoes nos estados do Pará, Tocantins e Maranhão." />
       </Helmet>
       <div className="min-h-screen bg-gradient-to-br from-emerald-900 via-teal-900 to-cyan-900 flex flex-col">
         <LandingHeader />

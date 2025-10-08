@@ -18,8 +18,8 @@ import { format, parseISO, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import PaymentDialog from '@/components/financeiro/PaymentDialog';
 import PaymentHistoryDialog from '@/components/financeiro/PaymentHistoryDialog';
-import { DatePicker } from '@/components/ui/date-picker'; // Import DatePicker
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"; // Import Tooltip components
+import { DatePicker } from '@/components/ui/date-picker';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 // Helper component for sortable table headers
 const TableHeaderSortable = ({ columnKey, label, sortConfig, onSort, className }) => {
@@ -52,7 +52,7 @@ const ListaFinanceiro = ({ type }) => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [startDate, setStartDate] = useState(startOfMonth(new Date()));
   const [endDate, setEndDate] = useState(endOfMonth(new Date()));
-  const [sortConfig, setSortConfig] = useState({ key: 'issue_date', direction: 'desc' }); // Novo estado de ordenação
+  const [sortConfig, setSortConfig] = useState({ key: 'issue_date', direction: 'desc' });
   
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
   const debouncedClientSearchTerm = useDebounce(clientSearchTerm, 500);
@@ -89,31 +89,28 @@ const ListaFinanceiro = ({ type }) => {
     const startDateISO = debouncedStartDate || null;
     const endDateISO = debouncedEndDate || null;
 
-    // Parâmetros para a função RPC get_financeiro_detailed_receipt como um OBJETO
     const rpcParams = {
       p_start_date: startDateISO,
       p_end_date: endDateISO,
       p_type: type,
       p_status: statusFilter === 'all' ? null : statusFilter,
       p_client_search_term: debouncedSearchTerm || debouncedClientSearchTerm || null,
-      p_cost_center: null, // p_cost_center (não implementado neste relatório)
+      p_cost_center: null,
       p_offset: from,
       p_limit: pageSize,
       p_sort_column: sortConfig.key,
       p_sort_direction: sortConfig.direction,
     };
 
-    // Fetch paginated data
     const { data: entriesData, error: entriesError } = await supabase.rpc('get_financeiro_detailed_receipt', rpcParams);
 
-    // Parâmetros para a função RPC get_financeiro_detailed_receipt_count como um OBJETO
     const rpcCountParams = {
       p_start_date: startDateISO,
       p_end_date: endDateISO,
       p_type: type,
       p_status: statusFilter === 'all' ? null : statusFilter,
       p_client_search_term: debouncedSearchTerm || debouncedClientSearchTerm || null,
-      p_cost_center: null, // p_cost_center
+      p_cost_center: null,
     };
     const { data: countData, error: countError } = await supabase.rpc('get_financeiro_detailed_receipt_count', rpcCountParams);
 
@@ -124,26 +121,25 @@ const ListaFinanceiro = ({ type }) => {
     } else if (countError) {
       toast({ title: `Erro ao buscar contagem de ${title}s`, description: `Falha na consulta de contagem: ${countError.message}`, variant: 'destructive' });
       setEntries(entriesData || []);
-      setTotalCount(0); // Set to 0 if count fails
+      setTotalCount(0);
     } else {
       setEntries(entriesData || []);
       setTotalCount(countData || 0);
     }
     setLoading(false);
-  }, [toast, currentPage, pageSize, type, debouncedSearchTerm, debouncedClientSearchTerm, statusFilter, debouncedStartDate, debouncedEndDate, empresa, title, sortConfig]); // Adicionado sortConfig às dependências
+  }, [toast, currentPage, pageSize, type, debouncedSearchTerm, debouncedClientSearchTerm, statusFilter, debouncedStartDate, debouncedEndDate, empresa, title, sortConfig]);
 
   const fetchSummary = useCallback(async () => {
     if (!empresa) return;
-    // Parâmetros para a função RPC get_financeiro_summary como um OBJETO
     const rpcSummaryParams = {
       p_start_date: debouncedStartDate || null,
       p_end_date: debouncedEndDate || null,
       p_type: type,
       p_status: statusFilter === 'all' ? null : statusFilter,
       p_client_search_term: debouncedSearchTerm || debouncedClientSearchTerm || null,
-      p_cost_center: null, // p_cost_center
+      p_cost_center: null,
     };
-    let { data, error } = await supabase.rpc('get_financeiro_summary', rpcSummaryParams); // <-- Alterado para get_financeiro_summary
+    let { data, error } = await supabase.rpc('get_financeiro_summary', rpcSummaryParams);
 
     if (error) {
       console.error("Erro ao buscar resumo financeiro:", error);
@@ -162,7 +158,7 @@ const ListaFinanceiro = ({ type }) => {
   
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearchTerm, debouncedClientSearchTerm, statusFilter, debouncedStartDate, debouncedEndDate, pageSize, sortConfig]); // Adicionado sortConfig às dependências
+  }, [debouncedSearchTerm, debouncedClientSearchTerm, statusFilter, debouncedStartDate, debouncedEndDate, pageSize, sortConfig]);
 
   const handleDelete = async (id, description) => {
     const { error } = await supabase.from('credito_debito').delete().eq('id', id);
@@ -193,7 +189,7 @@ const ListaFinanceiro = ({ type }) => {
       direction = 'desc';
     }
     setSortConfig({ key, direction });
-    setCurrentPage(1); // Resetar para a primeira página ao mudar a ordenação
+    setCurrentPage(1);
   };
 
   const totalPages = Math.ceil(totalCount / pageSize);
@@ -227,7 +223,8 @@ const ListaFinanceiro = ({ type }) => {
   };
 
   const getClientDisplayName = (entry) => {
-    return entry.cliente_fornecedor_fantasy_name ? `${entry.cliente_fornecedor_name} - ${entry.cliente_fornecedor_fantasy_name}` : entry.cliente_fornecedor_name;
+    // Invertendo a ordem para Nome Fantasia - Razão Social
+    return entry.cliente_fornecedor_fantasy_name ? `${entry.cliente_fornecedor_fantasy_name} - ${entry.cliente_fornecedor_name}` : entry.cliente_fornecedor_name;
   };
 
   return (

@@ -1,7 +1,7 @@
 import React from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { formatDateWithTimezone, formatCnpjCpf, formatNumber } from '@/lib/utils'; // Alterado de formatDate para formatDateWithTimezone
+import { formatDateWithTimezone, formatCnpjCpf, formatNumber } from '@/lib/utils';
 import { QRCodeSVG as QRCode } from 'qrcode.react';
 
 const CertificadoPDF = ({ data }) => {
@@ -13,6 +13,12 @@ const CertificadoPDF = ({ data }) => {
   const formatDateTime = (dateTimeString) => {
     if (!dateTimeString) return 'N/A';
     return format(new Date(dateTimeString), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
+  };
+
+  // Helper para formatar o nome do cliente
+  const getClientDisplayName = (client) => {
+    if (!client) return 'Cliente não especificado';
+    return client.nome_fantasia ? `${client.nome_fantasia} - ${client.nome}` : client.nome;
   };
 
   return (
@@ -38,7 +44,7 @@ const CertificadoPDF = ({ data }) => {
         <h1 className="text-2xl font-bold text-center mb-10 tracking-wider">CERTIFICADO DE DESTINAÇÃO – OLEO DE FRITURA USADO</h1>
 
         <p className="text-lg leading-relaxed text-justify indent-8">
-          A empresa <span className="font-bold whitespace-nowrap" style={{ letterSpacing: '0.01em' }}>{empresa?.razao_social || 'Razão Social da Empresa'} – {empresa?.nome_fantasia}</span>, cadastrada sob o CNPJ: <span className="font-bold">{formatCnpjCpf(empresa?.cnpj)}</span>, localizada em <span className="font-bold">{empresa?.endereco}</span>, atuando sob a Licença Ambiental Simplificada (LAS) 53/2023 certifica que a empresa <span className="font-bold">{cliente?.nome}</span>, CNPJ <span className="font-bold">{formatCnpjCpf(cliente?.cnpj_cpf)}</span>, endereço <span className="font-bold">{cliente?.endereco}</span>, telefone <span className="font-bold">{cliente?.telefone}</span>, realizou a entrega do óleo de fritura usado.
+          A empresa <span className="font-bold whitespace-nowrap" style={{ letterSpacing: '0.01em' }}>{empresa?.razao_social || 'Razão Social da Empresa'} – {empresa?.nome_fantasia}</span>, cadastrada sob o CNPJ: <span className="font-bold">{formatCnpjCpf(empresa?.cnpj)}</span>, localizada em <span className="font-bold">{empresa?.endereco}</span>, atuando sob a Licença Ambiental Simplificada (LAS) 53/2023 certifica que a empresa <span className="font-bold">{getClientDisplayName(cliente)}</span>, CNPJ <span className="font-bold">{formatCnpjCpf(cliente?.cnpj_cpf)}</span>, endereço <span className="font-bold">{cliente?.endereco}</span>, telefone <span className="font-bold">{cliente?.telefone}</span>, realizou a entrega do óleo de fritura usado.
         </p>
 
         <div className="my-8 p-6 bg-gray-100 rounded-lg border border-gray-200">

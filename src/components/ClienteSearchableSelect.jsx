@@ -57,11 +57,12 @@ const ClienteSearchableSelect = ({
     if (value && clients.length > 0) {
       const selected = clients.find(c => c.id === value);
       if (selected) {
-        const displayValue = selected.nome_fantasia ? `${selected.nome} - ${selected.nome_fantasia}` : selected.nome;
+        // Invertendo a ordem para Nome Fantasia - Razão Social
+        const displayValue = selected.nome_fantasia ? `${selected.nome_fantasia} - ${selected.nome}` : selected.nome;
         setInternalSearchTerm(displayValue);
-        onSearchTermChange && onSearchTermChange(displayValue); // Also update parent's search term
+        onSearchTermChange && onSearchTermChange(displayValue);
       }
-    } else if (!value && !controlledSearchTerm) { // Only clear if no value and no controlled search term
+    } else if (!value && !controlledSearchTerm) {
       setInternalSearchTerm('');
       onSearchTermChange && onSearchTermChange('');
     }
@@ -70,8 +71,8 @@ const ClienteSearchableSelect = ({
   const filteredClients = useMemo(() => {
     if (!internalSearchTerm) return clients;
     return clients.filter(client =>
-      client.nome.toLowerCase().includes(internalSearchTerm.toLowerCase()) ||
       (client.nome_fantasia && client.nome_fantasia.toLowerCase().includes(internalSearchTerm.toLowerCase())) ||
+      client.nome.toLowerCase().includes(internalSearchTerm.toLowerCase()) ||
       (client.cnpj_cpf && formatCnpjCpf(client.cnpj_cpf).toLowerCase().includes(internalSearchTerm.toLowerCase()))
     );
   }, [clients, internalSearchTerm]);
@@ -79,25 +80,26 @@ const ClienteSearchableSelect = ({
   const handleInputChange = (e) => {
     const val = e.target.value;
     setInternalSearchTerm(val);
-    onSearchTermChange && onSearchTermChange(val); // Notify parent of text change
+    onSearchTermChange && onSearchTermChange(val);
     if (!val) {
-      onChange(null); // Clear selected client if input is empty
+      onChange(null);
     }
     setShowDropdown(true);
   };
 
   const handleSelect = (client) => {
     onChange(client.id);
-    const displayValue = client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome;
+    // Invertendo a ordem para Nome Fantasia - Razão Social
+    const displayValue = client.nome_fantasia ? `${client.nome_fantasia} - ${client.nome}` : client.nome;
     setInternalSearchTerm(displayValue);
-    onSearchTermChange && onSearchTermChange(displayValue); // Also update parent's search term
+    onSearchTermChange && onSearchTermChange(displayValue);
     setShowDropdown(false);
   };
 
   const handleClear = () => {
     onChange(null);
     setInternalSearchTerm('');
-    onSearchTermChange && onSearchTermChange(''); // Clear parent's search term
+    onSearchTermChange && onSearchTermChange('');
     setShowDropdown(false);
   };
 
@@ -109,8 +111,7 @@ const ClienteSearchableSelect = ({
     setTimeout(() => {
       if (containerRef.current && !containerRef.current.contains(document.activeElement)) {
         setShowDropdown(false);
-        // If no client is selected and input is not empty, reset to previous selected or empty
-        if (!value && internalSearchTerm && !clients.some(c => (c.nome_fantasia ? `${c.nome} - ${c.nome_fantasia}` : c.nome) === internalSearchTerm)) {
+        if (!value && internalSearchTerm && !clients.some(c => (c.nome_fantasia ? `${c.nome_fantasia} - ${c.nome}` : c.nome) === internalSearchTerm)) {
           setInternalSearchTerm('');
           onSearchTermChange && onSearchTermChange('');
         }
@@ -128,7 +129,7 @@ const ClienteSearchableSelect = ({
         <Input
           id="client-search-select"
           type="text"
-          value={internalSearchTerm} // Use internalSearchTerm
+          value={internalSearchTerm}
           onChange={handleInputChange}
           onFocus={handleFocus}
           onBlur={handleBlur}
@@ -158,7 +159,10 @@ const ClienteSearchableSelect = ({
                 onMouseDown={() => handleSelect(client)}
                 className="p-3 hover:bg-emerald-50 cursor-pointer border-b border-gray-100 last:border-b-0"
               >
-                <div className="font-medium text-gray-900">{client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome}</div>
+                <div className="font-medium text-gray-900">
+                  {/* Invertendo a ordem para Nome Fantasia - Razão Social */}
+                  {client.nome_fantasia ? `${client.nome_fantasia} - ${client.nome}` : client.nome}
+                </div>
                 <div className="text-sm text-gray-600">
                   {client.cnpj_cpf ? formatCnpjCpf(client.cnpj_cpf) : 'CNPJ/CPF não informado'} - {client.municipio}/{client.estado}
                 </div>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { format, isValid, parseISO } from 'date-fns'; // Importar parseISO
+import { format, isValid, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { formatCurrency, parseCurrency, formatCnpjCpf } from '@/lib/utils';
 import { utcToZonedTime } from 'date-fns-tz';
@@ -14,7 +14,7 @@ const formatDisplayDate = (dateInput, timezone) => {
     if (dateInput instanceof Date) {
         baseDate = dateInput;
     } else if (typeof dateInput === 'string') {
-        const parsedDate = parseISO(dateInput); // Usar parseISO
+        const parsedDate = parseISO(dateInput);
         if (!isValid(parsedDate)) {
             console.error("Recibo.jsx - Invalid date string provided:", dateInput);
             return 'Data inválida';
@@ -26,9 +26,6 @@ const formatDisplayDate = (dateInput, timezone) => {
     }
 
     let finalDateObject = baseDate;
-    // A data vinda do `data_coleta` já está no fuso horário da empresa (convertida em ColetaForm)
-    // Se for uma string ISO, ela é tratada como UTC e convertida para o fuso horário da empresa para exibição.
-    // Se já for um objeto Date (que já representa a data no fuso horário da empresa), não precisa de nova conversão.
     if (typeof dateInput === 'string') { 
         try {
             const validTimezone = typeof timezone === 'string' && timezone ? timezone : 'America/Sao_Paulo';
@@ -55,14 +52,18 @@ const formatDisplayDate = (dateInput, timezone) => {
 export const Recibo = React.forwardRef(({ data, signature, empresa, timezone, collectorName, coletaDateString, coletaTimeString }, ref) => {
     if (!data) return null;
 
-    console.log('Recibo - coletaTimeString recebido:', coletaTimeString); // DEBUG: Log para verificar o valor da hora
+    console.log('Recibo - coletaTimeString recebido:', coletaTimeString);
 
     const isCompra = data.tipo_coleta === 'Compra';
     const resultadoFinal = isCompra
         ? formatCurrency(parseCurrency(data.total_pago))
-        : `${Math.floor(data.quantidade_entregue || 0)} unidades`; // Alterado para unidades
+        : `${Math.floor(data.quantidade_entregue || 0)} unidades`;
     
-    const clientName = data.pessoa?.nome || data.cliente_nome || 'Cliente não informado';
+    // Invertendo a ordem para Nome Fantasia - Razão Social
+    const clientName = data.pessoa?.nome_fantasia 
+        ? `${data.pessoa.nome_fantasia} - ${data.pessoa.nome}` 
+        : data.pessoa?.nome || data.cliente_nome || 'Cliente não informado';
+    
     const clientCnpjCpf = data.pessoa?.cnpj_cpf || data.cnpj_cpf || data.cliente_cnpj_cpf;
     const clientAddress = data.pessoa?.endereco || data.endereco || data.cliente_endereco || 'Endereço não informado';
 
@@ -99,11 +100,10 @@ export const Recibo = React.forwardRef(({ data, signature, empresa, timezone, co
                         <p className="text-gray-500">CNPJ/CPF</p>
                         <p className="font-semibold">{clientCnpjCpf ? formatCnpjCpf(clientCnpjCpf) : 'Não informado'}</p>
                     </div>
-                    <div className="col-span-2"> {/* Endereço na linha de baixo */}
+                    <div className="col-span-2">
                         <p className="text-gray-500">ENDEREÇO</p>
                         <p className="font-semibold">{clientAddress}</p>
                     </div>
-                    {/* Nova estrutura para Data, Hora e Coletor na mesma linha */}
                     <div className="col-span-2 flex flex-wrap justify-between gap-x-4 gap-y-2">
                         <div>
                             <p className="text-gray-500">DATA DA COLETA</p>

@@ -86,9 +86,8 @@ const RelatoriosFinanceiroPage = () => {
     const endDateISO = debouncedEndDate || null;
     const clientSearch = debouncedSearchTerm || debouncedClientSearchTerm || null;
     const status = statusFilter === 'all' ? null : statusFilter;
-    const costCenter = null; // p_cost_center (não implementado neste relatório)
+    const costCenter = null;
 
-    // Parâmetros para a função RPC get_financeiro_detailed_report como um OBJETO
     const rpcParams = {
       p_client_search_term: clientSearch,
       p_cost_center: costCenter,
@@ -100,10 +99,8 @@ const RelatoriosFinanceiroPage = () => {
       p_type: reportType,
     };
 
-    // Fetch paginated data
     const { data: entriesData, error: entriesError } = await supabase.rpc('get_financeiro_detailed_report', rpcParams);
 
-    // Parâmetros para a função RPC get_financeiro_detailed_report_count como um OBJETO
     const rpcCountParams = {
       p_start_date: startDateISO,
       p_end_date: endDateISO,
@@ -131,7 +128,6 @@ const RelatoriosFinanceiroPage = () => {
 
   const fetchSummary = useCallback(async () => {
     if (!empresa) return;
-    // Parâmetros para a função RPC get_financeiro_summary_report como um OBJETO
     const rpcSummaryParams = {
       p_start_date: debouncedStartDate || null,
       p_end_date: debouncedEndDate || null,
@@ -140,7 +136,7 @@ const RelatoriosFinanceiroPage = () => {
       p_client_search_term: debouncedSearchTerm || debouncedClientSearchTerm || null,
       p_cost_center: null,
     };
-    let { data, error } = await supabase.rpc('get_financeiro_summary_report', rpcSummaryParams); // <-- Alterado para get_financeiro_summary_report
+    let { data, error } = await supabase.rpc('get_financeiro_summary_report', rpcSummaryParams);
 
     if (error) {
       console.error("Erro ao buscar resumo financeiro:", error);
@@ -201,7 +197,8 @@ const RelatoriosFinanceiroPage = () => {
   };
 
   const getClientDisplayName = (entry) => {
-    return entry.cliente_fornecedor_fantasy_name ? `${entry.cliente_fornecedor_name} - ${entry.cliente_fornecedor_fantasy_name}` : entry.cliente_fornecedor_name;
+    // Invertendo a ordem para Nome Fantasia - Razão Social
+    return entry.cliente_fornecedor_fantasy_name ? `${entry.cliente_fornecedor_fantasy_name} - ${entry.cliente_fornecedor_name}` : entry.cliente_fornecedor_name;
   };
 
   return (
@@ -481,4 +478,4 @@ const RelatoriosFinanceiroPage = () => {
   );
 };
 
-export default RelatoriosFinanceiroPage;
+export default ListaFinanceiro;
