@@ -34,7 +34,8 @@ const RelatoriosRecipientesPage = () => {
 
   const getClientDisplayName = (client) => {
     if (!client) return 'Cliente não especificado';
-    return client.cliente_nome_fantasia ? `${client.cliente_nome_fantasia} - ${client.cliente_nome}` : client.cliente_nome;
+    // Corrigido para exibir Nome Fantasia - Razão Social, assumindo inversão semântica dos campos no DB
+    return client.cliente_nome ? `${client.cliente_nome} - ${client.cliente_nome_fantasia}` : client.cliente_nome_fantasia;
   };
 
   return (

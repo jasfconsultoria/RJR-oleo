@@ -18,7 +18,8 @@ const CertificadoPDF = ({ data }) => {
   // Helper para formatar o nome do cliente
   const getClientDisplayName = (client) => {
     if (!client) return 'Cliente não especificado';
-    return client.nome_fantasia ? `${client.nome_fantasia} - ${client.nome}` : client.nome;
+    // Corrigido para exibir Nome Fantasia - Razão Social, assumindo inversão semântica dos campos no DB
+    return client.nome ? `${client.nome} - ${client.nome_fantasia}` : client.nome_fantasia;
   };
 
   return (

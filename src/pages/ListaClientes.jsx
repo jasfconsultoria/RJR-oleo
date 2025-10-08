@@ -528,10 +528,10 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
                           data-label="Nome Fantasia / Razão Social" // Alterado data-label
                           className="font-medium min-w-0"
                         >
-                          {/* Invertendo a ordem para Nome Fantasia - Razão Social */}
-                          {cliente.nome_fantasia 
-                            ? `${cliente.nome_fantasia} - ${cliente.nome}` 
-                            : cliente.nome
+                          {/* Corrigido para exibir Nome Fantasia - Razão Social, assumindo inversão semântica dos campos no DB */}
+                          {cliente.nome 
+                            ? `${cliente.nome} - ${cliente.nome_fantasia}` 
+                            : cliente.nome_fantasia
                           }
                         </TableCell>
                         <TableCell data-label="CNPJ/CPF">

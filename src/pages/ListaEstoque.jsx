@@ -162,7 +162,8 @@ const ListaEstoque = () => {
 
   const getClientDisplayName = (entry) => {
     if (!entry.cliente_nome && !entry.cliente_nome_fantasia) return 'N/A';
-    return entry.cliente_nome_fantasia ? `${entry.cliente_nome_fantasia} - ${entry.cliente_nome}` : entry.cliente_nome;
+    // Corrigido para exibir Nome Fantasia - Razão Social, assumindo inversão semântica dos campos no DB
+    return entry.cliente_nome ? `${entry.cliente_nome} - ${entry.cliente_nome_fantasia}` : entry.cliente_nome_fantasia;
   };
 
   return (

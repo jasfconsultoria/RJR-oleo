@@ -57,8 +57,8 @@ const ClienteSearchableSelect = ({
     if (value && clients.length > 0) {
       const selected = clients.find(c => c.id === value);
       if (selected) {
-        // Invertendo a ordem para Nome Fantasia - Razão Social
-        const displayValue = selected.nome_fantasia ? `${selected.nome_fantasia} - ${selected.nome}` : selected.nome;
+        // Corrigido para exibir Nome Fantasia - Razão Social, assumindo inversão semântica dos campos no DB
+        const displayValue = selected.nome ? `${selected.nome} - ${selected.nome_fantasia}` : selected.nome_fantasia;
         setInternalSearchTerm(displayValue);
         onSearchTermChange && onSearchTermChange(displayValue);
       }
@@ -89,8 +89,8 @@ const ClienteSearchableSelect = ({
 
   const handleSelect = (client) => {
     onChange(client.id);
-    // Invertendo a ordem para Nome Fantasia - Razão Social
-    const displayValue = client.nome_fantasia ? `${client.nome_fantasia} - ${client.nome}` : client.nome;
+    // Corrigido para exibir Nome Fantasia - Razão Social, assumindo inversão semântica dos campos no DB
+    const displayValue = client.nome ? `${client.nome} - ${client.nome_fantasia}` : client.nome_fantasia;
     setInternalSearchTerm(displayValue);
     onSearchTermChange && onSearchTermChange(displayValue);
     setShowDropdown(false);
@@ -111,7 +111,7 @@ const ClienteSearchableSelect = ({
     setTimeout(() => {
       if (containerRef.current && !containerRef.current.contains(document.activeElement)) {
         setShowDropdown(false);
-        if (!value && internalSearchTerm && !clients.some(c => (c.nome_fantasia ? `${c.nome_fantasia} - ${c.nome}` : c.nome) === internalSearchTerm)) {
+        if (!value && internalSearchTerm && !clients.some(c => (c.nome ? `${c.nome} - ${c.nome_fantasia}` : c.nome_fantasia) === internalSearchTerm)) {
           setInternalSearchTerm('');
           onSearchTermChange && onSearchTermChange('');
         }
@@ -160,8 +160,8 @@ const ClienteSearchableSelect = ({
                 className="p-3 hover:bg-emerald-50 cursor-pointer border-b border-gray-100 last:border-b-0"
               >
                 <div className="font-medium text-gray-900">
-                  {/* Invertendo a ordem para Nome Fantasia - Razão Social */}
-                  {client.nome_fantasia ? `${client.nome_fantasia} - ${client.nome}` : client.nome}
+                  {/* Corrigido para exibir Nome Fantasia - Razão Social, assumindo inversão semântica dos campos no DB */}
+                  {client.nome ? `${client.nome} - ${client.nome_fantasia}` : client.nome_fantasia}
                 </div>
                 <div className="text-sm text-gray-600">
                   {client.cnpj_cpf ? formatCnpjCpf(client.cnpj_cpf) : 'CNPJ/CPF não informado'} - {client.municipio}/{client.estado}

@@ -59,10 +59,10 @@ export const Recibo = React.forwardRef(({ data, signature, empresa, timezone, co
         ? formatCurrency(parseCurrency(data.total_pago))
         : `${Math.floor(data.quantidade_entregue || 0)} unidades`;
     
-    // Invertendo a ordem para Nome Fantasia - Razão Social
-    const clientName = data.pessoa?.nome_fantasia 
-        ? `${data.pessoa.nome_fantasia} - ${data.pessoa.nome}` 
-        : data.pessoa?.nome || data.cliente_nome || 'Cliente não informado';
+    // Corrigido para exibir Nome Fantasia - Razão Social, assumindo inversão semântica dos campos no DB
+    const clientName = data.pessoa?.nome 
+        ? `${data.pessoa.nome} - ${data.pessoa.nome_fantasia}` 
+        : data.pessoa?.nome_fantasia || data.cliente_nome || 'Cliente não informado';
     
     const clientCnpjCpf = data.pessoa?.cnpj_cpf || data.cnpj_cpf || data.cliente_cnpj_cpf;
     const clientAddress = data.pessoa?.endereco || data.endereco || data.cliente_endereco || 'Endereço não informado';

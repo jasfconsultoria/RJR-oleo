@@ -137,8 +137,8 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
 
     onUpdate({
       cliente_id: client.id,
-      // Invertendo a ordem para Nome Fantasia - Razão Social
-      cliente: client.nome_fantasia ? `${client.nome_fantasia} - ${client.nome}` : client.nome,
+      // Corrigido para exibir Nome Fantasia - Razão Social, assumindo inversão semântica dos campos no DB
+      cliente: client.nome ? `${client.nome} - ${client.nome_fantasia}` : client.nome_fantasia,
       cnpj_cpf: client.cnpj_cpf,
       endereco: client.endereco,
       email: client.email,
@@ -254,8 +254,8 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
                   className="p-3 hover:bg-emerald-50 cursor-pointer border-b border-gray-100 last:border-b-0"
                 >
                   <div className="font-medium text-gray-900">
-                    {/* Invertendo a ordem para Nome Fantasia - Razão Social */}
-                    {client.nome_fantasia ? `${client.nome_fantasia} - ${client.nome}` : client.nome}
+                    {/* Corrigido para exibir Nome Fantasia - Razão Social, assumindo inversão semântica dos campos no DB */}
+                    {client.nome ? `${client.nome} - ${client.nome_fantasia}` : client.nome_fantasia}
                   </div>
                   <div className="text-sm text-gray-600">{formatCnpjCpf(client.cnpj_cpf)} - {client.municipio}/{client.estado}</div>
                 </div>

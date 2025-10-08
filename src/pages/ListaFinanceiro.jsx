@@ -223,8 +223,8 @@ const ListaFinanceiro = ({ type }) => {
   };
 
   const getClientDisplayName = (entry) => {
-    // Invertendo a ordem para Nome Fantasia - Razão Social
-    return entry.cliente_fornecedor_fantasy_name ? `${entry.cliente_fornecedor_fantasy_name} - ${entry.cliente_fornecedor_name}` : entry.cliente_fornecedor_name;
+    // Corrigido para exibir Nome Fantasia - Razão Social, assumindo inversão semântica dos campos no DB
+    return entry.cliente_fornecedor_name ? `${entry.cliente_fornecedor_name} - ${entry.cliente_fornecedor_fantasy_name}` : entry.cliente_fornecedor_fantasy_name;
   };
 
   return (

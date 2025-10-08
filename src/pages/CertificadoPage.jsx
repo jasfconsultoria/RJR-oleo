@@ -205,8 +205,8 @@ const CertificadoPage = () => {
           municipio: clientData.municipio,
           estado: clientData.estado,
           telefone: clientData.telefone || '',
-          // Invertendo a ordem para Nome Fantasia - Razão Social
-          cliente: clientData.nome_fantasia ? `${clientData.nome_fantasia} - ${clientData.nome}` : clientData.nome,
+          // Corrigido para exibir Nome Fantasia - Razão Social, assumindo inversão semântica dos campos no DB
+          cliente: clientData.nome ? `${clientData.nome} - ${clientData.nome_fantasia}` : clientData.nome_fantasia,
           periodoInicio: processDateValue(certData.periodo_inicio, getFirstDayOfMonth),
           periodoFim: processDateValue(certData.periodo_fim, getTodayDate),
           data_emissao: processDateValue(certData.data_emissao, () => new Date()),
@@ -266,8 +266,8 @@ const CertificadoPage = () => {
       municipio: client.municipio,
       estado: client.estado,
       telefone: client.telefone || '',
-      // Invertendo a ordem para Nome Fantasia - Razão Social
-      cliente: client.nome_fantasia ? `${client.nome_fantasia} - ${client.nome}` : client.nome,
+      // Corrigido para exibir Nome Fantasia - Razão Social, assumindo inversão semântica dos campos no DB
+      cliente: client.nome ? `${client.nome} - ${client.nome_fantasia}` : client.nome_fantasia,
     };
 
     setFormData(prev => ({ ...prev, ...newFormData }));
@@ -604,8 +604,8 @@ const CertificadoPage = () => {
                             className="p-3 hover:bg-emerald-50 cursor-pointer border-b border-gray-100 last:border-b-0"
                           >
                             <div className="font-medium text-gray-900">
-                              {/* Invertendo a ordem para Nome Fantasia - Razão Social */}
-                              {client.nome_fantasia ? `${client.nome_fantasia} - ${client.nome}` : client.nome}
+                              {/* Corrigido para exibir Nome Fantasia - Razão Social, assumindo inversão semântica dos campos no DB */}
+                              {client.nome ? `${client.nome} - ${client.nome_fantasia}` : client.nome_fantasia}
                             </div>
                             <div className="text-sm text-gray-600">
                               {formatCnpjCpf(client.cnpj_cpf)} - {client.municipio}/{client.estado}
