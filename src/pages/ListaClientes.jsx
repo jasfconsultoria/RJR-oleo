@@ -47,7 +47,7 @@ const CONFIG = {
   PAGE_SIZE_DEFAULT: 25,
   DEBOUNCE_DELAY: 500,
   TABLE_COLUMNS: {
-    nome: { label: 'Nome Fantasia / Razão Social', width: 'w-[25%]' }, // Alterado label
+    nome: { label: 'Nome Fantasia / Razão Social', width: 'w-[25%]' },
     cnpj_cpf: { label: 'CNPJ/CPF', width: 'w-[18%]' },
     municipio: { label: 'Localização', width: 'w-[32%]' },
     contrato: { label: 'Contrato', width: 'w-[15%]' },
@@ -93,7 +93,7 @@ const useClientesList = (personType, profile) => {
     allContratos: [],
     loading: true,
     searchTerm: '',
-    sortConfig: { key: 'nome', direction: 'asc' },
+    sortConfig: { key: 'razao_social', direction: 'asc' }, // Alterado para razao_social
     currentPage: 1,
     totalCount: 0,
     empresa: null
@@ -159,7 +159,7 @@ const useClientesList = (personType, profile) => {
 
     let query = supabase
       .from('clientes')
-      .select('id, nome, nome_fantasia, cnpj_cpf, municipio, estado', { 
+      .select('id, nome_fantasia, razao_social, cnpj_cpf, municipio, estado', { // Alterado para nome_fantasia e razao_social
         count: 'exact' 
       });
 
@@ -167,8 +167,8 @@ const useClientesList = (personType, profile) => {
     if (debouncedSearchTerm) {
       const escapedSearchTerm = escapePostgrestLikePattern(debouncedSearchTerm);
       query = query.or(
-        `nome.ilike.%${escapedSearchTerm}%,` +
-        `nome_fantasia.ilike.%${escapedSearchTerm}%,` +
+        `nome_fantasia.ilike.%${escapedSearchTerm}%,` + // Alterado para nome_fantasia
+        `razao_social.ilike.%${escapedSearchTerm}%,` + // Alterado para razao_social
         `cnpj_cpf.ilike.%${escapedSearchTerm}%,` +
         `municipio.ilike.%${escapedSearchTerm}%,` +
         `estado.ilike.%${escapedSearchTerm}%`
@@ -225,7 +225,7 @@ const useClientesList = (personType, profile) => {
       await logAction('delete_client_failed', { 
         error: error.message, 
         client_id: cliente.id, 
-        client_name: cliente.nome 
+        client_name: cliente.razao_social // Alterado para razao_social
       });
     } else {
       toast({
@@ -234,7 +234,7 @@ const useClientesList = (personType, profile) => {
       });
       await logAction('delete_client_success', { 
         client_id: cliente.id, 
-        client_name: cliente.nome 
+        client_name: cliente.razao_social // Alterado para razao_social
       });
       fetchClientes();
     }
@@ -465,7 +465,7 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/70" />
             <Input
               type="search"
-              placeholder={`Buscar por nome, CNPJ/CPF, município ou estado d${labels.singularArticle} ${labels.singularNoun}...`}
+              placeholder={`Buscar por nome fantasia, razão social, CNPJ/CPF, município ou estado d${labels.singularArticle} ${labels.singularNoun}...`}
               value={searchTerm}
               onChange={(e) => updateSearchTerm(e.target.value)}
               className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60 rounded-xl"
@@ -489,8 +489,8 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
                 <TableHeader>
                   <TableRow className="border-white/20 hover:bg-transparent">
                     <TableHeaderSortable
-                      columnKey="nome"
-                      label="Nome Fantasia / Razão Social" // Alterado label
+                      columnKey="razao_social" // Alterado para razao_social
+                      label="Nome Fantasia / Razão Social"
                       sortConfig={sortConfig}
                       onSort={requestSort}
                       className={CONFIG.TABLE_COLUMNS.nome.width}
@@ -525,13 +525,13 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
                         className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm"
                       >
                         <TableCell 
-                          data-label="Nome Fantasia / Razão Social" // Alterado data-label
+                          data-label="Nome Fantasia / Razão Social"
                           className="font-medium min-w-0"
                         >
-                          {/* Corrigido para exibir Nome Fantasia - Razão Social, assumindo inversão semântica dos campos no DB */}
-                          {cliente.nome 
-                            ? `${cliente.nome} - ${cliente.nome_fantasia}` 
-                            : cliente.nome_fantasia
+                          {/* Corrigido para exibir nome_fantasia - razao_social */}
+                          {cliente.nome_fantasia && cliente.razao_social 
+                            ? `${cliente.nome_fantasia} - ${cliente.razao_social}`
+                            : cliente.nome_fantasia || cliente.razao_social || 'Nome não informado'
                           }
                         </TableCell>
                         <TableCell data-label="CNPJ/CPF">
