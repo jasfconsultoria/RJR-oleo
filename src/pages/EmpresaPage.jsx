@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { brazilianLocations } from '@/lib/brazilian-locations';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { ContaCorrenteManagementDialog } from '@/components/financeiro/ContaCorrenteManagementDialog'; // New import
+import { logAction } from '@/lib/logger'; // Import logAction
 
 const timezones = [
   'America/Noronha',
@@ -66,6 +67,7 @@ const EmpresaPage = () => {
         toast({ title: 'Empresa não cadastrada', description: 'Cadastre as informações da empresa.', variant: 'default' });
       } else {
         toast({ title: 'Erro ao buscar dados da empresa', description: error.message, variant: 'destructive' });
+        await logAction('fetch_empresa_failed', { error: error.message });
       }
     } else if (data) {
       setEmpresa(data);
@@ -114,6 +116,7 @@ const EmpresaPage = () => {
 
     if (uploadError) {
       toast({ title: `Erro no upload da ${fileType}`, description: uploadError.message, variant: 'destructive' });
+      await logAction(`upload_logo_${fileType}_failed`, { error: uploadError.message, file_name: file.name });
       setUploading(prev => ({ ...prev, [fileType]: false }));
       return;
     }
@@ -122,6 +125,7 @@ const EmpresaPage = () => {
 
     if (!publicUrlData) {
         toast({ title: 'Erro ao obter URL pública', variant: 'destructive' });
+        await logAction(`get_public_url_logo_${fileType}_failed`, { file_name: file.name });
         setUploading(prev => ({ ...prev, [fileType]: false }));
         return;
     }
@@ -130,6 +134,7 @@ const EmpresaPage = () => {
     setFormData((prev) => ({ ...prev, [urlKey]: publicUrlData.publicUrl }));
     setUploading(prev => ({ ...prev, [fileType]: false }));
     toast({ title: `${fileType === 'assinatura' ? 'Assinatura' : 'Logo'} (${fileType}) enviada com sucesso!` });
+    await logAction(`upload_logo_${fileType}_success`, { file_name: file.name, public_url: publicUrlData.publicUrl });
   };
   
   const handleSubmit = async (e) => {
@@ -139,14 +144,17 @@ const EmpresaPage = () => {
     const dataToSave = { ...formData, updated_at: new Date() };
 
     let error;
+    let actionType = '';
 
     if (empresa && empresa.id) {
+       actionType = 'update_empresa';
        const { error: updateError } = await supabase
         .from('empresa')
         .update(dataToSave)
         .eq('id', empresa.id);
        error = updateError;
     } else {
+       actionType = 'create_empresa';
        const { data: insertData, error: insertError } = await supabase
         .from('empresa')
         .insert(dataToSave)
@@ -158,8 +166,10 @@ const EmpresaPage = () => {
 
     if (error) {
       toast({ title: 'Erro ao salvar os dados', description: error.message, variant: 'destructive' });
+      await logAction(`${actionType}_failed`, { error: error.message, company_name: formData.nome_fantasia });
     } else {
       toast({ title: 'Dados da empresa atualizados com sucesso!' });
+      await logAction(`${actionType}_success`, { company_id: empresa?.id || 'new', company_name: formData.nome_fantasia });
       fetchEmpresa();
     }
     setSaving(false);
