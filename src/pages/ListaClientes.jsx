@@ -93,7 +93,7 @@ const useClientesList = (personType, profile) => {
     allContratos: [],
     loading: true,
     searchTerm: '',
-    sortConfig: { key: 'razao_social', direction: 'asc' }, // Alterado para razao_social
+    sortConfig: { key: 'razao_social', direction: 'asc' },
     currentPage: 1,
     totalCount: 0,
     empresa: null
@@ -159,7 +159,7 @@ const useClientesList = (personType, profile) => {
 
     let query = supabase
       .from('clientes')
-      .select('id, nome_fantasia, razao_social, cnpj_cpf, municipio, estado', { // Alterado para nome_fantasia e razao_social
+      .select('id, nome_fantasia, razao_social, cnpj_cpf, municipio, estado', { 
         count: 'exact' 
       });
 
@@ -167,8 +167,8 @@ const useClientesList = (personType, profile) => {
     if (debouncedSearchTerm) {
       const escapedSearchTerm = escapePostgrestLikePattern(debouncedSearchTerm);
       query = query.or(
-        `nome_fantasia.ilike.%${escapedSearchTerm}%,` + // Alterado para nome_fantasia
-        `razao_social.ilike.%${escapedSearchTerm}%,` + // Alterado para razao_social
+        `nome_fantasia.ilike.%${escapedSearchTerm}%,` +
+        `razao_social.ilike.%${escapedSearchTerm}%,` +
         `cnpj_cpf.ilike.%${escapedSearchTerm}%,` +
         `municipio.ilike.%${escapedSearchTerm}%,` +
         `estado.ilike.%${escapedSearchTerm}%`
@@ -225,7 +225,7 @@ const useClientesList = (personType, profile) => {
       await logAction('delete_client_failed', { 
         error: error.message, 
         client_id: cliente.id, 
-        client_name: cliente.razao_social // Alterado para razao_social
+        client_name: cliente.razao_social 
       });
     } else {
       toast({
@@ -234,7 +234,7 @@ const useClientesList = (personType, profile) => {
       });
       await logAction('delete_client_success', { 
         client_id: cliente.id, 
-        client_name: cliente.razao_social // Alterado para razao_social
+        client_name: cliente.razao_social 
       });
       fetchClientes();
     }
@@ -489,7 +489,7 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
                 <TableHeader>
                   <TableRow className="border-white/20 hover:bg-transparent">
                     <TableHeaderSortable
-                      columnKey="razao_social" // Alterado para razao_social
+                      columnKey="razao_social"
                       label="Nome Fantasia / Razão Social"
                       sortConfig={sortConfig}
                       onSort={requestSort}
@@ -528,7 +528,6 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
                           data-label="Nome Fantasia / Razão Social"
                           className="font-medium min-w-0"
                         >
-                          {/* Corrigido para exibir nome_fantasia - razao_social */}
                           {cliente.nome_fantasia && cliente.razao_social 
                             ? `${cliente.nome_fantasia} - ${cliente.razao_social}`
                             : cliente.nome_fantasia || cliente.razao_social || 'Nome não informado'
