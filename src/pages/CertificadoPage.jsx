@@ -294,6 +294,20 @@ const CertificadoPage = () => {
       return;
     }
 
+    // ✅ CORREÇÃO: Garantir que data_emissao seja um Date válido
+    const dataEmissaoValidada = data_emissao instanceof Date && isValid(data_emissao) 
+      ? data_emissao 
+      : new Date(data_emissao);
+
+    if (!isValid(dataEmissaoValidada)) {
+      toast({ 
+        title: 'Data inválida', 
+        description: 'Por favor, verifique a data de emissão.', 
+        variant: 'destructive' 
+      });
+      return;
+    }
+
     if (new Date(periodoInicio) > new Date(periodoFim)) {
       toast({ 
         title: 'Período inválido', 
@@ -343,7 +357,8 @@ const CertificadoPage = () => {
         periodo_inicio: formatToISODate(periodoInicio),
         periodo_fim: formatToISODate(periodoFim),
         total_kg: totalKg,
-        data_emissao: data_emissao.toISOString(),
+        // ✅ CORREÇÃO APLICADA: Usar a data validada
+        data_emissao: dataEmissaoValidada.toISOString(),
       };
 
       // Salvar no banco
