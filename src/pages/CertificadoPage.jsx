@@ -334,7 +334,7 @@ const CertificadoPage = () => {
         .lte('data_coleta', endDateWithTime);
 
       if (coletasError) throw coletasError;
-      setProgress(20);
+      setProgress(30);
 
       // Calcular total de kg
       const totalKg = coletas.reduce((acc, coleta) => acc + (coleta.quantidade_coletada || 0), 0);
@@ -384,7 +384,7 @@ const CertificadoPage = () => {
         certData = data;
       }
 
-      setProgress(40);
+      setProgress(50);
 
       // Preparar dados para PDF
       setPdfData({
@@ -410,42 +410,51 @@ const CertificadoPage = () => {
       await new Promise(resolve => setTimeout(resolve, 500));
       setProgress(60);
 
-      // Gerar PDF
+      // ✅ OTIMIZAÇÃO: Configurações otimizadas para html2canvas
       const input = pdfContainerRef.current?.firstChild;
       if (!input) throw new Error('Falha ao renderizar o componente do PDF.');
 
       const canvas = await html2canvas(input, { 
-        scale: 2, 
+        scale: 1.5, // Reduzido de 2 para 1.5
         useCORS: true, 
         allowTaint: true, 
-        backgroundColor: '#ffffff' 
+        backgroundColor: '#ffffff',
+        logging: false, // Desativa logs
+        removeContainer: true, // Otimização de memória
+        imageTimeout: 0, // Remove timeout para imagens
+        async: true, // Processamento assíncrono
+        ignoreElements: (element) => {
+          return element.tagName === 'SCRIPT' || element.tagName === 'STYLE';
+        }
       });
       
       setProgress(70);
 
-      const imgData = canvas.toDataURL('image/png');
+      // ✅ OTIMIZAÇÃO: JPEG em vez de PNG (mais rápido)
+      const imgData = canvas.toDataURL('image/jpeg', 0.85);
       const pdf = new jsPDF('l', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
-      const ratio = Math.min(pdfWidth / canvas.width, pdfHeight / canvas.height);
-      const imgWidth = canvas.width * ratio;
-      const imgHeight = canvas.height * ratio;
-      const x = (pdfWidth - imgWidth) / 2;
+
+      // ✅ OTIMIZAÇÃO: Cálculo mais eficiente das dimensões
+      const imgWidth = pdfWidth - 20;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      const x = 10;
       const y = (pdfHeight - imgHeight) / 2;
 
-      pdf.addImage(imgData, 'PNG', x, y, imgWidth, imgHeight);
+      pdf.addImage(imgData, 'JPEG', x, y, imgWidth, imgHeight);
 
-      // Upload do PDF
+      // ✅ OTIMIZAÇÃO: Upload mais rápido
       const pdfBlob = pdf.output('blob');
       const dateStr = format(new Date(), 'yyyy-MM-dd');
       const fileName = `certificados/Certificado_${certData.id.substring(0, 8)}_${dateStr}.pdf`;
 
       const { error: uploadError } = await supabase.storage
         .from('certificados')
-        .upload(fileName, pdfBlob, { cacheControl: '3600', upsert: true });
-      
+        .upload(fileName, pdfBlob, { upsert: true });
+
       if (uploadError) throw uploadError;
-      setProgress(80);
+      setProgress(85);
 
       // Atualizar URL do PDF no banco
       const { data: urlData } = supabase.storage.from('certificados').getPublicUrl(fileName);
@@ -456,7 +465,7 @@ const CertificadoPage = () => {
         .eq('id', certData.id);
       
       if (dbError) throw dbError;
-      setProgress(90);
+      setProgress(95);
 
       // Log da ação
       if (isEditMode) {
