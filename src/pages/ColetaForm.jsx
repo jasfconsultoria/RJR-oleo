@@ -12,8 +12,199 @@ import { parseCurrency } from '@/lib/utils';
 import { format, isValid, parseISO } from 'date-fns';
 import { logAction } from '@/lib/logger';
 import { useAutoSave } from '@/hooks/useAutoSave';
-import { useProfile } from '@/contexts/ProfileContext';
 import { formatInTimeZone, zonedTimeToUtc, utcToZonedTime, toDate } from 'date-fns-tz';
+
+// ✅ COMPONENTE ClienteSearchableSelect SEM FILTRO DE USER_ID
+const ClienteSearchableSelect = ({ value, onSelect, className }) => {
+  const [open, setOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [clientes, setClientes] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [selectedCliente, setSelectedCliente] = useState(null);
+
+  const debouncedSearchTerm = useDebounce(searchTerm, 300);
+
+  // ✅ BUSCAR TODOS OS CLIENTES SEM FILTRAR POR USER_ID
+  useEffect(() => {
+    const fetchClientes = async () => {
+      if (debouncedSearchTerm.length < 2) {
+        setClientes([]);
+        return;
+      }
+
+      setLoading(true);
+      try {
+        const escapedSearchTerm = escapePostgrestLikePattern(debouncedSearchTerm);
+        
+        // ✅ BUSCA TODOS OS CLIENTES - SEM FILTRO DE USER_ID
+        let query = supabase
+          .from('clientes')
+          .select('*')
+          .or(`nome_fantasia.ilike.%${escapedSearchTerm}%,razao_social.ilike.%${escapedSearchTerm}%,cnpj_cpf.ilike.%${escapedSearchTerm}%`)
+          .order('nome_fantasia')
+          .limit(20);
+
+        const { data, error } = await query;
+
+        if (error) {
+          console.error('Erro ao buscar clientes:', error);
+          setClientes([]);
+        } else {
+          console.log('✅ Todos os clientes encontrados:', data?.length);
+          setClientes(data || []);
+        }
+      } catch (error) {
+        console.error('Erro na busca de clientes:', error);
+        setClientes([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchClientes();
+  }, [debouncedSearchTerm]);
+
+  // Buscar cliente selecionado quando value mudar
+  useEffect(() => {
+    const fetchSelectedCliente = async () => {
+      if (!value) {
+        setSelectedCliente(null);
+        return;
+      }
+
+      try {
+        // ✅ BUSCA CLIENTE SEM VERIFICAR USER_ID
+        const { data, error } = await supabase
+          .from('clientes')
+          .select('*')
+          .eq('id', value)
+          .single();
+
+        if (error) {
+          console.error('Erro ao buscar cliente selecionado:', error);
+          setSelectedCliente(null);
+        } else {
+          setSelectedCliente(data);
+        }
+      } catch (error) {
+        console.error('Erro ao carregar cliente selecionado:', error);
+        setSelectedCliente(null);
+      }
+    };
+
+    fetchSelectedCliente();
+  }, [value]);
+
+  const handleSelect = (clienteId) => {
+    const cliente = clientes.find(c => c.id === clienteId);
+    if (cliente) {
+      setSelectedCliente(cliente);
+      onSelect(cliente);
+      setOpen(false);
+      setSearchTerm('');
+    }
+  };
+
+  const displayValue = useMemo(() => {
+    if (selectedCliente) {
+      if (selectedCliente.nome_fantasia && selectedCliente.razao_social) {
+        return `${selectedCliente.nome_fantasia} - ${selectedCliente.razao_social}`;
+      }
+      return selectedCliente.nome_fantasia || selectedCliente.razao_social || 'Cliente sem nome';
+    }
+    return "Selecione um cliente...";
+  }, [selectedCliente]);
+
+  const formatClienteDisplay = (cliente) => {
+    const nomeFantasia = cliente.nome_fantasia || '';
+    const razaoSocial = cliente.razao_social || '';
+    const cnpjCpf = cliente.cnpj_cpf || '';
+    
+    let display = '';
+    if (nomeFantasia && razaoSocial) {
+      display = `${nomeFantasia} - ${razaoSocial}`;
+    } else {
+      display = nomeFantasia || razaoSocial || 'Cliente sem nome';
+    }
+    
+    if (cnpjCpf) {
+      display += ` (${cnpjCpf})`;
+    }
+    
+    return display;
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className={cn(
+            "w-full justify-between bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white",
+            !selectedCliente && "text-white/60",
+            className
+          )}
+        >
+          <span className="truncate">{displayValue}</span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-full p-0 bg-gray-900 border-gray-700 text-white">
+        <Command className="bg-gray-900 text-white">
+          <CommandInput
+            placeholder="Buscar cliente por nome fantasia, razão social ou CNPJ/CPF..."
+            value={searchTerm}
+            onValueChange={setSearchTerm}
+            className="text-white placeholder:text-white/60"
+          />
+          <CommandList className="bg-gray-800">
+            <CommandEmpty className="py-6 text-center text-sm text-white/70">
+              {loading ? (
+                <div className="flex items-center justify-center">
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Buscando clientes...
+                </div>
+              ) : debouncedSearchTerm.length < 2 ? (
+                "Digite pelo menos 2 caracteres para buscar"
+              ) : (
+                "Nenhum cliente encontrado"
+              )}
+            </CommandEmpty>
+            <CommandGroup className="bg-gray-800">
+              {clientes.map((cliente) => (
+                <CommandItem
+                  key={cliente.id}
+                  value={cliente.id}
+                  onSelect={() => handleSelect(cliente.id)}
+                  className="text-white hover:bg-gray-700 cursor-pointer"
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      selectedCliente?.id === cliente.id ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                  <div className="flex flex-col">
+                    <span className="font-medium">{formatClienteDisplay(cliente)}</span>
+                    {cliente.endereco && (
+                      <span className="text-sm text-white/60 truncate">
+                        {cliente.endereco}
+                        {cliente.municipio && `, ${cliente.municipio}`}
+                        {cliente.estado && ` - ${cliente.estado}`}
+                      </span>
+                    )}
+                  </div>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+};
 
 const ColetaForm = () => {
   const [currentStep, setCurrentStep] = useState(1);
@@ -21,20 +212,51 @@ const ColetaForm = () => {
   const { id } = useParams();
   const { user } = useAuth();
   const isEditing = !!id;
-  const { profile } = useProfile();
   const [empresaTimezone, setEmpresaTimezone] = useState('America/Sao_Paulo');
+  const [empresa, setEmpresa] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const hasFetchedInitialData = useRef(false);
   const [hasAutoSaveData, setHasAutoSaveData] = useState(false);
 
+  // Buscar dados da empresa
   useEffect(() => {
-    const fetchEmpresaTimezone = async () => {
-      const { data, error } = await supabase.from('empresa').select('timezone').single();
-      if (data?.timezone) {
-        setEmpresaTimezone(data.timezone);
+    const fetchEmpresaData = async () => {
+      try {
+        const { data, error } = await supabase.from('empresa').select('*').single();
+        if (error) {
+          console.warn('Erro ao buscar dados da empresa:', error);
+          setEmpresa({ 
+            timezone: 'America/Sao_Paulo', 
+            items_per_page: 25,
+            nome_fantasia: 'Nome da Empresa',
+            razao_social: 'Razão Social',
+            cnpj: 'N/A',
+            telefone: '',
+            email: '',
+            endereco: ''
+          });
+          setEmpresaTimezone('America/Sao_Paulo');
+        } else {
+          setEmpresa(data);
+          setEmpresaTimezone(data.timezone || 'America/Sao_Paulo');
+        }
+      } catch (error) {
+        console.error('Erro ao carregar empresa:', error);
+        setEmpresa({ 
+          timezone: 'America/Sao_Paulo', 
+          items_per_page: 25,
+          nome_fantasia: 'Nome da Empresa',
+          razao_social: 'Razão Social',
+          cnpj: 'N/A',
+          telefone: '',
+          email: '',
+          endereco: ''
+        });
+        setEmpresaTimezone('America/Sao_Paulo');
       }
     };
-    fetchEmpresaTimezone();
+    fetchEmpresaData();
   }, []);
 
   const autoSaveKey = id ? `autoSave_coletaForm_${id}` : 'autoSave_coletaForm_new';
@@ -63,7 +285,6 @@ const ColetaForm = () => {
     };
   }, [user]);
 
-  // Helper to process date values from auto-save or defaults
   const processDateValue = useCallback((dateValue, defaultValue) => {
     if (typeof dateValue === 'string') {
       const parsed = parseISO(dateValue);
@@ -72,22 +293,44 @@ const ColetaForm = () => {
     return (dateValue instanceof Date && isValid(dateValue)) ? dateValue : defaultValue;
   }, []);
 
-  // ✅ CORREÇÃO: Estratégia simplificada - SEMPRE carregar do auto-save primeiro
   const [rawColetaData, setRawColetaData, clearSavedData] = useAutoSave(
     autoSaveKey,
     getInitialColetaData('America/Sao_Paulo'),
-    true // ✅ SEMPRE carregar do auto-save
+    true
   );
 
-  // ✅ CORREÇÃO: Verificar se há dados no auto-save
+  // Verificação do auto-save
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem(autoSaveKey);
-      setHasAutoSaveData(!!saved);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          const initialData = getInitialColetaData(empresaTimezone);
+          const hasUserChanges = Object.keys(parsed).some(key => {
+            const savedValue = parsed[key];
+            const initialValue = initialData[key];
+            
+            if (key === 'user_id') return false;
+            
+            if (savedValue !== initialValue) {
+              if (typeof savedValue === 'string' && typeof initialValue === 'string') {
+                return savedValue.trim() !== initialValue.trim();
+              }
+              return true;
+            }
+            return false;
+          });
+          setHasAutoSaveData(hasUserChanges);
+        } catch (error) {
+          setHasAutoSaveData(false);
+        }
+      } else {
+        setHasAutoSaveData(false);
+      }
     }
-  }, [autoSaveKey]);
+  }, [autoSaveKey, empresaTimezone, getInitialColetaData, currentStep]);
 
-  // Processed coletaData for component usage (Date objects)
   const coletaData = useMemo(() => {
     const initialDataForDefault = getInitialColetaData(empresaTimezone);
     return {
@@ -96,14 +339,13 @@ const ColetaForm = () => {
     };
   }, [rawColetaData, empresaTimezone, getInitialColetaData, processDateValue]);
 
-  // This useEffect ensures user.id is always set for new forms
+  // Atualizar user_id sempre que o user mudar
   useEffect(() => {
     if (user?.id && rawColetaData.user_id !== user.id) {
       setRawColetaData(prev => ({ ...prev, user_id: user.id }));
     }
   }, [user, rawColetaData.user_id, setRawColetaData]);
 
-  // ✅ CORREÇÃO: Fetch dos dados com lógica de merge
   const fetchColeta = useCallback(async () => {
     if (!isEditing) {
       return;
@@ -134,15 +376,13 @@ const ColetaForm = () => {
         estado: data.pessoa?.estado,
         telefone: data.pessoa?.telefone,
         tipo_coleta: data.tipo_coleta,
-        data_coleta: zonedDate.toISOString(), // Store as ISO string in rawColetaData
+        data_coleta: zonedDate.toISOString(),
         hora_coleta: formattedTime,
         valor_compra: String(data.valor_compra || '0').replace('.', ','),
         quantidade_coletada: String(data.quantidade_coletada || '').replace('.', ','),
       };
 
-      // ✅ CORREÇÃO: Merge inteligente entre auto-save e dados do banco
       setRawColetaData(prevFormData => {
-        // Se não há dados no auto-save ou estão vazios, usa os dados do banco
         const isAutoSaveEmpty = Object.values(prevFormData).every(value => 
           value === '' || value === null || value === undefined || 
           (typeof value === 'string' && value.trim() === '') ||
@@ -150,24 +390,19 @@ const ColetaForm = () => {
         );
         
         if (isAutoSaveEmpty || !hasAutoSaveData) {
-          console.log('Usando dados do banco (auto-save vazio)');
           return entryDataFromDB;
         } else {
-          // Se há dados no auto-save, faz merge mantendo alterações do usuário
-          console.log('Fazendo merge entre auto-save e dados do banco');
           return {
-            ...entryDataFromDB, // Dados base do banco
-            ...prevFormData // Preserva alterações do auto-save (tem prioridade)
+            ...entryDataFromDB,
+            ...prevFormData
           };
         }
       });
     }
   }, [id, isEditing, navigate, setRawColetaData, toast, empresaTimezone, hasAutoSaveData]);
 
-  // ✅ CORREÇÃO: Buscar dados do banco apenas se estiver editando
   useEffect(() => {
     if (isEditing && !hasFetchedInitialData.current) {
-      // Pequeno delay para garantir que o auto-save carregou primeiro
       const timer = setTimeout(() => {
         fetchColeta();
         hasFetchedInitialData.current = true;
@@ -177,7 +412,6 @@ const ColetaForm = () => {
     }
   }, [isEditing, fetchColeta]);
 
-  // ✅ CORREÇÃO: Resetar flag quando o ID mudar
   useEffect(() => {
     if (id) {
       hasFetchedInitialData.current = false;
@@ -195,7 +429,6 @@ const ColetaForm = () => {
   const updateColetaData = (newData) => {
     setRawColetaData(prev => {
       const updated = { ...prev, ...newData };
-      // Ensure data_coleta is stored as ISO string if it's a Date object
       if (updated.data_coleta instanceof Date) {
         updated.data_coleta = updated.data_coleta.toISOString();
       }
@@ -204,113 +437,172 @@ const ColetaForm = () => {
   };
 
   const handleSave = async (finalData, returnData = false) => {
-    const finalColetaData = { ...coletaData, ...finalData };
+    setIsSaving(true);
     
-    let clienteId = finalColetaData.cliente_id;
-    
-    if (!finalColetaData.cliente_id) {
-        const { data: cliente, error: clientError } = await supabase
-        .from('clientes')
-        .upsert({
-            id: clienteId,
-            nome: finalColetaData.cliente,
-            nome_fantasia: finalColetaData.nome_fantasia,
-            cnpj_cpf: finalColetaData.cnpj_cpf,
-            email: finalColetaData.email,
-            endereco: finalColetaData.endereco,
-            municipio: finalColetaData.municipio,
-            estado: finalColetaData.estado,
-            telefone: finalColetaData.telefone,
-            user_id: user.id
-        }, { onConflict: 'cnpj_cpf', ignoreDuplicates: false })
+    try {
+      const finalColetaData = { ...coletaData, ...finalData };
+      
+      // Verificar se user existe
+      if (!user?.id) {
+        const error = new Error('Usuário não autenticado');
+        toast({ title: "Erro", description: error.message, variant: "destructive" });
+        if (returnData) return { error };
+        return;
+      }
+
+      let clienteId = finalColetaData.cliente_id;
+      
+      if (!finalColetaData.cliente_id) {
+          const { data: cliente, error: clientError } = await supabase
+          .from('clientes')
+          .upsert({
+              id: clienteId,
+              nome: finalColetaData.cliente,
+              nome_fantasia: finalColetaData.nome_fantasia,
+              cnpj_cpf: finalColetaData.cnpj_cpf,
+              email: finalColetaData.email,
+              endereco: finalColetaData.endereco,
+              municipio: finalColetaData.municipio,
+              estado: finalColetaData.estado,
+              telefone: finalColetaData.telefone,
+              user_id: user.id
+          }, { onConflict: 'cnpj_cpf', ignoreDuplicates: false })
+          .select()
+          .single();
+
+          if (clientError) {
+          toast({ title: "Erro ao salvar cliente", description: clientError.message, variant: "destructive" });
+          if (returnData) return { error: clientError };
+          return;
+          }
+          clienteId = cliente.id;
+      }
+      
+      let combinedDateTimeString;
+      if (finalColetaData.data_coleta instanceof Date && isValid(finalColetaData.data_coleta)) {
+          combinedDateTimeString = `${format(finalColetaData.data_coleta, 'yyyy-MM-dd')} ${finalColetaData.hora_coleta}`;
+      } else {
+          console.error("ColetaForm.jsx - finalColetaData.data_coleta is invalid:", finalColetaData.data_coleta);
+          toast({ title: "Erro de Data", description: "A data da coleta é inválida. Por favor, verifique.", variant: "destructive" });
+          if (returnData) return { error: new Error("Invalid coleta date") };
+          return;
+      }
+      
+      const dateInCompanyTimezone = toDate(combinedDateTimeString, { timeZone: empresaTimezone });
+      const utcDateISOString = dateInCompanyTimezone.toISOString();
+
+      const coletaToSave = {
+        id: isEditing ? finalColetaData.id : undefined,
+        cliente_id: clienteId,
+        cliente_nome: finalColetaData.cliente,
+        data_coleta: utcDateISOString,
+        hora_coleta: finalColetaData.hora_coleta,
+        fator: parseInt(finalColetaData.fator, 10),
+        tipo_coleta: finalColetaData.tipo_coleta,
+        quantidade_coletada: parseCurrency(finalColetaData.quantidade_coletada),
+        quantidade_entregue: finalColetaData.tipo_coleta === 'Troca' || finalColetaData.tipo_coleta === 'Doação' ? parseFloat(finalColetaData.quantidade_entregue) : null,
+        valor_compra: finalColetaData.tipo_coleta === 'Compra' ? parseCurrency(finalColetaData.valor_compra) : null,
+        total_pago: finalColetaData.tipo_coleta === 'Compra' ? parseCurrency(finalColetaData.total_pago) : null,
+        data_lancamento: finalColetaData.data_lancamento,
+        user_id: user.id,
+        estado: finalColetaData.estado,
+        municipio: finalColetaData.municipio,
+      };
+
+      console.log('DEBUG - Coleta a ser salva:', coletaToSave);
+
+      const { data: savedData, error: coletaError } = await supabase
+        .from('coletas')
+        .upsert(coletaToSave)
         .select()
         .single();
 
-        if (clientError) {
-        toast({ title: "Erro ao salvar cliente", description: clientError.message, variant: "destructive" });
-        if (returnData) return { error: clientError };
+      if (coletaError) {
+        console.error('DEBUG - Erro ao salvar coleta:', coletaError);
+        toast({ title: "Erro ao salvar coleta", description: coletaError.message, variant: "destructive" });
+        if (returnData) return { error: coletaError };
         return;
+      }
+
+      // Criar recibo
+      let reciboEntry = null;
+      try {
+        const { data: reciboData, error: reciboError } = await supabase
+          .from('recibos')
+          .upsert({ 
+            coleta_id: savedData.id,
+            assinatura_url: isEditing ? null : undefined
+          }, { onConflict: 'coleta_id' })
+          .select()
+          .single();
+
+        if (reciboError) {
+          console.error('DEBUG - Erro ao salvar recibo:', reciboError);
+          const { data: existingRecibo } = await supabase
+            .from('recibos')
+            .select('*')
+            .eq('coleta_id', savedData.id)
+            .single();
+          
+          reciboEntry = existingRecibo;
+        } else {
+          reciboEntry = reciboData;
         }
-        clienteId = cliente.id;
+      } catch (reciboException) {
+        console.error('DEBUG - Exceção ao salvar recibo:', reciboException);
+        const { data: existingRecibo } = await supabase
+          .from('recibos')
+          .select('*')
+          .eq('coleta_id', savedData.id)
+          .single();
+        
+        reciboEntry = existingRecibo;
+      }
+
+      await logAction(isEditing ? 'update_coleta' : 'create_coleta', { 
+        coleta_id: savedData.id, 
+        cliente_nome: savedData.cliente_nome,
+        numero_coleta: savedData.numero_coleta 
+      });
+
+      // Limpar auto-save após salvar com sucesso
+      clearSavedData();
+      setHasAutoSaveData(false);
+      hasFetchedInitialData.current = false;
+
+      toast({
+        title: "Sucesso!",
+        description: `Coleta ${isEditing ? 'atualizada' : 'registrada'} com sucesso.`,
+        variant: "default"
+      });
+
+      if(returnData) {
+        const { data: cliente } = await supabase.from('clientes').select('cnpj_cpf, endereco').eq('id', clienteId).single();
+        const fullSavedData = {
+          ...savedData,
+          cnpj_cpf: cliente?.cnpj_cpf,
+          endereco: cliente?.endereco,
+          assinatura_url: reciboEntry?.assinatura_url || null
+        };
+        return { data: fullSavedData, error: null };
+      }
+      
+      // Navegar para o recibo
+      console.log('DEBUG - Navegando para recibo:', savedData.id);
+      navigate(`/app/recibo/${savedData.id}`);
+      
+    } catch (error) {
+      console.error('Erro no processo de salvamento:', error);
+      toast({ 
+        title: "Erro ao Salvar", 
+        description: error.message, 
+        variant: "destructive" 
+      });
+      
+      if (returnData) return { error };
+    } finally {
+      setIsSaving(false);
     }
-    
-    let combinedDateTimeString;
-    if (finalColetaData.data_coleta instanceof Date && isValid(finalColetaData.data_coleta)) {
-        combinedDateTimeString = `${format(finalColetaData.data_coleta, 'yyyy-MM-dd')} ${finalColetaData.hora_coleta}`;
-    } else {
-        console.error("ColetaForm.jsx - finalColetaData.data_coleta is invalid:", finalColetaData.data_coleta);
-        toast({ title: "Erro de Data", description: "A data da coleta é inválida. Por favor, verifique.", variant: "destructive" });
-        if (returnData) return { error: new Error("Invalid coleta date") };
-        return;
-    }
-    
-    const dateInCompanyTimezone = toDate(combinedDateTimeString, { timeZone: empresaTimezone });
-    
-    const utcDateISOString = dateInCompanyTimezone.toISOString();
-
-    const coletaToSave = {
-      id: isEditing ? finalColetaData.id : undefined,
-      cliente_id: clienteId,
-      cliente_nome: finalColetaData.cliente,
-      data_coleta: utcDateISOString,
-      hora_coleta: finalColetaData.hora_coleta,
-      fator: parseInt(finalColetaData.fator, 10),
-      tipo_coleta: finalColetaData.tipo_coleta,
-      quantidade_coletada: parseCurrency(finalColetaData.quantidade_coletada),
-      quantidade_entregue: finalColetaData.tipo_coleta === 'Troca' || finalColetaData.tipo_coleta === 'Doação' ? parseFloat(finalColetaData.quantidade_entregue) : null,
-      valor_compra: finalColetaData.tipo_coleta === 'Compra' ? parseCurrency(finalColetaData.valor_compra) : null,
-      total_pago: finalColetaData.tipo_coleta === 'Compra' ? parseCurrency(finalColetaData.total_pago) : null,
-      data_lancamento: finalColetaData.data_lancamento,
-      user_id: user.id,
-      estado: finalColetaData.estado,
-      municipio: finalColetaData.municipio,
-    };
-
-    const { data: savedData, error: coletaError } = await supabase.from('coletas').upsert(coletaToSave).select().single();
-
-    if (coletaError) {
-      toast({ title: "Erro ao salvar coleta", description: coletaError.message, variant: "destructive" });
-      if (returnData) return { error: coletaError };
-      return;
-    }
-
-    // A criação/atualização do lançamento financeiro agora é responsabilidade do trigger 'process_recibo_signature_actions'
-    const { data: reciboEntry, error: reciboError } = await supabase
-      .from('recibos')
-      .upsert({ 
-        coleta_id: savedData.id,
-        assinatura_url: isEditing ? null : undefined
-      }, { onConflict: 'coleta_id' })
-      .select()
-      .single();
-
-    if (reciboError) {
-      toast({ title: 'Erro ao preparar recibo', description: reciboError.message, variant: 'destructive' });
-      return;
-    }
-
-    await logAction(isEditing ? 'update_coleta' : 'create_coleta', { 
-      coleta_id: savedData.id, 
-      cliente_nome: savedData.cliente_nome,
-      numero_coleta: savedData.numero_coleta 
-    });
-
-    // ✅ CORREÇÃO: Limpar auto-save apenas após salvar com sucesso
-    clearSavedData();
-    hasFetchedInitialData.current = false;
-
-    if(returnData) {
-      const { data: cliente } = await supabase.from('clientes').select('cnpj_cpf, endereco').eq('id', clienteId).single();
-      const fullSavedData = {
-        ...savedData,
-        cnpj_cpf: cliente?.cnpj_cpf,
-        endereco: cliente?.endereco,
-        assinatura_url: reciboEntry.assinatura_url
-      };
-      return { data: fullSavedData, error: null };
-    }
-    
-    navigate('/app/coletas');
   };
 
   const steps = [
@@ -378,7 +670,6 @@ const ColetaForm = () => {
               onNext={nextStep}
               onUpdate={updateColetaData}
               isEditing={isEditing}
-              profile={profile}
               empresaTimezone={empresaTimezone}
               hasAutoSaveData={hasAutoSaveData}
               clearSavedData={clearSavedData}
@@ -405,8 +696,9 @@ const ColetaForm = () => {
               onUpdate={updateColetaData}
               clearSavedData={clearSavedData}
               empresaTimezone={empresaTimezone}
-              collectorName={profile?.full_name || user?.email}
+              collectorName={user?.email || 'Coletor'}
               hasAutoSaveData={hasAutoSaveData}
+              isSaving={isSaving}
             />
           )}
         </AnimatePresence>

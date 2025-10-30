@@ -29,6 +29,7 @@ const RelatoriosPage = () => {
     municipio: 'all',
     clientSearchTerm: '',
     userId: 'all',
+    tipoColeta: 'all',
     startDate: format(subDays(new Date(), 30), 'yyyy-MM-dd'),
     endDate: format(new Date(), 'yyyy-MM-dd'),
   });
@@ -39,10 +40,24 @@ const RelatoriosPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [empresa, setEmpresa] = useState(null);
+  // ✅ NOVO: Estado para armazenar totais do período completo
+  const [periodTotals, setPeriodTotals] = useState({ 
+    totalColetas: 0, 
+    totalMassa: 0, 
+    totalPago: 0, 
+    totalEntregue: 0 
+  });
 
   const pageSize = useMemo(() => empresa?.items_per_page || 25, [empresa]);
 
   const municipioOptions = useMemo(() => [{ value: 'all', label: 'Todos os Municípios' }, ...municipios.map(m => ({ value: m, label: m }))], [municipios]);
+
+  const tipoColetaOptions = [
+    { value: 'all', label: 'Todos os Tipos' },
+    { value: 'Compra', label: 'Compra' },
+    { value: 'Troca', label: 'Troca' },
+    { value: 'Doação', label: 'Doação' }
+  ];
 
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -74,18 +89,113 @@ const RelatoriosPage = () => {
     fetchInitialData();
   }, [toast]);
 
+  // Função auxiliar para obter o nome do cliente de forma segura
+  const getClientName = (item) => {
+    // Mostrar "nome fantasia - razão social" quando disponível
+    if (item.pessoa?.nome_fantasia && item.pessoa?.razao_social) {
+      return `${item.pessoa.nome_fantasia} - ${item.pessoa.razao_social}`;
+    }
+    if (item.pessoa?.nome_fantasia) {
+      return item.pessoa.nome_fantasia;
+    }
+    if (item.pessoa?.razao_social) {
+      return item.pessoa.razao_social;
+    }
+    if (item.pessoa?.nome) {
+      return item.pessoa.nome;
+    }
+    if (item.cliente_nome) {
+      return item.cliente_nome;
+    }
+    return 'N/A';
+  };
+
+  // Função auxiliar para obter nome completo do cliente (para busca)
+  const getFullClientName = (item) => {
+    const names = [];
+    if (item.pessoa?.nome_fantasia) names.push(item.pessoa.nome_fantasia);
+    if (item.pessoa?.razao_social) names.push(item.pessoa.razao_social);
+    if (item.pessoa?.nome) names.push(item.pessoa.nome);
+    if (item.cliente_nome) names.push(item.cliente_nome);
+    
+    return names.filter(Boolean).join(' ') || '';
+  };
+
+  // ✅ NOVO: Função para buscar totais do período completo
+  const fetchPeriodTotals = useCallback(async (currentFilters) => {
+    if (!empresa) return;
+
+    try {
+      let query = supabase
+        .from('coletas')
+        .select('*');
+
+      // Aplicar os mesmos filtros da consulta principal
+      if (currentFilters.estado && currentFilters.estado !== 'all') query = query.eq('estado', currentFilters.estado);
+      if (currentFilters.municipio && currentFilters.municipio !== 'all') query = query.eq('municipio', currentFilters.municipio);
+      if (currentFilters.userId && currentFilters.userId !== 'all') query = query.eq('user_id', currentFilters.userId);
+      if (currentFilters.tipoColeta && currentFilters.tipoColeta !== 'all') query = query.eq('tipo_coleta', currentFilters.tipoColeta);
+      if (currentFilters.startDate) query = query.gte('data_coleta', currentFilters.startDate);
+      if (currentFilters.endDate) {
+          const endOfDayDate = format(endOfDay(parseISO(currentFilters.endDate)), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx");
+          query = query.lte('data_coleta', endOfDayDate);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error("❌ Erro ao buscar totais do período:", error);
+        setPeriodTotals({ totalColetas: 0, totalMassa: 0, totalPago: 0, totalEntregue: 0 });
+      } else {
+        let filteredData = data || [];
+        
+        // Filtro por cliente no lado do cliente (client-side)
+        if (currentFilters.clientSearchTerm) {
+          const searchTermLower = currentFilters.clientSearchTerm.toLowerCase();
+          filteredData = filteredData.filter(item => {
+            const fullClientName = getFullClientName(item).toLowerCase();
+            return fullClientName.includes(searchTermLower);
+          });
+        }
+
+        // Calcular totais do período completo
+        const totals = filteredData.reduce((acc, item) => {
+          acc.totalColetas += 1;
+          acc.totalMassa += Number(item.quantidade_coletada) || 0;
+          if (item.tipo_coleta === 'Compra') {
+            acc.totalPago += Number(item.total_pago) || 0;
+          }
+          if (item.tipo_coleta === 'Troca' || item.tipo_coleta === 'Doação') {
+            acc.totalEntregue += Number(item.quantidade_entregue) || 0;
+          }
+          return acc;
+        }, { totalColetas: 0, totalMassa: 0, totalPago: 0, totalEntregue: 0 });
+
+        console.log('📊 Totais do período completo:', totals);
+        setPeriodTotals(totals);
+      }
+    } catch (error) {
+      console.error("❌ Erro inesperado ao buscar totais do período:", error);
+      setPeriodTotals({ totalColetas: 0, totalMassa: 0, totalPago: 0, totalEntregue: 0 });
+    }
+  }, [empresa]);
+
   const fetchReportData = useCallback(async (currentFilters) => {
     if (!empresa) return;
     setLoading(true);
     const from = (currentPage - 1) * pageSize;
     const to = from + pageSize - 1;
 
-    let query = supabase.from('coletas').select('*, pessoa:clientes(nome, nome_fantasia), usuario:profiles(full_name)', { count: 'exact' });
+    // Consulta modificada para ser mais robusta com os relacionamentos
+    let query = supabase
+      .from('coletas')
+      .select('*, pessoa:clientes(*), usuario:profiles(full_name)', { count: 'exact' });
 
     // Filtros do servidor
     if (currentFilters.estado && currentFilters.estado !== 'all') query = query.eq('estado', currentFilters.estado);
     if (currentFilters.municipio && currentFilters.municipio !== 'all') query = query.eq('municipio', currentFilters.municipio);
     if (currentFilters.userId && currentFilters.userId !== 'all') query = query.eq('user_id', currentFilters.userId);
+    if (currentFilters.tipoColeta && currentFilters.tipoColeta !== 'all') query = query.eq('tipo_coleta', currentFilters.tipoColeta);
     if (currentFilters.startDate) query = query.gte('data_coleta', currentFilters.startDate);
     if (currentFilters.endDate) {
         const endOfDayDate = format(endOfDay(parseISO(currentFilters.endDate)), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx");
@@ -106,17 +216,24 @@ const RelatoriosPage = () => {
       // Filtro por cliente no lado do cliente (client-side)
       if (currentFilters.clientSearchTerm) {
         const searchTermLower = currentFilters.clientSearchTerm.toLowerCase();
-        filteredData = filteredData.filter(item => 
-          item.pessoa?.nome?.toLowerCase().includes(searchTermLower) ||
-          item.pessoa?.nome_fantasia?.toLowerCase().includes(searchTermLower)
-        );
+        filteredData = filteredData.filter(item => {
+          const fullClientName = getFullClientName(item).toLowerCase();
+          return fullClientName.includes(searchTermLower);
+        });
       }
       
       setReportData(filteredData);
-      setTotalCount(filteredData.length);
+      setTotalCount(count || filteredData.length);
     }
     setLoading(false);
   }, [toast, currentPage, pageSize, empresa]);
+
+  // ✅ NOVO: Buscar totais do período quando os filtros mudarem
+  useEffect(() => {
+    if (empresa) {
+      fetchPeriodTotals(debouncedFilters);
+    }
+  }, [debouncedFilters, fetchPeriodTotals, empresa]);
 
   useEffect(() => {
     if (empresa) {
@@ -158,12 +275,15 @@ const RelatoriosPage = () => {
       const from = i * 500;
       const to = from + 500 - 1;
       
-      let query = supabase.from('coletas').select('*, pessoa:clientes(nome, nome_fantasia), usuario:profiles(full_name)');
+      let query = supabase
+        .from('coletas')
+        .select('*, pessoa:clientes(*), usuario:profiles(full_name)');
       
       // Aplicar os mesmos filtros da consulta principal
       if (filters.estado && filters.estado !== 'all') query = query.eq('estado', filters.estado);
       if (filters.municipio && filters.municipio !== 'all') query = query.eq('municipio', filters.municipio);
       if (filters.userId && filters.userId !== 'all') query = query.eq('user_id', filters.userId);
+      if (filters.tipoColeta && filters.tipoColeta !== 'all') query = query.eq('tipo_coleta', filters.tipoColeta);
       if (filters.startDate) query = query.gte('data_coleta', filters.startDate);
       if (filters.endDate) {
           const endOfDayDate = format(endOfDay(parseISO(filters.endDate)), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx");
@@ -183,10 +303,10 @@ const RelatoriosPage = () => {
       let filteredData = data || [];
       if (filters.clientSearchTerm) {
         const searchTermLower = filters.clientSearchTerm.toLowerCase();
-        filteredData = filteredData.filter(item => 
-          item.pessoa?.nome?.toLowerCase().includes(searchTermLower) ||
-          item.pessoa?.nome_fantasia?.toLowerCase().includes(searchTermLower)
-        );
+        filteredData = filteredData.filter(item => {
+          const fullClientName = getFullClientName(item).toLowerCase();
+          return fullClientName.includes(searchTermLower);
+        });
       }
       
       allData = [...allData, ...filteredData];
@@ -196,7 +316,8 @@ const RelatoriosPage = () => {
     const dataToExport = allData.map(item => {
       const dateObj = parseISO(item.data_coleta);
       const formattedDate = isValid(dateObj) ? format(dateObj, 'dd/MM/yyyy', { locale: ptBR }) : 'N/A';
-      const clientDisplayName = item.pessoa?.nome_fantasia ? `${item.pessoa.nome} - ${item.pessoa.nome_fantasia}` : item.pessoa?.nome || item.cliente_nome;
+      const clientDisplayName = getClientName(item);
+      
       return {
         'Data Coleta': formattedDate,
         'Cliente': clientDisplayName,
@@ -216,19 +337,8 @@ const RelatoriosPage = () => {
     XLSX.writeFile(workbook, 'Relatorio_Coletas.xlsx');
   };
 
-  const summary = useMemo(() => {
-    return reportData.reduce((acc, item) => {
-      acc.totalColetas += 1;
-      acc.totalMassa += Number(item.quantidade_coletada) || 0;
-      if (item.tipo_coleta === 'Compra') {
-        acc.totalPago += Number(item.total_pago) || 0;
-      }
-      if (item.tipo_coleta === 'Troca' || item.tipo_coleta === 'Doação') {
-        acc.totalEntregue += Number(item.quantidade_entregue) || 0;
-      }
-      return acc;
-    }, { totalColetas: 0, totalMassa: 0, totalPago: 0, totalEntregue: 0 });
-  }, [reportData]);
+  // ✅ CORREÇÃO: Remover cálculo dos totais da página (não é mais necessário)
+  // Os totais agora vêm do periodTotals
 
   const totalPages = Math.ceil(totalCount / pageSize);
 
@@ -301,6 +411,21 @@ const RelatoriosPage = () => {
                     loading={loading}
                   />
                 </div>
+                <div>
+                  <Label htmlFor="tipoColeta">Tipo de Coleta</Label>
+                  <Select value={filters.tipoColeta} onValueChange={(value) => setFilters({ ...filters, tipoColeta: value || 'all' })}>
+                    <SelectTrigger id="tipoColeta" className="w-full bg-white/10 border-white/20 text-white focus:ring-emerald-400 rounded-xl">
+                      <SelectValue placeholder="Todos os Tipos" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
+                      {tipoColetaOptions.map(option => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
             </div>
           </CardContent>
         </Card>
@@ -316,19 +441,19 @@ const RelatoriosPage = () => {
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                   <Card className="bg-white/10 backdrop-blur-sm border-white/10 text-white rounded-xl">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-emerald-300">Total de Coletas</CardTitle><Truck className="h-4 w-4 text-gray-400" /></CardHeader>
-                    <CardContent><div className="text-2xl font-bold">{totalCount}</div></CardContent>
+                    <CardContent><div className="text-2xl font-bold">{periodTotals.totalColetas}</div></CardContent>
                   </Card>
                   <Card className="bg-white/10 backdrop-blur-sm border-white/10 text-white rounded-xl">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-emerald-300">Massa Total Coletada</CardTitle><Droplets className="h-4 w-4 text-gray-400" /></CardHeader>
-                    <CardContent><div className="2xl font-bold">{formatNumber(summary.totalMassa)} kg</div></CardContent>
+                    <CardContent><div className="2xl font-bold">{formatNumber(periodTotals.totalMassa)} kg</div></CardContent>
                   </Card>
                    <Card className="bg-white/10 backdrop-blur-sm border-white/10 text-white rounded-xl">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-emerald-300">Total Pago (Compras)</CardTitle><DollarSign className="h-4 w-4 text-gray-400" /></CardHeader>
-                    <CardContent><div className="2xl font-bold">{formatCurrency(summary.totalPago)}</div></CardContent>
+                    <CardContent><div className="2xl font-bold">{formatCurrency(periodTotals.totalPago)}</div></CardContent>
                   </Card>
                    <Card className="bg-white/10 backdrop-blur-sm border-white/10 text-white rounded-xl">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-emerald-300">Total Entregue (Trocas/Doações)</CardTitle><Repeat className="h-4 w-4 text-gray-400" /></CardHeader>
-                    <CardContent><div className="2xl font-bold">{formatNumber(summary.totalEntregue, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} Unidades</div></CardContent>
+                    <CardContent><div className="2xl font-bold">{formatNumber(periodTotals.totalEntregue, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} Unidades</div></CardContent>
                   </Card>
                 </div>
 
@@ -352,7 +477,8 @@ const RelatoriosPage = () => {
                           {reportData.map(item => {
                             const dateObj = parseISO(item.data_coleta);
                             const formattedDate = isValid(dateObj) ? format(dateObj, 'dd/MM/yyyy', { locale: ptBR }) : 'N/A';
-                            const clientDisplayName = item.pessoa?.nome_fantasia ? `${item.pessoa.nome} - ${item.pessoa.nome_fantasia}` : item.pessoa?.nome || item.cliente_nome;
+                            const clientDisplayName = getClientName(item);
+                            
                             return (
                               <TableRow key={item.id} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
                                 <TableCell data-label="Data">{formattedDate}</TableCell>
@@ -368,20 +494,20 @@ const RelatoriosPage = () => {
                         </TableBody>
                          <TableFooter>
                             <TableRow className="hover:bg-transparent border-t-2 border-emerald-500 font-bold hidden md:table-row">
-                                <TableCell colSpan={5}>Totais (Página)</TableCell>
-                                <TableCell className="text-right">{formatNumber(summary.totalMassa)} kg</TableCell>
-                                <TableCell className="text-right">{`${formatCurrency(summary.totalPago)} / ${formatNumber(summary.totalEntregue, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} Unidades`}</TableCell>
+                                <TableCell colSpan={5}>Totais (Período)</TableCell>
+                                <TableCell className="text-right">{formatNumber(periodTotals.totalMassa)} kg</TableCell>
+                                <TableCell className="text-right">{`${formatCurrency(periodTotals.totalPago)} / ${formatNumber(periodTotals.totalEntregue, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} Unidades`}</TableCell>
                             </TableRow>
                         </TableFooter>
                       </Table>
                        <div className="md:hidden bg-black/20 font-bold text-white border-t-2 border-emerald-500 text-sm p-4 mt-4 rounded-b-xl space-y-2">
                         <div className="flex justify-between items-center">
-                          <span>Total Massa (Página):</span>
-                          <span>{formatNumber(summary.totalMassa)} kg</span>
+                          <span>Total Massa (Período):</span>
+                          <span>{formatNumber(periodTotals.totalMassa)} kg</span>
                         </div>
                         <div className="flex justify-between items-center">
-                          <span>Total Pago/Entregue (Página):</span>
-                          <span>{`${formatCurrency(summary.totalPago)} / ${formatNumber(summary.totalEntregue, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} Unidades`}</span>
+                          <span>Total Pago/Entregue (Período):</span>
+                          <span>{`${formatCurrency(periodTotals.totalPago)} / ${formatNumber(periodTotals.totalEntregue, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} Unidades`}</span>
                         </div>
                       </div>
                     </div>

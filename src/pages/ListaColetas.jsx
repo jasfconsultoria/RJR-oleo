@@ -8,7 +8,7 @@ import { PlusCircle, Loader2, FileText } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useProfile } from '@/contexts/ProfileContext';
 import ColetasFilters from '@/components/coletas/ColetasFilters';
-import ColetasTable from '@/components/coletas/ColetasTable'; // Corrected import to .jsx
+import ColetasTable from '@/components/coletas/ColetasTable';
 import { startOfMonth, format, endOfDay, parseISO, endOfMonth } from 'date-fns';
 import { logAction } from '@/lib/logger';
 import { Pagination } from '@/components/ui/pagination';
@@ -27,7 +27,17 @@ const ListaColetas = () => {
   
   const [reciboModalOpen, setReciboModalOpen] = useState(false);
   const [selectedColeta, setSelectedColeta] = useState(null);
-  const [empresa, setEmpresa] = useState(null);
+  const [empresa, setEmpresa] = useState({ 
+    items_per_page: 25, 
+    timezone: 'America/Sao_Paulo',
+    nome_fantasia: 'Nome da Empresa',
+    razao_social: 'Razão Social da Empresa',
+    cnpj: 'N/A',
+    telefone: '',
+    email: '',
+    endereco: '',
+    logo_documento_url: null
+  });
 
   const [startDate, setStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
@@ -35,6 +45,10 @@ const ListaColetas = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [periodTotals, setPeriodTotals] = useState({ coletado: 0, compras: 0, entregue: 0 });
+
+  // ✅ NOVO: Estados para controle de perfil e usuário
+  const [userRole, setUserRole] = useState(null);
+  const [userId, setUserId] = useState(null);
 
   const debouncedColetaSearchTerm = useDebounce(coletaSearchTerm, 500);
   const debouncedClientSearchTerm = useDebounce(clientSearchTerm, 500);
@@ -44,59 +58,222 @@ const ListaColetas = () => {
 
   const pageSize = useMemo(() => empresa?.items_per_page || 25, [empresa]);
 
+  // ✅ NOVO: Obter role e ID do usuário logado
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        console.log('🔄 Buscando dados do usuário para coletas...');
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session?.user) {
+          const currentUserId = session.user.id;
+          console.log('👤 Usuário encontrado para coletas:', currentUserId);
+          
+          // Busca o perfil do usuário
+          const { data: profile, error } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', currentUserId)
+            .single();
+          
+          if (error) {
+            console.error('❌ Erro ao buscar perfil:', error);
+            const roleFromStorage = localStorage.getItem('userRole');
+            if (roleFromStorage) {
+              console.log('📦 Usando role do localStorage:', roleFromStorage);
+              setUserRole(roleFromStorage);
+              setUserId(currentUserId);
+              localStorage.setItem('userId', currentUserId);
+            }
+          } else if (profile) {
+            const newRole = profile.role || 'coletor';
+            console.log('🎯 Novo role detectado para coletas:', newRole);
+            
+            // Só atualiza se o role mudou
+            setUserRole(prevRole => {
+              if (prevRole !== newRole) {
+                console.log('🔄 Role mudou de', prevRole, 'para', newRole);
+                return newRole;
+              }
+              return prevRole;
+            });
+            
+            setUserId(currentUserId);
+            localStorage.setItem('userRole', newRole);
+            localStorage.setItem('userId', currentUserId);
+          }
+        } else {
+          console.log('⚠️ Nenhuma sessão encontrada para coletas');
+          const roleFromStorage = localStorage.getItem('userRole') || 'coletor';
+          const idFromStorage = localStorage.getItem('userId');
+          setUserRole(roleFromStorage);
+          setUserId(idFromStorage);
+        }
+      } catch (error) {
+        console.error('❌ Erro ao buscar dados do usuário para coletas:', error);
+        const roleFromStorage = localStorage.getItem('userRole') || 'coletor';
+        const idFromStorage = localStorage.getItem('userId');
+        setUserRole(roleFromStorage);
+        setUserId(idFromStorage);
+      }
+    };
+    
+    fetchUserData();
+
+    // Monitorar mudanças de autenticação
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('🔐 Auth state changed para coletas:', event);
+      if (event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'TOKEN_REFRESHED') {
+        await fetchUserData();
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // CORREÇÃO: Buscar dados da empresa para todos os usuários
   useEffect(() => {
     const fetchEmpresaData = async () => {
-      const { data, error } = await supabase.from('empresa').select('*').single();
-      if (error) {
-        console.error("Erro ao buscar dados da empresa:", error);
-        toast({ title: "Erro ao buscar configurações da empresa.", variant: "destructive" });
+      try {
+        const { data, error } = await supabase.from('empresa').select('*').single();
+        
+        if (error) {
+          console.warn("Usando configuração padrão para empresa");
+          // Não mostra erro para o usuário, usa fallback silenciosamente
+        }
+        
+        // Sempre define a empresa (com dados reais ou fallback)
+        setEmpresa({
+          items_per_page: data?.items_per_page || 25,
+          timezone: data?.timezone || 'America/Sao_Paulo',
+          nome_fantasia: data?.nome_fantasia || 'Nome da Empresa',
+          razao_social: data?.razao_social || 'Razão Social da Empresa',
+          cnpj: data?.cnpj || 'N/A',
+          telefone: data?.telefone || '',
+          email: data?.email || '',
+          endereco: data?.endereco || '',
+          logo_documento_url: data?.logo_documento_url || null
+        });
+        
+      } catch (error) {
+        console.error("Erro ao buscar empresa:", error);
+        // Fallback seguro
+        setEmpresa({ 
+          items_per_page: 25, 
+          timezone: 'America/Sao_Paulo',
+          nome_fantasia: 'Nome da Empresa',
+          razao_social: 'Razão Social da Empresa',
+          cnpj: 'N/A',
+          telefone: '',
+          email: '',
+          endereco: '',
+          logo_documento_url: null
+        });
       }
-      setEmpresa(data || { items_per_page: 25, timezone: 'America/Sao_Paulo' });
     };
+
     fetchEmpresaData();
-  }, [toast]);
+  }, []);
 
+  // ✅ CORREÇÃO: Função otimizada para buscar totais APENAS da get_coletas_totals
   const fetchPeriodTotals = useCallback(async () => {
-    if (profileLoading || !profile || !empresa) return;
+    if (profileLoading || !profile || !empresa || userRole === null) return;
 
-    let query = supabase.rpc('get_coletas_totals', {
-        p_start_date: debouncedColetaSearchTerm ? null : (debouncedStartDate || null),
-        p_end_date: debouncedColetaSearchTerm ? null : (debouncedEndDate || null),
+    console.log('🔄 Buscando totais do período via get_coletas_totals...', {
+      startDate: debouncedStartDate,
+      endDate: debouncedEndDate,
+      coletaSearch: debouncedColetaSearchTerm,
+      clientSearch: debouncedClientSearchTerm,
+      userRole: userRole,
+      userId: userId
+    });
+
+    try {
+      // ✅ CORREÇÃO: Preparar parâmetros
+      const params = {
+        p_start_date: debouncedStartDate || null,
+        p_end_date: debouncedEndDate || null,
         p_cliente_id: null,
         p_numero_coleta_term: debouncedColetaSearchTerm || null,
         p_cliente_name_term: debouncedClientSearchTerm || null,
-    });
+      };
 
-    const { data, error } = await query.single();
+      // ✅ CORREÇÃO: Só adiciona user_id se for coletor E tiver userId
+      if (userRole === 'coletor' && userId) {
+        params.p_user_id = userId;
+        console.log('🎯 Adicionando filtro por user_id para coletor:', userId);
+      } else {
+        params.p_user_id = null;
+        console.log('👑 Sem filtro de usuário - visualizando todas as coletas');
+      }
 
-    if (error) {
-      console.error("Erro ao buscar totais do período:", error);
+      console.log('📤 Parâmetros enviados para get_coletas_totals:', params);
+
+      const { data, error } = await supabase.rpc('get_coletas_totals', params);
+
+      if (error) {
+        console.error("❌ Erro ao buscar totais do período:", error);
+        toast({ 
+          title: 'Erro ao carregar totais', 
+          description: error.message, 
+          variant: 'destructive' 
+        });
+        setPeriodTotals({ coletado: 0, compras: 0, entregue: 0 });
+      } else {
+        console.log('✅ Totais recebidos da get_coletas_totals:', data);
+        
+        // ✅ CORREÇÃO CRÍTICA: A função retorna um ARRAY com um objeto
+        // data = [{ total_coletado: 188, total_compras: 0, total_entregue: 30 }]
+        const totalsData = data && data.length > 0 ? data[0] : {};
+        
+        console.log('📊 Dados extraídos do array:', totalsData);
+        
+        setPeriodTotals({
+          coletado: parseFloat(totalsData?.total_coletado || 0),
+          compras: parseFloat(totalsData?.total_compras || 0),
+          entregue: parseFloat(totalsData?.total_entregue || 0),
+        });
+      }
+    } catch (catchError) {
+      console.error("❌ Erro inesperado ao buscar totais:", catchError);
       setPeriodTotals({ coletado: 0, compras: 0, entregue: 0 });
-    } else {
-      setPeriodTotals({
-        coletado: data.total_coletado || 0,
-        compras: data.total_compras || 0,
-        entregue: data.total_entregue || 0,
-      });
     }
-  }, [profile, profileLoading, empresa, debouncedStartDate, debouncedEndDate, debouncedColetaSearchTerm, debouncedClientSearchTerm]);
+  }, [profile, profileLoading, empresa, debouncedStartDate, debouncedEndDate, debouncedColetaSearchTerm, debouncedClientSearchTerm, userRole, userId, toast]);
 
   const fetchColetas = useCallback(async () => {
-    if (profileLoading || !profile || !empresa) return;
+    // ✅ CORREÇÃO: Não buscar até ter o role definido
+    if (profileLoading || !profile || !empresa || userRole === null) {
+      console.log('⏳ Aguardando definição do role para coletas...', { userRole });
+      return;
+    }
+
     setLoading(true);
 
     const from = (currentPage - 1) * pageSize;
     const to = from + pageSize - 1;
 
+    console.log('🔍 Fetching coletas - Role:', userRole, 'UserID:', userId);
+
     let query = supabase.from('v_coletas_com_status').select('*', { count: 'exact' });
+
+    // ✅ NOVO: Aplicar filtro por user_id apenas para coletores
+    if (userRole === 'coletor' && userId) {
+      query = query.eq('user_id', userId);
+      console.log('🎯 Aplicando filtro por user_id para coletor:', userId);
+    } else if (userRole === 'administrador' || userRole === 'gerente') {
+      console.log('👑 Visualizando TODAS as coletas - Perfil:', userRole);
+      // Não aplica filtro - vê todas as coletas
+    } else {
+      console.log('⚠️ Perfil não reconhecido:', userRole);
+    }
 
     if (debouncedColetaSearchTerm) {
         const escapedSearchTerm = escapePostgrestLikePattern(debouncedColetaSearchTerm);
-        query = query.or(`numero_coleta::text.ilike.%${escapedSearchTerm}%,cliente_nome.ilike.%${escapedSearchTerm}%,cliente_nome_fantasia.ilike.%${escapedSearchTerm}%`);
+        query = query.or(`numero_coleta::text.ilike.%${escapedSearchTerm}%,razao_social.ilike.%${escapedSearchTerm}%,nome_fantasia.ilike.%${escapedSearchTerm}%`);
     } else {
         if (debouncedClientSearchTerm) {
             const escapedClientSearchTerm = escapePostgrestLikePattern(debouncedClientSearchTerm);
-            query = query.or(`cliente_nome.ilike.%${escapedClientSearchTerm}%,cliente_nome_fantasia.ilike.%${escapedClientSearchTerm}%`);
+            query = query.or(`razao_social.ilike.%${escapedClientSearchTerm}%,nome_fantasia.ilike.%${escapedClientSearchTerm}%`);
         }
         if (debouncedStartDate) {
             query = query.gte('data_coleta', debouncedStartDate);
@@ -116,16 +293,40 @@ const ListaColetas = () => {
         setColetas([]);
         setTotalCount(0);
     } else {
+        console.log('✅ Coletas encontradas:', data?.length, 'Perfil:', userRole);
         setColetas(data || []);
         setTotalCount(count || 0);
     }
     setLoading(false);
-  }, [profile, profileLoading, sortConfig, debouncedColetaSearchTerm, debouncedClientSearchTerm, debouncedStartDate, debouncedEndDate, empresa, toast, currentPage, pageSize]);
+  }, [profile, profileLoading, sortConfig, debouncedColetaSearchTerm, debouncedClientSearchTerm, debouncedStartDate, debouncedEndDate, empresa, toast, currentPage, pageSize, userRole, userId]);
 
-  useEffect(() => {
-    fetchColetas();
-    fetchPeriodTotals();
+  const refreshColetasData = useCallback(async () => {
+    await fetchColetas();
+    await fetchPeriodTotals(); // ✅ Buscar totais também ao recarregar
   }, [fetchColetas, fetchPeriodTotals]);
+
+  // ✅ CORREÇÃO CRÍTICA: Recarregar coletas quando userRole ou userId mudar
+  useEffect(() => {
+    console.log('🔄 Trigger: userRole ou userId mudou para coletas', { userRole, userId });
+    if (userRole !== null) {
+      setCurrentPage(1); // Resetar para primeira página
+      refreshColetasData();
+    }
+  }, [userRole, userId, refreshColetasData]);
+
+  // ✅ CORREÇÃO: Buscar dados quando os filtros mudarem
+  useEffect(() => {
+    if (userRole !== null) {
+      refreshColetasData();
+    }
+  }, [refreshColetasData, userRole]);
+
+  // ✅ CORREÇÃO: Buscar totais quando os filtros de data mudarem
+  useEffect(() => {
+    if (userRole !== null) {
+      fetchPeriodTotals();
+    }
+  }, [debouncedStartDate, debouncedEndDate, fetchPeriodTotals, userRole]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -146,8 +347,7 @@ const ListaColetas = () => {
     } else {
       toast({ title: 'Coleta excluída!', description: 'A coleta foi removida com sucesso.' });
       await logAction('delete_coleta_success', { coleta_id: coletaId, numero_coleta: coletaToDelete.numero_coleta });
-      fetchColetas();
-      fetchPeriodTotals();
+      refreshColetasData();
     }
   };
   
@@ -159,16 +359,51 @@ const ListaColetas = () => {
     }
   };
 
+  const formatClienteDisplay = (coleta) => {
+    const nomeFantasia = coleta.nome_fantasia || '';
+    const razaoSocial = coleta.razao_social || '';
+    
+    if (nomeFantasia && razaoSocial) {
+      return `${nomeFantasia} - ${razaoSocial}`;
+    }
+    return nomeFantasia || razaoSocial || '';
+  };
+
   const requestSort = (key) => {
     let direction = 'asc';
     if (sortConfig.key === key && sortConfig.direction === 'asc') {
       direction = 'desc';
     }
-    setSortConfig({ key, direction });
+    
+    const sortKeyMap = {
+      'cliente_display': 'razao_social',
+    };
+    
+    const actualKey = sortKeyMap[key] || key;
+    
+    setSortConfig({ key: actualKey, direction });
     setCurrentPage(1);
   };
 
   const totalPages = Math.ceil(totalCount / pageSize);
+
+  // ✅ NOVO: Loading específico para carregamento do perfil
+  if (userRole === null) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-emerald-400" />
+        <span className="ml-2 text-white">Carregando perfil...</span>
+      </div>
+    );
+  }
+
+  if (profileLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-emerald-400" />
+      </div>
+    );
+  }
 
   return (
     <>
@@ -180,6 +415,17 @@ const ListaColetas = () => {
           <div>
             <h1 className="text-2xl md:text-3xl font-bold text-white flex items-center gap-2">
                 <FileText className="w-8 h-8 text-emerald-400" /> Lista de Coletas
+                {/* ✅ NOVO: Indicador de visualização */}
+                {userRole === 'coletor' && (
+                  <span className="text-sm text-emerald-300 bg-emerald-800/30 px-2 py-1 rounded-lg">
+                    Minhas Coletas
+                  </span>
+                )}
+                {(userRole === 'administrador' || userRole === 'gerente') && (
+                  <span className="text-sm text-blue-300 bg-blue-800/30 px-2 py-1 rounded-lg">
+                    Todas as Coletas
+                  </span>
+                )}
             </h1>
             <p className="text-emerald-200/80 mt-1">Visualize e gerencie as coletas realizadas.</p>
           </div>
@@ -204,7 +450,10 @@ const ListaColetas = () => {
 
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white/10 backdrop-blur-sm rounded-xl">
            <ColetasTable
-              coletas={coletas}
+              coletas={coletas.map(coleta => ({
+                ...coleta,
+                cliente_display: formatClienteDisplay(coleta)
+              }))}
               sortConfig={sortConfig}
               requestSort={requestSort}
               handleOpenRecibo={handleReciboAction}
@@ -212,6 +461,8 @@ const ListaColetas = () => {
               totals={periodTotals}
               timezone={empresa?.timezone}
               loading={loading}
+              // ✅ NOVO: Passar informações do perfil para a tabela
+              userRole={userRole}
             />
         </motion.div>
 
@@ -223,15 +474,16 @@ const ListaColetas = () => {
           totalCount={totalCount}
         />
 
-       {reciboModalOpen && selectedColeta && empresa && (
+       {reciboModalOpen && selectedColeta && (
          <ReciboViewDialog
             coleta={selectedColeta}
             empresa={empresa}
             isOpen={reciboModalOpen}
             onClose={() => {
                 setReciboModalOpen(false);
-                fetchColetas();
-                fetchPeriodTotals();
+                setTimeout(() => {
+                  refreshColetasData();
+                }, 1000);
             }}
          />
        )}

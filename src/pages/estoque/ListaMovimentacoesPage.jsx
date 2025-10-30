@@ -30,7 +30,7 @@ const ListaMovimentacoesPage = () => {
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
     searchTerm: '',
-    clientSearchTerm: '', // Alterado para usar o mesmo padrão das outras páginas
+    clientSearchTerm: '',
     selectedProdutoId: null,
     startDate: startOfMonth(new Date()),
     endDate: endOfMonth(new Date()),
@@ -68,7 +68,7 @@ const ListaMovimentacoesPage = () => {
         origem,
         observacao,
         document_number,
-        cliente:clientes(id, nome, nome_fantasia),
+        cliente:clientes(id, razao_social, nome_fantasia),
         coleta_id,
         itens_entrada_saida(
           id,
@@ -97,6 +97,7 @@ const ListaMovimentacoesPage = () => {
     const { data, error, count } = await query;
 
     if (error) {
+      console.error('Erro ao buscar movimentações:', error);
       toast({ title: 'Erro ao buscar movimentações', description: error.message, variant: 'destructive' });
       setMovimentacoes([]);
       setTotalCount(0);
@@ -106,10 +107,15 @@ const ListaMovimentacoesPage = () => {
       // Filtro por cliente no lado do cliente (client-side)
       if (debouncedFilters.clientSearchTerm) {
         const searchTermLower = debouncedFilters.clientSearchTerm.toLowerCase();
-        filteredData = filteredData.filter(mov => 
-          mov.cliente?.nome?.toLowerCase().includes(searchTermLower) ||
-          mov.cliente?.nome_fantasia?.toLowerCase().includes(searchTermLower)
-        );
+        filteredData = filteredData.filter(mov => {
+          const razaoSocial = mov.cliente?.razao_social || '';
+          const nomeFantasia = mov.cliente?.nome_fantasia || '';
+          
+          return (
+            razaoSocial.toLowerCase().includes(searchTermLower) ||
+            nomeFantasia.toLowerCase().includes(searchTermLower)
+          );
+        });
       }
       
       // Filtro por produto no lado do cliente (client-side)
@@ -157,6 +163,19 @@ const ListaMovimentacoesPage = () => {
   // Função auxiliar para verificar se a movimentação está vinculada a coleta
   const isMovimentacaoVinculadaColeta = (movimentacao) => {
     return movimentacao.origem === 'coleta' || movimentacao.coleta_id != null;
+  };
+
+  // Função para obter o nome de exibição do cliente
+  const getClientDisplayName = (cliente) => {
+    if (!cliente) return 'N/A';
+    
+    const nomeFantasia = cliente.nome_fantasia || '';
+    const razaoSocial = cliente.razao_social || '';
+    
+    if (nomeFantasia && razaoSocial) {
+      return `${nomeFantasia} - ${razaoSocial}`;
+    }
+    return nomeFantasia || razaoSocial || 'Cliente sem nome';
   };
 
   const totalPages = Math.ceil(totalCount / pageSize);
@@ -217,7 +236,7 @@ const ListaMovimentacoesPage = () => {
                 <Input
                   id="clientSearch"
                   type="search"
-                  placeholder="Buscar por nome do cliente..."
+                  placeholder="Buscar por nome fantasia ou razão social..."
                   value={filters.clientSearchTerm}
                   onChange={(e) => handleFilterChange('clientSearchTerm', e.target.value)}
                   className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60 rounded-xl"
@@ -305,7 +324,7 @@ const ListaMovimentacoesPage = () => {
                           </TableCell>
                           <TableCell data-label="Origem" className="capitalize">{mov.origem}</TableCell>
                           <TableCell data-label="Cliente">
-                            {mov.cliente?.nome_fantasia ? `${mov.cliente.nome} - ${mov.cliente.nome_fantasia}` : mov.cliente?.nome || 'N/A'}
+                            {getClientDisplayName(mov.cliente)}
                           </TableCell>
                           <TableCell data-label="Itens">
                             {mov.itens_entrada_saida.map((item, idx) => (

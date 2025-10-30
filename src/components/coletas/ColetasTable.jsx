@@ -62,15 +62,26 @@ const getTypeBadge = (type) => {
 };
 
 // Function to get badge styling and text for receipt status
-const getStatusBadge = (status) => {
-  switch (status) {
-    case 'assinado':
-      return { text: 'Finalizada', className: 'bg-green-500/20 text-green-300' };
-    case 'pendente_assinatura':
-      return { text: 'Aguardando Assinatura', className: 'bg-blue-500/20 text-blue-300' };
-    default:
-      return { text: 'Desconhecido', className: 'bg-gray-500/20 text-gray-300' };
+const getStatusBadge = (coleta) => {
+  // Verifica se tem assinatura
+  const hasSignature = !!coleta.assinatura_url;
+  
+  if (hasSignature) {
+    return { text: 'Finalizada', className: 'bg-green-500/20 text-green-300' };
+  } else {
+    return { text: 'Aguardando Assinatura', className: 'bg-blue-500/20 text-blue-300' };
   }
+};
+
+// Function to format client name display
+const formatClienteDisplay = (coleta) => {
+  const nomeFantasia = coleta.nome_fantasia || '';
+  const razaoSocial = coleta.razao_social || '';
+  
+  if (nomeFantasia && razaoSocial) {
+    return `${nomeFantasia} - ${razaoSocial}`;
+  }
+  return nomeFantasia || razaoSocial || '';
 };
 
 const ColetasTable = ({
@@ -108,7 +119,7 @@ const ColetasTable = ({
             <TableRow className="hover:bg-transparent border-b border-white/20 text-xs">
               <TableHeaderSortable columnKey="numero_coleta" label="Nº Coleta" sortConfig={sortConfig} onSort={requestSort} className="w-[10%]" />
               <TableHeaderSortable columnKey="data_coleta" label="Data" sortConfig={sortConfig} onSort={requestSort} className="w-[12%]" />
-              <TableHeaderSortable columnKey="cliente_nome" label="Cliente" sortConfig={sortConfig} onSort={requestSort} className="w-[25%]" />
+              <TableHeaderSortable columnKey="razao_social" label="Cliente" sortConfig={sortConfig} onSort={requestSort} className="w-[25%]" />
               <TableHeaderSortable columnKey="tipo_coleta" label="Tipo" sortConfig={sortConfig} onSort={requestSort} className="w-[10%]" />
               <TableHeaderSortable columnKey="quantidade_coletada" label="Qtd. Coletada (kg)" sortConfig={sortConfig} onSort={requestSort} className="w-[13%]" />
               <TableHead className="text-emerald-300 w-[15%]">Valor/Entregue (R$/Unidade)</TableHead>
@@ -119,7 +130,7 @@ const ColetasTable = ({
           <TableBody>
             {coletas.length > 0 ? (
               coletas.map((coleta) => {
-                const statusInfo = getStatusBadge(coleta.status_recibo);
+                const statusInfo = getStatusBadge(coleta);
                 const isCompra = coleta.tipo_coleta === 'Compra';
                 const valueOrDelivered = isCompra
                   ? formatCurrency(coleta.total_pago || 0)
@@ -129,7 +140,9 @@ const ColetasTable = ({
                   <TableRow key={coleta.id} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
                     <TableCell data-label="Nº Coleta" className="font-mono">{String(coleta.numero_coleta).padStart(6, '0')}</TableCell>
                     <TableCell data-label="Data">{formatColetaDate(coleta.data_coleta)}</TableCell>
-                    <TableCell data-label="Cliente">{coleta.cliente_nome_fantasia ? `${coleta.cliente_nome} - ${coleta.cliente_nome_fantasia}` : coleta.cliente_nome}</TableCell>
+                    <TableCell data-label="Cliente">
+                      {coleta.cliente_display || formatClienteDisplay(coleta)}
+                    </TableCell>
                     <TableCell data-label="Tipo">
                       <span className={`px-2 py-1 rounded-xl text-xs font-semibold ${getTypeBadge(coleta.tipo_coleta)}`}>
                         {coleta.tipo_coleta}

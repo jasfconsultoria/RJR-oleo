@@ -154,108 +154,73 @@ export function getMonthsDifference(dateFrom, dateTo) {
   return differenceInMonths(d2, d1);
 }
 
-// Helper function to convert numbers to Portuguese words (for internal use by valorPorExtenso)
-const unidades = ['', 'um', 'dois', 'três', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove'];
-const dezenas = ['', 'dez', 'vinte', 'trinta', 'quarenta', 'cinquenta', 'sessenta', 'setenta', 'oitenta', 'noventa'];
-const centenas = ['', 'cento', 'duzentos', 'trezentos', 'quatrocentos', 'quinhentos', 'seiscentos', 'setecentos', 'oitocentos', 'novecentos'];
-const especiais = ['dez', 'onze', 'doze', 'treze', 'quatorze', 'quinze', 'dezesseis', 'dezessete', 'dezoito', 'dezenove'];
+// Função auxiliar para converter números para extenso
+function converterNumero(num) {
+  if (num === 0) return 'zero';
+  
+  const unidades = ['', 'um', 'dois', 'três', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove'];
+  const dezenas = ['', 'dez', 'vinte', 'trinta', 'quarenta', 'cinquenta', 'sessenta', 'setenta', 'oitenta', 'noventa'];
+  const especiais = ['dez', 'onze', 'doze', 'treze', 'quatorze', 'quinze', 'dezesseis', 'dezessete', 'dezoito', 'dezenove'];
 
-function _numeroParaExtenso(num) {
-  if (num === 0) return ''; // Return empty for zero when used as part of a larger number
-  if (num < 0) return 'menos ' + _numeroParaExtenso(Math.abs(num));
-
-  let s = String(num);
-  let extenso = [];
-
-  function converterGrupo(n) {
-    let str = '';
-    let c = Math.floor(n / 100);
-    let d = Math.floor((n % 100) / 10);
-    let u = n % 10;
-
-    if (c > 0) {
-      str += (c === 1 && (d > 0 || u > 0)) ? 'cento e ' : centenas[c] + ' ';
-    }
-
-    if (d > 1) {
-      str += dezenas[d] + (u > 0 ? ' e ' : '');
-    } else if (d === 1) {
-      str += especiais[u] + ' ';
-      return str.trim();
-    }
-
-    if (u > 0 && d !== 1) {
-      str += unidades[u] + ' ';
-    }
-    return str.trim();
+  if (num < 10) return unidades[num];
+  if (num < 20) return especiais[num - 10];
+  if (num < 100) {
+    const d = Math.floor(num / 10);
+    const u = num % 10;
+    return dezenas[d] + (u > 0 ? ' e ' + unidades[u] : '');
   }
-
-  let grupos = [];
-  while (s.length > 0) {
-    grupos.unshift(parseInt(s.slice(-3)));
-    s = s.slice(0, -3);
+  
+  // Para números maiores (simplificado)
+  if (num < 1000) {
+    const c = Math.floor(num / 100);
+    const resto = num % 100;
+    const centenas = ['', 'cento', 'duzentos', 'trezentos', 'quatrocentos', 'quinhentos', 'seiscentos', 'setecentos', 'oitocentos', 'novecentos'];
+    
+    if (c === 1 && resto > 0) return 'cento e ' + converterNumero(resto);
+    return centenas[c] + (resto > 0 ? ' e ' + converterNumero(resto) : '');
   }
-
-  const sufixos = ['', 'mil', 'milhões', 'bilhões', 'trilhões'];
-
-  for (let i = 0; i < grupos.length; i++) {
-    let grupo = grupos[grupos.length - 1 - i];
-    if (grupo === 0) continue;
-
-    let parte = converterGrupo(grupo);
-    let sufixo = sufixos[i];
-
-    if (i === 1 && grupo === 1) { // "mil" singular
-      extenso.unshift('mil');
-    } else if (i > 1 && grupo > 1) { // "milhões", "bilhões" plural
-      extenso.unshift(sufixo);
-      extenso.unshift(parte);
-    } else if (i > 1 && grupo === 1) { // "um milhão", "um bilhão"
-      extenso.unshift(sufixo.slice(0, -1)); // remove 's'
-      extenso.unshift('um');
-    } else {
-      extenso.unshift(sufixo);
-      extenso.unshift(parte);
-    }
-  }
-
-  return extenso.filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+  
+  return num.toString();
 }
 
+// FUNÇÃO CORRIGIDA - valorPorExtenso
 export function valorPorExtenso(valor) {
-  if (valor === null || valor === undefined || isNaN(valor)) {
-    return 'zero reais';
+  if (valor === null || valor === undefined || isNaN(valor) || valor === 0) {
+    return "zero real";
   }
 
-  const partes = valor.toFixed(2).split('.');
-  const reais = parseInt(partes[0], 10);
-  const centavos = parseInt(partes[1], 10);
+  // Garantir que é número
+  const valorNumerico = typeof valor === 'string' ? 
+    parseFloat(valor.replace(/\./g, '').replace(',', '.')) : 
+    valor;
 
-  let extenso = [];
+  const inteiro = Math.floor(valorNumerico);
+  const centavos = Math.round((valorNumerico - inteiro) * 100);
 
-  if (reais > 0) {
-    extenso.push(_numeroParaExtenso(reais));
-    extenso.push(reais === 1 ? 'real' : 'reais');
-  }
+  let extenso = '';
 
-  if (centavos > 0) {
-    if (reais > 0) {
-      extenso.push('e');
+  // Parte inteira (reais)
+  if (inteiro > 0) {
+    if (inteiro === 1) {
+      extenso = 'um real';
+    } else {
+      extenso = converterNumero(inteiro) + ' reais';
     }
-    extenso.push(_numeroParaExtenso(centavos));
-    extenso.push(centavos === 1 ? 'centavo' : 'centavos');
   }
 
-  if (reais === 0 && centavos === 0) {
-    return 'zero reais';
+  // Centavos
+  if (centavos > 0) {
+    if (extenso) extenso += ' e ';
+    if (centavos === 1) {
+      extenso += 'um centavo';
+    } else {
+      extenso += converterNumero(centavos) + ' centavos';
+    }
   }
 
-  return extenso.filter(Boolean).join(' ').trim();
+  return extenso;
 }
 
 export function escapePostgrestLikePattern(pattern) {
-  // Escapa caracteres que têm significado especial em padrões LIKE do SQL: %, _, \
-  // Também escapa $ se estiver causando problemas no parser de filtros do PostgREST.
-  // A substituição usa '\\$&' para inserir uma barra invertida antes do caractere correspondente.
   return pattern.replace(/[%_\\$]/g, '\\$&');
 }

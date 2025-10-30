@@ -225,6 +225,7 @@ const PaymentDialog = ({ isOpen, onClose, entry, onSuccess, initialPaidAmount, i
               value={paidAmount}
               onAccept={(value) => setPaidAmount(value)}
               placeholder="0,00"
+              inputMode="decimal" // ✅ TEOREMA: Teclado numérico com vírgula
               className="bg-white/10 border-white/30 text-white placeholder:text-white/60 rounded-xl h-10 text-base px-3 py-2"
               required
             />

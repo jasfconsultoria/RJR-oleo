@@ -143,6 +143,11 @@ const ListaSaidasPage = () => {
     setCurrentPage(1);
   }, [debouncedSearchTerm, debouncedProductSearchTerm, debouncedStartDate, debouncedEndDate, pageSize, sortConfig]);
 
+  // Função auxiliar para verificar se a saída está vinculada a coleta
+  const isSaidaVinculadaColeta = (saida) => {
+    return saida.origem === 'coleta' || saida.coleta_id != null;
+  };
+
   const handleDelete = async (id, documentNumber) => {
     const { error } = await supabase.from('entrada_saida').delete().eq('id', id);
     if (error) {
@@ -177,7 +182,7 @@ const ListaSaidasPage = () => {
             </h1>
             <p className="text-emerald-200/80 mt-1">Gerencie as saídas de produtos do estoque.</p>
           </div>
-          <Button onClick={() => navigate('/app/estoque/saidas/nova')} className="bg-emerald-600 hover:bg-emerald-700 text-white w-full sm:w-auto rounded-xl">
+          <Button onClick={() => navigate('/app/estoque/saidas/novo')} className="bg-emerald-600 hover:bg-emerald-700 text-white w-full sm:w-auto rounded-xl">
             <PlusCircle className="mr-2 h-4 w-4" /> Nova Saída
           </Button>
         </div>
@@ -254,58 +259,121 @@ const ListaSaidasPage = () => {
                 </TableHeader>
                 <TableBody>
                   {entries.length > 0 ? (
-                    entries.map(entry => (
-                      <TableRow key={entry.id} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
-                        <TableCell data-label="Data">{formatDateWithTimezone(entry.data, empresa?.timezone)}</TableCell>
-                        <TableCell data-label="Documento">{entry.document_number || 'N/A'}</TableCell>
-                        <TableCell data-label="Origem">{entry.origem}</TableCell>
-                        <TableCell data-label="Produto">
-                          <div className="flex items-center gap-2">
-                            <Package className="h-4 w-4 text-emerald-400" />
-                            <span>{entry.produto_nome} ({entry.produto_codigo})</span>
-                          </div>
-                        </TableCell>
-                        <TableCell data-label="Quantidade" className="text-right">{formatNumber(entry.quantidade)} {entry.produto_unidade}</TableCell>
-                        <TableCell data-label="Observação" className="max-w-[200px] truncate">{entry.observacao || 'N/A'}</TableCell>
-                        <TableCell className="text-right actions-cell">
-                          <div className="flex justify-end items-center gap-1">
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              title="Editar Saída" 
-                              className="text-yellow-400 hover:text-yellow-300 rounded-xl" 
-                              onClick={() => navigate(`/app/estoque/saidas/editar/${entry.id}`)}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon" 
-                                  className="text-red-400 hover:text-red-300 rounded-xl"
-                                  title="Excluir Saída"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent className="bg-emerald-900 border-emerald-700 text-white rounded-xl">
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
-                                  <AlertDialogDescription className="text-emerald-300">
-                                    Esta ação não pode ser desfeita. Isso deletará permanentemente a saída {entry.document_number || entry.observacao}.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel className="border-gray-500 text-gray-300 rounded-xl">Cancelar</AlertDialogCancel>
-                                  <AlertDialogAction onClick={() => handleDelete(entry.id, entry.document_number)} className="bg-red-500 hover:bg-red-600 rounded-xl">Deletar</AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))
+                    entries.map(entry => {
+                      const isVinculadaColeta = isSaidaVinculadaColeta(entry);
+
+                      return (
+                        <TableRow key={entry.id} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
+                          <TableCell data-label="Data">{formatDateWithTimezone(entry.data, empresa?.timezone)}</TableCell>
+                          <TableCell data-label="Documento">{entry.document_number || 'N/A'}</TableCell>
+                          <TableCell data-label="Origem">{entry.origem}</TableCell>
+                          <TableCell data-label="Produto">
+                            <div className="flex items-center gap-2">
+                              <Package className="h-4 w-4 text-emerald-400" />
+                              <span>{entry.produto_nome} ({entry.produto_codigo})</span>
+                            </div>
+                          </TableCell>
+                          <TableCell data-label="Quantidade" className="text-right">{formatNumber(entry.quantidade)} {entry.produto_unidade}</TableCell>
+                          <TableCell data-label="Observação" className="max-w-[200px] truncate">{entry.observacao || 'N/A'}</TableCell>
+                          <TableCell className="text-right actions-cell">
+                            <TooltipProvider>
+                              <div className="flex justify-end items-center gap-2">
+                                {/* Botão Editar - Lógica condicional */}
+                                {isVinculadaColeta ? (
+                                  // Botão desabilitado quando vinculado a coleta
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        className="opacity-50 cursor-not-allowed text-yellow-400 rounded-xl"
+                                        disabled
+                                      >
+                                        <Edit className="h-4 w-4" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
+                                      <p>Saídas de coletas devem ser editadas na coleta de origem.</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                ) : (
+                                  // Botão habilitado quando NÃO vinculado a coleta
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        title="Editar Saída" 
+                                        className="text-yellow-400 hover:text-yellow-300 rounded-xl" 
+                                        onClick={() => navigate(`/app/estoque/saidas/editar/${entry.id}`)}
+                                      >
+                                        <Edit className="h-4 w-4" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
+                                      <p>Editar saída</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                )}
+
+                                {/* Botão Excluir - Lógica condicional */}
+                                {isVinculadaColeta ? (
+                                  // Botão desabilitado quando vinculado a coleta
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        className="opacity-50 cursor-not-allowed text-red-400 rounded-xl"
+                                        disabled
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
+                                      <p>Saídas de coletas devem ser excluídas na coleta de origem.</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                ) : (
+                                  // Botão habilitado com AlertDialog quando NÃO vinculado a coleta
+                                  <AlertDialog>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <AlertDialogTrigger asChild>
+                                          <Button 
+                                            variant="ghost" 
+                                            size="icon" 
+                                            className="text-red-400 hover:text-red-300 rounded-xl"
+                                            title="Excluir Saída"
+                                          >
+                                            <Trash2 className="h-4 w-4" />
+                                          </Button>
+                                        </AlertDialogTrigger>
+                                      </TooltipTrigger>
+                                      <TooltipContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
+                                        <p>Excluir saída</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                    <AlertDialogContent className="bg-emerald-900 border-emerald-700 text-white rounded-xl">
+                                      <AlertDialogHeader>
+                                        <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                                        <AlertDialogDescription className="text-emerald-300">
+                                          Esta ação não pode ser desfeita. Isso deletará permanentemente a saída {entry.document_number || entry.observacao}.
+                                        </AlertDialogDescription>
+                                      </AlertDialogHeader>
+                                      <AlertDialogFooter>
+                                        <AlertDialogCancel className="border-gray-500 text-gray-300 rounded-xl">Cancelar</AlertDialogCancel>
+                                        <AlertDialogAction onClick={() => handleDelete(entry.id, entry.document_number)} className="bg-red-500 hover:bg-red-600 rounded-xl">Deletar</AlertDialogAction>
+                                      </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                  </AlertDialog>
+                                )}
+                              </div>
+                            </TooltipProvider>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
                   ) : (
                     <TableRow><TableCell colSpan="7" className="text-center text-gray-400 py-10">Nenhuma saída encontrada.</TableCell></TableRow>
                   )}

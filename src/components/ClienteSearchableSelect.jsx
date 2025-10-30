@@ -17,6 +17,8 @@ const ClienteSearchableSelect = ({
   // New props for controlled search term
   searchTerm: controlledSearchTerm, // The search text from parent
   onSearchTermChange, // Callback to update parent's search text
+  // ✅ NOVA PROP: Para formulários que precisam dos dados completos do cliente
+  returnFullClientData = false, // Se true, passa objeto completo; se false, passa apenas ID
 }) => {
   // Internal state for dropdown visibility and client list
   const [clients, setClients] = useState([]);
@@ -36,10 +38,11 @@ const ClienteSearchableSelect = ({
   useEffect(() => {
     const fetchClients = async () => {
       setLoadingClients(true);
+      // ✅ CORREÇÃO: Manter razao_social e nome_fantasia (estrutura correta)
       const { data, error } = await supabase
         .from('clientes')
-        .select('id, nome, nome_fantasia, cnpj_cpf, municipio, estado')
-        .order('nome', { ascending: true });
+        .select('id, nome_fantasia, razao_social, cnpj_cpf, municipio, estado')
+        .order('razao_social', { ascending: true });
 
       if (error) {
         toast({ title: 'Erro ao buscar clientes', description: error.message, variant: 'destructive' });
@@ -57,8 +60,10 @@ const ClienteSearchableSelect = ({
     if (value && clients.length > 0) {
       const selected = clients.find(c => c.id === value);
       if (selected) {
-        // Corrigido para exibir Nome Fantasia - Razão Social, assumindo inversão semântica dos campos no DB
-        const displayValue = selected.nome ? `${selected.nome} - ${selected.nome_fantasia}` : selected.nome_fantasia;
+        // ✅ CORREÇÃO: Usar razao_social e nome_fantasia corretamente
+        const displayValue = selected.nome_fantasia && selected.razao_social 
+          ? `${selected.nome_fantasia} - ${selected.razao_social}`
+          : selected.nome_fantasia || selected.razao_social || 'Nome não informado';
         setInternalSearchTerm(displayValue);
         onSearchTermChange && onSearchTermChange(displayValue);
       }
@@ -72,7 +77,7 @@ const ClienteSearchableSelect = ({
     if (!internalSearchTerm) return clients;
     return clients.filter(client =>
       (client.nome_fantasia && client.nome_fantasia.toLowerCase().includes(internalSearchTerm.toLowerCase())) ||
-      client.nome.toLowerCase().includes(internalSearchTerm.toLowerCase()) ||
+      (client.razao_social && client.razao_social.toLowerCase().includes(internalSearchTerm.toLowerCase())) ||
       (client.cnpj_cpf && formatCnpjCpf(client.cnpj_cpf).toLowerCase().includes(internalSearchTerm.toLowerCase()))
     );
   }, [clients, internalSearchTerm]);
@@ -82,15 +87,25 @@ const ClienteSearchableSelect = ({
     setInternalSearchTerm(val);
     onSearchTermChange && onSearchTermChange(val);
     if (!val) {
+      // Se está limpando o campo, passar null
       onChange(null);
     }
     setShowDropdown(true);
   };
 
   const handleSelect = (client) => {
-    onChange(client.id);
-    // Corrigido para exibir Nome Fantasia - Razão Social, assumindo inversão semântica dos campos no DB
-    const displayValue = client.nome ? `${client.nome} - ${client.nome_fantasia}` : client.nome_fantasia;
+    // ✅ CORREÇÃO CRÍTICA: Se returnFullClientData é true, passar objeto completo
+    // Se false, passar apenas o ID (compatibilidade com outros formulários)
+    if (returnFullClientData) {
+      onChange(client); // Passa objeto completo com id, razao_social, nome_fantasia, cnpj_cpf, etc.
+    } else {
+      onChange(client.id); // Passa apenas o ID (comportamento original)
+    }
+    
+    // ✅ CORREÇÃO: Usar razao_social e nome_fantasia corretamente
+    const displayValue = client.nome_fantasia && client.razao_social 
+      ? `${client.nome_fantasia} - ${client.razao_social}`
+      : client.nome_fantasia || client.razao_social || 'Nome não informado';
     setInternalSearchTerm(displayValue);
     onSearchTermChange && onSearchTermChange(displayValue);
     setShowDropdown(false);
@@ -111,7 +126,13 @@ const ClienteSearchableSelect = ({
     setTimeout(() => {
       if (containerRef.current && !containerRef.current.contains(document.activeElement)) {
         setShowDropdown(false);
-        if (!value && internalSearchTerm && !clients.some(c => (c.nome ? `${c.nome} - ${c.nome_fantasia}` : c.nome_fantasia) === internalSearchTerm)) {
+        if (!value && internalSearchTerm && !clients.some(c => {
+          // ✅ CORREÇÃO: Usar razao_social e nome_fantasia corretamente
+          const clientDisplay = c.nome_fantasia && c.razao_social 
+            ? `${c.nome_fantasia} - ${c.razao_social}`
+            : c.nome_fantasia || c.razao_social || '';
+          return clientDisplay === internalSearchTerm;
+        })) {
           setInternalSearchTerm('');
           onSearchTermChange && onSearchTermChange('');
         }
@@ -160,8 +181,10 @@ const ClienteSearchableSelect = ({
                 className="p-3 hover:bg-emerald-50 cursor-pointer border-b border-gray-100 last:border-b-0"
               >
                 <div className="font-medium text-gray-900">
-                  {/* Corrigido para exibir Nome Fantasia - Razão Social, assumindo inversão semântica dos campos no DB */}
-                  {client.nome ? `${client.nome} - ${client.nome_fantasia}` : client.nome_fantasia}
+                  {/* ✅ CORREÇÃO: Usar razao_social e nome_fantasia corretamente */}
+                  {client.nome_fantasia && client.razao_social 
+                    ? `${client.nome_fantasia} - ${client.razao_social}`
+                    : client.nome_fantasia || client.razao_social || 'Nome não informado'}
                 </div>
                 <div className="text-sm text-gray-600">
                   {client.cnpj_cpf ? formatCnpjCpf(client.cnpj_cpf) : 'CNPJ/CPF não informado'} - {client.municipio}/{client.estado}

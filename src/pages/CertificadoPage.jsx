@@ -113,14 +113,14 @@ const CertificadoPage = () => {
     // No modo novo, o useAutoSave já carrega automaticamente
   }, [isEditMode, clearSavedData]);
 
-  // Buscar todos os clientes com contratos ativos
+  // Buscar todos os clientes com contratos ativos - CORRIGIDO
   useEffect(() => {
     const fetchAllClients = async () => {
       try {
         const { data, error } = await supabase
           .from('clientes')
           .select('*, contratos(status)')
-          .order('nome', { ascending: true });
+          .order('razao_social', { ascending: true }); // CORRIGIDO: ordenar por razao_social
 
         if (error) throw error;
 
@@ -144,13 +144,13 @@ const CertificadoPage = () => {
     fetchAllClients();
   }, [toast]);
 
-  // Filtrar clientes baseado no termo de busca
+  // Filtrar clientes baseado no termo de busca - CORRIGIDO
   useEffect(() => {
     if (cliente && cliente.trim()) {
       const searchTerm = cliente.toLowerCase();
       const filtered = allClients.filter(client =>
         (client.nome_fantasia && client.nome_fantasia.toLowerCase().includes(searchTerm)) ||
-        client.nome.toLowerCase().includes(searchTerm) ||
+        (client.razao_social && client.razao_social.toLowerCase().includes(searchTerm)) || // CORRIGIDO
         (client.cnpj_cpf && formatCnpjCpf(client.cnpj_cpf).toLowerCase().includes(searchTerm))
       );
       setFilteredClients(filtered);
@@ -159,7 +159,7 @@ const CertificadoPage = () => {
     }
   }, [cliente, allClients]);
 
-  // Buscar dados para edição
+  // Buscar dados para edição - CORRIGIDO
   useEffect(() => {
     const fetchInitialData = async () => {
       if (!isEditMode) return;
@@ -184,20 +184,20 @@ const CertificadoPage = () => {
         
         if (certError) throw certError;
 
-        // Buscar dados do cliente
+        // Buscar dados do cliente - CORRIGIDO
         const { data: clientData, error: clientError } = await supabase
           .from('clientes')
-          .select('id, nome, cnpj_cpf, municipio, estado, endereco, nome_fantasia, telefone, email')
+          .select('id, razao_social, nome_fantasia, cnpj_cpf, municipio, estado, endereco, telefone, email') // CORRIGIDO
           .eq('id', certData.cliente_id)
           .single();
 
         if (clientError) throw clientError;
 
-        // Atualizar formulário com dados do cliente
+        // Atualizar formulário com dados do cliente - CORRIGIDO
         setFormData(prev => ({
           ...prev,
           cliente_id: clientData.id,
-          cliente_nome: clientData.nome,
+          cliente_nome: clientData.razao_social, // CORRIGIDO
           cliente_nome_fantasia: clientData.nome_fantasia || '',
           cnpj_cpf: clientData.cnpj_cpf,
           endereco: clientData.endereco || '',
@@ -205,8 +205,10 @@ const CertificadoPage = () => {
           municipio: clientData.municipio,
           estado: clientData.estado,
           telefone: clientData.telefone || '',
-          // Corrigido para exibir Nome Fantasia - Razão Social, assumindo inversão semântica dos campos no DB
-          cliente: clientData.nome ? `${clientData.nome} - ${clientData.nome_fantasia}` : clientData.nome_fantasia,
+          // CORRIGIDO: exibir Nome Fantasia - Razão Social
+          cliente: clientData.nome_fantasia && clientData.razao_social 
+            ? `${clientData.nome_fantasia} - ${clientData.razao_social}`
+            : clientData.nome_fantasia || clientData.razao_social,
           periodoInicio: processDateValue(certData.periodo_inicio, getFirstDayOfMonth),
           periodoFim: processDateValue(certData.periodo_fim, getTodayDate),
           data_emissao: processDateValue(certData.data_emissao, () => new Date()),
@@ -254,11 +256,11 @@ const CertificadoPage = () => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  // Handler para seleção de cliente
+  // Handler para seleção de cliente - CORRIGIDO
   const handleClientSelect = (client) => {
     const newFormData = {
       cliente_id: client.id,
-      cliente_nome: client.nome,
+      cliente_nome: client.razao_social, // CORRIGIDO
       cliente_nome_fantasia: client.nome_fantasia || '',
       cnpj_cpf: client.cnpj_cpf,
       endereco: client.endereco || '',
@@ -266,8 +268,10 @@ const CertificadoPage = () => {
       municipio: client.municipio,
       estado: client.estado,
       telefone: client.telefone || '',
-      // Corrigido para exibir Nome Fantasia - Razão Social, assumindo inversão semântica dos campos no DB
-      cliente: client.nome ? `${client.nome} - ${client.nome_fantasia}` : client.nome_fantasia,
+      // CORRIGIDO: exibir Nome Fantasia - Razão Social
+      cliente: client.nome_fantasia && client.razao_social 
+        ? `${client.nome_fantasia} - ${client.razao_social}`
+        : client.nome_fantasia || client.razao_social,
     };
 
     setFormData(prev => ({ ...prev, ...newFormData }));
@@ -571,7 +575,7 @@ const CertificadoPage = () => {
                   />
                 </div>
                 
-                {/* Seletor de Cliente */}
+                {/* Seletor de Cliente - CORRIGIDO */}
                 <div className="md:col-span-2 space-y-2 relative">
                   <Label htmlFor="cliente" className="text-white flex items-center gap-2">
                     <User className="w-4 h-4 text-emerald-400" />
@@ -589,7 +593,7 @@ const CertificadoPage = () => {
                     required
                   />
                   
-                  {/* Dropdown de clientes */}
+                  {/* Dropdown de clientes - CORRIGIDO */}
                   {showClienteDropdown && (
                     <motion.div
                       initial={{ opacity: 0, y: -10 }}
@@ -604,8 +608,10 @@ const CertificadoPage = () => {
                             className="p-3 hover:bg-emerald-50 cursor-pointer border-b border-gray-100 last:border-b-0"
                           >
                             <div className="font-medium text-gray-900">
-                              {/* Corrigido para exibir Nome Fantasia - Razão Social, assumindo inversão semântica dos campos no DB */}
-                              {client.nome ? `${client.nome} - ${client.nome_fantasia}` : client.nome_fantasia}
+                              {/* CORRIGIDO: exibir Nome Fantasia - Razão Social */}
+                              {client.nome_fantasia && client.razao_social 
+                                ? `${client.nome_fantasia} - ${client.razao_social}`
+                                : client.nome_fantasia || client.razao_social}
                             </div>
                             <div className="text-sm text-gray-600">
                               {formatCnpjCpf(client.cnpj_cpf)} - {client.municipio}/{client.estado}

@@ -9,7 +9,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { Recibo } from '@/components/Recibo';
 import { Loader2, Eraser, CheckCircle, AlertTriangle, XCircle } from 'lucide-react';
 import { Label } from '@/components/ui/label';
-import PaymentDialog from '@/components/financeiro/PaymentDialog';
 
 const AssinaturaReciboPage = () => {
   const { id } = useParams();
@@ -21,32 +20,92 @@ const AssinaturaReciboPage = () => {
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
+  const [collectorName, setCollectorName] = useState(null);
   const sigCanvas = useRef({});
-
-  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
-  const [debitEntryForPayment, setDebitEntryForPayment] = useState(null);
 
   const fetchReciboData = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const { data, error: rpcError } = await supabase.rpc('get_public_recibo_data', { p_coleta_id: id });
+      console.log('🚨🚨🚨 VERSÃO CORRIGIDA - Buscando dados para página pública');
 
-      if (rpcError || !data || !data.coleta) {
-        throw new Error('Recibo não encontrado. O link pode ser inválido ou o recibo foi removido.');
+      // BUSCA COM JOIN - ESTA É A LINHA CRÍTICA
+      const { data: coletaData, error: coletaError } = await supabase
+        .from('coletas')
+        .select(`
+          *,
+          clientes:cliente_id (
+            nome_fantasia,
+            razao_social,
+            cnpj_cpf,
+            endereco
+          )
+        `)
+        .eq('id', id)
+        .single();
+
+      if (coletaError) {
+        console.error('❌ Erro na busca:', coletaError);
+        throw coletaError;
       }
 
-      if (data.recibo?.assinatura_url) {
+      console.log('✅✅✅ DADOS COM CLIENTE VIA JOIN:', coletaData);
+      console.log('🔍 Dados específicos do cliente:', coletaData.clientes);
+
+      // Buscar recibo
+      const { data: recibo, error: reciboError } = await supabase
+        .from('recibos')
+        .select('*')
+        .eq('coleta_id', id)
+        .single();
+
+      if (!reciboError && recibo?.assinatura_url) {
         navigate(`/recibo/publico/${id}`);
         return;
       }
-      
-      setColeta(data.coleta);
-      setEmpresa(data.empresa);
-      setReciboData(data.recibo);
+
+      // Buscar empresa
+      const { data: empresaData, error: empresaError } = await supabase
+        .from('empresa')
+        .select('*')
+        .single();
+
+      if (empresaError) {
+        console.error('Erro ao buscar empresa:', empresaError);
+      }
+
+      // Buscar coletor
+      let coletorNome = 'N/A';
+      if (coletaData.user_id) {
+        const { data: users, error: usersError } = await supabase.rpc('get_all_users');
+        if (!usersError) {
+          const collector = users.find(u => u.id === coletaData.user_id);
+          coletorNome = collector?.full_name || collector?.email || 'N/A';
+        }
+      }
+
+      // DADOS FINAIS CORRETOS
+      const dadosFinais = {
+        ...coletaData,
+        // Dados do cliente - USANDO OS CAMPOS CORRETOS
+        nome_fantasia: coletaData.clientes?.nome_fantasia || 'Nome não encontrado',
+        razao_social: coletaData.clientes?.razao_social || 'Razão social não encontrada',
+        cliente_cnpj_cpf: coletaData.clientes?.cnpj_cpf || 'CNPJ não informado',
+        cliente_endereco: coletaData.clientes?.endereco || 'Endereço não informado',
+        collectorName: coletorNome
+      };
+
+      console.log('🚨🚨🚨 DADOS FINAIS ENVIADOS PARA RECIBO:', dadosFinais);
+
+      setColeta(dadosFinais);
+      setEmpresa(empresaData || {});
+      setReciboData(recibo);
+      setCollectorName(coletorNome);
+
     } catch (err) {
-      setError(err.message);
+      console.error('❌ Erro geral:', err);
+      setError('Recibo não encontrado ou acesso negado');
     } finally {
       setLoading(false);
     }
@@ -85,7 +144,6 @@ const AssinaturaReciboPage = () => {
       const { data: urlData } = supabase.storage.from('recibos').getPublicUrl(uploadData.path);
       const publicUrl = urlData.publicUrl;
 
-      // ✅ SEGUNDO: Salvar a assinatura do recibo (o trigger fará o resto)
       const { error: upsertError } = await supabase
         .from('recibos')
         .upsert({
@@ -95,72 +153,16 @@ const AssinaturaReciboPage = () => {
 
       if (upsertError) throw upsertError;
         
-      toast({ title: 'Recibo assinado com sucesso!', description: 'Estoque e financeiro sincronizados.' });
-
-      // Add a small delay to ensure trigger completes and data is committed
-      await new Promise(resolve => setTimeout(resolve, 500)); 
-
-      // ✅ TERCEIRO: Para coletas do tipo 'Compra', abrir diálogo de pagamento
-      if (coleta.tipo_coleta === 'Compra') {
-        await new Promise(resolve => setTimeout(resolve, 3000));
-
-        console.log('AssinaturaReciboPage: Tentando buscar lançamento de débito para coleta_id:', id);
-        const { data: debitEntry, error: debitError } = await supabase
-          .from('v_financeiro_coleta')
-          .select('*')
-          .eq('coleta_id', id)
-          .maybeSingle();
-
-        console.log('AssinaturaReciboPage: Resultado da busca do débito:', { debitEntry, debitError });
-
-        if (debitError) {
-          console.error('AssinaturaReciboPage: Erro ao buscar lançamento de débito:', debitError);
-          toast({ 
-            title: 'Erro', 
-            description: `Não foi possível carregar os detalhes do débito para pagamento: ${debitError.message}. Por favor, registre o pagamento manualmente na seção Financeiro.`, 
-            variant: 'destructive', 
-            duration: 8000 
-          });
-          navigate(`/recibo/publico/${coleta.id}`);
-        } else if (!debitEntry) {
-          console.warn('AssinaturaReciboPage: Lançamento de débito não encontrado após assinatura para coleta_id:', id);
-          toast({ 
-            title: 'Aviso', 
-            description: 'Lançamento de débito não encontrado. Por favor, registre o pagamento manualmente na seção Financeiro.', 
-            variant: 'warning', 
-            duration: 8000 
-          });
-          navigate(`/recibo/publico/${coleta.id}`);
-        } else {
-          console.log('AssinaturaReciboPage: Lançamento de débito encontrado:', debitEntry);
-          setDebitEntryForPayment(debitEntry);
-          setShowPaymentDialog(true);
-        }
-      } else {
-        // Para outros tipos de coleta, navegar diretamente para o recibo público
-        navigate(`/recibo/publico/${coleta.id}`);
-      }
+      toast({ title: 'Recibo assinado com sucesso!' });
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      navigate(`/recibo/publico/${coleta.id}`);
 
     } catch (err) {
-      console.error('Erro no processo de assinatura:', err);
-      toast({ 
-        title: 'Erro ao processar assinatura', 
-        description: err.message, 
-        variant: 'destructive' 
-      });
+      console.error('Erro:', err);
+      toast({ title: 'Erro ao processar assinatura', description: err.message, variant: 'destructive' });
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const handlePaymentSuccess = () => {
-    setShowPaymentDialog(false);
-    navigate(`/recibo/publico/${coleta.id}`);
-  };
-
-  const handlePaymentClose = () => {
-    setShowPaymentDialog(false);
-    navigate(`/recibo/publico/${coleta.id}`);
   };
 
   if (loading) {
@@ -178,7 +180,7 @@ const AssinaturaReciboPage = () => {
     );
   }
 
-  if (!coleta || !empresa) {
+  if (!coleta) {
     return <div className="flex justify-center items-center h-screen bg-gray-900"><Loader2 className="h-10 w-10 text-emerald-400 animate-spin" /></div>;
   }
 
@@ -194,7 +196,15 @@ const AssinaturaReciboPage = () => {
           </CardHeader>
           <CardContent>
             <div className="max-h-[50vh] overflow-y-auto p-4 bg-white rounded-md text-black border-2 border-dashed border-emerald-400/50">
-              <Recibo data={coleta} empresa={empresa} signature={reciboData?.assinatura_url} timezone={empresa?.timezone || 'America/Sao_Paulo'} />
+              <Recibo 
+                data={coleta} 
+                empresa={empresa} 
+                signature={reciboData?.assinatura_url} 
+                timezone={empresa?.timezone || 'America/Sao_Paulo'} 
+                collectorName={collectorName}
+                coletaDateString={coleta.data_coleta}
+                coletaTimeString={coleta.hora_coleta}
+              />
             </div>
             
             <div className="mt-6">
@@ -224,17 +234,6 @@ const AssinaturaReciboPage = () => {
           </CardFooter>
         </Card>
       </div>
-
-      {debitEntryForPayment && (
-        <PaymentDialog
-          isOpen={showPaymentDialog}
-          onClose={handlePaymentClose}
-          entry={debitEntryForPayment}
-          onSuccess={handlePaymentSuccess}
-          initialPaidAmount={debitEntryForPayment.amount_balance}
-          initialPaymentMethod="pix"
-        />
-      )}
     </>
   );
 };

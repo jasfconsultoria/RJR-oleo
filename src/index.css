@@ -1,184 +1,190 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: 222.2 84% 4.9%;
-  --foreground: 210 40% 98%;
-  --card: 222.2 84% 4.9%;
-  --card-foreground: 210 40% 98%;
-  --popover: 222.2 84% 4.9%;
-  --popover-foreground: 210 40% 98%;
-  --primary: 210 40% 98%;
-  --primary-foreground: 222.2 84% 4.9%;
-  --secondary: 217.2 32.6% 17.5%;
-  --secondary-foreground: 210 40% 98%;
-  --muted: 217.2 32.6% 17.5%;
-  --muted-foreground: 215 20.2% 65.1%;
-  --accent: 217.2 32.6% 17.5%;
-  --accent-foreground: 210 40% 98%;
-  --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 210 40% 98%;
-  --border: 217.2 32.6% 17.5%;
-  --input: 217.2 32.6% 17.5%;
-  --ring: 212.7 26.8% 83.9%;
-  --radius: 0.75rem; /* Aumenta o arredondamento padrão */
-}
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
 
-html {
-  font-size: 14px; /* Reduz o tamanho da fonte base */
-}
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+ 
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+ 
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+ 
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+ 
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+ 
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+ 
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
 
-* {
-  border-color: hsl(var(--border));
-}
-
-body {
-  font-family: 'Inter', sans-serif;
-  background: linear-gradient(135deg, #064e3b 0%, #0f766e 50%, #0891b2 100%);
-  min-height: 100vh;
-  color: hsl(var(--foreground));
-}
-
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgba(16, 185, 129, 0.6);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(16, 185, 129, 0.8);
-}
-
-/* Smooth transitions */
-* {
-  transition: all 0.2s ease-in-out;
-}
-
-/* Focus styles */
-input:focus,
-select:focus,
-button:focus {
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.5);
-}
-
-/* Animation classes */
-.animate-fade-in {
-  animation: fadeIn 0.5s ease-in-out;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+ 
+    --radius: 0.5rem;
   }
-  to {
-    opacity: 1;
-    transform: translateY(0);
+ 
+  .dark {
+    --background: 222.2 47.4% 11.2%;
+    --foreground: 210 40% 98%;
+ 
+    --card: 222.2 47.4% 11.2%;
+    --card-foreground: 210 40% 98%;
+ 
+    --popover: 222.2 47.4% 11.2%;
+    --popover-foreground: 210 40% 98%;
+ 
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+ 
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+ 
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+ 
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+ 
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+ 
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
   }
 }
-
-/* Print styles for thermal printer simulation */
-@media print {
+ 
+@layer base {
+  * {
+    @apply border-border;
+  }
   body {
-    background: white !important;
-    color: black !important;
-  }
-  
-  .print-receipt {
-    width: 80mm;
-    font-family: 'Courier New', monospace;
-    font-size: 12px;
-    line-height: 1.2;
+    @apply bg-background text-foreground;
   }
 }
 
-/* Responsive table adjustments */
-@media (max-width: 768px) {
+/* Estilo para o dropdown de status com cantos arredondados */
+select#statusFilter option {
+  background-color: #1f2937 !important;
+  color: white !important;
+  border-radius: 8px !important;
+  margin: 2px 0 !important;
+  padding: 8px 12px !important;
+}
+
+select#statusFilter {
+  background-color: rgba(255, 255, 255, 0.2) !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+  color: white !important;
+  border-radius: 12px !important;
+}
+
+/* Responsive Table Styles */
+.responsive-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.responsive-table th,
+.responsive-table td {
+  padding: 0.75rem;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.responsive-table thead th {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  font-weight: 600;
+  color: #d1fae5; /* emerald-300 */
+  white-space: nowrap;
+}
+
+.responsive-table tbody tr {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.responsive-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.responsive-table tbody tr:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+/* Mobile-specific styles */
+@media (max-width: 767px) {
   .responsive-table thead {
-    display: none;
+    display: none; /* Hide table headers on small screens */
   }
 
-  .responsive-table tr {
+  .responsive-table tbody tr {
     display: block;
     margin-bottom: 1rem;
-    border-bottom: 2px solid rgba(255, 255, 255, 0.2);
-    padding-bottom: 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 0.5rem;
+    padding: 0.5rem;
   }
-  
+
   .responsive-table td {
-    display: block;
-    text-align: right;
-    padding-left: 50%;
-    position: relative;
-    padding-top: 0.5rem;
-    padding-bottom: 0.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px dashed rgba(255, 255, 255, 0.05);
+  }
+
+  .responsive-table td:last-child {
+    border-bottom: none;
   }
 
   .responsive-table td::before {
     content: attr(data-label);
-    position: absolute;
-    left: 0;
-    width: 45%;
-    padding-left: 0.75rem;
     font-weight: 600;
-    text-align: left;
-    white-space: nowrap;
-    color: #6ee7b7; /* emerald-300 */
+    color: #a7f3d0; /* emerald-200 */
+    margin-right: 0.5rem;
+    flex-shrink: 0;
   }
 
-  .responsive-table td.actions-cell {
-    padding-left: 0;
-    text-align: center;
+  .responsive-table .actions-cell {
+    justify-content: flex-end;
+    padding-top: 0.75rem;
   }
-  .responsive-table td.actions-cell::before {
-    display: none;
+  
+  .responsive-table .actions-cell::before {
+    content: ''; /* Hide label for actions on mobile */
   }
-}
 
-/* SOLUÇÃO PARA DROPDOWN NA TABELA */
-/* Sobrescrever a div que está cortando o dropdown */
-div.relative.w-full.overflow-auto {
-  overflow: visible !important;
-}
+  .responsive-table tfoot {
+    display: block;
+    margin-top: 1rem;
+  }
 
-/* Garantir que a tabela tenha scroll horizontal quando necessário */
-.rounded-xl.border.border-white\\/20 {
-  overflow-x: auto;
-  overflow-y: visible;
-}
+  .responsive-table tfoot tr {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid #059669; /* emerald-600 */
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 0.5rem;
+    padding: 1rem;
+  }
 
-/* Forçar o dropdown a sair do container */
-[data-radix-popper-content-wrapper] {
-  position: fixed !important;
-  z-index: 9999 !important;
-}
-
-/* Container do dropdown dentro da tabela */
-.dropdown-container {
-  position: static !important;
-}
-
-/* Célula da tabela deve permitir overflow */
-td.py-4 {
-  overflow: visible !important;
-  position: relative;
-}
-
-/* Z-index para o dropdown */
-.relative.z-50 {
-  z-index: 1000 !important;
+  .responsive-table tfoot td {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    border-bottom: none;
+  }
 }

@@ -44,7 +44,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
   const pageTitle = isEditing ? `Editar ${titleLabel}` : `${pageVerb} ${titleLabel}`;
 
   const getEmptyFormData = () => ({
-    nome: '',
+    razao_social: '',
     nome_fantasia: '',
     cnpj_cpf: '',
     telefone: '',
@@ -263,7 +263,8 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
     e.preventDefault();
     setSaving(true);
 
-    if (!formData.nome || !formData.estado) {
+    // ✅ CORREÇÃO: Usar razao_social em vez de nome
+    if (!formData.razao_social || !formData.estado) {
       toast({ 
         title: 'Campos obrigatórios', 
         description: 'Razão Social e Estado são obrigatórios.', 
@@ -341,7 +342,8 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
     } else {
       toast({ 
         title: `${titleLabel} ${isEditing ? 'atualizado' : 'cadastrado'} com sucesso!`, 
-        description: `${formData.nome} foi salvo.` 
+        // ✅ CORREÇÃO: Usar razao_social em vez de nome
+        description: `${formData.razao_social} foi salvo.` 
       });
       
       // ✅ CORREÇÃO: Limpar auto-save apenas após salvar com sucesso
@@ -415,6 +417,8 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
                     onAccept={(value) => handleMaskedChange(String(value), 'cnpj_cpf')}
                     onBlur={handleCnpjCpfBlur}
                     placeholder={`Digite o CNPJ ou CPF d${article} ${titleLabel.toLowerCase()}`}
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     className={`w-full flex h-8 rounded-xl border ${cnpjCpfError ? 'border-red-500' : 'border-white/20'} bg-white/5 px-3 py-2 text-xs ring-offset-background file:border-0 file:bg-transparent file:text-xs file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50`}
                     required
                   />
@@ -435,18 +439,22 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
                     onAccept={(value) => handleMaskedChange(String(value), 'telefone')}
                     onBlur={handleTelefoneBlur}
                     placeholder="(00) 00000-0000"
+                    inputMode="tel"
                     className={`w-full flex h-8 rounded-xl border ${telefoneError ? 'border-red-500' : 'border-white/20'} bg-white/5 px-3 py-2 text-xs ring-offset-background file:border-0 file:bg-transparent file:text-xs file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50`}
                     required
                   />
                   {telefoneError && <p className="text-red-500 text-xs mt-1">{telefoneError}</p>}
                 </div>
                 
+                {/* ✅ CORREÇÃO: Mudar "nome" para "razao_social" */}
                 <div className="md:col-span-2">
-                  <Label htmlFor="nome" className="text-xs">Razão Social <span className="text-red-500">*</span></Label>
+                  <Label htmlFor="razao_social" className="text-xs">
+                    Razão Social <span className="text-red-500">*</span>
+                  </Label>
                   <Input 
-                    id="nome" 
-                    name="nome" 
-                    value={formData.nome || ''} 
+                    id="razao_social" 
+                    name="razao_social" 
+                    value={formData.razao_social || ''} 
                     onChange={handleChange} 
                     placeholder={`Razão Social d${article} ${titleLabel.toLowerCase()}`} 
                     required 
@@ -480,7 +488,9 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
                 </div>
                 
                 <div>
-                  <Label htmlFor="estado" className="text-xs">Estado <span className="text-red-500">*</span></Label>
+                  <Label htmlFor="estado" className="text-xs">
+                    Estado <span className="text-red-500">*</span>
+                  </Label>
                   <Select onValueChange={handleStateChange} value={formData.estado || ''} required>
                     <SelectTrigger className="bg-white/5 border-white/20 rounded-xl text-xs px-3 py-2">
                       <SelectValue placeholder="Selecione o Estado" />
@@ -505,6 +515,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
                     contentClassName="text-xs bg-gray-800 text-white border-gray-700 rounded-xl"
                   />
                 </div>
+                
                 <div className="md:col-span-2">
                   <Label htmlFor="endereco" className="text-xs">Endereço</Label>
                   <Input 

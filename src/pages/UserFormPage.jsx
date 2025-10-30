@@ -5,12 +5,12 @@ import { motion } from 'framer-motion';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'; // Added CardFooter
-import { ArrowLeft, UserPlus, Save, Loader2, Link } from 'lucide-react'; // Added Link icon
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { ArrowLeft, UserPlus, Save, Loader2, Link } from 'lucide-react';
 import { logAction } from '@/lib/logger';
 import UserFormFields from '@/components/users/UserFormFields';
-import { UserAccountLinkModal } from '@/components/users/UserAccountLinkModal'; // Import the new modal
-import { Dialog } from '@/components/ui/dialog'; // Import Dialog for the modal
+import { UserAccountLinkModal } from '@/components/users/UserAccountLinkModal';
+import { Dialog } from '@/components/ui/dialog';
 
 const UserFormPage = () => {
   const { id } = useParams();
@@ -22,13 +22,10 @@ const UserFormPage = () => {
     email: '',
     password: '',
     role: 'coletor',
-    estado: '',
-    municipio: '',
   });
   const [loading, setLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [selectedEstado, setSelectedEstado] = useState('');
-  const [isAccountLinkDialogOpen, setIsAccountLinkDialogOpen] = useState(false); // State for account link dialog
+  const [isAccountLinkDialogOpen, setIsAccountLinkDialogOpen] = useState(false);
 
   const fetchUser = useCallback(async (userId) => {
     setLoading(true);
@@ -51,10 +48,7 @@ const UserFormPage = () => {
         email: user.email || '',
         password: '',
         role: user.role || 'coletor',
-        estado: user.estado || '',
-        municipio: user.municipio || '',
       });
-      setSelectedEstado(user.estado || '');
     }
     setLoading(false);
   }, [toast, navigate]);
@@ -72,17 +66,7 @@ const UserFormPage = () => {
   };
 
   const handleRoleChange = (value) => {
-    setUserFormData((prev) => ({ ...prev, role: value, estado: '', municipio: '' }));
-    setSelectedEstado('');
-  };
-
-  const handleEstadoChange = (value) => {
-    setSelectedEstado(value);
-    setUserFormData((prev) => ({ ...prev, estado: value, municipio: '' }));
-  };
-
-  const handleMunicipioChange = (value) => {
-    setUserFormData((prev) => ({ ...prev, municipio: value }));
+    setUserFormData((prev) => ({ ...prev, role: value }));
   };
 
   const validateForm = () => {
@@ -156,12 +140,12 @@ const UserFormPage = () => {
         className="max-w-4xl mx-auto p-4 md:p-8"
       >
         <Card className="bg-white/10 backdrop-blur-sm border-white/10 text-white rounded-xl shadow-lg">
-          <CardHeader className="flex flex-row items-center justify-between pb-4"> {/* Adjusted CardHeader for flex layout */}
+          <CardHeader className="flex flex-row items-center justify-between pb-4">
             <CardTitle className="text-2xl md:text-3xl font-bold flex items-center gap-3">
               <UserPlus className="w-8 h-8 text-emerald-400" />
               {isEditing ? 'Editar Usuário' : 'Novo Usuário'}
             </CardTitle>
-            {isEditing && ( // Show "Vincular Contas Correntes" button only in edit mode
+            {isEditing && (
               <Button
                 type="button"
                 onClick={handleOpenAccountLinkDialog}
@@ -179,11 +163,8 @@ const UserFormPage = () => {
                 isEditing={isEditing}
                 handleChange={handleChange}
                 handleRoleChange={handleRoleChange}
-                handleEstadoChange={handleEstadoChange}
-                handleMunicipioChange={handleMunicipioChange}
-                selectedEstado={selectedEstado}
               />
-              <CardFooter className="flex justify-between items-center pt-6 gap-4"> {/* Changed to CardFooter */}
+              <CardFooter className="flex justify-between items-center pt-6 gap-4">
                 <Button
                   type="button"
                   onClick={() => navigate('/app/usuarios')}
@@ -207,7 +188,7 @@ const UserFormPage = () => {
         </Card>
       </motion.div>
 
-      {isEditing && userFormData.email && ( // Ensure user data is available for the modal
+      {isEditing && userFormData.email && (
         <UserAccountLinkModal
           user={{ id: id, full_name: userFormData.full_name, email: userFormData.email }}
           isOpen={isAccountLinkDialogOpen}

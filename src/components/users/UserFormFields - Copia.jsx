@@ -1,14 +1,24 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { estados, municipiosPorEstado } from '@/lib/location';
+import { SearchableSelect } from '@/components/ui/SearchableSelect';
 
 const UserFormFields = ({
   userFormData,
   isEditing,
   handleChange,
   handleRoleChange,
+  handleEstadoChange,
+  handleMunicipioChange,
+  selectedEstado
 }) => {
+  const municipioOptions = useMemo(() => {
+    if (!selectedEstado) return [];
+    return (municipiosPorEstado[selectedEstado] || []).map(m => ({ value: m, label: m }));
+  }, [selectedEstado]);
+
   return (
     <div className="space-y-6">
       <div>
@@ -62,6 +72,40 @@ const UserFormFields = ({
           </SelectContent>
         </Select>
       </div>
+
+      {userFormData.role === 'coletor' && (
+        <>
+          <div>
+            <Label htmlFor="estado" className="text-lg">Estado de Atuação</Label>
+            <Select onValueChange={handleEstadoChange} value={selectedEstado}>
+              <SelectTrigger className="mt-1 bg-white/5 border-white/20 text-white focus:ring-emerald-400 rounded-xl">
+                <SelectValue placeholder="Selecione o Estado" />
+              </SelectTrigger>
+              <SelectContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
+                {estados.map((estado) => (
+                  <SelectItem key={estado.value} value={estado.value}>
+                    {estado.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {selectedEstado && (
+            <div>
+              <Label htmlFor="municipio" className="text-lg">Município de Atuação</Label>
+              <div className="mt-1">
+                <SearchableSelect
+                  options={municipioOptions}
+                  value={userFormData.municipio}
+                  onChange={handleMunicipioChange}
+                  placeholder="Selecione o Município"
+                />
+              </div>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 };

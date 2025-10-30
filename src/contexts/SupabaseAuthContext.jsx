@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
-
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
 
@@ -28,6 +27,7 @@ export const AuthProvider = ({ children }) => {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('Auth state changed:', event);
         handleSession(session);
       }
     );
@@ -71,18 +71,33 @@ export const AuthProvider = ({ children }) => {
   }, [toast]);
 
   const signOut = useCallback(async () => {
-    const { error } = await supabase.auth.signOut();
+    try {
+      // Limpa dados locais primeiro
+      localStorage.removeItem('supabase.auth.token');
+      sessionStorage.clear();
+      
+      // Faz logout no Supabase
+      const { error } = await supabase.auth.signOut();
+      
+      // Limpa estado local independente do resultado
+      setSession(null);
+      setUser(null);
 
-    if (error) {
-      toast({
-        variant: "destructive",
-        title: "Sign out Failed",
-        description: error.message || "Something went wrong",
-      });
+      if (error) {
+        console.error('Sign out error:', error);
+        // Não mostra toast de erro para evitar confusão do usuário
+        // O importante é que o estado local foi limpo
+      }
+
+      return { error: null }; // Sempre retorna sucesso para o fluxo continuar
+    } catch (error) {
+      console.error('Unexpected error during sign out:', error);
+      // Limpa estado mesmo em caso de erro inesperado
+      setSession(null);
+      setUser(null);
+      return { error: null };
     }
-
-    return { error };
-  }, [toast]);
+  }, []);
 
   const value = useMemo(() => ({
     user,

@@ -37,32 +37,60 @@ const RelatorioRecipientesPage = () => {
     fetchEmpresaData();
   }, [toast]);
 
+  // Função para buscar dados do relatório
   const fetchReportData = useCallback(async () => {
-    if (!empresa) return;
     setLoading(true);
     
-    const { data, error } = await supabase.rpc('get_recipientes_report');
+    try {
+      const { data, error } = await supabase.rpc('get_recipientes_report');
 
-    if (error) {
-      toast({ title: 'Erro ao gerar relatório de recipientes', description: error.message, variant: 'destructive' });
-      setReportData([]);
-      setTotalCount(0);
-    } else {
-      const filteredData = (data || []).filter(item =>
-        item.cliente_nome.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-        (item.cliente_nome_fantasia && item.cliente_nome_fantasia.toLowerCase().includes(debouncedSearchTerm.toLowerCase()))
-      );
-      setReportData(filteredData);
-      setTotalCount(filteredData.length);
+      if (error) {
+        console.error('Erro ao buscar relatório:', error);
+        toast({ 
+          title: 'Erro ao gerar relatório de recipientes', 
+          description: error.message, 
+          variant: 'destructive' 
+        });
+        setReportData([]);
+        setTotalCount(0);
+      } else {
+        console.log('Dados recebidos:', data); // Para debug
+        
+        // Filtro corrigido - busca em razao_social e nome_fantasia
+        const filteredData = (data || []).filter(item => {
+          const searchLower = debouncedSearchTerm.toLowerCase();
+          
+          // Verifica se os campos existem antes de acessá-los
+          const razaoSocial = item.razao_social || item.cliente_nome || '';
+          const nomeFantasia = item.nome_fantasia || item.cliente_nome_fantasia || '';
+          
+          return (
+            razaoSocial.toLowerCase().includes(searchLower) ||
+            nomeFantasia.toLowerCase().includes(searchLower)
+          );
+        });
+        
+        setReportData(filteredData);
+        setTotalCount(filteredData.length);
+      }
+    } catch (err) {
+      console.error('Erro inesperado:', err);
+      toast({ 
+        title: 'Erro inesperado', 
+        description: 'Ocorreu um erro ao buscar os dados', 
+        variant: 'destructive' 
+      });
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-  }, [toast, debouncedSearchTerm, empresa]);
+  }, [toast, debouncedSearchTerm]); // Removida dependência do empresa
 
+  // Buscar dados quando o termo de busca mudar ou quando empresa for carregada
   useEffect(() => {
     if (empresa) {
       fetchReportData();
     }
-  }, [fetchReportData, empresa]);
+  }, [debouncedSearchTerm, empresa]); // Dependências simplificadas
 
   useEffect(() => {
     setCurrentPage(1);
@@ -84,6 +112,17 @@ const RelatorioRecipientesPage = () => {
     }, { totalClientes: 0, totalRecipientes: 0 });
   }, [reportData]);
 
+  // Função para obter o nome de exibição do cliente
+  const getClientDisplayName = (item) => {
+    const nomeFantasia = item.nome_fantasia || item.cliente_nome_fantasia || '';
+    const razaoSocial = item.razao_social || item.cliente_nome || '';
+    
+    if (nomeFantasia && razaoSocial) {
+      return `${nomeFantasia} - ${razaoSocial}`;
+    }
+    return nomeFantasia || razaoSocial || 'Cliente sem nome';
+  };
+
   const handleExportExcel = () => {
     if (reportData.length === 0) {
       toast({
@@ -95,7 +134,7 @@ const RelatorioRecipientesPage = () => {
     }
 
     const dataToExport = reportData.map(item => ({
-      'Cliente': item.cliente_nome_fantasia ? `${item.cliente_nome} - ${item.cliente_nome_fantasia}` : item.cliente_nome,
+      'Cliente': getClientDisplayName(item),
       'Total de Recipientes': item.total_recipientes,
     }));
 
@@ -133,7 +172,7 @@ const RelatorioRecipientesPage = () => {
                     <Input
                       id="searchTerm"
                       type="search"
-                      placeholder="Nome do cliente ou nome fantasia..."
+                      placeholder="Nome fantasia ou razão social..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60 rounded-xl"
@@ -175,15 +214,14 @@ const RelatorioRecipientesPage = () => {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {paginatedData.map(item => {
-                            const clientDisplayName = item.cliente_nome_fantasia ? `${item.cliente_nome} - ${item.cliente_nome_fantasia}` : item.cliente_nome;
-                            return (
-                              <TableRow key={item.cliente_id} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
-                                <TableCell data-label="Cliente">{clientDisplayName}</TableCell>
-                                <TableCell data-label="Total de Recipientes" className="text-right">{formatNumber(item.total_recipientes, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</TableCell>
-                              </TableRow>
-                            );
-                          })}
+                          {paginatedData.map(item => (
+                            <TableRow key={item.cliente_id} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
+                              <TableCell data-label="Cliente">{getClientDisplayName(item)}</TableCell>
+                              <TableCell data-label="Total de Recipientes" className="text-right">
+                                {formatNumber(item.total_recipientes, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                              </TableCell>
+                            </TableRow>
+                          ))}
                         </TableBody>
                         <TableFooter>
                             <TableRow className="hover:bg-transparent border-t-2 border-emerald-500 font-bold hidden md:table-row">

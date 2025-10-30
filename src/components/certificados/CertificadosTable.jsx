@@ -20,7 +20,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { Loader2, Edit, Trash2, FileText, Share2, ChevronUp, ChevronDown } from 'lucide-react';
+import { Loader2, Edit, Trash2, FileText, Share2, ChevronUp, ChevronDown, Eye } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { formatNumber, cn, formatDateWithTimezone } from '@/lib/utils';
@@ -70,19 +70,36 @@ const CertificadosTable = ({
         <Table className="responsive-table">
           <TableHeader>
             <TableRow className="hover:bg-transparent border-b border-white/20 text-xs">
-              <TableHeaderSortable columnKey="cliente_nome" label="Cliente" sortConfig={sortConfig} onSort={requestSort} className="w-[30%]" />
+              <TableHeaderSortable columnKey="id" label="ID" sortConfig={sortConfig} onSort={requestSort} className="w-[10%]" />
+              <TableHeaderSortable columnKey="cliente_nome" label="Cliente" sortConfig={sortConfig} onSort={requestSort} className="w-[25%]" />
               <TableHeaderSortable columnKey="periodo_inicio" label="Período Início" sortConfig={sortConfig} onSort={requestSort} className="w-[15%]" />
               <TableHeaderSortable columnKey="periodo_fim" label="Período Fim" sortConfig={sortConfig} onSort={requestSort} className="w-[15%]" />
               <TableHeaderSortable columnKey="total_kg" label="Total (kg)" sortConfig={sortConfig} onSort={requestSort} className="w-[15%] text-right" />
               <TableHeaderSortable columnKey="data_emissao" label="Emissão" sortConfig={sortConfig} onSort={requestSort} className="w-[15%]" />
-              <TableHead className="text-emerald-300 text-right w-[10%]">Ações</TableHead>
+              <TableHead className="text-emerald-300 text-right w-[5%]">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {certificados.length > 0 ? (
               certificados.map((cert) => (
                 <TableRow key={cert.id} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
-                  <TableCell data-label="Cliente">{cert.cliente?.nome_fantasia ? `${cert.cliente.nome} - ${cert.cliente.nome_fantasia}` : cert.cliente?.nome || 'N/A'}</TableCell>
+                  <TableCell data-label="ID">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleOpenViewModal(cert)}
+                      title="Visualizar Certificado"
+                      className="text-blue-400 hover:text-blue-300 p-0 h-auto font-mono font-bold"
+                    >
+                      #{cert.id}
+                    </Button>
+                  </TableCell>
+                  <TableCell data-label="Cliente">
+                    {cert.cliente_display || 
+                     (cert.cliente?.nome_fantasia && cert.cliente?.razao_social 
+                      ? `${cert.cliente.nome_fantasia} - ${cert.cliente.razao_social}`
+                      : cert.cliente?.nome_fantasia || cert.cliente?.razao_social || 'N/A')}
+                  </TableCell>
                   <TableCell data-label="Período Início">{formatDateWithTimezone(cert.periodo_inicio, timezone)}</TableCell>
                   <TableCell data-label="Período Fim">{formatDateWithTimezone(cert.periodo_fim, timezone)}</TableCell>
                   <TableCell data-label="Total (kg)" className="text-right">{formatNumber(cert.total_kg)}</TableCell>
@@ -92,9 +109,9 @@ const CertificadosTable = ({
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => handleOpenViewModal(cert)}
-                        title="Visualizar Certificado"
-                        className="text-blue-400 hover:text-blue-300 rounded-xl"
+                        onClick={() => handleOpenPdf(cert)}
+                        title="Abrir PDF"
+                        className="text-green-400 hover:text-green-300 rounded-xl"
                       >
                         <FileText className="h-4 w-4" />
                       </Button>
@@ -103,7 +120,7 @@ const CertificadosTable = ({
                         size="icon"
                         onClick={() => handleShare(cert)}
                         title="Compartilhar Certificado"
-                        className="text-green-400 hover:text-green-300 rounded-xl"
+                        className="text-purple-400 hover:text-purple-300 rounded-xl"
                       >
                         <Share2 className="h-4 w-4" />
                       </Button>
@@ -148,7 +165,7 @@ const CertificadosTable = ({
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-gray-400 py-10">
+                <TableCell colSpan={7} className="text-center text-gray-400 py-10">
                   Nenhum certificado encontrado.
                 </TableCell>
               </TableRow>

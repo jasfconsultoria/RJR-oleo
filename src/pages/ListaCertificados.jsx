@@ -6,7 +6,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { useProfile } from '@/contexts/ProfileContext';
 import { CertificadosHeader } from '@/components/certificados/CertificadosHeader';
 import { CertificadosFilters } from '@/components/certificados/CertificadosFilters';
-import CertificadosTable from '@/components/certificados/CertificadosTable'; // CORRIGIDO: Importação como default
+import CertificadosTable from '@/components/certificados/CertificadosTable';
 import { logAction } from '@/lib/logger';
 import { Pagination } from '@/components/ui/pagination';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -82,7 +82,7 @@ const ListaCertificados = () => {
         const { data: matchingClients, error: clientError } = await supabase
             .from('clientes')
             .select('id')
-            .or(`nome.ilike.%${debouncedFilters.clientSearchTerm}%,nome_fantasia.ilike.%${debouncedFilters.clientSearchTerm}%`);
+            .or(`razao_social.ilike.%${debouncedFilters.clientSearchTerm}%,nome_fantasia.ilike.%${debouncedFilters.clientSearchTerm}%`);
         if (clientError) {
             console.error("Error fetching matching clients for certificates:", clientError);
             toast({ title: 'Erro ao buscar clientes para filtro', description: clientError.message, variant: 'destructive' });
@@ -105,7 +105,7 @@ const ListaCertificados = () => {
       .from('certificados')
       .select(`
         *,
-        cliente:clientes(id, nome, nome_fantasia)
+        cliente:clientes(id, nome_fantasia, razao_social)
       `, { count: 'exact' })
       .gte('data_emissao', startDate.toISOString())
       .lte('data_emissao', endDate.toISOString());
@@ -122,7 +122,21 @@ const ListaCertificados = () => {
       toast({ title: 'Erro ao carregar certificados', description: error.message, variant: 'destructive' });
       setCertificados([]);
     } else {
-      setCertificados(data || []);
+      // Processar os dados para formatar o nome do cliente corretamente
+      const processedData = (data || []).map(cert => {
+        const nomeFantasia = cert.cliente?.nome_fantasia || '';
+        const razaoSocial = cert.cliente?.razao_social || '';
+        
+        const clienteDisplay = nomeFantasia && razaoSocial 
+          ? `${nomeFantasia} - ${razaoSocial}`
+          : nomeFantasia || razaoSocial;
+
+        return {
+          ...cert,
+          cliente_display: clienteDisplay
+        };
+      });
+      setCertificados(processedData);
       setTotalCount(count || 0);
     }
     setLoading(false);
@@ -148,7 +162,10 @@ const ListaCertificados = () => {
       await logAction('delete_certificate_failed', { error: error.message, certificate_id: certId });
     } else {
       toast({ title: 'Certificado excluído!', description: 'O certificado foi removido com sucesso.' });
-      await logAction('delete_certificate_success', { certificate_id: certId, client_name: certToDelete.cliente_nome });
+      await logAction('delete_certificate_success', { 
+        certificate_id: certId, 
+        client_name: certToDelete.cliente_display 
+      });
       fetchCertificados();
     }
   };
@@ -171,8 +188,8 @@ const ListaCertificados = () => {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: `Certificado - ${cert.cliente.nome}`,
-          text: `Confira o certificado de coleta de ${cert.cliente.nome}.`,
+          title: `Certificado - ${cert.cliente_display}`,
+          text: `Confira o certificado de coleta de ${cert.cliente_display}.`,
           url: cert.pdf_url,
         });
       } catch (error) {
@@ -180,7 +197,7 @@ const ListaCertificados = () => {
       }
     } else {
       navigator.clipboard.writeText(cert.pdf_url);
-      toast({ title: 'Link copiado!', description: 'O link do PDF foi copido para a área de transferência.' });
+      toast({ title: 'Link copiado!', description: 'O link do PDF foi copiado para a área de transferência.' });
     }
   };
 

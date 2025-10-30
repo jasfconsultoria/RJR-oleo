@@ -25,7 +25,7 @@ const ListaContratos = () => {
   const [loading, setLoading] = useState(true);
   const [contratoSearchTerm, setContratoSearchTerm] = useState('');
   const [clientSearchTerm, setClientSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState(''); // Novo estado para filtro de status
   const [filterById, setFilterById] = useState(null);
   const debouncedContratoSearchTerm = useDebounce(contratoSearchTerm, 500);
   const debouncedClientSearchTerm = useDebounce(clientSearchTerm, 500);
@@ -190,6 +190,7 @@ const ListaContratos = () => {
       .order('created_at', { ascending: false })
       .range(from, to);
 
+    // ✅ LÓGICA CORRIGIDA: Apenas coletores são filtrados por user_id
     if (userRole === 'coletor' && userId) {
       query = query.eq('user_id', userId);
       console.log('🎯 Aplicando filtro por user_id para coletor:', userId);
@@ -199,6 +200,7 @@ const ListaContratos = () => {
       console.log('⚠️ Perfil não reconhecido:', userRole);
     }
 
+    // 🔥 NOVO FILTRO: Status
     if (statusFilter) {
       query = query.eq('status', statusFilter);
     }
@@ -257,6 +259,7 @@ const ListaContratos = () => {
     setLoading(false);
   }, [toast, currentPage, pageSize, debouncedContratoSearchTerm, debouncedClientSearchTerm, statusFilter, filterById, empresa, userRole, userId]);
 
+  // ✅ CORREÇÃO CRÍTICA: Recarregar contratos quando userRole ou userId mudar
   useEffect(() => {
     console.log('🔄 Trigger: userRole ou userId mudou', { userRole, userId });
     if (userRole !== null) {
@@ -265,6 +268,7 @@ const ListaContratos = () => {
     }
   }, [userRole, userId, fetchContratos]);
 
+  // Recarregar quando outros filtros mudarem
   useEffect(() => {
     if (userRole !== null) {
       fetchContratos();
@@ -459,6 +463,7 @@ const ListaContratos = () => {
                 />
               </div>
             </div>
+            {/* 🔥 FILTRO DE STATUS COM CANTOS ARREDONDADOS */}
             <div>
               <Label htmlFor="statusFilter" className="block text-white mb-1 text-sm">Status</Label>
               <div className="relative">
@@ -467,23 +472,28 @@ const ListaContratos = () => {
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
                   className="w-full bg-white/20 border border-white/30 text-white rounded-xl px-3 py-2 pl-10 focus:outline-none focus:ring-2 focus:ring-emerald-400 appearance-none"
+                  style={{
+                    backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e")`,
+                    backgroundPosition: 'right 0.5rem center',
+                    backgroundRepeat: 'no-repeat',
+                    backgroundSize: '1.5em 1.5em',
+                    paddingRight: '2.5rem',
+                    printColorAdjust: 'exact'
+                  }}
                 >
-                  <option value="">Todos os status</option>
-                  <option value="Aguardando Assinatura">Aguardando Assinatura</option>
-                  <option value="Ativo">Ativo</option>
-                  <option value="Inativo">Inativo</option>
-                  <option value="Cancelado">Cancelado</option>
+                  <option value="" style={{ backgroundColor: '#1f2937', color: 'white', borderRadius: '8px' }}>Todos os status</option>
+                  <option value="Aguardando Assinatura" style={{ backgroundColor: '#1f2937', color: 'white', borderRadius: '8px' }}>Aguardando Assinatura</option>
+                  <option value="Ativo" style={{ backgroundColor: '#1f2937', color: 'white', borderRadius: '8px' }}>Ativo</option>
+                  <option value="Inativo" style={{ backgroundColor: '#1f2937', color: 'white', borderRadius: '8px' }}>Inativo</option>
+                  <option value="Cancelado" style={{ backgroundColor: '#1f2937', color: 'white', borderRadius: '8px' }}>Cancelado</option>
                 </select>
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                  <svg className="h-4 w-4 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </div>
               </div>
             </div>
           </div>
         </div>
 
+
+        {/* 🔥 MUDANÇA PRINCIPAL: Fundo preto para a lista */}
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white/10 backdrop-blur-sm rounded-xl">
           <div className="overflow-x-auto rounded-xl">
             {loading ? (

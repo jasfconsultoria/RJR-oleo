@@ -16,7 +16,7 @@ const ReciboPublicoPage = () => {
   const [reciboData, setReciboData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [collectorName, setCollectorName] = useState(null); // Novo estado para o nome do coletor
+  const [collectorName, setCollectorName] = useState(null);
   const reciboRef = useRef();
 
   useEffect(() => {
@@ -28,33 +28,76 @@ const ReciboPublicoPage = () => {
       }
 
       try {
-        const { data, error: rpcError } = await supabase.rpc('get_public_recibo_data', { p_coleta_id: id });
+        console.log('🚨 ReciboPublicoPage - Buscando dados com JOIN');
 
-        if (rpcError || !data || !data.coleta) {
+        // BUSCAR DADOS DA EMPRESA - TABELA CORRETA
+        const { data: empresaData, error: empresaError } = await supabase
+          .from('empresa')
+          .select('*')
+          .limit(1)
+          .single();
+
+        if (!empresaError && empresaData) {
+          console.log('🏢 Dados da empresa:', empresaData);
+          setEmpresa(empresaData);
+        } else {
+          console.error('❌ Erro ao buscar empresa:', empresaError);
+        }
+
+        // BUSCA DA COLETA COM CLIENTE
+        const { data: coletaComCliente, error: rpcError } = await supabase
+          .from('coletas')
+          .select(`
+            *,
+            clientes:cliente_id (
+              nome_fantasia,
+              razao_social,
+              cnpj_cpf,
+              endereco
+            )
+          `)
+          .eq('id', id)
+          .single();
+
+        if (rpcError || !coletaComCliente) {
           throw new Error("Recibo não encontrado ou acesso negado.");
         }
 
-        if (!data.recibo?.assinatura_url) {
+        console.log('✅ ReciboPublicoPage - Dados com cliente:', coletaComCliente);
+
+        // Buscar recibo
+        const { data: recibo, error: reciboError } = await supabase
+          .from('recibos')
+          .select('*')
+          .eq('coleta_id', id)
+          .single();
+
+        if (!recibo?.assinatura_url) {
           throw new Error("A assinatura para este recibo não foi encontrada.");
         }
         
-        setColeta(data.coleta);
-        setEmpresa(data.empresa);
-        setReciboData(data.recibo);
+        // PREPARAR DADOS CORRETOS
+        const dadosColeta = {
+          ...coletaComCliente,
+          nome_fantasia: coletaComCliente.clientes?.nome_fantasia,
+          razao_social: coletaComCliente.clientes?.razao_social,
+          cliente_cnpj_cpf: coletaComCliente.clientes?.cnpj_cpf,
+          cliente_endereco: coletaComCliente.clientes?.endereco
+        };
 
-        // Buscar o nome do coletor
-        if (data.coleta?.user_id) {
+        console.log('🚨 ReciboPublicoPage - Dados finais:', dadosColeta);
+
+        setColeta(dadosColeta);
+        setReciboData(recibo);
+
+        // Buscar coletor
+        if (coletaComCliente.user_id) {
           const { data: users, error: usersError } = await supabase.rpc('get_all_users');
-          if (usersError) {
-            console.error('Erro ao buscar usuários para nome do coletor:', usersError);
-          } else {
-            const collector = users.find(u => u.id === data.coleta.user_id);
+          if (!usersError) {
+            const collector = users.find(u => u.id === coletaComCliente.user_id);
             setCollectorName(collector?.full_name || collector?.email || 'N/A');
           }
         }
-        // DEBUG: Log para verificar o objeto coleta completo e a hora da coleta
-        console.log('ReciboPublicoPage - Coleta data recebida:', data.coleta);
-        console.log('ReciboPublicoPage - coleta.hora_coleta:', data.coleta.hora_coleta);
 
       } catch (err) {
         setError(err.message);
@@ -109,7 +152,7 @@ const ReciboPublicoPage = () => {
       );
     }
 
-    if (coleta && empresa && reciboData) {
+    if (coleta && reciboData && empresa) {
       return (
         <div className="w-full max-w-4xl mx-auto">
             <div className="bg-emerald-600/20 border border-emerald-500 text-emerald-100 p-4 rounded-lg mb-6 text-center">
@@ -118,7 +161,15 @@ const ReciboPublicoPage = () => {
             </div>
             <div className="bg-white rounded-lg shadow-2xl overflow-hidden">
                 <div className="p-4 sm:p-8 overflow-x-auto" ref={reciboRef}>
-                    <Recibo data={coleta} empresa={empresa} signature={reciboData.assinatura_url} timezone={empresa?.timezone || 'America/Sao_Paulo'} coletaDateString={coleta.data_coleta} coletaTimeString={coleta.hora_coleta} collectorName={collectorName} />
+                    <Recibo 
+                      data={coleta} 
+                      empresa={empresa} 
+                      signature={reciboData.assinatura_url} 
+                      timezone={'America/Sao_Paulo'} 
+                      coletaDateString={coleta.data_coleta} 
+                      coletaTimeString={coleta.hora_coleta} 
+                      collectorName={collectorName} 
+                    />
                 </div>
             </div>
             <div className="mt-6 text-center">

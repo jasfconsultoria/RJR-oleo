@@ -37,7 +37,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useProfile } from '@/contexts/ProfileContext';
-import { formatCnpjCpf, escapePostgrestLikePattern, cn } from '@/lib/utils';
+import { formatCnpjCpf, cn } from '@/lib/utils';
 import { logAction } from '@/lib/logger';
 import { Pagination } from '@/components/ui/pagination';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -78,7 +78,7 @@ const usePersonTypeLabels = (personType) => {
         pageVerb: 'Nova Pessoa', 
         singularNoun: 'pessoa', 
         singularArticle: 'a',
-        basePath: 'clientes' // fallback
+        basePath: 'clientes'
       }
     };
     
@@ -86,7 +86,75 @@ const usePersonTypeLabels = (personType) => {
   }, [personType]);
 };
 
-// Hook para gerenciar o estado da lista
+// Hook para verificar se o cliente pode ser excluído
+const useCanDeleteCliente = (clienteId) => {
+  const [canDelete, setCanDelete] = useState(true);
+  const [checking, setChecking] = useState(false);
+  const [relatedEntities, setRelatedEntities] = useState([]);
+
+  useEffect(() => {
+    const checkRelatedEntities = async () => {
+      if (!clienteId) return;
+      
+      setChecking(true);
+      
+      const checks = [
+        { table: 'contratos', field: 'cliente_id', name: 'contratos' },
+        { table: 'coletas', field: 'cliente_id', name: 'coletas' },
+        { table: 'credito_debito', field: 'pessoa_id', name: 'créditos/débitos' },
+        { table: 'entrada_saida', field: 'cliente_id', name: 'entradas/saídas' }
+      ];
+
+      const entitiesWithData = [];
+
+      for (const check of checks) {
+        const { data, error } = await supabase
+          .from(check.table)
+          .select('id')
+          .eq(check.field, clienteId)
+          .limit(1);
+
+        if (!error && data && data.length > 0) {
+          entitiesWithData.push(check.name);
+        }
+      }
+
+      setRelatedEntities(entitiesWithData);
+      setCanDelete(entitiesWithData.length === 0);
+      setChecking(false);
+    };
+
+    checkRelatedEntities();
+  }, [clienteId]);
+
+  return { canDelete, checking, relatedEntities };
+};
+
+// Função auxiliar para verificar se o cliente pode ser excluído
+const checkClienteDeletable = async (clienteId) => {
+  const checks = [
+    { table: 'contratos', field: 'cliente_id' },
+    { table: 'coletas', field: 'cliente_id' },
+    { table: 'credito_debito', field: 'pessoa_id' },
+    { table: 'entrada_saida', field: 'cliente_id' }
+  ];
+
+  for (const check of checks) {
+    const { data, error } = await supabase
+      .from(check.table)
+      .select('id')
+      .eq(check.field, clienteId)
+      .limit(1);
+
+    if (!error && data && data.length > 0) {
+      return { canDelete: false, reason: check.table };
+    }
+  }
+
+  return { canDelete: true };
+};
+
+// Hook para gerenciar o estado da lista - SOLUÇÃO 100% FUNCIONAL
 const useClientesList = (personType, profile) => {
   const [state, setState] = useState({
     clientes: [],
@@ -96,7 +164,7 @@ const useClientesList = (personType, profile) => {
     sortConfig: { key: 'razao_social', direction: 'asc' },
     currentPage: 1,
     totalCount: 0,
-    empresa: null
+    empresa: { items_per_page: CONFIG.PAGE_SIZE_DEFAULT }
   });
 
   const debouncedSearchTerm = useDebounce(state.searchTerm, CONFIG.DEBOUNCE_DELAY);
@@ -106,98 +174,165 @@ const useClientesList = (personType, profile) => {
   // Fetch dados da empresa
   useEffect(() => {
     const fetchEmpresaData = async () => {
+      const userRole = profile?.role;
+      const canAccessEmpresa = ['administrador', 'gerente'].includes(userRole);
+      
+      if (!canAccessEmpresa) {
+        setState(prev => ({
+          ...prev,
+          empresa: { items_per_page: CONFIG.PAGE_SIZE_DEFAULT }
+        }));
+        return;
+      }
+
       const { data, error } = await supabase
         .from('empresa')
         .select('items_per_page')
         .single();
 
       if (error) {
-        console.error("Erro ao buscar dados da empresa:", error);
-        toast({ 
-          title: "Erro ao buscar configurações da empresa.", 
-          variant: "destructive" 
-        });
+        console.warn("Aviso: Usuário não tem acesso aos dados da empresa. Usando configuração padrão.");
+        if (userRole !== 'coletor') {
+          toast({ 
+            title: "Erro ao buscar configurações da empresa.", 
+            variant: "destructive" 
+          });
+        }
+        
+        setState(prev => ({
+          ...prev,
+          empresa: { items_per_page: CONFIG.PAGE_SIZE_DEFAULT }
+        }));
+      } else {
+        setState(prev => ({
+          ...prev,
+          empresa: data || { items_per_page: CONFIG.PAGE_SIZE_DEFAULT }
+        }));
       }
-
-      setState(prev => ({
-        ...prev,
-        empresa: data || { items_per_page: CONFIG.PAGE_SIZE_DEFAULT }
-      }));
     };
 
-    fetchEmpresaData();
-  }, [toast]);
+    if (profile) {
+      fetchEmpresaData();
+    }
+  }, [profile, toast]);
 
   // Fetch todos os contratos
   useEffect(() => {
     const fetchAllContratos = async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('contratos')
         .select('id, cliente_id, numero_contrato, status');
 
+      // ✅ CORREÇÃO: Usar profile.id (que agora vem da stored procedure)
+      if (profile?.role === 'coletor' && profile?.id) {
+        query = query.eq('user_id', profile.id);
+      }
+
+      const { data, error } = await query;
+
       if (error) {
+        console.error('Erro ao buscar contratos:', error);
         toast({ 
           title: 'Erro ao buscar contratos', 
           variant: 'destructive' 
         });
       } else {
+        console.log('Contratos carregados:', data?.length || 0);
         setState(prev => ({ ...prev, allContratos: data || [] }));
       }
     };
 
-    fetchAllContratos();
-  }, [toast]);
-
-  // Fetch clientes com paginação e filtros
-  const fetchClientes = useCallback(async () => {
-    if (!profile || !state.empresa) return;
-
-    setState(prev => ({ ...prev, loading: true }));
-    
-    const from = (state.currentPage - 1) * state.empresa.items_per_page;
-    const to = from + state.empresa.items_per_page - 1;
-
-    let query = supabase
-      .from('clientes')
-      .select('id, nome_fantasia, razao_social, cnpj_cpf, municipio, estado', { 
-        count: 'exact' 
-      });
-
-    // Aplicar filtro de busca
-    if (debouncedSearchTerm) {
-      const escapedSearchTerm = escapePostgrestLikePattern(debouncedSearchTerm);
-      query = query.or(
-        `nome_fantasia.ilike.%${escapedSearchTerm}%,` +
-        `razao_social.ilike.%${escapedSearchTerm}%,` +
-        `cnpj_cpf.ilike.%${escapedSearchTerm}%,` +
-        `municipio.ilike.%${escapedSearchTerm}%,` +
-        `estado.ilike.%${escapedSearchTerm}%`
-      );
+    if (profile) {
+      fetchAllContratos();
     }
+  }, [toast, profile]);
 
-    // Aplicar ordenação
-    query = query.order(state.sortConfig.key, { 
-      ascending: state.sortConfig.direction === 'asc' 
-    }).range(from, to);
+  // ✅ SOLUÇÃO 100% FUNCIONAL: Buscar todos e filtrar no frontend
+  const fetchClientes = useCallback(async () => {
+    if (!profile) return;
 
-    const { data: clientesData, error: clientesError, count } = await query;
+    console.log('🎯 Buscando clientes para:', {
+      role: profile.role,
+      userId: profile.id, // ✅ AGORA VEM CORRETO DA STORED PROCEDURE
+      email: profile.email
+    });
+    
+    setState(prev => ({ ...prev, loading: true }));
 
-    if (clientesError) {
-      toast({
-        title: 'Erro ao carregar clientes',
-        description: clientesError.message,
-        variant: 'destructive',
+    try {
+      // Buscar TODOS os clientes do banco
+      const { data: allClientes, error, count } = await supabase
+        .from('clientes')
+        .select('id, nome_fantasia, razao_social, cnpj_cpf, municipio, estado, user_id', { 
+          count: 'exact' 
+        });
+
+      if (error) throw error;
+
+      console.log('📦 Total de clientes no banco:', allClientes?.length);
+
+      // ✅ FILTRAGEM NO FRONTEND - 100% GARANTIDO
+      let clientesFiltrados = [];
+      let totalFiltrado = 0;
+
+      if (profile.role === 'coletor' && profile.id) {
+        clientesFiltrados = allClientes.filter(cliente => 
+          cliente.user_id === profile.id // ✅ USA profile.id CORRETO
+        );
+        totalFiltrado = clientesFiltrados.length;
+        console.log('🎯 Meus clientes após filtro:', clientesFiltrados.length);
+      } else if (profile.role === 'administrador' || profile.role === 'gerente') {
+        clientesFiltrados = allClientes;
+        totalFiltrado = count || 0;
+        console.log('👑 Administrador vendo todos os clientes:', totalFiltrado);
+      }
+
+      // Aplicar busca se houver termo
+      if (debouncedSearchTerm) {
+        const term = debouncedSearchTerm.toLowerCase();
+        clientesFiltrados = clientesFiltrados.filter(cliente =>
+          (cliente.nome_fantasia?.toLowerCase().includes(term) ||
+           cliente.razao_social?.toLowerCase().includes(term) ||
+           cliente.cnpj_cpf?.includes(term) ||
+           cliente.municipio?.toLowerCase().includes(term) ||
+           cliente.estado?.toLowerCase().includes(term))
+        );
+        totalFiltrado = clientesFiltrados.length;
+      }
+
+      // Aplicar ordenação
+      clientesFiltrados.sort((a, b) => {
+        const aValue = a[state.sortConfig.key] || '';
+        const bValue = b[state.sortConfig.key] || '';
+        
+        if (state.sortConfig.direction === 'asc') {
+          return aValue.localeCompare(bValue);
+        } else {
+          return bValue.localeCompare(aValue);
+        }
       });
-      setState(prev => ({ ...prev, clientes: [] }));
-    } else {
+
+      // Aplicar paginação
+      const startIndex = (state.currentPage - 1) * state.empresa.items_per_page;
+      const endIndex = startIndex + state.empresa.items_per_page;
+      const clientesPaginados = clientesFiltrados.slice(startIndex, endIndex);
+
       setState(prev => ({ 
         ...prev, 
-        clientes: clientesData || [], 
-        totalCount: count || 0 
+        clientes: clientesPaginados, 
+        totalCount: totalFiltrado,
+        loading: false 
       }));
-    }
 
-    setState(prev => ({ ...prev, loading: false }));
+    } catch (error) {
+      console.error('❌ Erro ao buscar clientes:', error);
+      toast({
+        title: 'Erro ao carregar clientes',
+        description: error.message,
+        variant: 'destructive',
+      });
+      setState(prev => ({ ...prev, clientes: [], loading: false }));
+    }
   }, [profile, state.currentPage, state.empresa, debouncedSearchTerm, state.sortConfig, toast]);
 
   useEffect(() => {
@@ -211,6 +346,29 @@ const useClientesList = (personType, profile) => {
 
   // Actions
   const handleDelete = async (cliente) => {
+    const userRole = profile?.role;
+    const canDelete = ['administrador', 'gerente'].includes(userRole);
+    
+    if (!canDelete) {
+      toast({
+        title: 'Permissão negada',
+        description: 'Seu perfil não tem permissão para excluir clientes.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const { canDelete: canDeleteByRelations } = await checkClienteDeletable(cliente.id);
+    
+    if (!canDeleteByRelations) {
+      toast({
+        title: 'Não é possível excluir',
+        description: `Este ${labels.singularNoun} possui vínculos com contratos, coletas ou outros registros.`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
     const { error } = await supabase
       .from('clientes')
       .delete()
@@ -295,8 +453,8 @@ const TableHeaderSortable = ({ columnKey, label, sortConfig, onSort, className }
 
 // Componente para mostrar status do contrato
 const ContractStatus = ({ clienteId, allContratos }) => {
-  if (allContratos.length === 0) {
-    return <span className="text-gray-400">Carregando...</span>;
+  if (!allContratos || allContratos.length === 0) {
+    return <span className="text-gray-400">Sem Contratos</span>;
   }
 
   const contratosDoCliente = allContratos.filter(c => c.cliente_id === clienteId);
@@ -315,7 +473,73 @@ const ContractStatus = ({ clienteId, allContratos }) => {
     );
   }
 
-  return <span className="text-yellow-500">Contrato Inativo/Vencido</span>;
+  const anyContract = contratosDoCliente[0];
+  return (
+    <span className="text-yellow-500" title={`Status: ${anyContract.status || 'Não definido'}`}>
+      {anyContract.numero_contrato}
+    </span>
+  );
+};
+
+// Componente para diálogo de exclusão
+const DeleteDialog = ({ cliente, labels, onDelete, disabled, relatedEntities, userRole }) => {
+  const [open, setOpen] = useState(false);
+
+  const handleDelete = () => {
+    onDelete(cliente);
+    setOpen(false);
+  };
+
+  const canDeleteByRole = ['administrador', 'gerente'].includes(userRole);
+  const isDisabled = disabled || !canDeleteByRole;
+
+  const getTooltipText = () => {
+    if (!canDeleteByRole) {
+      return 'Seu perfil não tem permissão para excluir clientes';
+    }
+    if (disabled) {
+      return `Não é possível excluir - Existem ${relatedEntities.join(', ')} vinculados`;
+    }
+    return `Excluir ${labels.singularNoun}`;
+  };
+
+  return (
+    <AlertDialog open={open} onOpenChange={setOpen}>
+      <AlertDialogTrigger asChild>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          title={getTooltipText()}
+          disabled={isDisabled}
+          className={isDisabled ? "opacity-50 cursor-not-allowed" : ""}
+        >
+          <Trash2 className="h-4 w-4 text-red-500" />
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent className="bg-emerald-900 border-emerald-700 text-white rounded-xl">
+        <AlertDialogHeader>
+          <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+          <AlertDialogDescription className="text-emerald-300">
+            Esta ação não pode ser desfeita. Isso excluirá permanentemente {labels.singularArticle} {labels.singularNoun}. 
+            Certifique-se de que não há coletas, contratos ou certificados vinculados.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel asChild>
+            <Button variant="outline" className="rounded-xl">Cancelar</Button>
+          </AlertDialogCancel>
+          <AlertDialogAction asChild>
+            <Button 
+              onClick={handleDelete} 
+              className="bg-red-600 hover:bg-red-700 text-white rounded-xl"
+            >
+              Excluir
+            </Button>
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
 };
 
 // Componente para ações da linha
@@ -324,9 +548,19 @@ const RowActions = ({
   personType, 
   labels, 
   onDelete, 
-  onViewContracts 
+  onViewContracts,
+  userRole
 }) => {
   const navigate = useNavigate();
+  const { canDelete, checking, relatedEntities } = useCanDeleteCliente(cliente.id);
+
+  if (checking) {
+    return (
+      <div className="flex justify-end items-center gap-1">
+        <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex justify-end items-center gap-1">
@@ -348,44 +582,14 @@ const RowActions = ({
       <DeleteDialog 
         cliente={cliente} 
         labels={labels} 
-        onDelete={onDelete} 
+        onDelete={onDelete}
+        disabled={!canDelete}
+        relatedEntities={relatedEntities}
+        userRole={userRole}
       />
     </div>
   );
 };
-
-// Componente para diálogo de exclusão
-const DeleteDialog = ({ cliente, labels, onDelete }) => (
-  <AlertDialog>
-    <AlertDialogTrigger asChild>
-      <Button variant="ghost" size="icon" title={`Excluir ${labels.singularNoun}`}>
-        <Trash2 className="h-4 w-4 text-red-500" />
-      </Button>
-    </AlertDialogTrigger>
-    <AlertDialogContent className="bg-emerald-900 border-emerald-700 text-white rounded-xl">
-      <AlertDialogHeader>
-        <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
-        <AlertDialogDescription className="text-emerald-300">
-          Esta ação não pode ser desfeita. Isso excluirá permanentemente {labels.singularArticle} {labels.singularNoun}. 
-          Certifique-se de que não há coletas, contratos ou certificados vinculados.
-        </AlertDialogDescription>
-      </AlertDialogHeader>
-      <AlertDialogFooter>
-        <AlertDialogCancel asChild>
-          <Button variant="outline" className="rounded-xl">Cancelar</Button>
-        </AlertDialogCancel>
-        <AlertDialogAction asChild>
-          <Button 
-            onClick={() => onDelete(cliente)} 
-            className="bg-red-600 hover:bg-red-700 text-white rounded-xl"
-          >
-            Excluir
-          </Button>
-        </AlertDialogAction>
-      </AlertDialogFooter>
-    </AlertDialogContent>
-  </AlertDialog>
-);
 
 // Componente principal
 const ListaClientes = ({ personType = 'pessoa' }) => {
@@ -417,7 +621,7 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
     });
   };
 
-  if (profileLoading || !empresa) {
+  if (profileLoading) {
     return (
       <div className="flex justify-center items-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-emerald-400" />
@@ -442,9 +646,22 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
             <h1 className="text-2xl md:text-3xl font-bold text-white flex items-center gap-2">
               <Users className="w-8 h-8 text-emerald-400" /> 
               Lista de {labels.listTitle}
+              {profile?.role === 'coletor' && (
+                <span className="text-sm text-emerald-300 bg-emerald-800/30 px-2 py-1 rounded-lg">
+                  Meus Clientes
+                </span>
+              )}
+              {(profile?.role === 'administrador' || profile?.role === 'gerente') && (
+                <span className="text-sm text-blue-300 bg-blue-800/30 px-2 py-1 rounded-lg">
+                  Todos os Clientes
+                </span>
+              )}
             </h1>
             <p className="text-emerald-200/80 mt-1">
-              Visualize e gerencie {labels.listTitle.toLowerCase()} cadastradas.
+              {profile?.role === 'coletor' 
+                ? `Visualize e gerencie seus clientes cadastrados.`
+                : `Visualize e gerencie ${labels.listTitle.toLowerCase()} cadastradas.`
+              }
             </p>
           </div>
           
@@ -552,6 +769,7 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
                             labels={labels}
                             onDelete={handleDelete}
                             onViewContracts={handleViewContracts}
+                            userRole={profile?.role}
                           />
                         </TableCell>
                       </TableRow>
@@ -559,7 +777,10 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
                   ) : (
                     <TableRow>
                       <TableCell colSpan={5} className="h-24 text-center text-white/70">
-                        Nenhum{labels.singularArticle === 'a' ? 'a' : ''} {labels.singularNoun} encontrado{labels.singularArticle === 'a' ? 'a' : ''}.
+                        {profile?.role === 'coletor' 
+                          ? `Nenhum${labels.singularArticle === 'a' ? 'a' : ''} ${labels.singularNoun} cadastrado${labels.singularArticle === 'a' ? 'a' : ''} por você. Clique em "${labels.pageVerb}" para cadastrar seu primeiro${labels.singularArticle === 'a' ? 'a' : ''} ${labels.singularNoun}.`
+                          : `Nenhum${labels.singularArticle === 'a' ? 'a' : ''} ${labels.singularNoun} encontrado${labels.singularArticle === 'a' ? 'a' : ''}.`
+                        }
                       </TableCell>
                     </TableRow>
                   )}

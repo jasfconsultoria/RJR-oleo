@@ -14,7 +14,6 @@ import { format, addDays, parseISO, isValid } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
 import { FinanceiroFormFields } from '@/components/financeiro/FinanceiroFormFields';
 import { InstallmentDetails } from '@/components/financeiro/InstallmentDetails';
-import { FinanceiroFormActions } from '@/components/financeiro/FinanceiroFormActions';
 import { useAutoSave } from '@/hooks/useAutoSave';
 
 const FinanceiroForm = ({ type }) => {
@@ -28,31 +27,10 @@ const FinanceiroForm = ({ type }) => {
   const hasFetchedInitialData = useRef(false);
   const [hasAutoSaveData, setHasAutoSaveData] = useState(false);
 
-  // Chave única para o localStorage, dependendo se é crédito ou débito
-  const localStorageKey = `financeiroForm_isNewClientModalOpen_${type}`;
+  // Estado do modal de novo cliente/fornecedor
+  const [isNewClientModalOpen, setIsNewClientModalOpen] = useState(false);
 
-  // Estado do modal de novo cliente/fornecedor, inicializado de forma lazy do localStorage
-  const [isNewClientModalOpen, setIsNewClientModalOpen] = useState(() => {
-    if (typeof window === 'undefined') {
-      return false;
-    }
-    return localStorage.getItem(localStorageKey) === 'true';
-  });
-
-  // Flag para indicar que o componente foi hidratado com o estado do localStorage
-  const [hydrated, setHydrated] = useState(false);
-
-  // Efeito para salvar o estado do modal no localStorage sempre que ele mudar
-  useEffect(() => {
-    localStorage.setItem(localStorageKey, isNewClientModalOpen ? 'true' : 'false');
-  }, [localStorageKey, isNewClientModalOpen]);
-
-  // Efeito para definir hydrated como true após a primeira renderização no cliente
-  useEffect(() => {
-    setHydrated(true);
-  }, []);
-
-  // ✅ CORREÇÃO: Initial state para useAutoSave
+  // ✅ Auto-save
   const getInitialFormData = useCallback(() => ({
     document_number: '',
     issue_date: new Date().toISOString(),
@@ -72,35 +50,57 @@ const FinanceiroForm = ({ type }) => {
     single_due_date: addDays(new Date(), 30).toISOString(),
   }), []);
 
-  // ✅ CORREÇÃO: Estratégia simplificada - SEMPRE carregar do auto-save primeiro
   const autoSaveKey = id ? `financeiroForm_edit_${id}` : `financeiroForm_new_${type}`;
   
   const [rawFormData, setRawFormData, clearSavedData] = useAutoSave(
     autoSaveKey,
     getInitialFormData(),
-    true // ✅ SEMPRE carregar do auto-save
+    true
   );
 
-  // ✅ CORREÇÃO: Verificar se há dados no auto-save
+  // Verificar se há dados no auto-save
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem(autoSaveKey);
-      setHasAutoSaveData(!!saved);
+      setHasAutoSaveData(!!saved && saved !== 'null' && saved !== 'undefined');
     }
   }, [autoSaveKey]);
 
-  // Process rawFormData to get Date objects for component use
+  // Process rawFormData para obter Date objects
   const formData = useMemo(() => {
     const processed = { ...rawFormData };
-    if (typeof processed.issue_date === 'string') {
-      const parsed = parseISO(processed.issue_date);
-      processed.issue_date = isValid(parsed) ? parsed : new Date();
+    
+    // Garantir que todas as propriedades existam
+    const safeData = {
+      document_number: processed?.document_number || '',
+      issue_date: processed?.issue_date || new Date().toISOString(),
+      model: processed?.model || 'Recibo',
+      pessoa_id: processed?.pessoa_id || null,
+      cliente_fornecedor_name: processed?.cliente_fornecedor_name || '',
+      cliente_fornecedor_fantasy_name: processed?.cliente_fornecedor_fantasy_name || '',
+      cnpj_cpf: processed?.cnpj_cpf || '',
+      description: processed?.description || '',
+      total_value: processed?.total_value || '',
+      payment_method: processed?.payment_method || 'pix',
+      cost_center: processed?.cost_center || 'ADMINISTRAÇÃO',
+      notes: processed?.notes || '',
+      down_payment: processed?.down_payment || '0,00',
+      installments_number: processed?.installments_number || 0,
+      installments: processed?.installments || [],
+      single_due_date: processed?.single_due_date || addDays(new Date(), 30).toISOString(),
+    };
+
+    // Processar datas
+    if (typeof safeData.issue_date === 'string') {
+      const parsed = parseISO(safeData.issue_date);
+      safeData.issue_date = isValid(parsed) ? parsed : new Date();
     }
-    if (typeof processed.single_due_date === 'string') {
-      const parsed = parseISO(processed.single_due_date);
-      processed.single_due_date = isValid(parsed) ? parsed : addDays(new Date(), 30);
+    if (typeof safeData.single_due_date === 'string') {
+      const parsed = parseISO(safeData.single_due_date);
+      safeData.single_due_date = isValid(parsed) ? parsed : addDays(new Date(), 30);
     }
-    return processed;
+
+    return safeData;
   }, [rawFormData]);
 
   const [loading, setLoading] = useState(isEditing);
@@ -115,31 +115,62 @@ const FinanceiroForm = ({ type }) => {
   const entityLabel = type === 'credito' ? 'Cliente' : 'Fornecedor';
   const onBackPath = `/app/financeiro/${type}`;
 
-  const parsedTotalValue = parseCurrency(formData.total_value);
-  const parsedDownPayment = parseCurrency(formData.down_payment);
-
-  const fetchCostCenters = useCallback(async () => {
-    const { data, error } = await supabase
-      .from('centro_custos')
-      .select('nome')
-      .order('nome', { ascending: true });
-    if (error) {
-      console.error('Erro ao buscar centros de custo:', error);
-      toast({ title: 'Erro', description: 'Não foi possível carregar os centros de custo.', variant: 'destructive' });
-      setCostCenters([]);
-    } else {
-      setCostCenters(data.map(cc => ({ value: cc.nome, label: cc.nome })));
-      // Set default cost center if not already set and data exists
-      if (!formData.cost_center && data.length > 0) {
-        setRawFormData(prev => ({ ...prev, cost_center: data[0].nome }));
-      }
+  // Validação segura para valores numéricos
+  const parsedTotalValue = useMemo(() => {
+    try {
+      return parseCurrency(formData.total_value || '0');
+    } catch (error) {
+      console.error('Erro ao parsear valor total:', error);
+      return 0;
     }
-  }, [toast, formData.cost_center, setRawFormData]);
+  }, [formData.total_value]);
+
+  const parsedDownPayment = useMemo(() => {
+    try {
+      return parseCurrency(formData.down_payment || '0');
+    } catch (error) {
+      console.error('Erro ao parsear entrada:', error);
+      return 0;
+    }
+  }, [formData.down_payment]);
+
+  // Buscar centros de custo
+  const fetchCostCenters = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('centro_custos')
+        .select('nome')
+        .order('nome', { ascending: true });
+
+      if (error) throw error;
+
+      const safeCostCenters = Array.isArray(data) ? data : [];
+      setCostCenters(safeCostCenters.map(cc => ({ 
+        value: cc?.nome || '', 
+        label: cc?.nome || '' 
+      })));
+
+      // Set default cost center if not already set and data exists
+      if (!formData.cost_center && safeCostCenters.length > 0) {
+        const firstCostCenter = safeCostCenters[0]?.nome || 'ADMINISTRAÇÃO';
+        handleUpdateRawFormData({ cost_center: firstCostCenter });
+      }
+    } catch (error) {
+      console.error('Erro ao buscar centros de custo:', error);
+      toast({ 
+        title: 'Erro', 
+        description: 'Não foi possível carregar os centros de custo.', 
+        variant: 'destructive' 
+      });
+      setCostCenters([]);
+    }
+  }, [toast, formData.cost_center]);
 
   useEffect(() => {
     fetchCostCenters();
   }, [fetchCostCenters]);
 
+  // Validar entrada
   useEffect(() => {
     if (parsedDownPayment > parsedTotalValue) {
       setDownPaymentError('O valor da entrada não pode ser maior que o valor total.');
@@ -148,7 +179,7 @@ const FinanceiroForm = ({ type }) => {
     }
   }, [parsedDownPayment, parsedTotalValue]);
 
-  // ✅ CORREÇÃO: Fetch dos dados com lógica de merge
+  // ✅ Fetch dos dados para edição
   const fetchEntry = useCallback(async () => {
     if (!isEditing) {
       setLoading(false);
@@ -165,47 +196,50 @@ const FinanceiroForm = ({ type }) => {
 
       if (entryError) throw entryError;
 
-      const { data: clientData, error: clientError } = await supabase
-        .from('clientes')
-        .select('id, nome, nome_fantasia, cnpj_cpf')
-        .eq('id', entryData.pessoa_id)
-        .single();
+      // Buscar dados do cliente
+      let clientData = null;
+      if (entryData.pessoa_id) {
+        const { data: clientDataResult, error: clientError } = await supabase
+          .from('clientes')
+          .select('id, nome, nome_fantasia, cnpj_cpf')
+          .eq('id', entryData.pessoa_id)
+          .single();
 
-      if (clientError) console.error('Erro ao buscar dados do cliente/fornecedor:', clientError);
+        if (!clientError) {
+          clientData = clientDataResult;
+        }
+      }
 
-      // ✅ CORREÇÃO: Merge inteligente entre auto-save e dados do banco
+      // Dados do banco com valores seguros
+      const entryDataWithClient = {
+        document_number: entryData?.document_number || '',
+        issue_date: entryData?.issue_date || new Date().toISOString(),
+        model: entryData?.model || 'Recibo',
+        pessoa_id: entryData?.pessoa_id || null,
+        cliente_fornecedor_name: clientData?.nome || entryData?.cliente_fornecedor_name || '',
+        cliente_fornecedor_fantasy_name: clientData?.nome_fantasia || entryData?.cliente_fornecedor_fantasy_name || '',
+        cnpj_cpf: clientData?.cnpj_cpf || entryData?.cnpj_cpf || '',
+        description: entryData?.description || '',
+        total_value: String(entryData?.total_value || '0').replace('.', ','),
+        payment_method: entryData?.payment_method || 'pix',
+        cost_center: entryData?.cost_center || 'ADMINISTRAÇÃO',
+        notes: entryData?.notes || '',
+        single_due_date: entryData?.issue_date || addDays(new Date(), 30).toISOString(),
+      };
+
+      // Lógica de merge com auto-save
       setRawFormData(prevFormData => {
-        const entryDataWithClient = {
-          document_number: entryData.document_number || '',
-          issue_date: entryData.issue_date,
-          model: entryData.model || 'Recibo',
-          pessoa_id: entryData.pessoa_id,
-          cliente_fornecedor_name: clientData?.nome || entryData.cliente_fornecedor_name || '',
-          cliente_fornecedor_fantasy_name: clientData?.nome_fantasia || entryData.cliente_fornecedor_fantasy_name || '',
-          cnpj_cpf: clientData?.cnpj_cpf || entryData.cnpj_cpf || '',
-          description: entryData.description || '',
-          total_value: String(entryData.total_value || '0').replace('.', ','),
-          payment_method: entryData.payment_method || 'pix',
-          cost_center: entryData.cost_center || 'ADMINISTRAÇÃO',
-          notes: entryData.notes || '',
-          down_payment: '0,00',
-          installments_number: 0,
-          installments: [],
-          single_due_date: entryData.issue_date,
-        };
-
-        // Se não há dados no auto-save ou estão vazios, usa os dados do banco
-        const isAutoSaveEmpty = Object.values(prevFormData).every(value => 
-          value === '' || value === null || value === undefined || 
-          (typeof value === 'string' && value.trim() === '') ||
-          (Array.isArray(value) && value.length === 0)
-        );
+        const isAutoSaveEmpty = !prevFormData || 
+          Object.values(prevFormData).every(value => 
+            value === '' || value === null || value === undefined || 
+            (typeof value === 'string' && value.trim() === '') ||
+            (Array.isArray(value) && value.length === 0)
+          );
         
         if (isAutoSaveEmpty || !hasAutoSaveData) {
           console.log('Usando dados do banco (auto-save vazio)');
           return entryDataWithClient;
         } else {
-          // Se há dados no auto-save, faz merge mantendo alterações do usuário
           console.log('Fazendo merge entre auto-save e dados do banco');
           return {
             ...entryDataWithClient, // Dados base do banco
@@ -214,7 +248,12 @@ const FinanceiroForm = ({ type }) => {
         }
       });
     } catch (error) {
-      toast({ title: 'Erro ao carregar lançamento', description: error.message, variant: 'destructive' });
+      console.error('Erro ao carregar lançamento:', error);
+      toast({ 
+        title: 'Erro ao carregar lançamento', 
+        description: error.message, 
+        variant: 'destructive' 
+      });
       navigate(`/app/financeiro/${type}`);
     } finally {
       setLoading(false);
@@ -222,10 +261,9 @@ const FinanceiroForm = ({ type }) => {
     }
   }, [id, isEditing, navigate, toast, type, setRawFormData, hasAutoSaveData]);
 
-  // ✅ CORREÇÃO: Buscar dados do banco apenas se estiver editando
+  // Buscar dados apenas se estiver editando
   useEffect(() => {
     if (isEditing) {
-      // Pequeno delay para garantir que o auto-save carregou primeiro
       const timer = setTimeout(() => {
         fetchEntry();
       }, 100);
@@ -234,14 +272,14 @@ const FinanceiroForm = ({ type }) => {
     }
   }, [isEditing, fetchEntry]);
 
-  // ✅ CORREÇÃO: Resetar flag quando o ID mudar
+  // Resetar flag quando o ID mudar
   useEffect(() => {
     if (id) {
       hasFetchedInitialData.current = false;
     }
   }, [id]);
 
-  // ✅ CORREÇÃO: Função para atualizar o estado de forma consistente
+  // ✅ Função para atualizar o estado do auto-save
   const handleUpdateRawFormData = useCallback((updates) => {
     setRawFormData(prev => {
       const newRaw = { ...prev };
@@ -304,30 +342,42 @@ const FinanceiroForm = ({ type }) => {
     setIsNewClientModalOpen(false);
     setClientListVersion(v => v + 1);
     handleUpdateRawFormData({
-      pessoa_id: newClient.id,
-      cliente_fornecedor_name: newClient.nome,
-      cliente_fornecedor_fantasy_name: newClient.nome_fantasia,
-      cnpj_cpf: newClient.cnpj_cpf,
+      pessoa_id: newClient?.id || null,
+      cliente_fornecedor_name: newClient?.nome || '',
+      cliente_fornecedor_fantasy_name: newClient?.nome_fantasia || '',
+      cnpj_cpf: newClient?.cnpj_cpf || '',
     });
   };
 
   const handleNewCostCenterSuccess = (newCostCenter) => {
     setIsNewCostCenterModalOpen(false);
     fetchCostCenters();
-    handleUpdateRawFormData({ cost_center: newCostCenter.nome });
+    if (newCostCenter?.nome) {
+      handleUpdateRawFormData({ cost_center: newCostCenter.nome });
+    }
   };
 
-  // ✅ CORREÇÃO: Função para descartar alterações e voltar para a lista
+  // ✅ Função para descartar alterações
   const handleDiscardChanges = () => {
-    clearSavedData(); // Limpa os dados do auto-save
-    navigate(onBackPath); // Navega de volta para a lista
+    clearSavedData();
+    navigate(onBackPath);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!formData.document_number.trim() || !formData.cliente_fornecedor_name.trim() || !unmask(formData.cnpj_cpf).trim() || !formData.issue_date || !formData.description.trim() || parsedTotalValue <= 0) {
-      toast({ title: 'Campos obrigatórios', description: 'Preencha todos os campos obrigatórios (Nº Doc, Cliente/Fornecedor, CNPJ/CPF, Descrição, Valor Total).', variant: 'destructive' });
+    // Validação dos campos obrigatórios
+    if (!formData.document_number?.trim() || 
+        !formData.cliente_fornecedor_name?.trim() || 
+        !unmask(formData.cnpj_cpf || '')?.trim() || 
+        !formData.issue_date || 
+        !formData.description?.trim() || 
+        parsedTotalValue <= 0) {
+      toast({ 
+        title: 'Campos obrigatórios', 
+        description: 'Preencha todos os campos obrigatórios (Nº Doc, Cliente/Fornecedor, CNPJ/CPF, Descrição, Valor Total).', 
+        variant: 'destructive' 
+      });
       return;
     }
 
@@ -337,110 +387,128 @@ const FinanceiroForm = ({ type }) => {
         description: downPaymentError,
         variant: 'destructive'
       });
-      downPaymentInputRef.current?.element.focus();
+      downPaymentInputRef.current?.element?.focus?.();
       return;
     }
 
     setSaving(true);
 
+    // Payload seguro
     const basePayload = {
       document_number: formData.document_number || null,
-      model: formData.model,
+      model: formData.model || 'Recibo',
       pessoa_id: formData.pessoa_id,
-      cliente_fornecedor_name: formData.cliente_fornecedor_name,
+      cliente_fornecedor_name: formData.cliente_fornecedor_name || '',
       cliente_fornecedor_fantasy_name: formData.cliente_fornecedor_fantasy_name || null,
-      cnpj_cpf: unmask(formData.cnpj_cpf) || null,
-      description: formData.description,
-      payment_method: formData.payment_method,
-      cost_center: formData.cost_center,
-      notes: formData.notes,
-      user_id: user.id,
+      cnpj_cpf: unmask(formData.cnpj_cpf || '') || null,
+      description: formData.description || '',
+      payment_method: formData.payment_method || 'pix',
+      cost_center: formData.cost_center || 'ADMINISTRAÇÃO',
+      notes: formData.notes || '',
+      user_id: user?.id || null,
       issue_date: format(formData.issue_date, 'yyyy-MM-dd'),
       total_value: parsedTotalValue,
     };
 
     let result;
-    if (isEditing) {
-      // Para edição, atualiza diretamente o registro credito_debito específico
-      const { data, error } = await supabase
-        .from('credito_debito')
-        .update(basePayload)
-        .eq('id', id)
-        .select()
-        .single();
-      result = { data, error };
-    } else {
-      // Para novos lançamentos, usa a função RPC para lidar com entrada e parcelas
-      const lancamentoId = uuidv4();
-      let downPaymentPayload = null;
-      let installmentsPayload = [];
-      let totalInstallmentsCount = 0;
+    try {
+      if (isEditing) {
+        const { data, error } = await supabase
+          .from('credito_debito')
+          .update(basePayload)
+          .eq('id', id)
+          .select()
+          .single();
+        result = { data, error };
+      } else {
+        const lancamentoId = uuidv4();
+        let downPaymentPayload = null;
+        let installmentsPayload = [];
+        let totalInstallmentsCount = 0;
 
-      if (parsedDownPayment === 0 && parsedTotalValue > 0) {
-          installmentsPayload.push({
-              amount: parsedTotalValue,
-              date: format(formData.single_due_date, 'yyyy-MM-dd'),
-              number: 1
-          });
-          totalInstallmentsCount = 1;
-      } else if (parsedDownPayment > 0) {
-          downPaymentPayload = {
-              amount: parsedDownPayment,
-              date: format(formData.issue_date, 'yyyy-MM-dd')
-          };
-          totalInstallmentsCount = 1;
-          
-          if (showInstallmentsGeneration) {
-              installmentsPayload = formData.installments.map(inst => ({
-                   amount: inst.expected_amount,
-                  date: format(inst.issue_date, 'yyyy-MM-dd'),
-                  number: inst.installment_number
-              }));
-              totalInstallmentsCount += installmentsPayload.length;
-          }
+        if (parsedDownPayment === 0 && parsedTotalValue > 0) {
+            installmentsPayload.push({
+                amount: parsedTotalValue,
+                date: format(formData.single_due_date, 'yyyy-MM-dd'),
+                number: 1
+            });
+            totalInstallmentsCount = 1;
+        } else if (parsedDownPayment > 0) {
+            downPaymentPayload = {
+                amount: parsedDownPayment,
+                date: format(formData.issue_date, 'yyyy-MM-dd')
+            };
+            totalInstallmentsCount = 1;
+            
+            if (showInstallmentsGeneration) {
+                installmentsPayload = (formData.installments || []).map(inst => ({
+                    amount: inst.expected_amount,
+                    date: format(inst.issue_date, 'yyyy-MM-dd'),
+                    number: inst.installment_number
+                }));
+                totalInstallmentsCount += installmentsPayload.length;
+            }
+        }
+
+        const rpcParams = {
+            p_lancamento_id: lancamentoId,
+            p_type: type,
+            p_document_number: basePayload.document_number,
+            p_model: basePayload.model,
+            p_pessoa_id: basePayload.pessoa_id,
+            p_cliente_fornecedor_name: basePayload.cliente_fornecedor_name,
+            p_cliente_fornecedor_fantasy_name: basePayload.cliente_fornecedor_fantasy_name,
+            p_cnpj_cpf: basePayload.cnpj_cpf,
+            p_description: basePayload.description,
+            p_payment_method: basePayload.payment_method,
+            p_cost_center: basePayload.cost_center,
+            p_notes: basePayload.notes,
+            p_user_id: basePayload.user_id,
+            p_total_installments: totalInstallmentsCount,
+            p_down_payment: downPaymentPayload,
+            p_installments: installmentsPayload
+        };
+
+        result = await supabase.rpc('create_financeiro_lancamento', rpcParams);
       }
 
-      const rpcParams = {
-          p_lancamento_id: lancamentoId,
-          p_type: type,
-          p_document_number: basePayload.document_number,
-          p_model: basePayload.model,
-          p_pessoa_id: basePayload.pessoa_id,
-          p_cliente_fornecedor_name: basePayload.cliente_fornecedor_name ,
-          p_cliente_fornecedor_fantasy_name: basePayload.cliente_fornecedor_fantasy_name,
-          p_cnpj_cpf: basePayload.cnpj_cpf,
-          p_description : basePayload.description,
-          p_payment_method: basePayload.payment_method,
-          p_cost_center: basePayload.cost_center,
-          p_notes: basePayload.notes,
-          p_user_id: basePayload.user_id,
-          p_total_installments: totalInstallmentsCount,
-          p_down_payment: downPaymentPayload,
-          p_installments: installmentsPayload
-      };
+      if (result.error || (result.data && !result.data.success)) {
+        const errorMessage = result.error?.message || result.data?.message || 'Ocorreu um erro desconhecido.';
+        throw new Error(errorMessage);
+      }
 
-      result = await supabase.rpc('create_financeiro_lancamento', rpcParams);
-    }
-
-    if (result.error || (result.data && !result.data.success)) {
-      const errorMessage = result.error?.message || result.data?.message || 'Ocorreu um erro desconhecido.';
-      toast({ title: `Erro ao ${isEditing ? 'atualizar' : 'cadastrar'} ${title}`, description: errorMessage, variant: 'destructive' });
-      await logAction(`${isEditing ? 'update' : 'create'}_${type}_failed`, { error: errorMessage, entry_description: formData.description });
-    } else {
-      toast({ title: `${title} ${isEditing ? 'atualizado' : 'cadastrado'} com sucesso!`, description: `${formData.description} foi salvo.` });
-      await logAction(`${isEditing ? 'update' : 'create'}_${type}_success`, { lancamento_id: result.data?.lancamento_id || id, entry_description: formData.description });
+      toast({ 
+        title: `${title} ${isEditing ? 'atualizado' : 'cadastrado'} com sucesso!`, 
+        description: `${formData.description} foi salvo.` 
+      });
       
-      // ✅ CORREÇÃO: Limpar auto-save apenas após salvar com sucesso
+      await logAction(`${isEditing ? 'update' : 'create'}_${type}_success`, { 
+        lancamento_id: result.data?.lancamento_id || id, 
+        entry_description: formData.description 
+      });
+      
       clearSavedData();
       hasFetchedInitialData.current = false;
-      
       navigate(`/app/financeiro/${type}`);
+      
+    } catch (error) {
+      console.error(`Erro ao ${isEditing ? 'atualizar' : 'cadastrar'} ${title}:`, error);
+      toast({ 
+        title: `Erro ao ${isEditing ? 'atualizar' : 'cadastrar'} ${title}`, 
+        description: error.message, 
+        variant: 'destructive' 
+      });
+      await logAction(`${isEditing ? 'update' : 'create'}_${type}_failed`, { 
+        error: error.message, 
+        entry_description: formData.description 
+      });
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
-  // Renderiza um loader ou nada se não estiver hidratado
-  if (!hydrated || loading) {
+  // Render loading
+  if (loading) {
     return (
       <div className="flex justify-center items-center h-full">
         <Loader2 className="w-8 h-8 animate-spin text-emerald-400" />
@@ -524,7 +592,7 @@ const FinanceiroForm = ({ type }) => {
                   {hasAutoSaveData && (
                     <Button 
                       type="button"
-                      onClick={handleDiscardChanges} // ✅ CORREÇÃO: Usa a nova função handleDiscardChanges
+                      onClick={handleDiscardChanges}
                       variant="outline"
                       className="rounded-xl text-yellow-400 border-yellow-400"
                     >

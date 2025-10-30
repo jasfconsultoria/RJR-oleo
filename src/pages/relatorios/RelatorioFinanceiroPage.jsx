@@ -48,7 +48,7 @@ const RelatorioFinanceiroPage = () => {
   const clientOptions = useMemo(() => {
     return [{ value: 'all', label: 'Todos os Clientes/Fornecedores' }, ...clients.map(client => ({
       value: client.id,
-      label: client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome,
+      label: client.nome_fantasia ? `${client.nome_fantasia} - ${client.razao_social}` : client.razao_social,
     }))];
   }, [clients]);
 
@@ -65,20 +65,33 @@ const RelatorioFinanceiroPage = () => {
       try {
         const [empresaRes, clientsRes, costCentersRes] = await Promise.all([
           supabase.from('empresa').select('items_per_page, timezone').single(),
-          supabase.from('clientes').select('id, nome, nome_fantasia').order('nome', { ascending: true }),
+          supabase.from('clientes').select('id, nome_fantasia, razao_social').order('nome_fantasia', { ascending: true }),
           supabase.from('centro_custos').select('nome').order('nome', { ascending: true }),
         ]);
 
-        if (empresaRes.error) toast({ title: 'Erro ao buscar configurações da empresa', variant: 'destructive' });
-        else setEmpresa(empresaRes.data || { items_per_page: 25, timezone: 'America/Sao_Paulo' });
+        if (empresaRes.error) {
+          console.error('Erro empresa:', empresaRes.error);
+          toast({ title: 'Erro ao buscar configurações da empresa', variant: 'destructive' });
+        } else {
+          setEmpresa(empresaRes.data || { items_per_page: 25, timezone: 'America/Sao_Paulo' });
+        }
 
-        if (clientsRes.error) toast({ title: 'Erro ao buscar clientes/fornecedores', variant: 'destructive' });
-        else setClients(clientsRes.data || []);
+        if (clientsRes.error) {
+          console.error('Erro clientes:', clientsRes.error);
+          toast({ title: 'Erro ao buscar clientes/fornecedores', variant: 'destructive' });
+        } else {
+          setClients(clientsRes.data || []);
+        }
 
-        if (costCentersRes.error) toast({ title: 'Erro ao buscar centros de custo', variant: 'destructive' });
-        else setCostCenters(costCentersRes.data || []);
+        if (costCentersRes.error) {
+          console.error('Erro centros de custo:', costCentersRes.error);
+          toast({ title: 'Erro ao buscar centros de custo', variant: 'destructive' });
+        } else {
+          setCostCenters(costCentersRes.data || []);
+        }
 
       } catch (error) {
+        console.error('Erro geral:', error);
         toast({ title: 'Erro ao carregar dados iniciais', description: error.message, variant: 'destructive' });
       } finally {
         setLoading(false);
@@ -87,7 +100,118 @@ const RelatorioFinanceiroPage = () => {
     fetchInitialData();
   }, [toast]);
 
-  const fetchReportData = useCallback(async () => {
+  // Função para buscar dados do sumário (totais do período)
+  const fetchSummaryData = useCallback(async () => {
+    if (!empresa) return;
+
+    const startDateISO = filters.startDate ? format(filters.startDate, 'yyyy-MM-dd') : null;
+    const endDateISO = filters.endDate ? format(endOfDay(filters.endDate), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx") : null;
+
+    try {
+      let query = supabase
+        .from('credito_debito')
+        .select('*');
+
+      // Aplicar filtros básicos - CORREÇÃO: usando nomes em inglês
+      if (startDateISO) query = query.gte('issue_date', startDateISO);
+      if (endDateISO) query = query.lte('issue_date', endDateISO);
+      if (filters.type !== 'all') query = query.eq('type', filters.type);
+      if (filters.status !== 'all') query = query.eq('status', filters.status);
+
+      // Aplicar filtro de busca por cliente
+      if (debouncedFilters.clientSearchTerm) {
+        const searchTermLower = debouncedFilters.clientSearchTerm.toLowerCase();
+        
+        const { data: matchingClients, error: clientsError } = await supabase
+          .from('clientes')
+          .select('id')
+          .or(`nome_fantasia.ilike.%${searchTermLower}%,razao_social.ilike.%${searchTermLower}%`);
+        
+        if (!clientsError && matchingClients && matchingClients.length > 0) {
+          const matchingClientIds = matchingClients.map(client => client.id);
+          query = query.in('pessoa_id', matchingClientIds);
+        } else {
+          query = query.or(`descricao.ilike.%${searchTermLower}%,cnpj_cpf.ilike.%${searchTermLower}%`);
+        }
+      }
+
+      const { data: allFinancialData, error } = await query;
+
+      if (error) {
+        console.error('Erro na consulta do sumário:', error);
+        throw error;
+      }
+
+      // Buscar informações dos clientes para o sumário
+      const clientIds = [...new Set(allFinancialData?.map(item => item.pessoa_id).filter(Boolean))];
+      let clientsMap = {};
+
+      if (clientIds.length > 0) {
+        const { data: clientsData, error: clientsError } = await supabase
+          .from('clientes')
+          .select('id, nome_fantasia, razao_social')
+          .in('id', clientIds);
+
+        if (!clientsError && clientsData) {
+          clientsData.forEach(client => {
+            clientsMap[client.id] = client;
+          });
+        }
+      }
+
+      // CORREÇÃO: Filtrar por centro de custo no frontend usando o nome correto em inglês
+      let filteredData = allFinancialData || [];
+      if (filters.costCenter !== 'all') {
+        filteredData = filteredData.filter(item => item.cost_center === filters.costCenter);
+      }
+
+      // Calcular sumário com todos os dados do período - CORREÇÃO: usando nomes em inglês
+      const summaryData = filteredData.reduce((acc, item) => {
+        acc.total_entries += 1;
+        acc.total_value += item.total_value || 0;
+        acc.total_paid += item.paid_amount || 0;
+        acc.total_balance += (item.total_value || 0) - (item.paid_amount || 0);
+        return acc;
+      }, { total_entries: 0, total_value: 0, total_paid: 0, total_balance: 0 });
+
+      setSummary(summaryData);
+
+      // Gerar dados para o gráfico (agrupamento por mês) - CORREÇÃO: usando nomes em inglês
+      const monthlyData = {};
+      filteredData.forEach(item => {
+        if (item.issue_date) {
+          const date = parseISO(item.issue_date);
+          const monthKey = format(date, 'MM/yyyy');
+          
+          if (!monthlyData[monthKey]) {
+            monthlyData[monthKey] = {
+              month_year: format(date, 'MMM/yyyy', { locale: ptBR }),
+              total_value: 0,
+              total_paid: 0,
+              total_balance: 0
+            };
+          }
+          
+          monthlyData[monthKey].total_value += item.total_value || 0;
+          monthlyData[monthKey].total_paid += item.paid_amount || 0;
+          monthlyData[monthKey].total_balance += (item.total_value || 0) - (item.paid_amount || 0);
+        }
+      });
+
+      setChartData(Object.values(monthlyData));
+
+    } catch (error) {
+      console.error('Erro ao buscar dados do sumário:', error);
+      toast({ 
+        title: 'Erro ao calcular totais', 
+        description: error.message, 
+        variant: 'destructive' 
+      });
+    }
+  }, [empresa, filters, debouncedFilters.clientSearchTerm, toast]);
+
+  // Função para buscar dados financeiros para a tabela (com paginação)
+  const fetchFinancialData = useCallback(async () => {
     if (!empresa) return;
     setLoading(true);
 
@@ -97,42 +221,101 @@ const RelatorioFinanceiroPage = () => {
     const startDateISO = filters.startDate ? format(filters.startDate, 'yyyy-MM-dd') : null;
     const endDateISO = filters.endDate ? format(endOfDay(filters.endDate), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx") : null;
 
-    const commonRpcParams = {
-      p_start_date: startDateISO,
-      p_end_date: endDateISO,
-      p_type: filters.type === 'all' ? null : filters.type,
-      p_status: filters.status === 'all' ? null : filters.status,
-      p_client_search_term: debouncedFilters.clientSearchTerm || null,
-      p_cost_center: filters.costCenter === 'all' ? null : filters.costCenter,
-    };
-
     try {
-      // Fetch Summary
-      const { data: summaryData, error: summaryError } = await supabase.rpc('get_financeiro_summary', commonRpcParams);
-      if (summaryError) throw summaryError;
-      setSummary(summaryData || { total_entries: 0, total_value: 0, total_paid: 0, total_balance: 0 });
+      let query = supabase
+        .from('credito_debito')
+        .select('*', { count: 'exact' });
 
-      // Fetch Chart Data
-      const { data: chartDataRes, error: chartError } = await supabase.rpc('get_financeiro_chart_data', commonRpcParams);
-      if (chartError) throw chartError;
-      setChartData(chartDataRes || []);
+      // Aplicar filtros básicos - CORREÇÃO: usando nomes em inglês
+      if (startDateISO) query = query.gte('issue_date', startDateISO);
+      if (endDateISO) query = query.lte('issue_date', endDateISO);
+      if (filters.type !== 'all') query = query.eq('type', filters.type);
+      if (filters.status !== 'all') query = query.eq('status', filters.status);
 
-      // Fetch Detailed Report Data
-      const { data: detailedData, error: detailedError, count } = await supabase.rpc('get_financeiro_detailed_report', {
-        ...commonRpcParams,
-        p_offset: from,
-        p_limit: pageSize,
+      // Aplicar filtro de busca por cliente
+      if (debouncedFilters.clientSearchTerm) {
+        const searchTermLower = debouncedFilters.clientSearchTerm.toLowerCase();
+        
+        const { data: matchingClients, error: clientsError } = await supabase
+          .from('clientes')
+          .select('id')
+          .or(`nome_fantasia.ilike.%${searchTermLower}%,razao_social.ilike.%${searchTermLower}%`);
+        
+        if (!clientsError && matchingClients && matchingClients.length > 0) {
+          const matchingClientIds = matchingClients.map(client => client.id);
+          query = query.in('pessoa_id', matchingClientIds);
+        } else {
+          query = query.or(`descricao.ilike.%${searchTermLower}%,cnpj_cpf.ilike.%${searchTermLower}%`);
+        }
+      }
+
+      const { data: financialData, error, count } = await query
+        .order('issue_date', { ascending: false })
+        .range(from, to);
+
+      if (error) {
+        console.error('Erro na consulta financeira:', error);
+        throw error;
+      }
+
+      // Buscar informações dos clientes separadamente
+      const clientIds = [...new Set(financialData?.map(item => item.pessoa_id).filter(Boolean))];
+      let clientsMap = {};
+
+      if (clientIds.length > 0) {
+        const { data: clientsData, error: clientsError } = await supabase
+          .from('clientes')
+          .select('id, nome_fantasia, razao_social')
+          .in('id', clientIds);
+
+        if (!clientsError && clientsData) {
+          clientsData.forEach(client => {
+            clientsMap[client.id] = client;
+          });
+        }
+      }
+
+      // Processar dados para o relatório - CORREÇÃO: usando nomes em inglês
+      let processedData = (financialData || []).map(item => {
+        const clienteFornecedor = clientsMap[item.pessoa_id];
+        return {
+          id: item.id,
+          type: item.type, // CORREÇÃO: type em inglês
+          document_number: item.document_number,
+          model: item.modelo,
+          cliente_fornecedor_name: clienteFornecedor?.razao_social || 'N/A',
+          cliente_fornecedor_fantasy_name: clienteFornecedor?.nome_fantasia,
+          cliente_fornecedor_razao_social: clienteFornecedor?.razao_social,
+          description: item.descricao,
+          issue_date: item.issue_date,
+          total_value: item.total_value || 0, // CORREÇÃO: total_value em inglês
+          paid_amount: item.paid_amount || 0, // CORREÇÃO: paid_amount em inglês
+          amount_balance: (item.total_value || 0) - (item.paid_amount || 0), // CORREÇÃO: amount_balance em inglês
+          payment_method: item.forma_pagamento,
+          cost_center: item.cost_center, // CORREÇÃO: cost_center em inglês
+          status: item.status,
+          installment_number: item.numero_parcela || 0,
+          total_installments: item.total_parcelas || 1,
+          cnpj_cpf: item.cnpj_cpf
+        };
       });
 
-      if (detailedError) throw detailedError;
-      setReportData(detailedData || []);
+      // CORREÇÃO: Aplicar filtro de centro de custo no frontend usando o nome correto em inglês
+      if (filters.costCenter !== 'all') {
+        processedData = processedData.filter(item => item.cost_center === filters.costCenter);
+      }
+
+      setReportData(processedData);
       setTotalCount(count || 0);
 
     } catch (error) {
-      toast({ title: 'Erro ao gerar relatório financeiro', description: error.message, variant: 'destructive' });
+      console.error('Erro ao buscar dados:', error);
+      toast({ 
+        title: 'Erro ao gerar relatório financeiro', 
+        description: error.message, 
+        variant: 'destructive' 
+      });
       setReportData([]);
-      setSummary({ total_entries: 0, total_value: 0, total_paid: 0, total_balance: 0 });
-      setChartData([]);
       setTotalCount(0);
     } finally {
       setLoading(false);
@@ -141,9 +324,10 @@ const RelatorioFinanceiroPage = () => {
 
   useEffect(() => {
     if (empresa) {
-      fetchReportData();
+      fetchSummaryData(); // Buscar totais do período
+      fetchFinancialData(); // Buscar dados da tabela
     }
-  }, [fetchReportData, empresa]);
+  }, [fetchFinancialData, fetchSummaryData, empresa]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -155,62 +339,123 @@ const RelatorioFinanceiroPage = () => {
 
   const handleExportExcel = async () => {
     if (totalCount === 0) {
-      toast({ title: 'Nenhum dado para exportar', description: 'Filtre os dados que deseja exportar.', variant: 'destructive' });
+      toast({ 
+        title: 'Nenhum dado para exportar', 
+        description: 'Filtre os dados que deseja exportar.', 
+        variant: 'destructive' 
+      });
       return;
     }
 
     setLoading(true);
-    let allData = [];
-    const totalPagesToFetch = Math.ceil(totalCount / 500); // Fetch in chunks
 
-    const startDateISO = filters.startDate ? format(filters.startDate, 'yyyy-MM-dd') : null;
-    const endDateISO = filters.endDate ? format(endOfDay(filters.endDate), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx") : null;
+    try {
+      // Buscar todos os dados para exportação
+      let query = supabase
+        .from('credito_debito')
+        .select('*');
 
-    const commonRpcParams = {
-      p_start_date: startDateISO,
-      p_end_date: endDateISO,
-      p_type: filters.type === 'all' ? null : filters.type,
-      p_status: filters.status === 'all' ? null : filters.status,
-      p_client_search_term: debouncedFilters.clientSearchTerm || null,
-      p_cost_center: filters.costCenter === 'all' ? null : filters.costCenter,
-    };
+      const startDateISO = filters.startDate ? format(filters.startDate, 'yyyy-MM-dd') : null;
+      const endDateISO = filters.endDate ? format(endOfDay(filters.endDate), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx") : null;
 
-    for (let i = 0; i < totalPagesToFetch; i++) {
-      const { data, error } = await supabase.rpc('get_financeiro_detailed_report', {
-        ...commonRpcParams,
-        p_offset: i * 500,
-        p_limit: 500,
-      });
-      if (error) {
-        toast({ title: 'Erro ao exportar dados', description: error.message, variant: 'destructive' });
-        setLoading(false);
-        return;
+      // Aplicar filtros - CORREÇÃO: usando nomes em inglês
+      if (startDateISO) query = query.gte('issue_date', startDateISO);
+      if (endDateISO) query = query.lte('issue_date', endDateISO);
+      if (filters.type !== 'all') query = query.eq('type', filters.type);
+      if (filters.status !== 'all') query = query.eq('status', filters.status);
+
+      // Aplicar filtro de busca por cliente
+      if (debouncedFilters.clientSearchTerm) {
+        const searchTermLower = debouncedFilters.clientSearchTerm.toLowerCase();
+        
+        const { data: matchingClients, error: clientsError } = await supabase
+          .from('clientes')
+          .select('id')
+          .or(`nome_fantasia.ilike.%${searchTermLower}%,razao_social.ilike.%${searchTermLower}%`);
+        
+        if (!clientsError && matchingClients && matchingClients.length > 0) {
+          const matchingClientIds = matchingClients.map(client => client.id);
+          query = query.in('pessoa_id', matchingClientIds);
+        } else {
+          query = query.or(`descricao.ilike.%${searchTermLower}%,cnpj_cpf.ilike.%${searchTermLower}%`);
+        }
       }
-      allData = [...allData, ...data];
+
+      query = query.order('issue_date', { ascending: false });
+
+      const { data: financialData, error } = await query;
+
+      if (error) throw error;
+
+      // Buscar informações dos clientes para exportação
+      const clientIds = [...new Set(financialData?.map(item => item.pessoa_id).filter(Boolean))];
+      let clientsMap = {};
+
+      if (clientIds.length > 0) {
+        const { data: clientsData, error: clientsError } = await supabase
+          .from('clientes')
+          .select('id, nome_fantasia, razao_social')
+          .in('id', clientIds);
+
+        if (!clientsError && clientsData) {
+          clientsData.forEach(client => {
+            clientsMap[client.id] = client;
+          });
+        }
+      }
+
+      // CORREÇÃO: Aplicar filtro de centro de custo no frontend para exportação usando nome em inglês
+      let filteredData = financialData || [];
+      if (filters.costCenter !== 'all') {
+        filteredData = filteredData.filter(item => item.cost_center === filters.costCenter);
+      }
+
+      // Processar dados para exportação - CORREÇÃO: usando nomes em inglês
+      const dataToExport = filteredData.map(item => {
+        const clienteFornecedor = clientsMap[item.pessoa_id];
+        const clientDisplayName = clienteFornecedor?.nome_fantasia && clienteFornecedor?.razao_social 
+          ? `${clienteFornecedor.nome_fantasia} - ${clienteFornecedor.razao_social}`
+          : clienteFornecedor?.nome_fantasia || clienteFornecedor?.razao_social || 'N/A';
+
+        return {
+          'Tipo': item.type === 'credito' ? 'Crédito' : 'Débito', // CORREÇÃO: type em inglês
+          'Nº Documento': item.document_number || 'N/A',
+          'Modelo': item.modelo || 'N/A',
+          'Cliente/Fornecedor': clientDisplayName,
+          'CNPJ/CPF': item.cnpj_cpf || 'N/A',
+          'Descrição': item.descricao,
+          'Data Emissão': formatDateWithTimezone(item.issue_date, empresaTimezone),
+          'Valor Total (R$)': formatNumber(item.total_value || 0), // CORREÇÃO: total_value em inglês
+          'Valor Pago (R$)': formatNumber(item.paid_amount || 0), // CORREÇÃO: paid_amount em inglês
+          'Saldo (R$)': formatNumber((item.total_value || 0) - (item.paid_amount || 0)), // CORREÇÃO: usando nomes em inglês
+          'Forma Pagamento': item.forma_pagamento || 'N/A',
+          'Centro de Custo': item.cost_center || 'N/A', // CORREÇÃO: cost_center em inglês
+          'Status': getStatusText(item.status),
+          'Parcela': (item.numero_parcela === 0 ? 'Entrada' : `${item.numero_parcela || 1}/${item.total_parcelas || 1}`),
+        };
+      });
+
+      const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'RelatorioFinanceiro');
+      XLSX.writeFile(workbook, 'Relatorio_Financeiro.xlsx');
+
+      toast({
+        title: 'Exportação concluída',
+        description: `Relatório exportado com ${dataToExport.length} registros.`,
+        variant: 'default'
+      });
+
+    } catch (error) {
+      console.error('Erro na exportação:', error);
+      toast({ 
+        title: 'Erro ao exportar dados', 
+        description: error.message, 
+        variant: 'destructive' 
+      });
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-
-    const dataToExport = allData.map(item => ({
-      'Tipo': item.type === 'credito' ? 'Crédito' : 'Débito',
-      'Nº Documento': item.document_number || 'N/A',
-      'Modelo': item.model || 'N/A',
-      'Cliente/Fornecedor': item.cliente_fornecedor_fantasy_name ? `${item.cliente_fornecedor_name} - ${item.cliente_fornecedor_fantasy_name}` : item.cliente_fornecedor_name,
-      'CNPJ/CPF': item.cnpj_cpf || 'N/A',
-      'Descrição': item.description,
-      'Data Emissão': formatDateWithTimezone(item.issue_date, empresaTimezone),
-      'Valor Total (R$)': formatNumber(item.total_value),
-      'Valor Pago (R$)': formatNumber(item.paid_amount),
-      'Saldo (R$)': formatNumber(item.amount_balance),
-      'Forma Pagamento': item.payment_method || 'N/A',
-      'Centro de Custo': item.cost_center || 'N/A',
-      'Status': getStatusText(item.status),
-      'Parcela': item.installment_number === 0 ? 'Entrada' : `${item.installment_number}/${item.total_installments}`,
-    }));
-
-    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'RelatorioFinanceiro');
-    XLSX.writeFile(workbook, 'Relatorio_Financeiro.xlsx');
   };
 
   const getStatusBadge = (status) => {
@@ -236,7 +481,10 @@ const RelatorioFinanceiroPage = () => {
   };
 
   const getClientDisplayName = (entry) => {
-    return entry.cliente_fornecedor_fantasy_name ? `${entry.cliente_fornecedor_name} - ${entry.cliente_fornecedor_fantasy_name}` : entry.cliente_fornecedor_name;
+    if (entry.cliente_fornecedor_fantasy_name && entry.cliente_fornecedor_razao_social) {
+      return `${entry.cliente_fornecedor_fantasy_name} - ${entry.cliente_fornecedor_razao_social}`;
+    }
+    return entry.cliente_fornecedor_fantasy_name || entry.cliente_fornecedor_razao_social || 'N/A';
   };
 
   const CustomTooltip = ({ active, payload, label }) => {
@@ -244,9 +492,9 @@ const RelatorioFinanceiroPage = () => {
       return (
         <div className="p-2 bg-gray-800/80 border border-gray-600 rounded-xl text-white">
           <p className="label font-bold">{`Mês: ${label}`}</p>
-          <p className="text-emerald-400">{`Valor Total : ${formatCurrency(payload[0].value)}`}</p>
-          <p className="text-blue-400">{`Valor Pago : ${formatCurrency(payload[1].value)}`}</p>
-          <p className="text-yellow-400">{`Saldo : ${formatCurrency(payload[2].value)}`}</p>
+          <p className="text-emerald-400">{`Valor Total: ${formatCurrency(payload[0].value)}`}</p>
+          <p className="text-blue-400">{`Valor Pago: ${formatCurrency(payload[1].value)}`}</p>
+          <p className="text-yellow-400">{`Saldo: ${formatCurrency(payload[2].value)}`}</p>
         </div>
       );
     }
@@ -267,7 +515,12 @@ const RelatorioFinanceiroPage = () => {
             <p className="text-emerald-200/80 mt-1">Analise os dados financeiros da empresa com filtros avançados.</p>
           </div>
           <div className="flex items-center gap-2 w-full sm:w-auto">
-            <Button onClick={handleExportExcel} disabled={totalCount === 0 || loading} variant="outline" className="flex-grow sm:flex-grow-0 rounded-xl">
+            <Button 
+              onClick={handleExportExcel} 
+              disabled={totalCount === 0 || loading} 
+              variant="outline" 
+              className="flex-grow sm:flex-grow-0 rounded-xl"
+            >
               {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />} Exportar
             </Button>
           </div>
@@ -328,7 +581,7 @@ const RelatorioFinanceiroPage = () => {
                   <Input
                     id="clientSearch"
                     type="search"
-                    placeholder="Buscar por nome, CNPJ/CPF, descrição..."
+                    placeholder="Buscar por nome fantasia, razão social, descrição..."
                     value={filters.clientSearchTerm}
                     onChange={(e) => handleFilterChange('clientSearchTerm', e.target.value)}
                     className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60 rounded-xl"
@@ -342,7 +595,9 @@ const RelatorioFinanceiroPage = () => {
                     <SelectValue placeholder="Todos os Centros de Custo" />
                   </SelectTrigger>
                   <SelectContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
-                    {costCenterOptions.map(cc => <SelectItem key={cc.value} value={cc.value}>{cc.label}</SelectItem>)}
+                    {costCenterOptions.map(cc => (
+                      <SelectItem key={cc.value} value={cc.value}>{cc.label}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -351,7 +606,9 @@ const RelatorioFinanceiroPage = () => {
         </Card>
 
         {(loading || !empresa) && (
-          <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 text-emerald-400 animate-spin" /></div>
+          <div className="flex justify-center items-center h-64">
+            <Loader2 className="h-8 w-8 text-emerald-400 animate-spin" />
+          </div>
         )}
 
         {!(loading || !empresa) && (
@@ -395,7 +652,7 @@ const RelatorioFinanceiroPage = () => {
                       <TrendingDown className="h-4 w-4 text-gray-400" />
                     </CardHeader>
                     <CardContent>
-                      <div className="2xl font-bold">{formatCurrency(summary.total_balance)}</div>
+                      <div className="text-2xl font-bold">{formatCurrency(summary.total_balance)}</div>
                       <p className="text-xs text-gray-400">Valor restante a pagar/receber</p>
                     </CardContent>
                   </Card>
@@ -425,7 +682,9 @@ const RelatorioFinanceiroPage = () => {
                 </Card>
 
                 <Card className="bg-white/10 backdrop-blur-sm border-white/10 text-white rounded-xl">
-                  <CardHeader><CardTitle className="text-emerald-300">Detalhes dos Lançamentos</CardTitle></CardHeader>
+                  <CardHeader>
+                    <CardTitle className="text-emerald-300">Detalhes dos Lançamentos</CardTitle>
+                  </CardHeader>
                   <CardContent>
                     <div className="overflow-x-auto">
                       <Table className="responsive-table">
@@ -434,7 +693,6 @@ const RelatorioFinanceiroPage = () => {
                             <th className="p-2 text-left text-white">Tipo</th>
                             <th className="p-2 text-left text-white">Nº Doc</th>
                             <th className="p-2 text-left text-white">Cliente/Fornecedor</th>
-                            <th className="p-2 text-left text-white">Descrição</th>
                             <th className="p-2 text-left text-white">Emissão</th>
                             <th className="p-2 text-right text-white">Valor</th>
                             <th className="p-2 text-right text-white">Pago</th>
@@ -446,14 +704,23 @@ const RelatorioFinanceiroPage = () => {
                         <TableBody>
                           {reportData.map(item => (
                             <TableRow key={item.id} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
-                              <TableCell data-label="Tipo" className="capitalize">{item.type === 'credito' ? 'Crédito' : 'Débito'}</TableCell>
+                              <TableCell data-label="Tipo" className="capitalize">
+                                {item.type === 'credito' ? 'Crédito' : 'Débito'}
+                              </TableCell>
                               <TableCell data-label="Nº Doc">{item.document_number || 'N/A'}</TableCell>
                               <TableCell data-label="Cliente/Fornecedor">{getClientDisplayName(item)}</TableCell>
-                              <TableCell data-label="Descrição">{item.description}</TableCell>
-                              <TableCell data-label="Emissão">{formatDateWithTimezone(item.issue_date, empresaTimezone)}</TableCell>
-                              <TableCell data-label="Valor" className="text-right">{formatCurrency(item.total_value)}</TableCell>
-                              <TableCell data-label="Pago" className="text-right">{formatCurrency(item.paid_amount)}</TableCell>
-                              <TableCell data-label="Saldo" className="text-right font-bold">{formatCurrency(item.amount_balance)}</TableCell>
+                              <TableCell data-label="Emissão">
+                                {formatDateWithTimezone(item.issue_date, empresaTimezone)}
+                              </TableCell>
+                              <TableCell data-label="Valor" className="text-right">
+                                {formatCurrency(item.total_value)}
+                              </TableCell>
+                              <TableCell data-label="Pago" className="text-right">
+                                {formatCurrency(item.paid_amount)}
+                              </TableCell>
+                              <TableCell data-label="Saldo" className="text-right font-bold">
+                                {formatCurrency(item.amount_balance)}
+                              </TableCell>
                               <TableCell data-label="Status" className="text-center">
                                 <span className={`px-2 py-1 rounded-xl text-xs font-semibold ${getStatusBadge(item.status)}`}>
                                   {getStatusText(item.status)}
@@ -465,26 +732,32 @@ const RelatorioFinanceiroPage = () => {
                         </TableBody>
                         <TableFooter>
                           <TableRow className="hover:bg-transparent border-t-2 border-emerald-500 font-bold hidden md:table-row">
-                            <TableCell colSpan={5}>Totais (Página)</TableCell>
-                            <TableCell className="text-right">{formatCurrency(reportData.reduce((sum, item) => sum + item.total_value, 0))}</TableCell>
-                            <TableCell className="text-right">{formatCurrency(reportData.reduce((sum, item) => sum + item.paid_amount, 0))}</TableCell>
-                            <TableCell className="text-right">{formatCurrency(reportData.reduce((sum, item) => sum + item.amount_balance, 0))}</TableCell>
+                            <TableCell colSpan={4}>Totais (Período)</TableCell>
+                            <TableCell className="text-right">
+                              {formatCurrency(summary.total_value)}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {formatCurrency(summary.total_paid)}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {formatCurrency(summary.total_balance)}
+                            </TableCell>
                             <TableCell colSpan={2}></TableCell>
                           </TableRow>
                         </TableFooter>
                       </Table>
                       <div className="md:hidden bg-black/20 font-bold text-white border-t-2 border-emerald-500 text-sm p-4 mt-4 rounded-b-xl space-y-2">
                         <div className="flex justify-between items-center">
-                          <span>Valor Total (Página):</span>
-                          <span>{formatCurrency(reportData.reduce((sum, item) => sum + item.total_value, 0))}</span>
+                          <span>Valor Total (Período):</span>
+                          <span>{formatCurrency(summary.total_value)}</span>
                         </div>
                         <div className="flex justify-between items-center">
-                          <span>Total Pago (Página):</span>
-                          <span>{formatCurrency(reportData.reduce((sum, item) => sum + item.paid_amount, 0))}</span>
+                          <span>Total Pago (Período):</span>
+                          <span>{formatCurrency(summary.total_paid)}</span>
                         </div>
                         <div className="flex justify-between items-center">
-                          <span>Saldo Total (Página):</span>
-                          <span>{formatCurrency(reportData.reduce((sum, item) => sum + item.amount_balance, 0))}</span>
+                          <span>Saldo Total (Período):</span>
+                          <span>{formatCurrency(summary.total_balance)}</span>
                         </div>
                       </div>
                     </div>
@@ -499,7 +772,7 @@ const RelatorioFinanceiroPage = () => {
             )}
           </div>
         )}
-        {!(loading || !empresa) && (
+        {!(loading || !empresa) && totalPages > 1 && (
           <Pagination
             currentPage={currentPage}
             totalPages={totalPages}

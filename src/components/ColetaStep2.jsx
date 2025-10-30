@@ -101,6 +101,7 @@ export function ColetaStep2({ data, onBack, onNext, onUpdate, empresaTimezone })
               value={data.quantidade_coletada}
               onAccept={(value) => onUpdate({ quantidade_coletada: value })}
               placeholder="Ex: 150,50"
+              inputMode="decimal" // ✅ TEOREMA: Teclado numérico com vírgula
               className="bg-white/20 border border-white/30 text-white placeholder:text-white/60 text-lg py-4 pl-4 pr-12 rounded-xl"
               required
             />

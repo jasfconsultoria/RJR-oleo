@@ -62,7 +62,7 @@ const SaidaFormPage = () => {
         const { data, error } = await supabase
           .from('clientes')
           .select('*')
-          .order('nome', { ascending: true });
+          .order('razao_social', { ascending: true });
 
         if (error) throw error;
 
@@ -78,12 +78,12 @@ const SaidaFormPage = () => {
     fetchClients();
   }, [toast]);
 
-  // FILTRO: nome | nome_fantasia | cnpj (formatado)
+  // FILTRO: razao_social | nome_fantasia | cnpj (formatado)
   useEffect(() => {
     if (formData.cliente && formData.cliente.trim()) {
       const searchTerm = formData.cliente.toLowerCase();
       const filtered = allClients.filter(client =>
-        client.nome.toLowerCase().includes(searchTerm) ||
+        client.razao_social.toLowerCase().includes(searchTerm) ||
         (client.nome_fantasia && client.nome_fantasia.toLowerCase().includes(searchTerm)) ||
         (client.cnpj_cpf && formatCnpjCpf(client.cnpj_cpf).toLowerCase().includes(searchTerm))
       );
@@ -103,7 +103,7 @@ const SaidaFormPage = () => {
     try {
       const { data: movimentacaoData, error: movimentacaoError } = await supabase
         .from('entrada_saida')
-        .select('*, cliente:clientes(id, nome, nome_fantasia, cnpj_cpf)')
+        .select('*, cliente:clientes(id, razao_social, nome_fantasia, cnpj_cpf)')
         .eq('id', id)
         .single();
 
@@ -117,14 +117,14 @@ const SaidaFormPage = () => {
       if (itensError) throw itensError;
 
       const clienteDisplay = movimentacaoData.cliente?.nome_fantasia 
-        ? `${movimentacaoData.cliente.nome} - ${movimentacaoData.cliente.nome_fantasia}` 
-        : movimentacaoData.cliente?.nome || '';
+        ? `${movimentacaoData.cliente.nome_fantasia} - ${movimentacaoData.cliente.razao_social}` 
+        : movimentacaoData.cliente?.razao_social || '';
 
       setFormData({
         ...movimentacaoData,
         data: new Date(movimentacaoData.data),
         cliente_id: movimentacaoData.cliente?.id || null,
-        cliente_nome: movimentacaoData.cliente?.nome || '',
+        cliente_nome: movimentacaoData.cliente?.razao_social || '',
         cliente_nome_fantasia: movimentacaoData.cliente?.nome_fantasia || '',
         cnpj_cpf: movimentacaoData.cliente?.cnpj_cpf || '',
         cliente: clienteDisplay, // Campo de busca
@@ -186,16 +186,16 @@ const SaidaFormPage = () => {
   const handleColetaSelect = (coleta) => {
     if (coleta) {
       const clienteDisplay = coleta.cliente_nome_fantasia 
-        ? `${coleta.cliente_nome} - ${coleta.cliente_nome_fantasia}` 
-        : coleta.cliente_nome;
+        ? `${coleta.cliente_nome_fantasia} - ${coleta.cliente_razao_social}` 
+        : coleta.cliente_razao_social;
 
       setFormData((prev) => ({
         ...prev,
         coleta_id: coleta.id,
         cliente_id: coleta.cliente_id,
         document_number: coleta.numero_coleta?.toString().padStart(6, '0'),
-        observacao: `Movimentação referente à coleta Nº ${coleta.numero_coleta?.toString().padStart(6, '0')} do cliente ${coleta.cliente_nome}.`,
-        cliente_nome: coleta.cliente_nome,
+        observacao: `Movimentação referente à coleta Nº ${coleta.numero_coleta?.toString().padStart(6, '0')} do cliente ${coleta.cliente_razao_social}.`,
+        cliente_nome: coleta.cliente_razao_social,
         cliente_nome_fantasia: coleta.cliente_nome_fantasia,
         cnpj_cpf: coleta.cliente_cnpj_cpf,
         cliente: clienteDisplay,
@@ -220,13 +220,13 @@ const SaidaFormPage = () => {
   // === HANDLE CLIENT SELECT (igual ao EntradaFormPage) ===
   const handleClientSelect = (client) => {
     const clienteDisplay = client.nome_fantasia 
-      ? `${client.nome} - ${client.nome_fantasia}` 
-      : client.nome;
+      ? `${client.nome_fantasia} - ${client.razao_social}` 
+      : client.razao_social;
 
     setFormData(prev => ({
       ...prev,
       cliente_id: client.id,
-      cliente_nome: client.nome,
+      cliente_nome: client.razao_social,
       cliente_nome_fantasia: client.nome_fantasia || '',
       cnpj_cpf: client.cnpj_cpf || '',
       cliente: clienteDisplay,
@@ -263,8 +263,8 @@ const SaidaFormPage = () => {
       if (!isClienteSelected && formData.cliente.trim() !== '') {
         const isMatch = allClients.some(client => {
           const clientDisplayName = client.nome_fantasia 
-            ? `${client.nome} - ${client.nome_fantasia}` 
-            : client.nome;
+            ? `${client.nome_fantasia} - ${client.razao_social}` 
+            : client.razao_social;
           return clientDisplayName === formData.cliente;
         });
         
@@ -522,7 +522,7 @@ const SaidaFormPage = () => {
                             className="p-3 hover:bg-emerald-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors duration-150"
                           >
                             <div className="font-medium text-gray-900">
-                              {client.nome_fantasia ? `${client.nome} - ${client.nome_fantasia}` : client.nome}
+                              {client.nome_fantasia ? `${client.nome_fantasia} - ${client.razao_social}` : client.razao_social}
                             </div>
                             <div className="text-sm text-gray-600">
                               {formatCnpjCpf(client.cnpj_cpf)} - {client.municipio}/{client.estado}

@@ -29,26 +29,77 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
   const [showClienteDropdown, setShowClienteDropdown] = useState(false);
   const [municipios, setMunicipios] = useState([]);
   const [isClienteSelected, setIsClienteSelected] = useState(false);
+  const [loadingClients, setLoadingClients] = useState(false);
 
   useEffect(() => {
     const fetchClients = async () => {
-      const { data: clientsData, error } = await supabase
-        .from('clientes')
-        .select('*, contratos(status, tipo_coleta, valor_coleta, fator_troca, data_fim)')
-        .order('nome', { ascending: true });
+      console.log('🎯 BUSCANDO CLIENTES COM CONTRATO ATIVO');
+      setLoadingClients(true);
+      
+      try {
+        // ✅ BUSCAR CLIENTES USANDO RPC FUNCTION QUE IGNORA RLS
+        const { data: clientsData, error } = await supabase
+          .rpc('get_clientes_com_contratos_ativos');
 
-      if (error) {
-        toast({ title: 'Erro ao buscar clientes', description: error.message, variant: 'destructive' });
+        if (error) {
+          console.error('❌ ERRO ao buscar clientes via RPC:', error);
+          
+          // ✅ FALLBACK: BUSCAR DIRETAMENTE DA TABELA CLIENTES
+          console.log('🔄 Tentando busca direta como fallback...');
+          const { data: fallbackData, error: fallbackError } = await supabase
+            .from('clientes')
+            .select(`
+              *,
+              contratos(
+                status, 
+                tipo_coleta, 
+                valor_coleta, 
+                fator_troca, 
+                data_fim
+              )
+            `)
+            .order('razao_social', { ascending: true });
+
+          if (fallbackError) {
+            console.error('❌ ERRO no fallback:', fallbackError);
+            toast({ 
+              title: 'Erro ao buscar clientes', 
+              description: 'Não foi possível carregar a lista de clientes', 
+              variant: 'destructive' 
+            });
+            setAllClients([]);
+            setFilteredClients([]);
+          } else {
+            // ✅ FILTRAR APENAS CLIENTES COM CONTRATO ATIVO NO FALLBACK
+            const activeClients = (fallbackData || []).filter(client => 
+              client.contratos && client.contratos.some(contract => contract.status === 'Ativo')
+            );
+            
+            console.log(`✅ Clientes ativos (fallback): ${activeClients.length}`);
+            setAllClients(activeClients);
+            setFilteredClients(activeClients);
+          }
+        } else {
+          console.log(`✅ Clientes ativos via RPC: ${clientsData?.length}`);
+          setAllClients(clientsData || []);
+          setFilteredClients(clientsData || []);
+        }
+      } catch (err) {
+        console.error('❌ Erro inesperado:', err);
+        toast({ 
+          title: 'Erro ao buscar clientes', 
+          description: 'Erro inesperado no carregamento', 
+          variant: 'destructive' 
+        });
         setAllClients([]);
-      } else {
-        const activeClients = (clientsData || []).filter(client => 
-          client.contratos && client.contratos.some(contract => contract.status === 'Ativo')
-        );
-        setAllClients(activeClients);
+        setFilteredClients([]);
+      } finally {
+        setLoadingClients(false);
       }
     };
+    
     fetchClients();
-  }, [toast]);
+  }, []);
 
   useEffect(() => {
     if (data.estado) {
@@ -97,20 +148,32 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
   };
 
   useEffect(() => {
-    if (data.cliente) {
+    if (data.cliente && data.cliente.trim() !== '') {
       const searchTerm = data.cliente.toLowerCase();
       const filtered = allClients.filter(client =>
         (client.nome_fantasia && client.nome_fantasia.toLowerCase().includes(searchTerm)) ||
-        client.nome.toLowerCase().includes(searchTerm)
+        (client.razao_social && client.razao_social.toLowerCase().includes(searchTerm))
       );
+      console.log(`🔍 Filtrados ${filtered.length} clientes para: "${data.cliente}"`);
       setFilteredClients(filtered);
     } else {
+      console.log(`📋 Mostrando todos os ${allClients.length} clientes ativos`);
       setFilteredClients(allClients);
     }
   }, [data.cliente, allClients]);
 
   const handleClienteSelect = (client) => {
-    const activeContracts = client.contratos?.filter(contract => contract.status === 'Ativo');
+    console.log('👤 Cliente selecionado:', client.nome_fantasia || client.razao_social);
+    
+    // ✅ TRATAR CONTRATOS VINDO DA RPC (JSONB) OU DA QUERY NORMAL (ARRAY)
+    let activeContracts = [];
+    if (Array.isArray(client.contratos)) {
+      activeContracts = client.contratos.filter(contract => contract.status === 'Ativo');
+    } else if (client.contratos && typeof client.contratos === 'object') {
+      // Se contratos veio como objeto único da RPC
+      activeContracts = [client.contratos].filter(contract => contract.status === 'Ativo');
+    }
+    
     const latestActiveContract = activeContracts?.sort((a, b) => new Date(b.data_fim) - new Date(a.data_fim))[0];
     
     let newTipoColeta = data.tipo_coleta;
@@ -137,8 +200,9 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
 
     onUpdate({
       cliente_id: client.id,
-      // Corrigido para exibir Nome Fantasia - Razão Social, assumindo inversão semântica dos campos no DB
-      cliente: client.nome ? `${client.nome} - ${client.nome_fantasia}` : client.nome_fantasia,
+      cliente: client.nome_fantasia && client.razao_social 
+        ? `${client.nome_fantasia} - ${client.razao_social}`
+        : client.nome_fantasia || client.razao_social,
       cnpj_cpf: client.cnpj_cpf,
       endereco: client.endereco,
       email: client.email,
@@ -228,40 +292,69 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
           <Label htmlFor="cliente" className="text-white flex items-center gap-2">
             <User className="w-4 h-4" />
             Cliente (com contrato ativo) *
+            {loadingClients && (
+              <span className="text-yellow-400 text-xs ml-2">Carregando...</span>
+            )}
           </Label>
           <Input
             id="cliente"
             value={data.cliente}
             onChange={(e) => handleInputChange('cliente', e.target.value)}
-            onFocus={() => setShowClienteDropdown(true)}
+            onFocus={() => !loadingClients && setShowClienteDropdown(true)}
             onBlur={() => setTimeout(() => setShowClienteDropdown(false), 200)}
-            placeholder="Digite para buscar..."
+            placeholder={loadingClients ? "Carregando clientes..." : "Digite para buscar..."}
             className="bg-white/10 border-white/30 text-white placeholder:text-white/60 rounded-xl h-10 text-base"
             autoComplete="off"
             required
+            disabled={loadingClients}
           />
           
-          {showClienteDropdown && (
+          {showClienteDropdown && !loadingClients && filteredClients.length > 0 && (
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               className="absolute z-10 w-full bg-white rounded-lg shadow-lg max-h-48 overflow-y-auto mt-1"
             >
-              {filteredClients.length > 0 ? filteredClients.map((client) => (
+              {filteredClients.map((client) => (
                 <div
                   key={client.id}
                   onMouseDown={() => handleClienteSelect(client)}
                   className="p-3 hover:bg-emerald-50 cursor-pointer border-b border-gray-100 last:border-b-0"
                 >
                   <div className="font-medium text-gray-900">
-                    {/* Corrigido para exibir Nome Fantasia - Razão Social, assumindo inversão semântica dos campos no DB */}
-                    {client.nome ? `${client.nome} - ${client.nome_fantasia}` : client.nome_fantasia}
+                    {client.nome_fantasia && client.razao_social 
+                      ? `${client.nome_fantasia} - ${client.razao_social}`
+                      : client.nome_fantasia || client.razao_social}
                   </div>
-                  <div className="text-sm text-gray-600">{formatCnpjCpf(client.cnpj_cpf)} - {client.municipio}/{client.estado}</div>
+                  <div className="text-sm text-gray-600">
+                    {formatCnpjCpf(client.cnpj_cpf)} - {client.municipio}/{client.estado}
+                  </div>
                 </div>
-              )) : (
-                <div className="p-3 text-center text-gray-500">Nenhum cliente com contrato ativo encontrado.</div>
-              )}
+              ))}
+            </motion.div>
+          )}
+          
+          {showClienteDropdown && !loadingClients && filteredClients.length === 0 && data.cliente && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="absolute z-10 w-full bg-white rounded-lg shadow-lg mt-1"
+            >
+              <div className="p-3 text-center text-gray-500">
+                Nenhum cliente com contrato ativo encontrado para "{data.cliente}"
+              </div>
+            </motion.div>
+          )}
+
+          {showClienteDropdown && !loadingClients && filteredClients.length === 0 && !data.cliente && allClients.length === 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="absolute z-10 w-full bg-white rounded-lg shadow-lg mt-1"
+            >
+              <div className="p-3 text-center text-gray-500">
+                Nenhum cliente com contrato ativo encontrado
+              </div>
             </motion.div>
           )}
         </div>

@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { Recibo } from '@/components/Recibo';
@@ -9,19 +9,34 @@ import jsPDF from 'jspdf';
 import SignatureCanvas from 'react-signature-canvas';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Label } from '@/components/ui/label';
-import PaymentDialog from '@/components/financeiro/PaymentDialog'; // Importar o PaymentDialog
+import PaymentDialog from '@/components/financeiro/PaymentDialog';
 
-export const ReciboViewDialog = ({ coleta, empresa, isOpen, onClose, empresaTimezone }) => {
+export const ReciboViewDialog = ({ 
+  coleta, 
+  empresa, 
+  isOpen, 
+  onClose, 
+  empresaTimezone,
+  showPaymentAfterSignature = true,
+  isUserLoggedIn = true
+}) => {
   const { toast } = useToast();
   const reciboRef = useRef();
   const sigCanvas = useRef({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [collectorName, setCollectorName] = useState(null);
-
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [debitEntryForPayment, setDebitEntryForPayment] = useState(null);
 
   const isSigned = !!coleta.assinatura_url;
+
+  // DEBUG: Verificar se os dados da empresa estão chegando
+  useEffect(() => {
+    if (isOpen && empresa) {
+      console.log('🏢 DEBUG - Dados da empresa recebidos:', empresa);
+      console.log('📄 DEBUG - Dados da coleta recebidos:', coleta);
+    }
+  }, [isOpen, empresa, coleta]);
 
   const fetchCollectorName = useCallback(async () => {
     if (coleta?.user_id) {
@@ -38,8 +53,6 @@ export const ReciboViewDialog = ({ coleta, empresa, isOpen, onClose, empresaTime
   useEffect(() => {
     if (isOpen && coleta) {
       fetchCollectorName();
-      console.log('ReciboViewDialog - Coleta prop recebida:', coleta);
-      console.log('ReciboViewDialog - coleta.hora_coleta:', coleta.hora_coleta);
     }
   }, [isOpen, coleta, fetchCollectorName]);
 
@@ -50,9 +63,15 @@ export const ReciboViewDialog = ({ coleta, empresa, isOpen, onClose, empresaTime
       ? `${window.location.origin}/recibo/publico/${coleta.id}`
       : `${window.location.origin}/assinatura/recibo/${coleta.id}`;
     
+    const clienteNome = coleta.razao_social || coleta.nome_fantasia || 'o cliente';
+    
     const shareData = {
-      title: isSigned ? `Recibo de Coleta Nº ${coleta.numero_coleta}` : `Assinatura do Recibo Nº ${coleta.numero_coleta}`,
-      text: `Olá! Por favor, assine o recibo da coleta para ${coleta.pessoa?.nome || coleta.cliente_nome}.`,
+      title: isSigned 
+        ? `Recibo de Coleta Nº ${coleta.numero_coleta}`
+        : `Assinatura do Recibo Nº ${coleta.numero_coleta}`,
+      text: isSigned
+        ? `Segue recibo assinado da coleta para ${clienteNome}.`
+        : `Olá! Por favor, assine o recibo da coleta para ${clienteNome}.`,
       url: link,
     };
 
@@ -61,10 +80,19 @@ export const ReciboViewDialog = ({ coleta, empresa, isOpen, onClose, empresaTime
         await navigator.share(shareData);
       } else {
         await navigator.clipboard.writeText(link);
-        toast({ title: "Link Copiado!", description: "O link foi copiado para a área de transferência." });
+        toast({ 
+          title: "Link Copiado!", 
+          description: "O link foi copiado para a área de transferência." 
+        });
       }
     } catch (error) {
-      toast({ title: "Erro ao compartilhar", description: "Não foi possível compartilhar o link.", variant: "destructive" });
+      if (error.name !== 'AbortError') {
+        toast({ 
+          title: "Erro ao compartilhar", 
+          description: "Não foi possível compartilhar o link.", 
+          variant: "destructive" 
+        });
+      }
     }
   };
 
@@ -77,21 +105,70 @@ export const ReciboViewDialog = ({ coleta, empresa, isOpen, onClose, empresaTime
     toast({ title: 'Gerando PDF...', description: 'Aguarde um momento.' });
 
     try {
-      const canvas = await html2canvas(input, { scale: 2, useCORS: true });
+      const canvas = await html2canvas(input, { 
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        windowWidth: input.scrollWidth + 50,
+        windowHeight: input.scrollHeight + 50,
+        x: 0,
+        y: 0,
+        scrollX: 0,
+        scrollY: 0,
+        width: input.scrollWidth + 20,
+        height: input.scrollHeight + 20,
+        onclone: (clonedDoc) => {
+          const clonedElement = clonedDoc.querySelector('[data-html2canvas-ignore="true"]');
+          if (clonedElement) {
+            clonedElement.remove();
+          }
+        }
+      });
+      
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      const pdfHeight = pdf.internal.pageSize.getHeight();
       
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
       
-      const pdfBlob = pdf.getBlob();
-      const url = URL.createObjectURL(pdfBlob);
-      window.open(url, '_blank');
+      const margin = 20;
+      const availableWidth = pdfWidth - (2 * margin);
+      const availableHeight = pdfHeight - (2 * margin);
+      
+      const widthRatio = availableWidth / imgWidth;
+      const heightRatio = availableHeight / imgHeight;
+      const ratio = Math.min(widthRatio, heightRatio, 0.6);
+      
+      const scaledWidth = imgWidth * ratio;
+      const scaledHeight = imgHeight * ratio;
+      
+      const x = (pdfWidth - scaledWidth) / 2;
+      const y = (pdfHeight - scaledHeight) / 2;
+      
+      pdf.addImage(imgData, 'PNG', x, y, scaledWidth, scaledHeight);
+      
+      pdf.setProperties({
+        title: `Recibo_de_Coleta_${coleta.numero_coleta?.toString().padStart(6, '0')}`
+      });
+
+      const pdfBlob = pdf.output('blob');
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+      const link = document.createElement('a');
+      link.href = pdfUrl;
+      link.download = `Recibo_de_Coleta_${coleta.numero_coleta?.toString().padStart(6, '0')}.pdf`; /*{data.numero_coleta?.toString().padStart(6, '0')}*/
+      link.target = '_blank';
+      link.click();
 
     } catch (error) {
       console.error("Erro ao gerar PDF:", error);
-      toast({ title: 'Erro ao gerar PDF', description: 'Ocorreu um problema ao tentar imprimir o recibo.', variant: "destructive" });
+      toast({ 
+        title: 'Erro ao gerar PDF', 
+        description: 'Ocorreu um problema ao tentar imprimir o recibo.', 
+        variant: "destructive" 
+      });
     }
   };
 
@@ -131,38 +208,49 @@ export const ReciboViewDialog = ({ coleta, empresa, isOpen, onClose, empresaTime
         
       toast({ title: 'Recibo assinado com sucesso!' });
       
+      console.log('💰 VERIFICANDO SE DEVE ABRIR PAGAMENTO...');
+      console.log('💰 Tipo da coleta:', coleta.tipo_coleta);
+      
       if (coleta.tipo_coleta === 'Compra') {
-        await new Promise(resolve => setTimeout(resolve, 3000)); // Aumentado para 3 segundos
-
-        console.log('ReciboViewDialog: Tentando buscar lançamento de débito para coleta_id:', coleta.id);
+        console.log('🚀 ABRINDO PAGAMENTO PARA COLETA COMPRA...');
+        
         const { data: debitEntry, error: debitError } = await supabase
           .from('v_financeiro_completo')
           .select('*')
-          .eq('coleta_id', coleta.id) // ALTERADO: Usando o novo campo 'coleta_id'
+          .eq('coleta_id', coleta.id)
           .eq('type', 'debito')
-          .maybeSingle(); // Alterado para maybeSingle()
-
-        console.log('ReciboViewDialog: Resultado da busca do débito:', { debitEntry, debitError });
+          .maybeSingle();
 
         if (debitError) {
-          console.error('ReciboViewDialog: Erro ao buscar lançamento de débito:', debitError);
-          toast({ title: 'Erro', description: `Não foi possível carregar os detalhes do débito para pagamento: ${debitError.message}. Por favor, registre o pagamento manualmente na seção Financeiro.`, variant: 'destructive', duration: 8000 });
+          console.error('❌ Erro ao buscar débito:', debitError);
+          toast({ 
+            title: 'Erro', 
+            description: 'Não foi possível carregar os detalhes do débito.', 
+            variant: 'destructive', 
+            duration: 5000 
+          });
           onClose();
         } else if (!debitEntry) {
-          console.warn('ReciboViewDialog: Lançamento de débito não encontrado após assinatura para coleta_id:', coleta.id);
-          toast({ title: 'Aviso', description: 'Lançamento de débito não encontrado. Por favor, registre o pagamento manualmente na seção Financeiro.', variant: 'warning', duration: 8000 });
+          console.warn('⚠️ Débito não encontrado');
+          toast({ 
+            title: 'Aviso', 
+            description: 'Lançamento de débito não encontrado.', 
+            variant: 'warning', 
+            duration: 5000 
+          });
           onClose();
-        }
-        else {
-          console.log('ReciboViewDialog: Lançamento de débito encontrado:', debitEntry);
+        } else {
+          console.log('✅ DÉBITO ENCONTRADO - ABRINDO PAGAMENTO');
           setDebitEntryForPayment(debitEntry);
           setShowPaymentDialog(true);
         }
       } else {
+        console.log('📦 Não é coleta Compra, fechando diálogo');
         onClose();
       }
 
     } catch (err) {
+      console.error('❌ Erro ao salvar assinatura:', err);
       toast({ title: 'Erro ao salvar assinatura', description: err.message, variant: 'destructive' });
     } finally {
       setIsSubmitting(false);
@@ -170,11 +258,13 @@ export const ReciboViewDialog = ({ coleta, empresa, isOpen, onClose, empresaTime
   };
 
   const handlePaymentSuccess = () => {
+    console.log('✅ Pagamento concluído com sucesso');
     setShowPaymentDialog(false);
     onClose();
   };
 
   const handlePaymentClose = () => {
+    console.log('🔒 PaymentDialog fechado');
     setShowPaymentDialog(false);
     onClose();
   };
@@ -182,15 +272,22 @@ export const ReciboViewDialog = ({ coleta, empresa, isOpen, onClose, empresaTime
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="sm:max-w-3xl h-[90vh] bg-gray-800 border-gray-700 text-white flex flex-col">
+        <DialogContent 
+          className="sm:max-w-3xl h-[90vh] bg-gray-800 border-gray-700 text-white flex flex-col"
+          aria-describedby="recibo-description"
+        >
           <DialogHeader>
             <DialogTitle>Visualizar Recibo - {coleta.numero_coleta}</DialogTitle>
+            <DialogDescription id="recibo-description" className="sr-only">
+              Visualização e assinatura do recibo de coleta {coleta.numero_coleta}
+            </DialogDescription>
           </DialogHeader>
           <div className="flex-grow overflow-y-auto p-4 bg-white rounded-md">
+            {/* 🔽 CORREÇÃO: Garantir que a empresa seja passada para o componente Recibo */}
             <Recibo 
               ref={reciboRef} 
               data={coleta} 
-              empresa={empresa} 
+              empresa={empresa} // ← Isso deve estar presente
               signature={coleta.assinatura_url} 
               timezone={empresaTimezone} 
               collectorName={collectorName} 
@@ -199,12 +296,18 @@ export const ReciboViewDialog = ({ coleta, empresa, isOpen, onClose, empresaTime
             />
             {!isSigned && (
               <div className="mt-6 p-4 border-t-2 border-dashed">
-                <Label htmlFor="signature-canvas-modal" className="text-lg font-semibold mb-2 block text-gray-800">Assinatura:</Label>
+                <Label htmlFor="signature-canvas-modal" className="text-lg font-semibold mb-2 block text-gray-800">
+                  Assinatura:
+                </Label>
                 <div className="bg-gray-100 rounded-md p-1 border-2 border-dashed border-emerald-400">
                   <SignatureCanvas
                     ref={sigCanvas}
                     penColor='black'
-                    canvasProps={{ id: 'signature-canvas-modal', className: 'w-full h-48 rounded-md' }}
+                    canvasProps={{ 
+                      id: 'signature-canvas-modal', 
+                      className: 'w-full h-48 rounded-md',
+                      willReadFrequently: true 
+                    }}
                   />
                 </div>
               </div>
@@ -237,7 +340,7 @@ export const ReciboViewDialog = ({ coleta, empresa, isOpen, onClose, empresaTime
         </DialogContent>
       </Dialog>
 
-      {debitEntryForPayment && (
+      {showPaymentDialog && debitEntryForPayment && (
         <PaymentDialog
           isOpen={showPaymentDialog}
           onClose={handlePaymentClose}
