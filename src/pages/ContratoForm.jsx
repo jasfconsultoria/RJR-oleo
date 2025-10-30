@@ -266,11 +266,7 @@ const ContratoForm = () => {
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
-                        {/* ContratoFields component is used here, I need to ensure it handles the status field correctly */}
-                        {/* For now, I'll add the status field directly in ContratoForm.jsx to apply the style */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {/* Existing fields from ContratoFields would go here, or I can integrate them */}
-                            {/* For this specific request, I'll just add the status field */}
                             <div className="md:col-span-2">
                                 <Label htmlFor="statusFilter" className="block text-white mb-1 text-sm">Status</Label>
                                 <div className="relative">
@@ -293,7 +289,6 @@ const ContratoForm = () => {
                                 </div>
                                 {errors.status && <p className="text-red-500 text-sm mt-1">{errors.status}</p>}
                             </div>
-                            {/* Other fields from ContratoFields would be rendered here */}
                             <ContratoFields 
                                 formData={formData} 
                                 setFormData={setFormData}
