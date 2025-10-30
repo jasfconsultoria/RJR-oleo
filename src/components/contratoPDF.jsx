@@ -1,7 +1,76 @@
 import React from 'react';
 import { format, parseISO, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { formatCnpjCpf, formatCurrency, valorPorExtenso, getMonthsDifference, parseCurrency } from '@/lib/utils';
+import { formatCnpjCpf, formatCurrency, valorPorExtenso, getMonthsDifference, parseCurrency } from '@/lib/utils'; // Adicionado parseCurrency
+
+// Função para converter número para extenso (copiada de utils para evitar circular dependency se utils importar ContratoPDF)
+const unidades = ['', 'um', 'dois', 'três', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove'];
+const dezenas = ['', 'dez', 'vinte', 'trinta', 'quarenta', 'cinquenta', 'sessenta', 'setenta', 'oitenta', 'noventa'];
+const centenas = ['', 'cento', 'duzentos', 'trezentos', 'quatrocentos', 'quinhentos', 'seiscentos', 'setecentos', 'oitocentos', 'novecentos'];
+const especiais = ['dez', 'onze', 'doze', 'treze', 'quatorze', 'quinze', 'dezesseis', 'dezessete', 'dezoito', 'dezenove'];
+
+function numeroParaExtenso(num) {
+  if (num === 0) return 'zero';
+  if (num < 0) return 'menos ' + numeroParaExtenso(Math.abs(num));
+
+  let s = String(num);
+  let extenso = [];
+
+  function converterGrupo(n) {
+    let str = '';
+    let c = Math.floor(n / 100);
+    let d = Math.floor((n % 100) / 10);
+    let u = n % 10;
+
+    if (c > 0) {
+      str += (c === 1 && (d > 0 || u > 0)) ? 'cento e ' : centenas[c] + ' ';
+    }
+
+    if (d > 1) {
+      str += dezenas[d] + (u > 0 ? ' e ' : '');
+    } else if (d === 1) {
+      str += especiais[u] + ' ';
+      return str.trim();
+    }
+
+    if (u > 0 && d !== 1) {
+      str += unidades[u] + ' ';
+    }
+    return str.trim();
+  }
+
+  let grupos = [];
+  while (s.length > 0) {
+    grupos.unshift(parseInt(s.slice(-3)));
+    s = s.slice(0, -3);
+  }
+
+  const sufixos = ['', 'mil', 'milhões', 'bilhões', 'trilhões'];
+
+  for (let i = 0; i < grupos.length; i++) {
+    let grupo = grupos[grupos.length - 1 - i];
+    if (grupo === 0) continue;
+
+    let parte = converterGrupo(grupo);
+    let sufixo = sufixos[i];
+
+    if (i === 1 && grupo === 1) { // "mil" singular
+      extenso.unshift('mil');
+    } else if (i > 1 && grupo > 1) { // "milhões", "bilhões" plural
+      extenso.unshift(sufixo);
+      extenso.unshift(parte);
+    } else if (i > 1 && grupo === 1) { // "um milhão", "um bilhão"
+      extenso.unshift(sufixo.slice(0, -1)); // remove 's'
+      extenso.unshift('um');
+    } else {
+      extenso.unshift(sufixo);
+      extenso.unshift(parte);
+    }
+  }
+
+  return extenso.filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+}
+
 
 const ContratoPDF = React.forwardRef(({ contrato, empresa, showSignature }, ref) => {
   const cliente = contrato?.pessoa;
@@ -34,11 +103,13 @@ const ContratoPDF = React.forwardRef(({ contrato, empresa, showSignature }, ref)
 
   const renderClausulaValor = () => {
     if (contrato.tipo_coleta === 'Compra') {
-      // VALOR DIRETO DO BANCO - JÁ É NÚMERO
-      const valorColeta = contrato.valor_coleta || 0;
-      
+      // Ensure valor_coleta is treated as a number, handling potential null/undefined/empty string from DB
+      const rawValorColeta = contrato.valor_coleta;
+      // Use parseCurrency from utils to handle potential comma-separated strings if they somehow get through
+      const valorColeta = parseCurrency(rawValorColeta) || 0; // Default to 0 if parsing fails or value is null/undefined
+
       const valorFormatado = formatCurrency(valorColeta);
-      const valorExtenso = valorPorExtenso(valorColeta);
+      const valorExtenso = valorPorExtenso(valorColeta); // valorPorExtenso already handles 0
 
       return (
         <p className="mb-3 leading-normal text-justify">
@@ -70,20 +141,7 @@ const ContratoPDF = React.forwardRef(({ contrato, empresa, showSignature }, ref)
   };
 
   const contractDurationMonths = getMonthsDifference(contrato.data_inicio, contrato.data_fim);
-  
-  // Função simples para converter meses em extenso
-  const numeroParaExtensoMeses = (num) => {
-    const numeros = [
-      'zero', 'um', 'dois', 'três', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove', 'dez',
-      'onze', 'doze', 'treze', 'quatorze', 'quinze', 'dezesseis', 'dezessete', 'dezoito', 'dezenove', 'vinte',
-      'vinte e um', 'vinte e dois', 'vinte e três', 'vinte e quatro', 'vinte e cinco', 'vinte e seis', 
-      'vinte e sete', 'vinte e oito', 'vinte e nove', 'trinta', 'trinta e um', 'trinta e dois',
-      'trinta e três', 'trinta e quatro', 'trinta e cinco', 'trinta e seis'
-    ];
-    return num <= 36 ? numeros[num] : num.toString();
-  };
-  
-  const durationText = numeroParaExtensoMeses(contractDurationMonths);
+  const durationText = numeroParaExtenso(contractDurationMonths);
 
   return (
     <div 
@@ -123,11 +181,6 @@ const ContratoPDF = React.forwardRef(({ contrato, empresa, showSignature }, ref)
           <strong>CLÁUSULA PRIMEIRA - DO OBJETO</strong>
           <br />
           Fica estabelecido que a contratada prestará serviço de coleta dos resíduos óleo/gordura de origem animal e vegetal utilizados em fritura alimentar e fará a troca por óleo de soja novo ou efetuará o pagamento, conforme acordado entre as partes.
-        <br />
-          <strong>PARÁGRAFO ÚNICO:</strong> 
-          Podendo haver alterações na compra/troca, dentro do período do contrato, conforme o preço de mercado, desde que ambas as partes estejam de acordo.
-        
-        
         </p>
 
         {renderClausulaValor()}
@@ -137,7 +190,7 @@ const ContratoPDF = React.forwardRef(({ contrato, empresa, showSignature }, ref)
           <br />
           A <strong>CONTRATANTE</strong> se compromete a armazenar o resíduo em recipiente apropriado, {contrato.usa_recipiente ? `fornecido pela CONTRATADA em quantidade de ${contrato.qtd_recipiente || '____'} unidade(s),` : 'de sua propriedade,'} e a disponibilizá-lo para coleta na frequência <strong>{contrato.frequencia_coleta || 'a combinar'}</strong>.
           <br />
-          {contrato.usa_recipiente && (
+          {contrato.usa_recipiente && ( // Conditional rendering for the sentence
             <>
               A contratante fica ciente de que é responsável pelo recipiente e arcará com o extravio enquanto estiver em seu poder.
               <br />
@@ -200,8 +253,8 @@ const ContratoPDF = React.forwardRef(({ contrato, empresa, showSignature }, ref)
 
       <style jsx>{`
         .a4-container {
-          width: 210mm;
-          min-height: 297mm;
+          width: 210mm; /* A4 width */
+          min-height: 297mm; /* A4 height */
           margin: 0 auto;
           box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
           box-sizing: border-box;
