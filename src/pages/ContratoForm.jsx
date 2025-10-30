@@ -16,6 +16,7 @@ import { format } from 'date-fns';
 import ContratoPDF from '@/components/ContratoPDF';
 import { Progress } from '@/components/ui/progress';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { Label } from '@/components/ui/label'; // Importar Label
 
 const ContratoForm = () => {
     const { id } = useParams();
@@ -265,13 +266,42 @@ const ContratoForm = () => {
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <ContratoFields 
-                            formData={formData} 
-                            setFormData={setFormData}
-                            loading={loading}
-                            errors={errors}
-                            empresaTimezone={empresa?.timezone || 'America/Sao_Paulo'}
-                        />
+                        {/* ContratoFields component is used here, I need to ensure it handles the status field correctly */}
+                        {/* For now, I'll add the status field directly in ContratoForm.jsx to apply the style */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* Existing fields from ContratoFields would go here, or I can integrate them */}
+                            {/* For this specific request, I'll just add the status field */}
+                            <div className="md:col-span-2">
+                                <Label htmlFor="statusFilter" className="block text-white mb-1 text-sm">Status</Label>
+                                <div className="relative">
+                                    <select
+                                        id="statusFilter"
+                                        value={formData.status}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
+                                        className="w-full bg-white/20 border border-white/30 text-white rounded-xl px-3 py-2 pl-10 focus:outline-none focus:ring-2 focus:ring-emerald-400 appearance-none"
+                                    >
+                                        <option value="Aguardando Assinatura">Aguardando Assinatura</option>
+                                        <option value="Ativo">Ativo</option>
+                                        <option value="Inativo">Inativo</option>
+                                        <option value="Cancelado">Cancelado</option>
+                                    </select>
+                                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                                        <svg className="h-4 w-4 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </div>
+                                </div>
+                                {errors.status && <p className="text-red-500 text-sm mt-1">{errors.status}</p>}
+                            </div>
+                            {/* Other fields from ContratoFields would be rendered here */}
+                            <ContratoFields 
+                                formData={formData} 
+                                setFormData={setFormData}
+                                loading={loading}
+                                errors={errors}
+                                empresaTimezone={empresa?.timezone || 'America/Sao_Paulo'}
+                            />
+                        </div>
                     </CardContent>
                     <CardFooter className="flex justify-between">
                         <Button variant="outline" onClick={() => navigate('/app/cadastro/contratos')} disabled={isSaving}>
