@@ -11,7 +11,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/customSupabaseClient';
-import ClienteSearchableSelect from '@/components/ClienteSearchableSelect';
+import ClienteSearchableSelect from '@/components/clientes/ClienteSearchableSelect';
 
 const ContratoFields = ({ formData, setFormData, loading, errors, empresaTimezone }) => {
     const [clientes, setClientes] = useState([]);

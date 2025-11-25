@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Loader2, FileDown, Droplets, Truck, DollarSign, Repeat, BarChart2, Search } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
-import { estados, getMunicipios } from '@/lib/location';
+import { useLocationData } from '@/hooks/useLocationData';
 import { useProfile } from '@/contexts/ProfileContext';
 import { format, subDays, endOfDay, parseISO, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -36,6 +36,9 @@ const RelatoriosPage = () => {
   const [municipios, setMunicipiosList] = useState([]);
   const { toast } = useToast();
   const { profile } = useProfile();
+  
+  // Buscar estados e municípios do banco de dados
+  const { estados, fetchMunicipios } = useLocationData();
   const debouncedFilters = useDebounce(filters, 500);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
@@ -246,20 +249,28 @@ const RelatoriosPage = () => {
   }, [debouncedFilters, pageSize]);
 
   useEffect(() => {
-    if (profile?.role === 'coletor' && profile.estado) {
-      setFilters(prev => ({ ...prev, estado: profile.estado }));
-      setMunicipiosList(getMunicipios(profile.estado));
-    }
-  }, [profile]);
+    const loadMunicipios = async () => {
+      if (profile?.role === 'coletor' && profile.estado) {
+        setFilters(prev => ({ ...prev, estado: profile.estado }));
+        const municipiosList = await fetchMunicipios(profile.estado);
+        setMunicipiosList(municipiosList);
+      }
+    };
+    loadMunicipios();
+  }, [profile, fetchMunicipios]);
 
   useEffect(() => {
-    if (filters.estado && filters.estado !== 'all') {
-      setMunicipiosList(getMunicipios(filters.estado));
-    } else {
-      setMunicipiosList([]);
-      setFilters(prev => ({ ...prev, municipio: 'all' }));
-    }
-  }, [filters.estado]);
+    const loadMunicipios = async () => {
+      if (filters.estado && filters.estado !== 'all') {
+        const municipiosList = await fetchMunicipios(filters.estado);
+        setMunicipiosList(municipiosList);
+      } else {
+        setMunicipiosList([]);
+        setFilters(prev => ({ ...prev, municipio: 'all' }));
+      }
+    };
+    loadMunicipios();
+  }, [filters.estado, fetchMunicipios]);
 
   const handleExportExcel = async () => {
     if (totalCount === 0) {

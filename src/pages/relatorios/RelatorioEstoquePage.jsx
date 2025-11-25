@@ -17,7 +17,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 import { Pagination } from '@/components/ui/pagination';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { DatePicker } from '@/components/ui/date-picker';
-import ProdutoSearchableSelect from '@/components/estoque/ProdutoSearchableSelect';
+import ProdutoSearchableSelect from '@/components/produtos/ProdutoSearchableSelect';
 
 const RelatorioEstoquePage = () => {
   const [reportData, setReportData] = useState([]);

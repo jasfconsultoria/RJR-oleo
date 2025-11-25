@@ -6,11 +6,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { PlusCircle } from 'lucide-react';
 import { IMaskInput } from 'react-imask';
 import { DateInput } from '@/components/ui/date-input';
-import ClienteSearchableSelect from '@/components/ClienteSearchableSelect';
+import ClienteSearchableSelect from '@/components/clientes/ClienteSearchableSelect';
 import { Dialog, DialogContent, DialogHeader, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import ClienteForm from '@/pages/ClienteForm';
-import CentroCustoForm from '@/pages/CentroCustoForm';
+import ClienteForm from '@/pages/clientes/ClienteForm';
+import CentroCustoForm from '@/pages/centros-custo/CentroCustoForm';
 import { supabase } from '@/lib/customSupabaseClient';
 
 const paymentMethods = [

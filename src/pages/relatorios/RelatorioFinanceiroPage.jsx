@@ -117,6 +117,11 @@ const RelatorioFinanceiroPage = () => {
       if (endDateISO) query = query.lte('issue_date', endDateISO);
       if (filters.type !== 'all') query = query.eq('type', filters.type);
       if (filters.status !== 'all') query = query.eq('status', filters.status);
+      
+      // CORREÇÃO: Aplicar filtro de centro de custo na query principal
+      if (filters.costCenter !== 'all') {
+        query = query.eq('cost_center', filters.costCenter);
+      }
 
       // Aplicar filtro de busca por cliente
       if (debouncedFilters.clientSearchTerm) {
@@ -231,6 +236,11 @@ const RelatorioFinanceiroPage = () => {
       if (endDateISO) query = query.lte('issue_date', endDateISO);
       if (filters.type !== 'all') query = query.eq('type', filters.type);
       if (filters.status !== 'all') query = query.eq('status', filters.status);
+      
+      // CORREÇÃO: Aplicar filtro de centro de custo na query principal
+      if (filters.costCenter !== 'all') {
+        query = query.eq('cost_center', filters.costCenter);
+      }
 
       // Aplicar filtro de busca por cliente
       if (debouncedFilters.clientSearchTerm) {
@@ -300,11 +310,7 @@ const RelatorioFinanceiroPage = () => {
         };
       });
 
-      // CORREÇÃO: Aplicar filtro de centro de custo no frontend usando o nome correto em inglês
-      if (filters.costCenter !== 'all') {
-        processedData = processedData.filter(item => item.cost_center === filters.costCenter);
-      }
-
+      // CORREÇÃO: Filtro de centro de custo já aplicado na query, não precisa filtrar novamente
       setReportData(processedData);
       setTotalCount(count || 0);
 
@@ -363,6 +369,11 @@ const RelatorioFinanceiroPage = () => {
       if (endDateISO) query = query.lte('issue_date', endDateISO);
       if (filters.type !== 'all') query = query.eq('type', filters.type);
       if (filters.status !== 'all') query = query.eq('status', filters.status);
+      
+      // CORREÇÃO: Aplicar filtro de centro de custo na query principal
+      if (filters.costCenter !== 'all') {
+        query = query.eq('cost_center', filters.costCenter);
+      }
 
       // Aplicar filtro de busca por cliente
       if (debouncedFilters.clientSearchTerm) {
@@ -404,11 +415,8 @@ const RelatorioFinanceiroPage = () => {
         }
       }
 
-      // CORREÇÃO: Aplicar filtro de centro de custo no frontend para exportação usando nome em inglês
+      // CORREÇÃO: Filtro de centro de custo já aplicado na query, não precisa filtrar novamente
       let filteredData = financialData || [];
-      if (filters.costCenter !== 'all') {
-        filteredData = filteredData.filter(item => item.cost_center === filters.costCenter);
-      }
 
       // Processar dados para exportação - CORREÇÃO: usando nomes em inglês
       const dataToExport = filteredData.map(item => {

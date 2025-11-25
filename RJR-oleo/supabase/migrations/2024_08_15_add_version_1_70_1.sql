@@ -1,2 +1,0 @@
-INSERT INTO public.versoes (versao, hash, descricao)
-VALUES ('1.70.1', 'b111218', '- **Finalização do Módulo Financeiro:** Ajuste de layout na lista de lançamentos para uma visualização mais elegante e intuitiva.');

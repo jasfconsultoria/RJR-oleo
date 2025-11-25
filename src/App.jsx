@@ -1,53 +1,53 @@
 import React, { useEffect, useCallback } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Toaster } from '@/components/ui/toaster';
-import LandingPage from '@/pages/LandingPage';
+import LandingPage from '@/pages/info/LandingPage';
 import AppLayout from '@/components/AppLayout';
-import LoginScreen from '@/pages/LoginScreen';
-import DashboardPage from '@/pages/DashboardPage';
-import ListaColetas from '@/pages/ListaColetas';
-import ColetaForm from '@/pages/ColetaForm';
-import ListaClientes from '@/pages/ListaClientes';
-import ClienteForm from '@/pages/ClienteForm';
-import CertificadoPage from '@/pages/CertificadoPage';
-import ListaCertificados from '@/pages/ListaCertificados';
-import CertificadoViewPage from '@/pages/CertificadoViewPage';
+import LoginScreen from '@/pages/auth/LoginScreen';
+import DashboardPage from '@/pages/config/DashboardPage';
+import ListaColetas from '@/pages/coletas/ListaColetas';
+import ColetaForm from '@/pages/coletas/ColetaForm';
+import ListaClientes from '@/pages/clientes/ListaClientes';
+import ClienteForm from '@/pages/clientes/ClienteForm';
+import CertificadoPage from '@/pages/certificados/CertificadoPage';
+import ListaCertificados from '@/pages/certificados/ListaCertificados';
+import CertificadoViewPage from '@/pages/certificados/CertificadoViewPage';
 import AssinaturaPage from '@/pages/AssinaturaPage';
-import ContratoAssinadoPage from '@/pages/ContratoAssinadoPage';
+import ContratoAssinadoPage from '@/pages/contratos/ContratoAssinadoPage';
 import RelatorioColetasPage from '@/pages/relatorios/RelatorioColetasPage';
 import RelatorioFinanceiroPage from '@/pages/relatorios/RelatorioFinanceiroPage';
 import RelatorioEstoquePage from '@/pages/relatorios/RelatorioEstoquePage';
-import UserManagementPage from '@/pages/UserManagementPage';
-import UserFormPage from '@/pages/UserFormPage';
-import EmpresaPage from '@/pages/EmpresaPage';
+import UserManagementPage from '@/pages/usuarios/UserManagementPage';
+import UserFormPage from '@/pages/usuarios/UserFormPage';
+import EmpresaPage from '@/pages/config/EmpresaPage';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useProfile } from '@/contexts/ProfileContext';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
-import ListaContratos from '@/pages/ListaContratos';
-import ContratoForm from '@/pages/ContratoForm';
-import AjudaPage from '@/pages/AjudaPage';
-import FaqPage from '@/pages/FaqPage';
-import SobreSistemaPage from '@/pages/SobreSistemaPage';
-import LogsPage from '@/pages/LogsPage';
-import VersoesPage from '@/pages/VersoesPage';
-import ListaFinanceiro from '@/pages/ListaFinanceiro';
-import FinanceiroForm from '@/pages/FinanceiroForm';
-import AssinaturaReciboPage from '@/pages/AssinaturaReciboPage';
-import ReciboPublicoPage from '@/pages/ReciboPublicoPage';
+import ListaContratos from '@/pages/contratos/ListaContratos';
+import ContratoForm from '@/pages/contratos/ContratoForm';
+import AjudaPage from '@/pages/info/AjudaPage';
+import FaqPage from '@/pages/info/FaqPage';
+import SobreSistemaPage from '@/pages/info/SobreSistemaPage';
+import LogsPage from '@/pages/config/LogsPage';
+import VersoesPage from '@/pages/info/VersoesPage';
+import ListaFinanceiro from '@/pages/financeiro/ListaFinanceiro';
+import FinanceiroForm from '@/pages/financeiro/FinanceiroForm';
+import AssinaturaReciboPage from '@/pages/recibos/AssinaturaReciboPage';
+import ReciboPublicoPage from '@/pages/recibos/ReciboPublicoPage';
 // Estoque Pages
 import EntradaFormPage from '@/pages/estoque/EntradaFormPage';
 import SaidaFormPage from '@/pages/estoque/SaidaFormPage';
 import ListaMovimentacoesPage from '@/pages/estoque/ListaMovimentacoesPage';
 import SaldoEstoquePage from '@/pages/estoque/SaldoEstoquePage';
-import ListaProdutosPage from '@/pages/estoque/ListaProdutosPage';
-import ProdutoFormPage from '@/pages/estoque/ProdutoFormPage';
+import ListaProdutosPage from '@/pages/produtos/ListaProdutosPage';
+import ProdutoFormPage from '@/pages/produtos/ProdutoFormPage';
 import ListaEntradasPage from '@/pages/estoque/ListaEntradasPage'; // New list page
 import ListaSaidasPage from '@/pages/estoque/ListaSaidasPage'; // New list page
-import ListaCentrosCusto from '@/pages/ListaCentrosCusto'; // New list page
-import CentroCustoForm from '@/pages/CentroCustoForm'; // New form page
-import CertificadoDisplayPage from '@/pages/CertificadoDisplayPage';
-import CertificadoPublicoPage from '@/pages/CertificadoPublicoPage';
+import ListaCentrosCusto from '@/pages/centros-custo/ListaCentrosCusto'; // New list page
+import CentroCustoForm from '@/pages/centros-custo/CentroCustoForm'; // New form page
+import CertificadoDisplayPage from '@/pages/certificados/CertificadoDisplayPage';
+import CertificadoPublicoPage from '@/pages/certificados/CertificadoPublicoPage';
 import RelatorioRecipientesPage from '@/pages/relatorios/RelatorioRecipientesPage'; // New import
 
 const ProtectedRoute = ({ children, requiredRole }) => {

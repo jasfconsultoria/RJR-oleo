@@ -89,14 +89,27 @@ const PaymentHistoryDialog = ({ isOpen, onClose, entry, onSuccess }) => {
   };
 
   const handleDelete = async (paymentId) => {
-    const { data, error } = await supabase.rpc('delete_payment', { p_payment_id: paymentId });
+    try {
+      const { data, error } = await supabase.rpc('delete_payment', { p_payment_id: paymentId });
 
-    if (error || (data && !data.success)) {
-      toast({ title: 'Erro ao excluir pagamento', description: error?.message || data?.message, variant: 'destructive' });
-    } else {
+      if (error) {
+        throw new Error(error.message || 'Erro ao excluir pagamento');
+      }
+      
+      if (data && !data.success) {
+        throw new Error(data.message || 'Erro ao excluir pagamento');
+      }
+
       toast({ title: 'Pagamento excluído com sucesso!' });
       fetchPayments();
       onSuccess(); // Refresh the main list
+    } catch (error) {
+      console.error('Erro ao excluir pagamento:', error);
+      toast({ 
+        title: 'Erro ao excluir pagamento', 
+        description: error.message || 'Ocorreu um erro desconhecido.', 
+        variant: 'destructive' 
+      });
     }
   };
 

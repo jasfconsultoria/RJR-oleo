@@ -6,7 +6,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
     import SignatureCanvas from 'react-signature-canvas';
     import { Button } from '@/components/ui/button';
     import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-    import ContratoPDF from '@/components/ContratoPDF';
+    import ContratoPDF from '@/components/contratos/ContratoPDF';
     import { Loader2, Eraser, CheckCircle, AlertTriangle, ArrowLeft } from 'lucide-react';
     import { Label } from '@/components/ui/label';
 

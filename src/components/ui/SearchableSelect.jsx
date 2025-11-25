@@ -16,11 +16,25 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 
-export function SearchableSelect({ options, value, onChange, placeholder = "Selecione...", disabled = false, labelText }) {
+export function SearchableSelect({ 
+  options, 
+  value, 
+  onChange, 
+  placeholder = "Selecione...", 
+  disabled = false, 
+  labelText,
+  inputClassName = "",
+  contentClassName = ""
+}) {
   const [open, setOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
   const selectedOption = options.find((option) => option.value === value);
+  
+  // Se o valor existe mas não está nas opções, criar uma opção temporária para exibir
+  const displayValue = selectedOption 
+    ? selectedOption.label 
+    : (value ? value : placeholder);
 
   return (
     <div className="space-y-2">
@@ -31,14 +45,20 @@ export function SearchableSelect({ options, value, onChange, placeholder = "Sele
             variant="outline"
             role="combobox"
             aria-expanded={open}
-            className="w-full justify-between bg-white/10 border-white/30 text-white hover:bg-white/20"
+            className={cn(
+              "w-full justify-between text-white hover:bg-white/20",
+              inputClassName || "bg-white/10 border-white/30 h-10"
+            )}
             disabled={disabled}
           >
-            {selectedOption ? selectedOption.label : placeholder}
+            {displayValue}
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-[--radix-popover-trigger-width] p-0 bg-gray-800 text-white border-gray-700">
+        <PopoverContent className={cn(
+          "w-[--radix-popover-trigger-width] p-0 bg-gray-800 text-white border-gray-700",
+          contentClassName
+        )}>
           <Command>
             <CommandInput placeholder="Buscar..." value={searchTerm} onValueChange={setSearchTerm} />
             <CommandEmpty>Nenhum item encontrado.</CommandEmpty>
