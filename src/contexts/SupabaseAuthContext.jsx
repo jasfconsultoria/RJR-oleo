@@ -99,6 +99,27 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
+  const resetPassword = useCallback(async (email) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+
+    if (error) {
+      toast({
+        variant: "destructive",
+        title: "Erro ao enviar email",
+        description: error.message || "Não foi possível enviar o email de recuperação",
+      });
+    } else {
+      toast({
+        title: "Email enviado!",
+        description: "Verifique sua caixa de entrada para redefinir sua senha.",
+      });
+    }
+
+    return { error };
+  }, [toast]);
+
   const value = useMemo(() => ({
     user,
     session,
@@ -106,7 +127,8 @@ export const AuthProvider = ({ children }) => {
     signUp,
     signIn,
     signOut,
-  }), [user, session, loading, signUp, signIn, signOut]);
+    resetPassword,
+  }), [user, session, loading, signUp, signIn, signOut, resetPassword]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

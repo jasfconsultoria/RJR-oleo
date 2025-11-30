@@ -5,15 +5,20 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/components/ui/use-toast';
-import { LogIn, User, Key, ArrowLeft, Loader2 } from 'lucide-react';
+import { LogIn, User, Key, ArrowLeft, Loader2, Eye, EyeOff, Mail } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 
 const LoginScreen = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { signIn } = useAuth();
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
+  const { signIn, resetPassword } = useAuth();
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -26,6 +31,25 @@ const LoginScreen = () => {
       });
     }
     setLoading(false);
+  };
+
+  const handleForgotPassword = async (e) => {
+    e.preventDefault();
+    if (!resetEmail) {
+      toast({
+        variant: "destructive",
+        title: "Email obrigatório",
+        description: "Por favor, informe seu email.",
+      });
+      return;
+    }
+    setResetLoading(true);
+    const { error } = await resetPassword(resetEmail);
+    if (!error) {
+      setShowForgotPassword(false);
+      setResetEmail('');
+    }
+    setResetLoading(false);
   };
 
   return (
@@ -65,15 +89,38 @@ const LoginScreen = () => {
             </div>
             <div className="space-y-2">
               <Label htmlFor="password" className="text-white flex items-center gap-2"><Key className="w-4 h-4" /> Senha</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Sua senha"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="bg-white/20 border-white/30 text-white placeholder:text-white/60 rounded-xl"
-                required
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Sua senha"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="bg-white/20 border-white/30 text-white placeholder:text-white/60 rounded-xl pr-12"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg bg-white/10 hover:bg-white/20 text-gray-800 hover:text-gray-900 transition-all duration-200 flex items-center justify-center"
+                  aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                >
+                  {showPassword ? (
+                    <EyeOff className="w-5 h-5" />
+                  ) : (
+                    <Eye className="w-5 h-5" />
+                  )}
+                </button>
+              </div>
+            </div>
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={() => setShowForgotPassword(true)}
+                className="text-sm text-emerald-300 hover:text-emerald-200 underline transition-colors font-medium"
+              >
+                Esqueci minha senha
+              </button>
             </div>
             <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 text-lg rounded-xl" disabled={loading}>
               {loading ? (
@@ -86,6 +133,63 @@ const LoginScreen = () => {
           </form>
         </motion.div>
       </div>
+
+      <Dialog open={showForgotPassword} onOpenChange={setShowForgotPassword}>
+        <DialogContent className="bg-emerald-900 border-emerald-700 text-white">
+          <DialogHeader>
+            <DialogTitle className="text-2xl">Recuperar Senha</DialogTitle>
+            <DialogDescription className="text-emerald-200">
+              Digite seu email e enviaremos um link para redefinir sua senha.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleForgotPassword} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="reset-email" className="text-white flex items-center gap-2">
+                <Mail className="w-4 h-4" /> E-mail
+              </Label>
+              <Input
+                id="reset-email"
+                type="email"
+                placeholder="seu@email.com"
+                value={resetEmail}
+                onChange={(e) => setResetEmail(e.target.value)}
+                className="bg-white/20 border-white/30 text-white placeholder:text-white/60 rounded-xl"
+                required
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowForgotPassword(false);
+                  setResetEmail('');
+                }}
+                className="bg-white/10 border-white/30 text-white hover:bg-white/20"
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={resetLoading}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                {resetLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Enviando...
+                  </>
+                ) : (
+                  <>
+                    <Mail className="mr-2 h-4 w-4" />
+                    Enviar
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };

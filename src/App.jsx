@@ -4,6 +4,7 @@ import { Toaster } from '@/components/ui/toaster';
 import LandingPage from '@/pages/info/LandingPage';
 import AppLayout from '@/components/AppLayout';
 import LoginScreen from '@/pages/auth/LoginScreen';
+import ResetPasswordScreen from '@/pages/auth/ResetPasswordScreen';
 import DashboardPage from '@/pages/config/DashboardPage';
 import ListaColetas from '@/pages/coletas/ListaColetas';
 import ColetaForm from '@/pages/coletas/ColetaForm';
@@ -119,6 +120,7 @@ function App() {
         <Route path="/certificado/publico/:id" element={<CertificadoPublicoPage />} />
         <Route path="/assinatura/:id" element={<AssinaturaPage />} />
         <Route path="/contrato-assinado/:id" element={<ContratoAssinadoPage />} />
+        <Route path="/reset-password" element={<ResetPasswordScreen />} />
         <Route path="/app/login" element={!session ? <LoginScreen /> : <Navigate to="/app/dashboard" />} />
         <Route 
           path="/app/*"
