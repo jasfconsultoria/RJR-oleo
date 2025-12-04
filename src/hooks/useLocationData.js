@@ -15,36 +15,39 @@ export const useLocationData = () => {
   // Buscar todos os estados únicos
   const fetchEstados = useCallback(async () => {
     try {
-      const { data, error: estadosError } = await supabase
-        .from('municipios')
-        .select('uf')
-        .not('uf', 'is', null);
+      // Lista completa de estados do Brasil (27 estados + DF)
+      const todosEstados = [
+        { value: 'AC', label: 'Acre' },
+        { value: 'AL', label: 'Alagoas' },
+        { value: 'AP', label: 'Amapá' },
+        { value: 'AM', label: 'Amazonas' },
+        { value: 'BA', label: 'Bahia' },
+        { value: 'CE', label: 'Ceará' },
+        { value: 'DF', label: 'Distrito Federal' },
+        { value: 'ES', label: 'Espírito Santo' },
+        { value: 'GO', label: 'Goiás' },
+        { value: 'MA', label: 'Maranhão' },
+        { value: 'MT', label: 'Mato Grosso' },
+        { value: 'MS', label: 'Mato Grosso do Sul' },
+        { value: 'MG', label: 'Minas Gerais' },
+        { value: 'PA', label: 'Pará' },
+        { value: 'PB', label: 'Paraíba' },
+        { value: 'PR', label: 'Paraná' },
+        { value: 'PE', label: 'Pernambuco' },
+        { value: 'PI', label: 'Piauí' },
+        { value: 'RJ', label: 'Rio de Janeiro' },
+        { value: 'RN', label: 'Rio Grande do Norte' },
+        { value: 'RS', label: 'Rio Grande do Sul' },
+        { value: 'RO', label: 'Rondônia' },
+        { value: 'RR', label: 'Roraima' },
+        { value: 'SC', label: 'Santa Catarina' },
+        { value: 'SP', label: 'São Paulo' },
+        { value: 'SE', label: 'Sergipe' },
+        { value: 'TO', label: 'Tocantins' }
+      ];
 
-      if (estadosError) throw estadosError;
-
-      // Obter estados únicos e ordenados
-      const estadosUnicos = [...new Set(data.map(item => item.uf))]
-        .filter(Boolean)
-        .sort();
-
-      // Mapear para o formato { value, label }
-      const estadosFormatados = estadosUnicos.map(uf => {
-        const estadoNames = {
-          'AC': 'Acre', 'AL': 'Alagoas', 'AP': 'Amapá', 'AM': 'Amazonas',
-          'BA': 'Bahia', 'CE': 'Ceará', 'DF': 'Distrito Federal', 'ES': 'Espírito Santo',
-          'GO': 'Goiás', 'MA': 'Maranhão', 'MT': 'Mato Grosso', 'MS': 'Mato Grosso do Sul',
-          'MG': 'Minas Gerais', 'PA': 'Pará', 'PB': 'Paraíba', 'PR': 'Paraná',
-          'PE': 'Pernambuco', 'PI': 'Piauí', 'RJ': 'Rio de Janeiro', 'RN': 'Rio Grande do Norte',
-          'RS': 'Rio Grande do Sul', 'RO': 'Rondônia', 'RR': 'Roraima', 'SC': 'Santa Catarina',
-          'SP': 'São Paulo', 'SE': 'Sergipe', 'TO': 'Tocantins'
-        };
-        return {
-          value: uf,
-          label: estadoNames[uf] || uf
-        };
-      });
-
-      setEstados(estadosFormatados);
+      // Usar lista estática completa para garantir que todos os estados estejam sempre disponíveis
+      setEstados(todosEstados);
     } catch (err) {
       console.error('Erro ao buscar estados:', err);
       setError(err);
