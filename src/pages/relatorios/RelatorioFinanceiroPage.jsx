@@ -16,6 +16,7 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { Input } from '@/components/ui/input';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import CentroCustoSearchableSelect from '@/components/centros-custo/CentroCustoSearchableSelect';
 import { Pagination } from '@/components/ui/pagination';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { DatePicker } from '@/components/ui/date-picker';
@@ -29,7 +30,7 @@ const RelatorioFinanceiroPage = () => {
     type: 'all', // 'credito', 'debito', 'all'
     status: 'all', // 'pending', 'partially_paid', 'paid', 'overdue', 'canceled', 'all'
     clientSearchTerm: '',
-    costCenter: 'all',
+    costCenter: '', // Iniciar vazio para mostrar apenas placeholder
   });
   const [summary, setSummary] = useState({ total_entries: 0, total_value: 0, total_paid: 0, total_balance: 0 });
   const [chartData, setChartData] = useState([]);
@@ -119,7 +120,7 @@ const RelatorioFinanceiroPage = () => {
       if (filters.status !== 'all') query = query.eq('status', filters.status);
       
       // CORREÇÃO: Aplicar filtro de centro de custo na query principal
-      if (filters.costCenter !== 'all') {
+      if (filters.costCenter && filters.costCenter !== 'all' && filters.costCenter.trim() !== '') {
         query = query.eq('cost_center', filters.costCenter);
       }
 
@@ -166,7 +167,7 @@ const RelatorioFinanceiroPage = () => {
 
       // CORREÇÃO: Filtrar por centro de custo no frontend usando o nome correto em inglês
       let filteredData = allFinancialData || [];
-      if (filters.costCenter !== 'all') {
+      if (filters.costCenter && filters.costCenter !== 'all' && filters.costCenter.trim() !== '') {
         filteredData = filteredData.filter(item => item.cost_center === filters.costCenter);
       }
 
@@ -238,7 +239,7 @@ const RelatorioFinanceiroPage = () => {
       if (filters.status !== 'all') query = query.eq('status', filters.status);
       
       // CORREÇÃO: Aplicar filtro de centro de custo na query principal
-      if (filters.costCenter !== 'all') {
+      if (filters.costCenter && filters.costCenter !== 'all' && filters.costCenter.trim() !== '') {
         query = query.eq('cost_center', filters.costCenter);
       }
 
@@ -371,7 +372,7 @@ const RelatorioFinanceiroPage = () => {
       if (filters.status !== 'all') query = query.eq('status', filters.status);
       
       // CORREÇÃO: Aplicar filtro de centro de custo na query principal
-      if (filters.costCenter !== 'all') {
+      if (filters.costCenter && filters.costCenter !== 'all' && filters.costCenter.trim() !== '') {
         query = query.eq('cost_center', filters.costCenter);
       }
 
@@ -597,17 +598,13 @@ const RelatorioFinanceiroPage = () => {
                 </div>
               </div>
               <div>
-                <Label htmlFor="costCenterFilter" className="block text-white mb-1 text-sm">Centro de Custo</Label>
-                <Select value={filters.costCenter} onValueChange={(value) => handleFilterChange('costCenter', value)}>
-                  <SelectTrigger className="bg-white/20 border-white/30 text-white rounded-xl">
-                    <SelectValue placeholder="Todos os Centros de Custo" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
-                    {costCenterOptions.map(cc => (
-                      <SelectItem key={cc.value} value={cc.value}>{cc.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <CentroCustoSearchableSelect
+                  labelText="Centro de Custo"
+                  value={filters.costCenter || ''}
+                  onChange={(value) => handleFilterChange('costCenter', value || '')}
+                  disabled={false}
+                  allowAll={true}
+                />
               </div>
             </div>
           </CardContent>

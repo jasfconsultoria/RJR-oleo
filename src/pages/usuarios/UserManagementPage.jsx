@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Helmet } from 'react-helmet';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
@@ -37,6 +37,7 @@ const UserManagementPage = () => {
   const { toast } = useToast();
   const { user: currentUser } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [empresa, setEmpresa] = useState(null);
@@ -80,6 +81,27 @@ const UserManagementPage = () => {
       fetchUsers();
     }
   }, [fetchUsers, empresa]);
+
+  // Recarregar usuários quando a página recebe foco ou quando voltamos para ela
+  useEffect(() => {
+    const handleFocus = () => {
+      if (empresa) {
+        console.log('🔄 Página recebeu foco, recarregando usuários...');
+        fetchUsers();
+      }
+    };
+    
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [fetchUsers, empresa]);
+
+  // Recarregar quando a localização muda (útil quando voltamos da página de edição)
+  useEffect(() => {
+    if (empresa && location.pathname === '/app/usuarios') {
+      console.log('🔄 Página de usuários montada, recarregando dados...');
+      fetchUsers();
+    }
+  }, [location.pathname, fetchUsers, empresa]);
 
   const filteredUsers = useMemo(() => {
     if (!debouncedSearchTerm) return users;

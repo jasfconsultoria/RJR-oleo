@@ -42,7 +42,7 @@ const FinanceiroForm = ({ type }) => {
     description: '',
     total_value: '',
     payment_method: 'pix',
-    cost_center: 'ADMINISTRAÇÃO',
+    cost_center: '',
     notes: '',
     down_payment: '0,00',
     installments_number: 0,
@@ -50,21 +50,44 @@ const FinanceiroForm = ({ type }) => {
     single_due_date: addDays(new Date(), 30).toISOString(),
   }), []);
 
+  const initialFormData = useMemo(() => getInitialFormData(), [getInitialFormData]);
+  
   const autoSaveKey = id ? `financeiroForm_edit_${id}` : `financeiroForm_new_${type}`;
   
   const [rawFormData, setRawFormData, clearSavedData] = useAutoSave(
     autoSaveKey,
-    getInitialFormData(),
+    initialFormData,
     true
   );
 
-  // Verificar se há dados no auto-save
+  // Verificar se há dados no auto-save sempre que o componente monta ou quando rawFormData muda
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem(autoSaveKey);
-      setHasAutoSaveData(!!saved && saved !== 'null' && saved !== 'undefined');
-    }
-  }, [autoSaveKey]);
+    const checkAutoSave = () => {
+      if (typeof window !== 'undefined') {
+        const saved = localStorage.getItem(autoSaveKey);
+        if (saved) {
+          try {
+            const parsed = JSON.parse(saved);
+            // Verificar se há dados significativos (não apenas valores padrão/vazios)
+            const hasSignificantData = parsed && (
+              parsed.document_number?.trim() ||
+              parsed.cliente_fornecedor_name?.trim() ||
+              parsed.description?.trim() ||
+              parsed.total_value?.trim() ||
+              (parsed.installments && parsed.installments.length > 0)
+            );
+            setHasAutoSaveData(hasSignificantData);
+          } catch (e) {
+            setHasAutoSaveData(false);
+          }
+        } else {
+          setHasAutoSaveData(false);
+        }
+      }
+    };
+    
+    checkAutoSave();
+  }, [autoSaveKey, rawFormData]);
 
   // Process rawFormData para obter Date objects
   const formData = useMemo(() => {
@@ -82,7 +105,7 @@ const FinanceiroForm = ({ type }) => {
       description: processed?.description || '',
       total_value: processed?.total_value || '',
       payment_method: processed?.payment_method || 'pix',
-      cost_center: processed?.cost_center || 'ADMINISTRAÇÃO',
+      cost_center: processed?.cost_center || '',
       notes: processed?.notes || '',
       down_payment: processed?.down_payment || '0,00',
       installments_number: processed?.installments_number || 0,
@@ -110,6 +133,7 @@ const FinanceiroForm = ({ type }) => {
   const [costCenters, setCostCenters] = useState([]);
   const [isNewCostCenterModalOpen, setIsNewCostCenterModalOpen] = useState(false);
   const [clientListVersion, setClientListVersion] = useState(0);
+  const [costCenterListVersion, setCostCenterListVersion] = useState(0);
 
   const title = type === 'credito' ? 'Crédito' : 'Débito';
   const entityLabel = type === 'credito' ? 'Cliente' : 'Fornecedor';
@@ -150,11 +174,7 @@ const FinanceiroForm = ({ type }) => {
         label: cc?.nome || '' 
       })));
 
-      // Set default cost center if not already set and data exists
-      if (!formData.cost_center && safeCostCenters.length > 0) {
-        const firstCostCenter = safeCostCenters[0]?.nome || 'ADMINISTRAÇÃO';
-        handleUpdateRawFormData({ cost_center: firstCostCenter });
-      }
+      // Não definir centro de custo padrão - deixar o usuário escolher
     } catch (error) {
       console.error('Erro ao buscar centros de custo:', error);
       toast({ 
@@ -222,7 +242,7 @@ const FinanceiroForm = ({ type }) => {
         description: entryData?.description || '',
         total_value: String(entryData?.total_value || '0').replace('.', ','),
         payment_method: entryData?.payment_method || 'pix',
-        cost_center: entryData?.cost_center || 'ADMINISTRAÇÃO',
+        cost_center: entryData?.cost_center || '',
         notes: entryData?.notes || '',
         single_due_date: entryData?.issue_date || addDays(new Date(), 30).toISOString(),
       };
@@ -351,6 +371,7 @@ const FinanceiroForm = ({ type }) => {
 
   const handleNewCostCenterSuccess = (newCostCenter) => {
     setIsNewCostCenterModalOpen(false);
+    setCostCenterListVersion(v => v + 1);
     fetchCostCenters();
     if (newCostCenter?.nome) {
       handleUpdateRawFormData({ cost_center: newCostCenter.nome });
@@ -359,7 +380,17 @@ const FinanceiroForm = ({ type }) => {
 
   // ✅ Função para descartar alterações
   const handleDiscardChanges = () => {
+    // Usar clearSavedData do hook para garantir limpeza completa
     clearSavedData();
+    
+    // Resetar estado manualmente também
+    setHasAutoSaveData(false);
+    
+    // Resetar para dados iniciais
+    const resetData = getInitialFormData();
+    setRawFormData(resetData);
+    
+    // Navegar de volta
     navigate(onBackPath);
   };
 
@@ -403,7 +434,7 @@ const FinanceiroForm = ({ type }) => {
       cnpj_cpf: unmask(formData.cnpj_cpf || '') || null,
       description: formData.description || '',
       payment_method: formData.payment_method || 'pix',
-      cost_center: formData.cost_center || 'ADMINISTRAÇÃO',
+      cost_center: formData.cost_center || null,
       notes: formData.notes || '',
       user_id: user?.id || null,
       issue_date: format(formData.issue_date, 'yyyy-MM-dd'),
@@ -561,6 +592,7 @@ const FinanceiroForm = ({ type }) => {
                 costCenters={costCenters}
                 entityLabel={entityLabel}
                 clientListVersion={clientListVersion}
+                costCenterListVersion={costCenterListVersion}
                 isNewClientModalOpen={isNewClientModalOpen}
                 setIsNewClientModalOpen={setIsNewClientModalOpen}
                 isNewCostCenterModalOpen={isNewCostCenterModalOpen}

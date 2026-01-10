@@ -197,7 +197,6 @@ const ItensMovimentacaoTable = ({ items, onItemsChange, type, isEditing }) => {
                           error ? 'border-red-500' : 
                           validatedItems[index] ? 'border-green-500/50' : 'border-white/20'
                         } text-white text-right h-10 px-3 py-2 rounded-md text-sm`}
-                        disabled={isEditing}
                       />
                     </TableCell>
                     

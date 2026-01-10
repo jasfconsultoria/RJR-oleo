@@ -7,6 +7,7 @@ import { PlusCircle } from 'lucide-react';
 import { IMaskInput } from 'react-imask';
 import { DateInput } from '@/components/ui/date-input';
 import ClienteSearchableSelect from '@/components/clientes/ClienteSearchableSelect';
+import CentroCustoSearchableSelect from '@/components/centros-custo/CentroCustoSearchableSelect';
 import { Dialog, DialogContent, DialogHeader, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import ClienteForm from '@/pages/clientes/ClienteForm';
@@ -35,6 +36,7 @@ export const FinanceiroFormFields = ({
   costCenters,
   entityLabel,
   clientListVersion,
+  costCenterListVersion,
   isNewClientModalOpen,
   setIsNewClientModalOpen,
   isNewCostCenterModalOpen,
@@ -55,7 +57,7 @@ export const FinanceiroFormFields = ({
     description: formData?.description || '',
     total_value: formData?.total_value || '',
     payment_method: formData?.payment_method || 'pix',
-    cost_center: formData?.cost_center || 'ADMINISTRAÇÃO',
+    cost_center: formData?.cost_center || '',
     notes: formData?.notes || '',
   };
 
@@ -193,50 +195,46 @@ export const FinanceiroFormFields = ({
           className="bg-white/5 border-white/20 rounded-xl h-9 text-xs" 
         />
       </div>
-      <div>
-        <Label htmlFor="payment_method" className="text-sm">Forma de Pagamento <span className="text-red-500">*</span></Label>
-        <Select value={safeFormData.payment_method} onValueChange={(value) => handleSelectChange('payment_method', value)}>
-          <SelectTrigger className="bg-white/5 border-white/20 rounded-xl h-9 text-xs">
-            <SelectValue placeholder="Selecione a forma de pagamento" />
-          </SelectTrigger>
-          <SelectContent className="bg-gray-800 text-white border-gray-700 rounded-xl text-xs">
-            {paymentMethods.map(method => (
-              <SelectItem key={method.value} value={method.value}>
-                {method.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="flex items-end gap-2">
-        <div className="flex-grow">
-          <Label htmlFor="cost_center" className="text-sm">Centro de Custo</Label>
-          <Select value={safeFormData.cost_center} onValueChange={(value) => handleSelectChange('cost_center', value)}>
+      <div className="md:col-span-2 grid grid-cols-5 gap-4">
+        <div className="col-span-2">
+          <Label htmlFor="payment_method" className="text-sm">Forma de Pagamento <span className="text-red-500">*</span></Label>
+          <Select value={safeFormData.payment_method} onValueChange={(value) => handleSelectChange('payment_method', value)}>
             <SelectTrigger className="bg-white/5 border-white/20 rounded-xl h-9 text-xs">
-              <SelectValue placeholder="Selecione o centro de custo" />
+              <SelectValue placeholder="Selecione a forma de pagamento" />
             </SelectTrigger>
             <SelectContent className="bg-gray-800 text-white border-gray-700 rounded-xl text-xs">
-              {safeCostCenters.map(center => (
-                <SelectItem key={center.value} value={center.value}>
-                  {center.label}
+              {paymentMethods.map(method => (
+                <SelectItem key={method.value} value={method.value}>
+                  {method.label}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
-        <Dialog open={isNewCostCenterModalOpen} onOpenChange={setIsNewCostCenterModalOpen}>
-          <DialogTrigger asChild>
-            <Button variant="outline" size="icon" className="h-9 w-9 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white">
-              <PlusCircle className="h-4 w-4" />
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[600px] bg-gray-800 text-white border-gray-700 rounded-xl">
-            <DialogHeader>
-              {/* <DialogTitle className="text-emerald-300">Novo Centro de Custo</DialogTitle> */}
-            </DialogHeader>
-            <CentroCustoForm isModal onSaveSuccess={handleNewCostCenterSuccess} />
-          </DialogContent>
-        </Dialog>
+        <div className="relative z-10 flex items-end gap-2 col-span-3">
+          <div className="flex-grow">
+            <CentroCustoSearchableSelect
+              labelText="Centro de Custo"
+              value={safeFormData.cost_center}
+              onChange={(value) => handleSelectChange('cost_center', value)}
+              disabled={false}
+              version={costCenterListVersion}
+            />
+          </div>
+          <Dialog open={isNewCostCenterModalOpen} onOpenChange={setIsNewCostCenterModalOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="icon" className="h-9 w-9 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white">
+                <PlusCircle className="h-4 w-4" />
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[600px] bg-gray-800 text-white border-gray-700 rounded-xl">
+              <DialogHeader>
+                {/* <DialogTitle className="text-emerald-300">Novo Centro de Custo</DialogTitle> */}
+              </DialogHeader>
+              <CentroCustoForm isModal onSaveSuccess={handleNewCostCenterSuccess} />
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
       <div className="md:col-span-2">
         <Label htmlFor="total_value" className="text-sm">Valor Total (R$) <span className="text-red-500">*</span></Label>

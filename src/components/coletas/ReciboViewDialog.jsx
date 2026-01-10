@@ -33,7 +33,10 @@ export const ReciboViewDialog = ({
   // DEBUG: Verificar se os dados da empresa estão chegando
   useEffect(() => {
     if (isOpen && empresa) {
-      console.log('🏢 DEBUG - Dados da empresa recebidos:', empresa);
+      console.log('🏢 DEBUG - Dados da empresa recebidos COMPLETOS:', empresa);
+      console.log('🏢 DEBUG - Todos os campos:', Object.keys(empresa));
+      console.log('🏢 DEBUG - municipio:', empresa.municipio);
+      console.log('🏢 DEBUG - estado:', empresa.estado);
       console.log('📄 DEBUG - Dados da coleta recebidos:', coleta);
     }
   }, [isOpen, empresa, coleta]);

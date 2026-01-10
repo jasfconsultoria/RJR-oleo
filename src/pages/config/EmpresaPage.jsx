@@ -70,6 +70,9 @@ const EmpresaPage = () => {
         await logAction('fetch_empresa_failed', { error: error.message });
       }
     } else if (data) {
+      console.log('📊 EmpresaPage - Dados retornados do banco:', data);
+      console.log('📊 EmpresaPage - municipio:', data.municipio);
+      console.log('📊 EmpresaPage - estado:', data.estado);
       setEmpresa(data);
       setFormData({ 
         ...data, 
@@ -142,6 +145,9 @@ const EmpresaPage = () => {
     setSaving(true);
     
     const dataToSave = { ...formData, updated_at: new Date() };
+    console.log('💾 Salvando dados da empresa:', dataToSave);
+    console.log('💾 municipio:', dataToSave.municipio);
+    console.log('💾 estado:', dataToSave.estado);
 
     let error;
     let actionType = '';

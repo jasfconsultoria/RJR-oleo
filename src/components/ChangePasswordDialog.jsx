@@ -25,10 +25,12 @@ export const ChangePasswordDialog = ({ user, isOpen, setIsOpen }) => {
     }
     setLoading(true);
 
-    const { error } = await supabase.auth.admin.updateUserById(user.id, { password });
+    const { data, error } = await supabase.functions.invoke('change-password', {
+      body: { userId: user.id, password },
+    });
 
     if (error) {
-      toast({ title: 'Erro ao alterar senha', description: error.message, variant: 'destructive' });
+      toast({ title: 'Erro ao alterar senha', description: error.message || 'User not allowed', variant: 'destructive' });
     } else {
       toast({ title: 'Senha alterada com sucesso!' });
       setIsOpen(false);

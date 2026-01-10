@@ -33,7 +33,9 @@ const ReciboPage = () => {
               nome_fantasia,
               razao_social,
               cnpj_cpf,
-              endereco
+              endereco,
+              municipio,
+              estado
             )
           `)
           .eq('id', id)
@@ -50,7 +52,9 @@ const ReciboPage = () => {
           nome_fantasia: coletaData.clientes?.nome_fantasia,
           razao_social: coletaData.clientes?.razao_social,
           cnpj_cpf: coletaData.clientes?.cnpj_cpf,
-          endereco: coletaData.clientes?.endereco
+          cliente_endereco: coletaData.clientes?.endereco,
+          cliente_municipio: coletaData.clientes?.municipio,
+          cliente_estado: coletaData.clientes?.estado
         };
 
         console.log('✅ Coleta encontrada com dados do cliente:', dadosCompletos);
@@ -61,10 +65,10 @@ const ReciboPage = () => {
           endereco: dadosCompletos.endereco
         });
 
-        // Buscar dados da empresa
+        // Buscar dados da empresa - ESPECIFICAR CAMPOS EXPLICITAMENTE
         const { data: empresaData, error: empresaError } = await supabase
           .from('empresa')
-          .select('*')
+          .select('id, nome_fantasia, razao_social, cnpj, telefone, email, endereco, logo_sistema_url, logo_documento_url, timezone, items_per_page, estado, municipio, assinatura_responsavel_url, nome_responsavel_assinatura, created_at, updated_at')
           .single();
 
         if (empresaError) {

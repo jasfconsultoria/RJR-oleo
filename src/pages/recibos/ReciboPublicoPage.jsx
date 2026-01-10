@@ -30,15 +30,16 @@ const ReciboPublicoPage = () => {
       try {
         console.log('🚨 ReciboPublicoPage - Buscando dados com JOIN');
 
-        // BUSCAR DADOS DA EMPRESA - TABELA CORRETA
+        // BUSCAR DADOS DA EMPRESA - ESPECIFICAR CAMPOS EXPLICITAMENTE
         const { data: empresaData, error: empresaError } = await supabase
           .from('empresa')
-          .select('*')
+          .select('id, nome_fantasia, razao_social, cnpj, telefone, email, endereco, logo_sistema_url, logo_documento_url, timezone, items_per_page, estado, municipio, assinatura_responsavel_url, nome_responsavel_assinatura, created_at, updated_at')
           .limit(1)
           .single();
 
         if (!empresaError && empresaData) {
-          console.log('🏢 Dados da empresa:', empresaData);
+          console.log('🏢 Dados da empresa COMPLETOS:', empresaData);
+          console.log('🏢 Dados da empresa JSON:', JSON.stringify(empresaData, null, 2));
           setEmpresa(empresaData);
         } else {
           console.error('❌ Erro ao buscar empresa:', empresaError);
@@ -53,7 +54,9 @@ const ReciboPublicoPage = () => {
               nome_fantasia,
               razao_social,
               cnpj_cpf,
-              endereco
+              endereco,
+              municipio,
+              estado
             )
           `)
           .eq('id', id)
@@ -82,7 +85,9 @@ const ReciboPublicoPage = () => {
           nome_fantasia: coletaComCliente.clientes?.nome_fantasia,
           razao_social: coletaComCliente.clientes?.razao_social,
           cliente_cnpj_cpf: coletaComCliente.clientes?.cnpj_cpf,
-          cliente_endereco: coletaComCliente.clientes?.endereco
+          cliente_endereco: coletaComCliente.clientes?.endereco,
+          cliente_municipio: coletaComCliente.clientes?.municipio,
+          cliente_estado: coletaComCliente.clientes?.estado
         };
 
         console.log('🚨 ReciboPublicoPage - Dados finais:', dadosColeta);

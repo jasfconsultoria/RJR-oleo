@@ -223,7 +223,7 @@ const ColetaForm = () => {
   useEffect(() => {
     const fetchEmpresaData = async () => {
       try {
-        const { data, error } = await supabase.from('empresa').select('*').single();
+        const { data, error } = await supabase.from('empresa').select('id, nome_fantasia, razao_social, cnpj, telefone, email, endereco, logo_sistema_url, logo_documento_url, timezone, items_per_page, estado, municipio, assinatura_responsavel_url, nome_responsavel_assinatura, created_at, updated_at').single();
         if (error) {
           console.warn('Erro ao buscar dados da empresa:', error);
           setEmpresa({ 
@@ -450,6 +450,25 @@ const ColetaForm = () => {
         return;
       }
 
+      // Verificar se o user_id existe na tabela auth.users antes de salvar
+      // Isso previne erros de foreign key constraint
+      try {
+        const { data: authUser, error: authError } = await supabase.auth.getUser();
+        if (authError || !authUser?.user || authUser.user.id !== user.id) {
+          console.error('DEBUG - Erro ao verificar usuário autenticado:', authError);
+          const error = new Error('Usuário autenticado não encontrado. Por favor, faça login novamente.');
+          toast({ title: "Erro de Autenticação", description: error.message, variant: "destructive" });
+          if (returnData) return { error };
+          return;
+        }
+      } catch (authCheckError) {
+        console.error('DEBUG - Exceção ao verificar usuário:', authCheckError);
+        const error = new Error('Não foi possível verificar a autenticação do usuário. Por favor, faça login novamente.');
+        toast({ title: "Erro de Autenticação", description: error.message, variant: "destructive" });
+        if (returnData) return { error };
+        return;
+      }
+
       let clienteId = finalColetaData.cliente_id;
       
       if (!finalColetaData.cliente_id) {
@@ -519,7 +538,18 @@ const ColetaForm = () => {
 
       if (coletaError) {
         console.error('DEBUG - Erro ao salvar coleta:', coletaError);
-        toast({ title: "Erro ao salvar coleta", description: coletaError.message, variant: "destructive" });
+        
+        // Tratamento específico para erro de foreign key constraint
+        let errorMessage = coletaError.message;
+        if (coletaError.message?.includes('foreign key constraint') || coletaError.message?.includes('coletas_user_id_fkey')) {
+          errorMessage = 'Erro ao salvar: O usuário não está registrado corretamente no sistema. Por favor, faça logout e login novamente, ou entre em contato com o administrador.';
+        }
+        
+        toast({ 
+          title: "Erro ao salvar coleta", 
+          description: errorMessage, 
+          variant: "destructive" 
+        });
         if (returnData) return { error: coletaError };
         return;
       }

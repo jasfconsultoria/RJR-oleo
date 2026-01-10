@@ -9,7 +9,7 @@ import { Loader2, FileDown, Droplets, Truck, DollarSign, Repeat, BarChart2, Sear
 import { Table, TableBody, TableCell, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { useLocationData } from '@/hooks/useLocationData';
 import { useProfile } from '@/contexts/ProfileContext';
-import { format, subDays, endOfDay, parseISO, isValid } from 'date-fns';
+import { format, subDays, endOfDay, parseISO, isValid, startOfMonth, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import * as XLSX from 'xlsx';
 import { formatCurrency, formatNumber } from '@/lib/utils';
@@ -30,8 +30,8 @@ const RelatoriosPage = () => {
     clientSearchTerm: '',
     userId: 'all',
     tipoColeta: 'all',
-    startDate: format(subDays(new Date(), 30), 'yyyy-MM-dd'),
-    endDate: format(new Date(), 'yyyy-MM-dd'),
+    startDate: format(startOfMonth(new Date()), 'yyyy-MM-dd'),
+    endDate: format(endOfMonth(new Date()), 'yyyy-MM-dd'),
   });
   const [municipios, setMunicipiosList] = useState([]);
   const { toast } = useToast();
@@ -124,6 +124,13 @@ const RelatoriosPage = () => {
     return names.filter(Boolean).join(' ') || '';
   };
 
+  // Função auxiliar para obter o nome do usuário de forma segura
+  const getUserName = (item) => {
+    if (!item.user_id) return 'N/A';
+    const usuario = usuarios.find(u => u.id === item.user_id);
+    return usuario?.full_name || 'N/A';
+  };
+
   // ✅ NOVO: Função para buscar totais do período completo
   const fetchPeriodTotals = useCallback(async (currentFilters) => {
     if (!empresa) return;
@@ -192,7 +199,7 @@ const RelatoriosPage = () => {
     // Consulta modificada para ser mais robusta com os relacionamentos
     let query = supabase
       .from('coletas')
-      .select('*, pessoa:clientes(*), usuario:profiles(full_name)', { count: 'exact' });
+      .select('*, pessoa:clientes(*)', { count: 'exact' });
 
     // Filtros do servidor
     if (currentFilters.estado && currentFilters.estado !== 'all') query = query.eq('estado', currentFilters.estado);
@@ -288,7 +295,7 @@ const RelatoriosPage = () => {
       
       let query = supabase
         .from('coletas')
-        .select('*, pessoa:clientes(*), usuario:profiles(full_name)');
+        .select('*, pessoa:clientes(*)');
       
       // Aplicar os mesmos filtros da consulta principal
       if (filters.estado && filters.estado !== 'all') query = query.eq('estado', filters.estado);
@@ -328,11 +335,12 @@ const RelatoriosPage = () => {
       const dateObj = parseISO(item.data_coleta);
       const formattedDate = isValid(dateObj) ? format(dateObj, 'dd/MM/yyyy', { locale: ptBR }) : 'N/A';
       const clientDisplayName = getClientName(item);
+      const userName = getUserName(item);
       
       return {
         'Data Coleta': formattedDate,
         'Cliente': clientDisplayName,
-        'Usuário': item.usuario?.full_name || 'N/A',
+        'Usuário': userName,
         'Estado': item.estado,
         'Município': item.municipio,
         'Tipo Coleta': item.tipo_coleta,
@@ -386,7 +394,7 @@ const RelatoriosPage = () => {
                   <Label htmlFor="estado">Estado</Label>
                    <Select value={filters.estado} onValueChange={(value) => setFilters({ ...filters, estado: value || 'all' })} disabled={profile?.role === 'coletor'}>
                     <SelectTrigger id="estado" className="w-full bg-white/10 border-white/20 text-white focus:ring-emerald-400 rounded-xl"><SelectValue /></SelectTrigger>
-                    <SelectContent className="bg-gray-800 text-white border-gray-700 rounded-xl"><SelectItem value="all">Todos os Estados</SelectItem>{estados.map(e => <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>)}</SelectContent>
+                    <SelectContent className="bg-gray-800 text-white border-gray-700 rounded-xl max-h-60 overflow-y-auto"><SelectItem value="all">Todos os Estados</SelectItem>{estados.map(e => <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div>
@@ -494,7 +502,7 @@ const RelatoriosPage = () => {
                               <TableRow key={item.id} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
                                 <TableCell data-label="Data">{formattedDate}</TableCell>
                                 <TableCell data-label="Cliente">{clientDisplayName}</TableCell>
-                                <TableCell data-label="Usuário">{item.usuario?.full_name || 'N/A'}</TableCell>
+                                <TableCell data-label="Usuário">{getUserName(item)}</TableCell>
                                 <TableCell data-label="Local">{item.municipio}, {item.estado}</TableCell>
                                 <TableCell data-label="Tipo">{item.tipo_coleta}</TableCell>
                                 <TableCell data-label="Qtd. (kg)" className="text-right">{formatNumber(item.quantidade_coletada)}</TableCell>

@@ -77,13 +77,38 @@ export const Recibo = React.forwardRef(({ data, signature, empresa, timezone, co
     // USA TODOS OS CAMPOS POSSÍVEIS PARA CNPJ/CPF
     const clientCnpjCpf = data.cliente_cnpj_cpf || data.cnpj_cpf || 'Não informado';
 
-    // USA TODOS OS CAMPOS POSSÍVEIS PARA ENDEREÇO
-    const clientAddress = data.cliente_endereco || data.endereco || 'Endereço não informado';
+    // FORMATAR ENDEREÇO COMPLETO - PRIMEIRA LINHA: ENDEREÇO, SEGUNDA LINHA: CIDADE E UF
+    const formatCompleteAddress = () => {
+        const endereco = data.cliente_endereco || data.endereco || '';
+        const bairro = data.cliente_bairro || data.bairro || '';
+        const municipio = data.cliente_municipio || data.municipio || '';
+        const estado = data.cliente_estado || data.estado || '';
+        
+        // Primeira linha: endereço e bairro (se houver)
+        const enderecoParts = [];
+        if (endereco) enderecoParts.push(endereco);
+        if (bairro) enderecoParts.push(bairro);
+        const enderecoLinha = enderecoParts.length > 0 ? enderecoParts.join(', ') : 'Endereço não informado';
+        
+        // Segunda linha: separar títulos dos valores
+        const cidade = municipio ? municipio.toUpperCase() : '';
+        const uf = estado ? estado.toUpperCase() : '';
+        
+        return {
+            endereco: enderecoLinha,
+            cidade: cidade,
+            uf: uf
+        };
+    };
+    
+    const clientAddress = formatCompleteAddress();
 
     console.log('✅ DEBUG Recibo - Dados FINAIS CORRETOS:', {
         nomeFinal: clientName,
         cnpj_cpf: clientCnpjCpf,
-        endereco: clientAddress,
+        endereco: clientAddress.endereco,
+        cidade: clientAddress.cidade,
+        uf: clientAddress.uf,
         cliente_nome: data.cliente_nome,
         nome_fantasia: data.nome_fantasia,
         razao_social: data.razao_social,
@@ -101,9 +126,19 @@ export const Recibo = React.forwardRef(({ data, signature, empresa, timezone, co
         telefone: 'N/A',
         email: 'N/A',
         endereco: 'Endereço não informado',
+        municipio: '',
+        estado: '',
         logo_documento_url: null,
         timezone: 'America/Sao_Paulo'
     };
+
+    console.log('🏢 Recibo - Dados da empresa COMPLETOS:', empresaData);
+    console.log('🏢 Recibo - Todos os campos:', Object.keys(empresaData));
+    console.log('🏢 Recibo - empresa prop recebida (OBJETO COMPLETO):', JSON.stringify(empresa, null, 2));
+    console.log('🏢 Recibo - empresaData.municipio direto:', empresaData.municipio);
+    console.log('🏢 Recibo - empresaData.estado direto:', empresaData.estado);
+    console.log('🏢 Recibo - empresa?.municipio:', empresa?.municipio);
+    console.log('🏢 Recibo - empresa?.estado:', empresa?.estado);
 
     // Estado para controlar erros de carregamento da logo
     const [logoError, setLogoError] = useState(false);
@@ -159,6 +194,18 @@ export const Recibo = React.forwardRef(({ data, signature, empresa, timezone, co
                     <p style={{ wordWrap: 'break-word', maxWidth: '100%' }}>
                         {empresaData.endereco}
                     </p>
+                    {(() => {
+                        const municipio = empresaData.municipio?.trim() || '';
+                        const estado = empresaData.estado?.trim() || '';
+                        if (municipio || estado) {
+                            return (
+                                <p style={{ wordWrap: 'break-word', maxWidth: '100%' }}>
+                                    {municipio}{municipio && estado ? ' - ' : ''}{estado}
+                                </p>
+                            );
+                        }
+                        return null;
+                    })()}
                     <p>CNPJ: {empresaData.cnpj ? formatCnpjCpf(empresaData.cnpj) : 'N/A'}</p>
                     <p>Telefone: {empresaData.telefone} | Email: {empresaData.email}</p>
                 </div>
@@ -181,12 +228,6 @@ export const Recibo = React.forwardRef(({ data, signature, empresa, timezone, co
                             {clientName}
                         </p>
                     </div>
-                    <div>
-                        <p className="text-gray-500 text-xs uppercase tracking-wide">CNPJ/CPF</p>
-                        <p className="font-semibold mt-1" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                            {clientCnpjCpf ? formatCnpjCpf(clientCnpjCpf) : 'Não informado'}
-                        </p>
-                    </div>
                     <div className="col-span-2">
                         <p className="text-gray-500 text-xs uppercase tracking-wide">ENDEREÇO</p>
                         <p className="font-semibold mt-1" style={{ 
@@ -194,7 +235,24 @@ export const Recibo = React.forwardRef(({ data, signature, empresa, timezone, co
                             maxWidth: '100%',
                             fontFamily: 'Arial, Helvetica, sans-serif'
                         }}>
-                            {clientAddress}
+                            {clientAddress.endereco}
+                        </p>
+                    </div>
+                    {(clientAddress.cidade || clientAddress.uf) && (
+                        <div className="col-span-2">
+                            <p className="font-semibold" style={{ 
+                                wordWrap: 'break-word',
+                                maxWidth: '100%',
+                                fontFamily: 'Arial, Helvetica, sans-serif'
+                            }}>
+                                {clientAddress.cidade}{clientAddress.cidade && clientAddress.uf ? ' - ' : ''}{clientAddress.uf}
+                            </p>
+                        </div>
+                    )}
+                    <div>
+                        <p className="text-gray-500 text-xs uppercase tracking-wide">CNPJ/CPF</p>
+                        <p className="font-semibold mt-1" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                            {clientCnpjCpf ? formatCnpjCpf(clientCnpjCpf) : 'Não informado'}
                         </p>
                     </div>
                     <div className="col-span-2 flex flex-wrap justify-between gap-x-4 gap-y-3">

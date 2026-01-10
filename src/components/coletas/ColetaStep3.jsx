@@ -25,7 +25,14 @@ export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData, em
 
   useEffect(() => {
     const fetchEmpresa = async () => {
-      const { data } = await supabase.from('empresa').select('*').single();
+      const { data, error } = await supabase.from('empresa').select('id, nome_fantasia, razao_social, cnpj, telefone, email, endereco, logo_sistema_url, logo_documento_url, timezone, items_per_page, estado, municipio, assinatura_responsavel_url, nome_responsavel_assinatura, created_at, updated_at').single();
+      if (error) {
+        console.error('❌ Erro ao buscar empresa no ColetaStep3:', error);
+      } else {
+        console.log('🏢 ColetaStep3 - Dados da empresa:', data);
+        console.log('🏢 ColetaStep3 - municipio:', data?.municipio);
+        console.log('🏢 ColetaStep3 - estado:', data?.estado);
+      }
       setEmpresa(data);
     };
     fetchEmpresa();

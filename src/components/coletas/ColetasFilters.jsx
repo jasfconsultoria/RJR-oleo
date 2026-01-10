@@ -1,7 +1,8 @@
-import React from 'react';
-import { Calendar, Search } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Calendar, Search, Filter } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 
 const ColetasFilters = ({
   coletaSearchTerm,
@@ -14,10 +15,41 @@ const ColetasFilters = ({
   setEndDate
 }) => {
   const isNumeroColetaSearching = coletaSearchTerm !== '';
+  const [showFilters, setShowFilters] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Detectar se é mobile
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   return (
     <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 md:p-6 space-y-4 relative z-20">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 items-end"> {/* Alterado para lg:grid-cols-6 */}
+      {/* Header com botão de mostrar/ocultar no mobile */}
+      <div className="flex justify-between items-center mb-4 md:hidden">
+        <h3 className="text-emerald-300 text-lg flex items-center gap-2">
+          <Filter className="h-5 w-5" /> Filtros
+        </h3>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setShowFilters(!showFilters)}
+          className="flex items-center gap-2 border-white/30 text-white hover:bg-white/10"
+        >
+          <Filter className="w-4 h-4" />
+          {showFilters ? 'Ocultar' : 'Mostrar'}
+        </Button>
+      </div>
+
+      <div className={`${isMobile && !showFilters ? 'hidden' : 'block'}`}>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 items-end"> {/* Alterado para lg:grid-cols-6 */}
         
         <div className="lg:col-span-2"> {/* Ocupa 2 colunas em telas grandes */}
           <Label htmlFor="numeroColetaSearch" className="block text-white mb-1 text-sm">Nº Coleta</Label>
@@ -78,6 +110,7 @@ const ColetasFilters = ({
               disabled={isNumeroColetaSearching}
             />
           </div>
+        </div>
         </div>
       </div>
     </div>

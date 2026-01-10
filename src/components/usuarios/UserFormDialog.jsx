@@ -24,7 +24,6 @@ export const UserFormDialog = ({ userToEdit, onSave, onCancel }) => {
   const [municipios, setMunicipiosList] = useState([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
-  const { updateUser } = useAuth();
   const { refetchProfile } = useProfile();
 
   // Buscar estados e municípios do banco de dados
@@ -91,22 +90,73 @@ export const UserFormDialog = ({ userToEdit, onSave, onCancel }) => {
     setLoading(true);
 
     if (userToEdit) {
-      let error;
-      if (userToEdit.role === 'administrador') {
-        const { error: profileError } = await supabase
+      // Atualizar usuário existente (apenas full_name pode ser editado)
+      let errors = [];
+      
+      // 1. Upsert na tabela profiles (insere se não existir, atualiza se existir)
+      // Usamos os dados existentes do usuário para garantir que todos os campos estejam presentes
+      const profileData = {
+        id: userToEdit.id,
+        full_name: formData.full_name,
+        role: userToEdit.role || 'coletor', // Manter role existente
+        estado: userToEdit.estado || null,
+        municipio: userToEdit.municipio || null
+      };
+      
+      console.log('📝 Tentando atualizar/inserir em profiles:', profileData);
+      
+      const { data: profileResult, error: profileError } = await supabase
+        .from('profiles')
+        .upsert(profileData, {
+          onConflict: 'id'
+        })
+        .select();
+      
+      if (profileError) {
+        console.error('❌ Erro ao atualizar/inserir em profiles:', profileError);
+        console.error('❌ Detalhes do erro:', {
+          code: profileError.code,
+          message: profileError.message,
+          details: profileError.details,
+          hint: profileError.hint
+        });
+        
+        // Tentar atualizar diretamente se upsert falhar
+        console.log('🔄 Tentando atualizar diretamente...');
+        const { error: updateError } = await supabase
           .from('profiles')
           .update({ full_name: formData.full_name })
           .eq('id', userToEdit.id);
-        error = profileError;
+        
+        if (updateError) {
+          // Se update falhar, tentar insert
+          console.log('🔄 Tentando inserir diretamente...');
+          const { error: insertError } = await supabase
+            .from('profiles')
+            .insert(profileData);
+          
+          if (insertError) {
+            console.error('❌ Erro ao inserir diretamente:', insertError);
+            errors.push(`Profiles: ${insertError.message}`);
+          } else {
+            console.log('✅ Perfil inserido com sucesso (método direto)');
+          }
+        } else {
+          console.log('✅ Perfil atualizado com sucesso (método direto)');
+        }
       } else {
-        const { error: authError } = await updateUser(userToEdit.id, {
-          user_metadata: { full_name: formData.full_name }
-        });
-        error = authError;
+        console.log('✅ Perfil atualizado/inserido com sucesso em profiles:', profileResult);
       }
 
-      if (error) {
-        toast({ title: 'Erro ao atualizar usuário', description: error.message, variant: 'destructive' });
+      // Nota: O trigger na migração 2072 vai sincronizar automaticamente auth.users quando profiles for atualizado
+      // Não precisamos chamar a edge function manualmente
+
+      if (errors.length > 0 && profileError) {
+        toast({ 
+          title: 'Erro ao atualizar usuário', 
+          description: errors.join('; '), 
+          variant: 'destructive' 
+        });
       } else {
         toast({ title: 'Usuário atualizado com sucesso!' });
         await refetchProfile();
@@ -114,8 +164,8 @@ export const UserFormDialog = ({ userToEdit, onSave, onCancel }) => {
       }
       
     } else {
-      // Logic for creating a new user
-      const { data: { user }, error } = await supabase.auth.signUp({
+      // Criar novo usuário
+      const { data: { user }, error: signUpError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
         options: {
@@ -128,11 +178,64 @@ export const UserFormDialog = ({ userToEdit, onSave, onCancel }) => {
         }
       });
 
-      if (error) {
-        toast({ title: 'Erro ao criar usuário', description: error.message, variant: 'destructive' });
-      } else if (user) {
-         toast({ title: 'Usuário criado com sucesso!', description: 'Peça para o novo usuário confirmar o e-mail.' });
-         onSave();
+      if (signUpError) {
+        toast({ title: 'Erro ao criar usuário', description: signUpError.message, variant: 'destructive' });
+        setLoading(false);
+        return;
+      }
+
+      if (user) {
+        console.log('👤 Usuário criado em auth.users:', user.id);
+        
+        // Upsert na tabela profiles após criar o usuário (insere se não existir, atualiza se existir)
+        const profileData = {
+          id: user.id,
+          full_name: formData.full_name,
+          role: formData.role,
+          estado: formData.role === 'coletor' ? formData.estado : null,
+          municipio: formData.role === 'coletor' ? formData.municipio : null
+        };
+        
+        console.log('📝 Tentando inserir/atualizar em profiles:', profileData);
+        
+        const { data: profileResult, error: profileError } = await supabase
+          .from('profiles')
+          .upsert(profileData, {
+            onConflict: 'id'
+          })
+          .select();
+
+        if (profileError) {
+          console.error('❌ Erro ao inserir/atualizar em profiles:', profileError);
+          console.error('❌ Detalhes do erro:', {
+            code: profileError.code,
+            message: profileError.message,
+            details: profileError.details,
+            hint: profileError.hint
+          });
+          
+          // Tentar inserir diretamente se upsert falhar
+          console.log('🔄 Tentando inserir diretamente...');
+          const { error: insertError } = await supabase
+            .from('profiles')
+            .insert(profileData);
+          
+          if (insertError) {
+            console.error('❌ Erro ao inserir diretamente:', insertError);
+            toast({ 
+              title: 'Usuário criado, mas houve erro ao salvar em profiles', 
+              description: `Erro: ${insertError.message}. Verifique as permissões RLS e tente inserir manualmente.`,
+              variant: 'destructive'
+            });
+          } else {
+            console.log('✅ Perfil inserido com sucesso (método direto)');
+            toast({ title: 'Usuário criado com sucesso!', description: 'Peça para o novo usuário confirmar o e-mail.' });
+          }
+        } else {
+          console.log('✅ Perfil criado/atualizado com sucesso em profiles:', profileResult);
+          toast({ title: 'Usuário criado com sucesso!', description: 'Peça para o novo usuário confirmar o e-mail.' });
+        }
+        onSave();
       }
     }
     setLoading(false);

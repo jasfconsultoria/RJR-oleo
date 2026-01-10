@@ -143,6 +143,7 @@ const DashboardPage = () => {
   };
 
   // Buscar informações dos usuários (coletores) - VERSÃO CORRIGIDA
+  // Busca informações dos usuários da tabela profiles (fonte da verdade)
   const fetchUsuariosInfo = async (userIds) => {
     try {
       console.log('🔍 Buscando informações dos usuários com IDs:', userIds);
@@ -152,42 +153,86 @@ const DashboardPage = () => {
         return [];
       }
 
-      // Buscar da tabela profiles com as colunas corretas
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, role, estado, municipio')
-        .in('id', userIds);
-
-      if (error) {
-        console.error('❌ Erro ao buscar perfis:', error);
-        // Fallback básico
-        return userIds.map(id => ({
-          id: id,
-          full_name: `Coletor ${id.substring(0, 8)}`
-        }));
+      // 1. Buscar da tabela profiles com as colunas corretas
+      // Garantir que todos os IDs sejam UUIDs válidos
+      const validUserIds = userIds.filter(id => id && id !== 'null' && id !== 'undefined');
+      
+      if (validUserIds.length === 0) {
+        console.warn('⚠️ Nenhum ID válido fornecido');
+        return [];
       }
 
-      console.log('✅ Perfis encontrados:', data?.length);
+      console.log('🔍 Buscando perfis para IDs:', validUserIds);
+
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, full_name, role, estado, municipio')
+        .in('id', validUserIds);
+
+      if (profilesError) {
+        console.error('❌ Erro ao buscar perfis:', profilesError);
+      }
+
+      console.log('✅ Perfis encontrados:', profilesData?.length);
+      console.log('📋 Dados dos perfis:', profilesData);
       
-      // Combinar com fallback para usuários não encontrados
-      const result = userIds.map(userId => {
-        const usuario = data?.find(u => u.id === userId);
+      // 2. Criar um mapa para busca rápida (normalizando IDs como string)
+      const profilesMap = new Map();
+      profilesData?.forEach(profile => {
+        profilesMap.set(String(profile.id), profile);
+      });
+      
+      // 3. Identificar quais usuários não foram encontrados
+      const usuariosNaoEncontrados = validUserIds.filter(id => !profilesMap.has(String(id)));
+
+      if (usuariosNaoEncontrados.length > 0) {
+        console.warn('⚠️ Usuários não encontrados em profiles:', usuariosNaoEncontrados);
+        console.warn('💡 Dica: Execute a migração 2073 para sincronizar usuários de auth.users para profiles');
+      }
+      
+      // 4. Combinar dados de profiles
+      const result = validUserIds.map(userId => {
+        // Buscar em profiles usando o mapa (mais eficiente)
+        const usuario = profilesMap.get(String(userId));
+        
+        // Determinar nome final
+        let nomeFinal = usuario?.full_name;
+        
+        // Se não encontrou ou full_name está vazio, usar fallback
+        if (!usuario || !nomeFinal || nomeFinal.trim() === '') {
+          if (!usuario) {
+            console.warn(`⚠️ Usuário ${userId} não está na tabela profiles`);
+          } else if (!nomeFinal || nomeFinal.trim() === '') {
+            console.warn(`⚠️ Usuário ${userId} encontrado mas sem full_name`);
+          }
+          
+          // Usar fallback com ID
+          nomeFinal = `Coletor ${String(userId).substring(0, 8)}`;
+        }
+        
+        console.log('✅ Usuário processado:', {
+          userId,
+          nomeFinal,
+          role: usuario?.role || 'coletor'
+        });
+        
         return {
           id: userId,
-          full_name: usuario?.full_name || `Coletor ${userId.substring(0, 8)}`,
-          role: usuario?.role,
-          estado: usuario?.estado,
-          municipio: usuario?.municipio
+          full_name: nomeFinal,
+          role: usuario?.role || 'coletor',
+          estado: usuario?.estado || null,
+          municipio: usuario?.municipio || null
         };
       });
 
+      console.log('📊 Resultado final dos usuários:', result);
       return result;
     } catch (error) {
       console.error('❌ Erro ao buscar informações dos usuários:', error);
       // Fallback final
       return userIds.map(id => ({
         id: id,
-        full_name: `Coletor ${id.substring(0, 8)}`
+        full_name: `Coletor ${String(id).substring(0, 8)}`
       }));
     }
   };
@@ -318,18 +363,29 @@ const DashboardPage = () => {
             if (userIds.length > 0) {
               const usuarios = await fetchUsuariosInfo(userIds);
               console.log('👤 Usuários encontrados:', usuarios?.length);
+              console.log('👤 Array de usuários retornado:', usuarios);
 
               // Combinar dados - USANDO FULL_NAME
               coletorData = Object.values(coletorMap).map(coletor => {
-                const usuario = usuarios?.find(u => u.id === coletor.user_id);
+                // Garantir comparação correta de IDs convertendo ambos para string
+                const usuario = usuarios?.find(u => String(u.id) === String(coletor.user_id));
                 
-                // Usar full_name da tabela profiles
-                const nomeColetor = usuario?.full_name || `Coletor ${coletor.user_id.substring(0, 8)}`;
+                // Usar full_name da tabela profiles, com fallback
+                let nomeColetor = usuario?.full_name;
+                
+                // Se não tem nome ou está vazio, usar fallback
+                if (!nomeColetor || nomeColetor.trim() === '') {
+                  nomeColetor = `Coletor ${String(coletor.user_id).substring(0, 8)}`;
+                }
                 
                 console.log('👤 Processando coletor:', {
                   userId: coletor.user_id,
+                  userIdType: typeof coletor.user_id,
+                  usuarioId: usuario?.id,
+                  usuarioIdType: typeof usuario?.id,
                   full_name: usuario?.full_name,
-                  nomeColetor: nomeColetor
+                  nomeColetor: nomeColetor,
+                  match: usuario ? String(usuario.id) === String(coletor.user_id) : false
                 });
                 
                 return {
@@ -338,6 +394,8 @@ const DashboardPage = () => {
                   massa: parseFloat(coletor.massa.toFixed(2))
                 };
               }).sort((a, b) => b.coletas - a.coletas).slice(0, 10);
+              
+              console.log('📊 Dados finais dos coletores:', coletorData);
             }
 
           }
@@ -398,7 +456,7 @@ const DashboardPage = () => {
         // Dados por cliente
         let clienteQuery = supabase
           .from('coletas')
-          .select('cliente_nome, quantidade_coletada');
+          .select('cliente_nome, quantidade_coletada, cliente:clientes(nome_fantasia, razao_social, estado)');
 
         if (dateRange.start && dateRange.end) {
           clienteQuery = clienteQuery
@@ -417,21 +475,42 @@ const DashboardPage = () => {
           
           const clienteMap = {};
           coletasCliente.forEach(coleta => {
-            const cliente = coleta.cliente_nome || 'Cliente não informado';
-            if (!clienteMap[cliente]) {
-              clienteMap[cliente] = { coletas: 0, massa: 0 };
+            // Priorizar nome_fantasia, depois razao_social, depois cliente_nome
+            const nomeFantasia = coleta.cliente?.nome_fantasia;
+            const razaoSocial = coleta.cliente?.razao_social;
+            const clienteNome = coleta.cliente_nome;
+            const estado = coleta.cliente?.estado || 'Estado não informado';
+            
+            // Usar nome_fantasia como chave principal, ou razao_social, ou cliente_nome
+            const clienteNomeFinal = nomeFantasia || razaoSocial || clienteNome || 'Cliente não informado';
+            
+            // Chave composta: cliente/estado para agrupar por cliente e estado
+            const clienteKey = `${clienteNomeFinal}|${estado}`;
+            
+            if (!clienteMap[clienteKey]) {
+              clienteMap[clienteKey] = { 
+                coletas: 0, 
+                massa: 0,
+                nome_fantasia: nomeFantasia || null,
+                razao_social: razaoSocial || null,
+                cliente_nome: clienteNomeFinal,
+                estado: estado
+              };
             }
-            clienteMap[cliente].coletas += 1;
-            clienteMap[cliente].massa += parseFloat(coleta.quantidade_coletada) || 0;
+            clienteMap[clienteKey].coletas += 1;
+            clienteMap[clienteKey].massa += parseFloat(coleta.quantidade_coletada) || 0;
           });
           
           clienteData = Object.entries(clienteMap)
-            .map(([cliente_nome, dados]) => ({
-              cliente_nome,
+            .map(([cliente_key, dados]) => ({
+              cliente_nome: `${dados.cliente_nome}/${dados.estado}`, // Formato: Cliente/Estado
+              nome_fantasia: dados.nome_fantasia,
+              razao_social: dados.razao_social,
+              estado: dados.estado,
               coletas: dados.coletas,
               massa: parseFloat(dados.massa.toFixed(2))
             }))
-            .sort((a, b) => b.coletas - a.coletas)
+            .sort((a, b) => b.massa - a.massa) // Ordenar por massa (quantidade coletada) em ordem decrescente
             .slice(0, 10);
         }
 
@@ -552,6 +631,60 @@ const DashboardPage = () => {
       return (
         <div className="p-2 bg-gray-800/80 border border-gray-600 rounded-xl text-white">
           <p className="label font-bold">{`${label}`}</p>
+          <p className="text-emerald-400">{`Nº de Coletas: ${payload[0].value}`}</p>
+          <p className="text-yellow-400">{`Massa (kg): ${formatNumber(payload[1].value)}`}</p>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  // Mapeamento de siglas de estados para nomes completos
+  const estadosNomesMap = {
+    'AC': 'Acre',
+    'AL': 'Alagoas',
+    'AP': 'Amapá',
+    'AM': 'Amazonas',
+    'BA': 'Bahia',
+    'CE': 'Ceará',
+    'DF': 'Distrito Federal',
+    'ES': 'Espírito Santo',
+    'GO': 'Goiás',
+    'MA': 'Maranhão',
+    'MT': 'Mato Grosso',
+    'MS': 'Mato Grosso do Sul',
+    'MG': 'Minas Gerais',
+    'PA': 'Pará',
+    'PB': 'Paraíba',
+    'PR': 'Paraná',
+    'PE': 'Pernambuco',
+    'PI': 'Piauí',
+    'RJ': 'Rio de Janeiro',
+    'RN': 'Rio Grande do Norte',
+    'RS': 'Rio Grande do Sul',
+    'RO': 'Rondônia',
+    'RR': 'Roraima',
+    'SC': 'Santa Catarina',
+    'SP': 'São Paulo',
+    'SE': 'Sergipe',
+    'TO': 'Tocantins'
+  };
+
+  const CustomTooltipCliente = ({ active, payload, label }) => {
+    if (active && payload && payload.length) {
+      const data = payload[0]?.payload;
+      const nomeFantasia = data?.nome_fantasia || label;
+      const razaoSocial = data?.razao_social;
+      const estadoSigla = data?.estado || '';
+      const estadoNome = estadosNomesMap[estadoSigla] || estadoSigla || 'Estado não informado';
+      
+      return (
+        <div className="p-3 bg-gray-800/90 border border-gray-600 rounded-xl text-white shadow-lg">
+          <p className="label font-bold text-emerald-300 mb-1">{nomeFantasia}</p>
+          {razaoSocial && (
+            <p className="text-sm text-gray-300 mb-1">{razaoSocial}</p>
+          )}
+          <p className="text-sm text-gray-400 mb-2">Estado: {estadoNome}</p>
           <p className="text-emerald-400">{`Nº de Coletas: ${payload[0].value}`}</p>
           <p className="text-yellow-400">{`Massa (kg): ${formatNumber(payload[1].value)}`}</p>
         </div>
@@ -900,12 +1033,19 @@ const DashboardPage = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="pl-2">
-              <ResponsiveContainer width="100%" height={350}>
-                <BarChart data={stats.coletasPorCliente} layout="vertical">
+              <ResponsiveContainer width="100%" height={600}>
+                <BarChart data={stats.coletasPorCliente} layout="vertical" barCategoryGap="30%">
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.1)" />
                   <XAxis type="number" stroke="#9ca3af" />
-                  <YAxis type="category" dataKey="cliente_nome" width={120} stroke="#9ca3af" tick={{ fontSize: 12 }} />
-                  <Tooltip content={<CustomTooltip />} />
+                  <YAxis 
+                    type="category" 
+                    dataKey="cliente_nome" 
+                    width={220} 
+                    stroke="#9ca3af" 
+                    tick={{ fontSize: 13, fill: '#e5e7eb' }}
+                    interval={0}
+                  />
+                  <Tooltip content={<CustomTooltipCliente />} />
                   <Legend wrapperStyle={{ color: '#fff' }} />
                   <Bar dataKey="coletas" fill="#34d399" name="Nº de Coletas" />
                   <Bar dataKey="massa" fill="#fbbf24" name="Massa (kg)" />

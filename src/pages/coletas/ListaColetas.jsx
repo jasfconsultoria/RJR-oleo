@@ -46,10 +46,6 @@ const ListaColetas = () => {
   const [totalCount, setTotalCount] = useState(0);
   const [periodTotals, setPeriodTotals] = useState({ coletado: 0, compras: 0, entregue: 0 });
 
-  // ✅ NOVO: Estados para controle de perfil e usuário
-  const [userRole, setUserRole] = useState(null);
-  const [userId, setUserId] = useState(null);
-
   const debouncedColetaSearchTerm = useDebounce(coletaSearchTerm, 500);
   const debouncedClientSearchTerm = useDebounce(clientSearchTerm, 500);
   const debouncedStartDate = useDebounce(startDate, 500);
@@ -58,78 +54,9 @@ const ListaColetas = () => {
 
   const pageSize = useMemo(() => empresa?.items_per_page || 25, [empresa]);
 
-  // ✅ NOVO: Obter role e ID do usuário logado
-  useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        console.log('🔄 Buscando dados do usuário para coletas...');
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (session?.user) {
-          const currentUserId = session.user.id;
-          console.log('👤 Usuário encontrado para coletas:', currentUserId);
-          
-          // Busca o perfil do usuário
-          const { data: profile, error } = await supabase
-            .from('profiles')
-            .select('role')
-            .eq('id', currentUserId)
-            .single();
-          
-          if (error) {
-            console.error('❌ Erro ao buscar perfil:', error);
-            const roleFromStorage = localStorage.getItem('userRole');
-            if (roleFromStorage) {
-              console.log('📦 Usando role do localStorage:', roleFromStorage);
-              setUserRole(roleFromStorage);
-              setUserId(currentUserId);
-              localStorage.setItem('userId', currentUserId);
-            }
-          } else if (profile) {
-            const newRole = profile.role || 'coletor';
-            console.log('🎯 Novo role detectado para coletas:', newRole);
-            
-            // Só atualiza se o role mudou
-            setUserRole(prevRole => {
-              if (prevRole !== newRole) {
-                console.log('🔄 Role mudou de', prevRole, 'para', newRole);
-                return newRole;
-              }
-              return prevRole;
-            });
-            
-            setUserId(currentUserId);
-            localStorage.setItem('userRole', newRole);
-            localStorage.setItem('userId', currentUserId);
-          }
-        } else {
-          console.log('⚠️ Nenhuma sessão encontrada para coletas');
-          const roleFromStorage = localStorage.getItem('userRole') || 'coletor';
-          const idFromStorage = localStorage.getItem('userId');
-          setUserRole(roleFromStorage);
-          setUserId(idFromStorage);
-        }
-      } catch (error) {
-        console.error('❌ Erro ao buscar dados do usuário para coletas:', error);
-        const roleFromStorage = localStorage.getItem('userRole') || 'coletor';
-        const idFromStorage = localStorage.getItem('userId');
-        setUserRole(roleFromStorage);
-        setUserId(idFromStorage);
-      }
-    };
-    
-    fetchUserData();
-
-    // Monitorar mudanças de autenticação
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('🔐 Auth state changed para coletas:', event);
-      if (event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'TOKEN_REFRESHED') {
-        await fetchUserData();
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
+  // ✅ CORREÇÃO: Usar profile do ProfileContext ao invés de buscar separadamente
+  const userRole = useMemo(() => profile?.role || null, [profile]);
+  const userId = useMemo(() => profile?.id || profile?.userId || null, [profile]);
 
   // CORREÇÃO: Buscar dados da empresa para todos os usuários
   useEffect(() => {
@@ -142,17 +69,19 @@ const ListaColetas = () => {
           // Não mostra erro para o usuário, usa fallback silenciosamente
         }
         
-        // Sempre define a empresa (com dados reais ou fallback)
-        setEmpresa({
-          items_per_page: data?.items_per_page || 25,
-          timezone: data?.timezone || 'America/Sao_Paulo',
-          nome_fantasia: data?.nome_fantasia || 'Nome da Empresa',
-          razao_social: data?.razao_social || 'Razão Social da Empresa',
-          cnpj: data?.cnpj || 'N/A',
-          telefone: data?.telefone || '',
-          email: data?.email || '',
-          endereco: data?.endereco || '',
-          logo_documento_url: data?.logo_documento_url || null
+        // Sempre define a empresa (com dados reais ou fallback) - INCLUIR TODOS OS CAMPOS
+        setEmpresa(data || {
+          items_per_page: 25,
+          timezone: 'America/Sao_Paulo',
+          nome_fantasia: 'Nome da Empresa',
+          razao_social: 'Razão Social da Empresa',
+          cnpj: 'N/A',
+          telefone: '',
+          email: '',
+          endereco: '',
+          municipio: '',
+          estado: '',
+          logo_documento_url: null
         });
         
       } catch (error) {
@@ -177,7 +106,7 @@ const ListaColetas = () => {
 
   // ✅ CORREÇÃO: Função otimizada para buscar totais APENAS da get_coletas_totals
   const fetchPeriodTotals = useCallback(async () => {
-    if (profileLoading || !profile || !empresa || userRole === null) return;
+    if (profileLoading || !profile || !empresa || !userRole) return;
 
     console.log('🔄 Buscando totais do período via get_coletas_totals...', {
       startDate: debouncedStartDate,
@@ -190,12 +119,17 @@ const ListaColetas = () => {
 
     try {
       // ✅ CORREÇÃO: Preparar parâmetros
+      // Verificar se o termo de busca contém apenas números
+      const isNumericSearch = debouncedColetaSearchTerm && /^\d+$/.test(debouncedColetaSearchTerm.trim());
+      
       const params = {
         p_start_date: debouncedStartDate || null,
         p_end_date: debouncedEndDate || null,
         p_cliente_id: null,
-        p_numero_coleta_term: debouncedColetaSearchTerm || null,
-        p_cliente_name_term: debouncedClientSearchTerm || null,
+        // Só passa o numero_coleta_term se for numérico, senão passa null
+        p_numero_coleta_term: isNumericSearch ? debouncedColetaSearchTerm : null,
+        // Se não for numérico, usa o termo de busca no nome do cliente
+        p_cliente_name_term: debouncedClientSearchTerm || (isNumericSearch ? null : debouncedColetaSearchTerm) || null,
       };
 
       // ✅ CORREÇÃO: Só adiciona user_id se for coletor E tiver userId
@@ -242,7 +176,7 @@ const ListaColetas = () => {
 
   const fetchColetas = useCallback(async () => {
     // ✅ CORREÇÃO: Não buscar até ter o role definido
-    if (profileLoading || !profile || !empresa || userRole === null) {
+    if (profileLoading || !profile || !empresa || !userRole) {
       console.log('⏳ Aguardando definição do role para coletas...', { userRole });
       return;
     }
@@ -268,8 +202,20 @@ const ListaColetas = () => {
     }
 
     if (debouncedColetaSearchTerm) {
-        const escapedSearchTerm = escapePostgrestLikePattern(debouncedColetaSearchTerm);
-        query = query.or(`numero_coleta::text.ilike.%${escapedSearchTerm}%,razao_social.ilike.%${escapedSearchTerm}%,nome_fantasia.ilike.%${escapedSearchTerm}%`);
+        const searchTerm = debouncedColetaSearchTerm.trim();
+        const escapedSearchTerm = escapePostgrestLikePattern(searchTerm);
+        // Verificar se o termo de busca contém apenas números
+        const isNumericSearch = /^\d+$/.test(searchTerm);
+        
+        if (isNumericSearch) {
+          // Se for numérico, busca exata no numero_coleta primeiro
+          const numeroColeta = parseInt(searchTerm, 10);
+          // Usa filtro de igualdade no numero_coleta (busca exata)
+          query = query.eq('numero_coleta', numeroColeta);
+        } else {
+          // Se contiver letras, busca apenas nos nomes dos clientes
+          query = query.or(`razao_social.ilike.%${escapedSearchTerm}%,nome_fantasia.ilike.%${escapedSearchTerm}%`);
+        }
     } else {
         if (debouncedClientSearchTerm) {
             const escapedClientSearchTerm = escapePostgrestLikePattern(debouncedClientSearchTerm);
@@ -308,7 +254,7 @@ const ListaColetas = () => {
   // ✅ CORREÇÃO CRÍTICA: Recarregar coletas quando userRole ou userId mudar
   useEffect(() => {
     console.log('🔄 Trigger: userRole ou userId mudou para coletas', { userRole, userId });
-    if (userRole !== null) {
+    if (userRole) {
       setCurrentPage(1); // Resetar para primeira página
       refreshColetasData();
     }
@@ -316,14 +262,14 @@ const ListaColetas = () => {
 
   // ✅ CORREÇÃO: Buscar dados quando os filtros mudarem
   useEffect(() => {
-    if (userRole !== null) {
+    if (userRole) {
       refreshColetasData();
     }
   }, [refreshColetasData, userRole]);
 
   // ✅ CORREÇÃO: Buscar totais quando os filtros de data mudarem
   useEffect(() => {
-    if (userRole !== null) {
+    if (userRole) {
       fetchPeriodTotals();
     }
   }, [debouncedStartDate, debouncedEndDate, fetchPeriodTotals, userRole]);
@@ -387,20 +333,12 @@ const ListaColetas = () => {
 
   const totalPages = Math.ceil(totalCount / pageSize);
 
-  // ✅ NOVO: Loading específico para carregamento do perfil
-  if (userRole === null) {
+  // ✅ CORREÇÃO: Loading específico para carregamento do perfil
+  if (profileLoading || !userRole) {
     return (
       <div className="flex justify-center items-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-emerald-400" />
         <span className="ml-2 text-white">Carregando perfil...</span>
-      </div>
-    );
-  }
-
-  if (profileLoading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-emerald-400" />
       </div>
     );
   }

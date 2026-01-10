@@ -39,7 +39,9 @@ const AssinaturaReciboPage = () => {
             nome_fantasia,
             razao_social,
             cnpj_cpf,
-            endereco
+            endereco,
+            municipio,
+            estado
           )
         `)
         .eq('id', id)
@@ -65,10 +67,10 @@ const AssinaturaReciboPage = () => {
         return;
       }
 
-      // Buscar empresa
+      // Buscar empresa - ESPECIFICAR CAMPOS EXPLICITAMENTE
       const { data: empresaData, error: empresaError } = await supabase
         .from('empresa')
-        .select('*')
+        .select('id, nome_fantasia, razao_social, cnpj, telefone, email, endereco, logo_sistema_url, logo_documento_url, timezone, items_per_page, estado, municipio, assinatura_responsavel_url, nome_responsavel_assinatura, created_at, updated_at')
         .single();
 
       if (empresaError) {
@@ -93,6 +95,8 @@ const AssinaturaReciboPage = () => {
         razao_social: coletaData.clientes?.razao_social || 'Razão social não encontrada',
         cliente_cnpj_cpf: coletaData.clientes?.cnpj_cpf || 'CNPJ não informado',
         cliente_endereco: coletaData.clientes?.endereco || 'Endereço não informado',
+        cliente_municipio: coletaData.clientes?.municipio,
+        cliente_estado: coletaData.clientes?.estado,
         collectorName: coletorNome
       };
 
