@@ -94,18 +94,24 @@ const RelatoriosPage = () => {
 
   // Função auxiliar para obter o nome do cliente de forma segura
   const getClientName = (item) => {
+    // ✅ CORREÇÃO: Usar clientes ao invés de pessoa
+    // Verificar se clientes é um array ou objeto (Supabase pode retornar ambos)
+    const cliente = Array.isArray(item.clientes) 
+      ? (item.clientes[0] || null)
+      : (item.clientes || null);
+    
     // Mostrar "nome fantasia - razão social" quando disponível
-    if (item.pessoa?.nome_fantasia && item.pessoa?.razao_social) {
-      return `${item.pessoa.nome_fantasia} - ${item.pessoa.razao_social}`;
+    if (cliente?.nome_fantasia && cliente?.razao_social) {
+      return `${cliente.nome_fantasia} - ${cliente.razao_social}`;
     }
-    if (item.pessoa?.nome_fantasia) {
-      return item.pessoa.nome_fantasia;
+    if (cliente?.nome_fantasia) {
+      return cliente.nome_fantasia;
     }
-    if (item.pessoa?.razao_social) {
-      return item.pessoa.razao_social;
+    if (cliente?.razao_social) {
+      return cliente.razao_social;
     }
-    if (item.pessoa?.nome) {
-      return item.pessoa.nome;
+    if (cliente?.nome) {
+      return cliente.nome;
     }
     if (item.cliente_nome) {
       return item.cliente_nome;
@@ -115,10 +121,16 @@ const RelatoriosPage = () => {
 
   // Função auxiliar para obter nome completo do cliente (para busca)
   const getFullClientName = (item) => {
+    // ✅ CORREÇÃO: Usar clientes ao invés de pessoa
+    // Verificar se clientes é um array ou objeto (Supabase pode retornar ambos)
+    const cliente = Array.isArray(item.clientes) 
+      ? (item.clientes[0] || null)
+      : (item.clientes || null);
+    
     const names = [];
-    if (item.pessoa?.nome_fantasia) names.push(item.pessoa.nome_fantasia);
-    if (item.pessoa?.razao_social) names.push(item.pessoa.razao_social);
-    if (item.pessoa?.nome) names.push(item.pessoa.nome);
+    if (cliente?.nome_fantasia) names.push(cliente.nome_fantasia);
+    if (cliente?.razao_social) names.push(cliente.razao_social);
+    if (cliente?.nome) names.push(cliente.nome);
     if (item.cliente_nome) names.push(item.cliente_nome);
     
     return names.filter(Boolean).join(' ') || '';
@@ -138,7 +150,7 @@ const RelatoriosPage = () => {
     try {
       let query = supabase
         .from('coletas')
-        .select('*');
+        .select('*, clientes:cliente_id(*)');
 
       // Aplicar os mesmos filtros da consulta principal
       if (currentFilters.estado && currentFilters.estado !== 'all') query = query.eq('estado', currentFilters.estado);
@@ -156,34 +168,35 @@ const RelatoriosPage = () => {
       if (error) {
         console.error("❌ Erro ao buscar totais do período:", error);
         setPeriodTotals({ totalColetas: 0, totalMassa: 0, totalPago: 0, totalEntregue: 0 });
-      } else {
-        let filteredData = data || [];
-        
-        // Filtro por cliente no lado do cliente (client-side)
-        if (currentFilters.clientSearchTerm) {
-          const searchTermLower = currentFilters.clientSearchTerm.toLowerCase();
-          filteredData = filteredData.filter(item => {
-            const fullClientName = getFullClientName(item).toLowerCase();
-            return fullClientName.includes(searchTermLower);
-          });
-        }
-
-        // Calcular totais do período completo
-        const totals = filteredData.reduce((acc, item) => {
-          acc.totalColetas += 1;
-          acc.totalMassa += Number(item.quantidade_coletada) || 0;
-          if (item.tipo_coleta === 'Compra') {
-            acc.totalPago += Number(item.total_pago) || 0;
-          }
-          if (item.tipo_coleta === 'Troca' || item.tipo_coleta === 'Doação') {
-            acc.totalEntregue += Number(item.quantidade_entregue) || 0;
-          }
-          return acc;
-        }, { totalColetas: 0, totalMassa: 0, totalPago: 0, totalEntregue: 0 });
-
-        console.log('📊 Totais do período completo:', totals);
-        setPeriodTotals(totals);
+        return;
       }
+
+      let filteredData = data || [];
+      
+      // ✅ CORREÇÃO: Filtro por cliente no lado do cliente (client-side)
+      if (currentFilters.clientSearchTerm) {
+        const searchTermLower = currentFilters.clientSearchTerm.toLowerCase();
+        filteredData = filteredData.filter(item => {
+          const fullClientName = getFullClientName(item).toLowerCase();
+          return fullClientName.includes(searchTermLower);
+        });
+      }
+
+      // Calcular totais do período completo
+      const totals = filteredData.reduce((acc, item) => {
+        acc.totalColetas += 1;
+        acc.totalMassa += Number(item.quantidade_coletada) || 0;
+        if (item.tipo_coleta === 'Compra') {
+          acc.totalPago += Number(item.total_pago) || 0;
+        }
+        if (item.tipo_coleta === 'Troca' || item.tipo_coleta === 'Doação') {
+          acc.totalEntregue += Number(item.quantidade_entregue) || 0;
+        }
+        return acc;
+      }, { totalColetas: 0, totalMassa: 0, totalPago: 0, totalEntregue: 0 });
+
+      console.log('📊 Totais do período completo:', totals);
+      setPeriodTotals(totals);
     } catch (error) {
       console.error("❌ Erro inesperado ao buscar totais do período:", error);
       setPeriodTotals({ totalColetas: 0, totalMassa: 0, totalPago: 0, totalEntregue: 0 });
@@ -193,37 +206,40 @@ const RelatoriosPage = () => {
   const fetchReportData = useCallback(async (currentFilters) => {
     if (!empresa) return;
     setLoading(true);
-    const from = (currentPage - 1) * pageSize;
-    const to = from + pageSize - 1;
 
-    // Consulta modificada para ser mais robusta com os relacionamentos
-    let query = supabase
-      .from('coletas')
-      .select('*, pessoa:clientes(*)', { count: 'exact' });
+    try {
+      // ✅ CORREÇÃO: Buscar TODOS os dados que correspondem aos filtros do servidor primeiro
+      // (sem paginação) para poder aplicar o filtro de cliente corretamente
+      let query = supabase
+        .from('coletas')
+        .select('*, clientes:cliente_id(*)');
 
-    // Filtros do servidor
-    if (currentFilters.estado && currentFilters.estado !== 'all') query = query.eq('estado', currentFilters.estado);
-    if (currentFilters.municipio && currentFilters.municipio !== 'all') query = query.eq('municipio', currentFilters.municipio);
-    if (currentFilters.userId && currentFilters.userId !== 'all') query = query.eq('user_id', currentFilters.userId);
-    if (currentFilters.tipoColeta && currentFilters.tipoColeta !== 'all') query = query.eq('tipo_coleta', currentFilters.tipoColeta);
-    if (currentFilters.startDate) query = query.gte('data_coleta', currentFilters.startDate);
-    if (currentFilters.endDate) {
+      // Filtros do servidor
+      if (currentFilters.estado && currentFilters.estado !== 'all') query = query.eq('estado', currentFilters.estado);
+      if (currentFilters.municipio && currentFilters.municipio !== 'all') query = query.eq('municipio', currentFilters.municipio);
+      if (currentFilters.userId && currentFilters.userId !== 'all') query = query.eq('user_id', currentFilters.userId);
+      if (currentFilters.tipoColeta && currentFilters.tipoColeta !== 'all') query = query.eq('tipo_coleta', currentFilters.tipoColeta);
+      if (currentFilters.startDate) query = query.gte('data_coleta', currentFilters.startDate);
+      if (currentFilters.endDate) {
         const endOfDayDate = format(endOfDay(parseISO(currentFilters.endDate)), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx");
         query = query.lte('data_coleta', endOfDayDate);
-    }
-    
-    query = query.order('data_coleta', { ascending: false }).range(from, to);
+      }
+      
+      query = query.order('data_coleta', { ascending: false });
 
-    const { data, error, count } = await query;
+      const { data, error } = await query;
 
-    if (error) {
-      toast({ title: 'Erro ao gerar relatório', description: error.message, variant: 'destructive' });
-      setReportData([]);
-      setTotalCount(0);
-    } else {
+      if (error) {
+        toast({ title: 'Erro ao gerar relatório', description: error.message, variant: 'destructive' });
+        setReportData([]);
+        setTotalCount(0);
+        setLoading(false);
+        return;
+      }
+
       let filteredData = data || [];
       
-      // Filtro por cliente no lado do cliente (client-side)
+      // ✅ CORREÇÃO: Aplicar filtro por cliente ANTES da paginação
       if (currentFilters.clientSearchTerm) {
         const searchTermLower = currentFilters.clientSearchTerm.toLowerCase();
         filteredData = filteredData.filter(item => {
@@ -231,11 +247,25 @@ const RelatoriosPage = () => {
           return fullClientName.includes(searchTermLower);
         });
       }
+
+      // ✅ CORREÇÃO: Contar o número real de registros após aplicar todos os filtros
+      const realCount = filteredData.length;
+      setTotalCount(realCount);
+
+      // ✅ CORREÇÃO: Aplicar paginação no client-side APÓS filtrar
+      const from = (currentPage - 1) * pageSize;
+      const to = from + pageSize;
+      const paginatedData = filteredData.slice(from, to);
       
-      setReportData(filteredData);
-      setTotalCount(count || filteredData.length);
+      setReportData(paginatedData);
+    } catch (error) {
+      console.error("❌ Erro inesperado ao buscar dados do relatório:", error);
+      toast({ title: 'Erro ao gerar relatório', description: error.message, variant: 'destructive' });
+      setReportData([]);
+      setTotalCount(0);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [toast, currentPage, pageSize, empresa]);
 
   // ✅ NOVO: Buscar totais do período quando os filtros mudarem
@@ -295,7 +325,7 @@ const RelatoriosPage = () => {
       
       let query = supabase
         .from('coletas')
-        .select('*, pessoa:clientes(*)');
+        .select('*, clientes:cliente_id(*)');
       
       // Aplicar os mesmos filtros da consulta principal
       if (filters.estado && filters.estado !== 'all') query = query.eq('estado', filters.estado);
