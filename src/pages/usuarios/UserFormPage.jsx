@@ -20,8 +20,11 @@ const UserFormPage = () => {
   const [userFormData, setUserFormData] = useState({
     full_name: '',
     email: '',
+    cpf: '',
+    telefone: '',
     password: '',
     role: 'coletor',
+    status: 'ativo',
   });
   const [loading, setLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -46,8 +49,11 @@ const UserFormPage = () => {
       setUserFormData({
         full_name: user.full_name || '',
         email: user.email || '',
+        cpf: user.cpf || '',
+        telefone: user.telefone || '',
         password: '',
         role: user.role || 'coletor',
+        status: user.status || 'ativo',
       });
     }
     setLoading(false);
@@ -70,11 +76,11 @@ const UserFormPage = () => {
   };
 
   const validateForm = () => {
-    const { full_name, email, password, role } = userFormData;
-    if (!full_name || !email || (!isEditing && !password) || !role) {
+    const { full_name, email, password, role, status } = userFormData;
+    if (!full_name || !email || (!isEditing && !password) || !role || !status) {
       toast({
         title: 'Campos obrigatórios',
-        description: 'Nome, Email, Senha (novo usuário) e Perfil são obrigatórios.',
+        description: 'Nome, Email, Senha (novo usuário), Perfil e Status são obrigatórios.',
         variant: 'destructive',
       });
       return false;
@@ -103,10 +109,13 @@ const UserFormPage = () => {
       .from('profiles')
       .update({ 
         full_name: userFormData.full_name,
-        role: validRole
+        role: validRole,
+        cpf: userFormData.cpf || null,
+        telefone: userFormData.telefone || null,
+        status: userFormData.status || 'ativo'
       })
       .eq('id', id)
-      .select('id, full_name, role, estado, municipio');
+      .select('id, full_name, role, estado, municipio, cpf');
 
     if (updateError) {
       console.error('❌ Erro no update:', updateError);
@@ -118,7 +127,10 @@ const UserFormPage = () => {
         full_name: userFormData.full_name,
         role: validRole,
         estado: null,
-        municipio: null
+        municipio: null,
+        cpf: userFormData.cpf || null,
+        telefone: userFormData.telefone || null,
+        status: userFormData.status || 'ativo'
       };
 
       const { data: upsertData, error: upsertError } = await supabase
@@ -180,7 +192,12 @@ const UserFormPage = () => {
       email: userFormData.email,
       password: userFormData.password,
       options: {
-        data: { full_name: userFormData.full_name },
+        data: { 
+          full_name: userFormData.full_name,
+          cpf: userFormData.cpf || null,
+          telefone: userFormData.telefone || null,
+          status: userFormData.status || 'ativo'
+        },
         app_metadata: {
           role: userFormData.role,
           estado: null,
@@ -200,7 +217,10 @@ const UserFormPage = () => {
         full_name: userFormData.full_name,
         role: userFormData.role,
         estado: null,
-        municipio: null
+        municipio: null,
+        cpf: userFormData.cpf || null,
+        telefone: userFormData.telefone || null,
+        status: userFormData.status || 'ativo'
       };
 
       const { error: profileError } = await supabase

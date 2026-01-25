@@ -19,6 +19,8 @@ const ClienteSearchableSelect = ({
   onSearchTermChange, // Callback to update parent's search text
   // ✅ NOVA PROP: Para formulários que precisam dos dados completos do cliente
   returnFullClientData = false, // Se true, passa objeto completo; se false, passa apenas ID
+  // ✅ NOVA PROP: Para buscar coletores ao invés de clientes
+  personType = 'cliente', // 'cliente', 'fornecedor', ou 'coletor'
 }) => {
   // Internal state for dropdown visibility and client list
   const [clients, setClients] = useState([]);
@@ -38,22 +40,99 @@ const ClienteSearchableSelect = ({
   useEffect(() => {
     const fetchClients = async () => {
       setLoadingClients(true);
-      // ✅ CORREÇÃO: Manter razao_social e nome_fantasia (estrutura correta)
-      const { data, error } = await supabase
-        .from('clientes')
-        .select('id, nome_fantasia, razao_social, cnpj_cpf, municipio, estado')
-        .order('razao_social', { ascending: true });
-
-      if (error) {
-        toast({ title: 'Erro ao buscar clientes', description: error.message, variant: 'destructive' });
+      
+      try {
+        if (personType === 'coletor') {
+          // Buscar coletores da tabela profiles
+          const { data: usuariosRPC, error: rpcError } = await supabase.rpc('get_all_users');
+          
+          if (!rpcError && usuariosRPC) {
+            // Filtrar apenas coletores ATIVOS e mapear para formato compatível
+            const coletores = usuariosRPC
+              .filter(u => u.role === 'coletor' && u.status === 'ativo')
+              .map(u => ({
+                id: u.id,
+                nome_fantasia: u.full_name || '',
+                razao_social: u.full_name || '',
+                cnpj_cpf: u.cpf || null,
+                municipio: u.municipio || null,
+                estado: u.estado || null,
+                email: u.email || null,
+                telefone: u.telefone || null,
+                endereco: null
+              }))
+              .sort((a, b) => {
+                const nomeA = a.nome_fantasia || '';
+                const nomeB = b.nome_fantasia || '';
+                return nomeA.localeCompare(nomeB);
+              });
+            
+            setClients(coletores);
+          } else {
+            // Fallback: buscar diretamente de profiles (apenas ativos)
+            const { data, error } = await supabase
+              .from('profiles')
+              .select('id, full_name, email, municipio, estado, cpf, telefone')
+              .eq('role', 'coletor')
+              .eq('status', 'ativo')
+              .order('full_name', { ascending: true });
+            
+            if (error) throw error;
+            
+            const coletores = (data || []).map(u => ({
+              id: u.id,
+              nome_fantasia: u.full_name || '',
+              razao_social: u.full_name || '',
+              cnpj_cpf: u.cpf || null,
+              municipio: u.municipio || null,
+              estado: u.estado || null,
+              email: u.email || null,
+              telefone: u.telefone || null,
+              endereco: null
+            }));
+            
+            setClients(coletores);
+          }
+        } else {
+          // Buscar clientes ou fornecedores da tabela clientes
+          let query = supabase
+            .from('clientes')
+            .select('id, nome_fantasia, razao_social, cnpj_cpf, municipio, estado, email, telefone, endereco');
+          
+          // Filtrar por tipo se necessário (cliente ou fornecedor)
+          if (personType === 'cliente' || personType === 'fornecedor') {
+            // Assumindo que há um campo 'tipo' na tabela clientes, ou buscar todos
+            // Se não houver campo tipo, buscar todos
+          }
+          
+          const { data, error } = await query.order('razao_social', { ascending: true });
+          
+          if (error) throw error;
+          setClients(data || []);
+        }
+      } catch (error) {
+        console.error('Erro ao buscar dados:', error);
+        toast({ 
+          title: `Erro ao buscar ${labelText.toLowerCase()}`, 
+          description: error.message, 
+          variant: 'destructive' 
+        });
         setClients([]);
-      } else {
-        setClients(data || []);
+      } finally {
+        setLoadingClients(false);
       }
-      setLoadingClients(false);
     };
     fetchClients();
-  }, [toast]);
+  }, [toast, personType, labelText]);
+  
+  // Limpar seleção quando o tipo mudar
+  useEffect(() => {
+    if (value) {
+      onChange(null);
+      setInternalSearchTerm('');
+      onSearchTermChange && onSearchTermChange('');
+    }
+  }, [personType]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     // Set initial input value if a client is already selected
@@ -155,7 +234,7 @@ const ClienteSearchableSelect = ({
           onFocus={handleFocus}
           onBlur={handleBlur}
           placeholder={isLoading ? "Carregando..." : `Buscar ${labelText.toLowerCase()}...`}
-          className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60 rounded-xl pr-10"
+          className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60 rounded-xl pr-10 h-9 text-xs"
           autoComplete="off"
           disabled={disabled || isLoading}
         />
@@ -187,7 +266,16 @@ const ClienteSearchableSelect = ({
                     : client.nome_fantasia || client.razao_social || 'Nome não informado'}
                 </div>
                 <div className="text-sm text-gray-600">
-                  {client.cnpj_cpf ? formatCnpjCpf(client.cnpj_cpf) : 'CNPJ/CPF não informado'} - {client.municipio}/{client.estado}
+                  {personType === 'coletor' ? (
+                    <>
+                      {client.email ? `${client.email}` : 'E-mail não informado'}
+                      {client.municipio && client.estado ? ` - ${client.municipio}/${client.estado}` : ''}
+                    </>
+                  ) : (
+                    <>
+                      {client.cnpj_cpf ? formatCnpjCpf(client.cnpj_cpf) : 'CNPJ/CPF não informado'} - {client.municipio}/{client.estado}
+                    </>
+                  )}
                 </div>
               </div>
             ))

@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Pagination } from '@/components/ui/pagination';
 import { useDebounce } from '@/hooks/useDebounce';
+import { formatCnpjCpf } from '@/lib/utils';
 
 const UserManagementPage = () => {
   const [users, setUsers] = useState([]);
@@ -105,9 +106,12 @@ const UserManagementPage = () => {
 
   const filteredUsers = useMemo(() => {
     if (!debouncedSearchTerm) return users;
+    const searchLower = debouncedSearchTerm.toLowerCase();
     return users.filter(user =>
-      (user.full_name && user.full_name.toLowerCase().includes(debouncedSearchTerm.toLowerCase())) ||
-      (user.email && user.email.toLowerCase().includes(debouncedSearchTerm.toLowerCase()))
+      (user.full_name && user.full_name.toLowerCase().includes(searchLower)) ||
+      (user.email && user.email.toLowerCase().includes(searchLower)) ||
+      (user.cpf && user.cpf.replace(/\D/g, '').includes(debouncedSearchTerm.replace(/\D/g, ''))) ||
+      (user.telefone && user.telefone.replace(/\D/g, '').includes(debouncedSearchTerm.replace(/\D/g, '')))
     );
   }, [users, debouncedSearchTerm]);
 
@@ -126,6 +130,20 @@ const UserManagementPage = () => {
   useEffect(() => {
     setCurrentPage(1);
   }, [debouncedSearchTerm, pageSize]);
+
+  // Função para formatar telefone
+  const formatTelefone = (telefone) => {
+    if (!telefone) return '-';
+    const cleaned = telefone.replace(/\D/g, '');
+    if (cleaned.length === 10) {
+      // Telefone fixo: (00) 0000-0000
+      return cleaned.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3');
+    } else if (cleaned.length === 11) {
+      // Celular: (00) 00000-0000
+      return cleaned.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
+    }
+    return telefone;
+  };
 
   const handleOpenPermsDialog = (user) => {
     setSelectedUser(user);
@@ -192,7 +210,7 @@ const UserManagementPage = () => {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/70" />
                 <Input
                 type="search"
-                placeholder="Buscar por nome ou email..."
+                placeholder="Buscar por nome, email, CPF ou telefone..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60"
@@ -207,20 +225,30 @@ const UserManagementPage = () => {
                 <TableRow className="hover:bg-white/10 border-b-white/20 text-xs">
                   <th className="p-2 text-left text-white">Nome</th>
                   <th className="p-2 text-left text-white">Email</th>
+                  <th className="p-2 text-left text-white">CPF</th>
+                  <th className="p-2 text-left text-white">Telefone</th>
                   <th className="p-2 text-left text-white">Perfil</th>
+                  <th className="p-2 text-left text-white">Status</th>
                   <th className="p-2 text-center text-white">Ações</th>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow><TableCell colSpan={4} className="text-center h-24"><Loader2 className="mx-auto h-6 w-6 animate-spin text-emerald-400" /></TableCell></TableRow>
+                  <TableRow><TableCell colSpan={7} className="text-center h-24"><Loader2 className="mx-auto h-6 w-6 animate-spin text-emerald-400" /></TableCell></TableRow>
                 ) : paginatedUsers.map(user => (
                   <TableRow key={user.id} className="border-b-0 md:border-b border-white/10 text-white/90">
                     <TableCell data-label="Nome">{user.full_name || 'N/A'}</TableCell>
                     <TableCell data-label="Email">{user.email}</TableCell>
+                    <TableCell data-label="CPF">{user.cpf ? formatCnpjCpf(user.cpf) : '-'}</TableCell>
+                    <TableCell data-label="Telefone">{formatTelefone(user.telefone)}</TableCell>
                     <TableCell data-label="Perfil">
                       <span className={`px-2 py-1 rounded-full text-xs font-semibold ${user.role === 'administrador' ? 'bg-green-500/20 text-green-300' : 'bg-blue-500/20 text-blue-300'}`}>
                           {user.role}
+                      </span>
+                    </TableCell>
+                    <TableCell data-label="Status">
+                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${user.status === 'ativo' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-red-500/20 text-red-300'}`}>
+                        {user.status === 'ativo' ? 'Ativo' : 'Inativo'}
                       </span>
                     </TableCell>
                     <TableCell className="text-center space-x-1 actions-cell">
@@ -261,7 +289,7 @@ const UserManagementPage = () => {
                 ))}
                  { !loading && paginatedUsers.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center py-16 text-gray-400">
+                    <TableCell colSpan={7} className="text-center py-16 text-gray-400">
                       Nenhum usuário encontrado.
                     </TableCell>
                   </TableRow>

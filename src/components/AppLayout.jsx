@@ -101,6 +101,7 @@ const AppLayout = ({ children }) => {
       subItems: [
         { to: '/app/financeiro/credito', label: 'Crédito', icon: TrendingUp },
         { to: '/app/financeiro/debito', label: 'Débito', icon: TrendingDown },
+        { to: '/app/financeiro/recibos', label: 'Recibos', icon: FileText, adminOnly: true },
         { to: '/app/centros-custo', label: 'Centro de Custos', icon: Tag },
       ]
     },
@@ -167,6 +168,11 @@ const AppLayout = ({ children }) => {
                 <DropdownMenuLabel>{item.label}</DropdownMenuLabel>
                 <DropdownMenuSeparator className="bg-gray-700" />
                 {item.subItems.map(subItem => {
+                  // Verificar se o subItem requer permissão de administrador
+                  if (subItem.adminOnly && profile?.role !== 'administrador') {
+                    return null;
+                  }
+                  
                   const SubIcon = subItem.icon;
                   return (
                     <DropdownMenuItem key={subItem.to} asChild>

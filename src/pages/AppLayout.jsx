@@ -101,6 +101,7 @@ const AppLayout = ({ children }) => {
       subItems: [
         { to: '/app/financeiro/credito', label: 'Crédito', icon: TrendingUp },
         { to: '/app/financeiro/debito', label: 'Débito', icon: TrendingDown },
+        { to: '/app/financeiro/recibos', label: 'Recibos', icon: FileText },
         { to: '/app/centros-custo', label: 'Centro de Custos', icon: Tag },
       ]
     },

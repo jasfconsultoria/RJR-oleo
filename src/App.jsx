@@ -36,6 +36,10 @@ import ListaFinanceiro from '@/pages/financeiro/ListaFinanceiro';
 import FinanceiroForm from '@/pages/financeiro/FinanceiroForm';
 import AssinaturaReciboPage from '@/pages/recibos/AssinaturaReciboPage';
 import ReciboPublicoPage from '@/pages/recibos/ReciboPublicoPage';
+import ListaRecibosAvulsos from '@/pages/recibos-avulsos/ListaRecibosAvulsos';
+import ReciboAvulsoForm from '@/pages/recibos-avulsos/ReciboAvulsoForm';
+import AssinaturaReciboAvulsoPage from '@/pages/recibos-avulsos/AssinaturaReciboAvulsoPage';
+import ReciboAvulsoPublicoPage from '@/pages/recibos-avulsos/ReciboAvulsoPublicoPage';
 // Estoque Pages
 import EntradaFormPage from '@/pages/estoque/EntradaFormPage';
 import SaidaFormPage from '@/pages/estoque/SaidaFormPage';
@@ -117,6 +121,8 @@ function App() {
         <Route path="/certificado-view" element={<CertificadoViewPage />} />
         <Route path="/assinatura/recibo/:id" element={<AssinaturaReciboPage />} />
         <Route path="/recibo/publico/:id" element={<ReciboPublicoPage />} />
+        <Route path="/assinatura/recibo-avulso/:id" element={<AssinaturaReciboAvulsoPage />} />
+        <Route path="/recibo-avulso/publico/:id" element={<ReciboAvulsoPublicoPage />} />
         <Route path="/certificado/publico/:id" element={<CertificadoPublicoPage />} />
         <Route path="/assinatura/:id" element={<AssinaturaPage />} />
         <Route path="/contrato-assinado/:id" element={<ContratoAssinadoPage />} />
@@ -163,6 +169,9 @@ function App() {
                   <Route path="financeiro/debito" element={<ProtectedRoute requiredRole="administrador"><ListaFinanceiro type="debito" /></ProtectedRoute>} />
                   <Route path="financeiro/debito/novo" element={<ProtectedRoute requiredRole="administrador"><FinanceiroForm type="debito" /></ProtectedRoute>} />
                   <Route path="financeiro/debito/editar/:id" element={<ProtectedRoute requiredRole="administrador"><FinanceiroForm type="debito" /></ProtectedRoute>} />
+                  <Route path="financeiro/recibos" element={<ProtectedRoute requiredRole="administrador"><ListaRecibosAvulsos /></ProtectedRoute>} />
+                  <Route path="financeiro/recibos/novo" element={<ProtectedRoute requiredRole="administrador"><ReciboAvulsoForm /></ProtectedRoute>} />
+                  <Route path="financeiro/recibos/editar/:id" element={<ProtectedRoute requiredRole="administrador"><ReciboAvulsoForm /></ProtectedRoute>} />
 
                   {/* New Estoque Routes */}
                   <Route path="estoque/produtos" element={<ProtectedRoute requiredRole="administrador"><ListaProdutosPage /></ProtectedRoute>} />

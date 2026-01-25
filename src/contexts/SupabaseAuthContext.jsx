@@ -125,9 +125,46 @@ export const AuthProvider = ({ children }) => {
           title: "Erro ao fazer login",
           description: errorMessage,
         });
+        
+        return { data, error };
       }
 
-      return { data, error };
+      // Se o login foi bem-sucedido, verificar o status do usuário
+      if (data?.user) {
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('status')
+          .eq('id', data.user.id)
+          .single();
+
+        if (profileError) {
+          console.error('Erro ao buscar status do usuário:', profileError);
+          // Se não conseguir buscar o perfil, permite o login (comportamento padrão)
+        } else if (profileData?.status === 'inativo') {
+          // Se o usuário estiver inativo, fazer logout e mostrar mensagem
+          await supabase.auth.signOut();
+          clearInvalidTokens();
+          setSession(null);
+          setUser(null);
+          
+          toast({
+            variant: "destructive",
+            title: "Acesso negado",
+            description: "Sua conta está inativa. Entre em contato com o administrador do sistema.",
+          });
+          
+          return { 
+            data: null, 
+            error: { 
+              message: "Usuário inativo",
+              status: 403
+            } 
+          };
+        }
+        // Se o status for 'ativo' ou não existir, permite o login normalmente
+      }
+
+      return { data, error: null };
     } catch (err) {
       console.error('Erro inesperado ao fazer login:', err);
       toast({

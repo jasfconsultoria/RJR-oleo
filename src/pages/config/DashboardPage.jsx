@@ -32,6 +32,8 @@ const DashboardPage = () => {
   const [periodoFiltro, setPeriodoFiltro] = useState('personalizado'); // Default: período personalizado
   const [dataInicio, setDataInicio] = useState('');
   const [dataFim, setDataFim] = useState('');
+  const [dataInicioInput, setDataInicioInput] = useState(''); // Estado local para o input
+  const [dataFimInput, setDataFimInput] = useState(''); // Estado local para o input
   const [showFilters, setShowFilters] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [filtroEstado, setFiltroEstado] = useState('all');
@@ -77,6 +79,8 @@ const DashboardPage = () => {
     const defaultDates = getDefaultMonthDates();
     setDataInicio(defaultDates.start);
     setDataFim(defaultDates.end);
+    setDataInicioInput(defaultDates.start);
+    setDataFimInput(defaultDates.end);
   }, []);
 
   // Buscar municípios quando estado for selecionado
@@ -692,12 +696,39 @@ const DashboardPage = () => {
       if (dateRange.start && dateRange.end) {
         setDataInicio(dateRange.start);
         setDataFim(dateRange.end);
+        setDataInicioInput(dateRange.start);
+        setDataFimInput(dateRange.end);
       }
     }
   };
 
   const handleCustomDateFilter = () => {
-    if (dataInicio && dataFim) {
+    if (dataInicioInput && dataFimInput) {
+      // Validar se as datas são válidas
+      const inicio = new Date(dataInicioInput);
+      const fim = new Date(dataFimInput);
+      
+      if (isNaN(inicio.getTime()) || isNaN(fim.getTime())) {
+        toast({
+          title: 'Datas inválidas',
+          description: 'Por favor, selecione datas válidas.',
+          variant: 'destructive'
+        });
+        return;
+      }
+      
+      if (inicio > fim) {
+        toast({
+          title: 'Datas inválidas',
+          description: 'A data de início deve ser anterior à data de fim.',
+          variant: 'destructive'
+        });
+        return;
+      }
+      
+      // Atualizar os estados principais que disparam a busca
+      setDataInicio(dataInicioInput);
+      setDataFim(dataFimInput);
       setPeriodoFiltro('personalizado');
     } else {
       toast({
@@ -713,6 +744,8 @@ const DashboardPage = () => {
     const defaultDates = getDefaultMonthDates();
     setDataInicio(defaultDates.start);
     setDataFim(defaultDates.end);
+    setDataInicioInput(defaultDates.start);
+    setDataFimInput(defaultDates.end);
     setFiltroEstado('all');
     setFiltroMunicipio('all');
     setFiltroColetor('all');
@@ -946,8 +979,8 @@ const DashboardPage = () => {
                   <input
                     type="date"
                     id="dataInicio"
-                    value={dataInicio}
-                    onChange={(e) => setDataInicio(e.target.value)}
+                    value={dataInicioInput}
+                    onChange={(e) => setDataInicioInput(e.target.value)}
                     className="w-full bg-white/20 border border-white/30 text-white rounded-xl px-3 py-2 h-10 focus:outline-none focus:ring-2 focus:ring-emerald-400 text-sm"
                   />
                 </div>
@@ -958,8 +991,8 @@ const DashboardPage = () => {
                   <input
                     type="date"
                     id="dataFim"
-                    value={dataFim}
-                    onChange={(e) => setDataFim(e.target.value)}
+                    value={dataFimInput}
+                    onChange={(e) => setDataFimInput(e.target.value)}
                     className="w-full bg-white/20 border border-white/30 text-white rounded-xl px-3 py-2 h-10 focus:outline-none focus:ring-2 focus:ring-emerald-400 text-sm"
                   />
                 </div>
@@ -968,7 +1001,7 @@ const DashboardPage = () => {
                 <div className="md:col-span-2 flex gap-2.5 items-end justify-end" style={{ marginLeft: 'auto', paddingLeft: '2rem' }}>
                   <Button 
                     onClick={handleCustomDateFilter}
-                    disabled={!dataInicio || !dataFim}
+                    disabled={!dataInicioInput || !dataFimInput}
                     className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl h-10 px-3 flex items-center gap-2"
                   >
                     <Filter className="h-4 w-4" />
@@ -1045,8 +1078,8 @@ const DashboardPage = () => {
                     <input
                       type="date"
                       id="dataInicio-mobile"
-                      value={dataInicio}
-                      onChange={(e) => setDataInicio(e.target.value)}
+                      value={dataInicioInput}
+                      onChange={(e) => setDataInicioInput(e.target.value)}
                       className="w-full bg-white/20 border border-white/30 text-white rounded-xl px-3 py-2 h-10 focus:outline-none focus:ring-2 focus:ring-emerald-400 text-sm"
                     />
                   </div>
@@ -1056,8 +1089,8 @@ const DashboardPage = () => {
                     <input
                       type="date"
                       id="dataFim-mobile"
-                      value={dataFim}
-                      onChange={(e) => setDataFim(e.target.value)}
+                      value={dataFimInput}
+                      onChange={(e) => setDataFimInput(e.target.value)}
                       className="w-full bg-white/20 border border-white/30 text-white rounded-xl px-3 py-2 h-10 focus:outline-none focus:ring-2 focus:ring-emerald-400 text-sm"
                     />
                   </div>
@@ -1066,7 +1099,7 @@ const DashboardPage = () => {
                 <div className="flex gap-2 justify-end">
                   <Button 
                     onClick={handleCustomDateFilter}
-                    disabled={!dataInicio || !dataFim}
+                    disabled={!dataInicioInput || !dataFimInput}
                     className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl h-10 px-3 flex items-center gap-2"
                   >
                     <Filter className="h-4 w-4" />
