@@ -880,10 +880,10 @@ const DashboardPage = () => {
           <CardContent>
             <div className={`${isMobile && !showFilters ? 'hidden' : 'block'}`}>
               {/* DESKTOP: Grid alinhado corretamente */}
-              <div className="grid grid-cols-1 md:grid-cols-14 gap-2 items-end">
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
                 
                 {/* Estado - 2 colunas */}
-                <div className="md:col-span-2">
+                <div className="md:col-span-2 space-y-2">
                   <SearchableSelect
                     options={estadoOptions}
                     value={filtroEstado}
@@ -893,8 +893,8 @@ const DashboardPage = () => {
                   />
                 </div>
 
-                {/* Município - 3 colunas (aumentado 0,5cm) */}
-                <div className="md:col-span-3">
+                {/* Município - 2 colunas */}
+                <div className="md:col-span-2 space-y-2">
                   <SearchableSelect
                     options={municipioOptions}
                     value={filtroMunicipio}
@@ -905,9 +905,9 @@ const DashboardPage = () => {
                   />
                 </div>
 
-                {/* Coletor - 3 colunas (aumentado 0,5cm) */}
+                {/* Coletor - 2 colunas (apenas para admin) */}
                 {profile?.role === 'administrador' ? (
-                  <div className="md:col-span-3">
+                  <div className="md:col-span-2 space-y-2">
                     <UserSearchableSelect
                       labelText="Coletor"
                       value={filtroColetor}
@@ -917,11 +917,11 @@ const DashboardPage = () => {
                     />
                   </div>
                 ) : (
-                  <div className="md:col-span-3"></div>
+                  <div className="md:col-span-2"></div>
                 )}
 
-                {/* Período - 1 coluna (diminuído 0,5cm) */}
-                <div className="md:col-span-1">
+                {/* Período - 1.5 colunas (aumentado um pouco) */}
+                <div className="md:col-span-2 space-y-2">
                   <Label htmlFor="periodo" className="text-white mb-2 block text-sm">Período</Label>
                   <Select value={periodoFiltro} onValueChange={handlePeriodoChange}>
                     <SelectTrigger className="bg-white/20 border-white/30 text-white rounded-xl h-10">
@@ -941,7 +941,7 @@ const DashboardPage = () => {
                 </div>
 
                 {/* Data Início - 1 coluna */}
-                <div className="md:col-span-1 md:pr-2">
+                <div className="md:col-span-1 space-y-2">
                   <Label htmlFor="dataInicio" className="text-white mb-2 block text-sm">Data Início</Label>
                   <input
                     type="date"
@@ -953,7 +953,7 @@ const DashboardPage = () => {
                 </div>
 
                 {/* Data Fim - 1 coluna */}
-                <div className="md:col-span-1 md:pl-2">
+                <div className="md:col-span-1 space-y-2">
                   <Label htmlFor="dataFim" className="text-white mb-2 block text-sm">Data Fim</Label>
                   <input
                     type="date"
@@ -964,24 +964,20 @@ const DashboardPage = () => {
                   />
                 </div>
 
-                {/* Botão Filtrar - 1 coluna */}
-                <div className="md:col-span-1">
+                {/* Botões de Ação - 2 colunas */}
+                <div className="md:col-span-2 flex gap-2.5 items-end justify-end" style={{ marginLeft: 'auto', paddingLeft: '2rem' }}>
                   <Button 
                     onClick={handleCustomDateFilter}
                     disabled={!dataInicio || !dataFim}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl h-10 px-3 flex items-center gap-2 w-full"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl h-10 px-3 flex items-center gap-2"
                   >
                     <Filter className="h-4 w-4" />
                     Filtrar
                   </Button>
-                </div>
-
-                {/* Botão Limpar - 1 coluna */}
-                <div className="md:col-span-1">
                   <Button 
                     onClick={clearFilters}
                     variant="outline"
-                    className="border-white/30 text-white hover:bg-white/10 rounded-xl h-10 px-2 flex items-center gap-1.5 w-full"
+                    className="border-white/30 text-white hover:bg-white/10 rounded-xl h-10 px-2 flex items-center gap-1.5"
                   >
                     <Eraser className="h-4 w-4" />
                     Limpar
