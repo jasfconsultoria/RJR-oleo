@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/popover';
 import { Loader2 } from 'lucide-react';
 
-export function UserSearchableSelect({ labelText = "Usuário", value, onChange, users = [], loading = false }) {
+export function UserSearchableSelect({ labelText = "Usuário", value, onChange, users = [], loading = false, inputClassName = "" }) {
   const [open, setOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -37,7 +37,10 @@ export function UserSearchableSelect({ labelText = "Usuário", value, onChange, 
             variant="outline"
             role="combobox"
             aria-expanded={open}
-            className="w-full justify-between bg-white/10 border-white/30 text-white hover:bg-white/20"
+            className={cn(
+              "w-full justify-between text-white hover:bg-white/20",
+              inputClassName || "bg-white/10 border-white/30 h-10"
+            )}
             disabled={loading}
           >
             {loading ? (

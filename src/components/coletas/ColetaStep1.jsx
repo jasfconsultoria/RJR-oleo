@@ -311,7 +311,7 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
             onFocus={() => !loadingClients && setShowClienteDropdown(true)}
             onBlur={() => setTimeout(() => setShowClienteDropdown(false), 200)}
             placeholder={loadingClients ? "Carregando clientes..." : "Digite para buscar..."}
-            className="bg-white/10 border-white/30 text-white placeholder:text-white/60 rounded-xl h-10 text-base"
+            className="bg-white/10 border-white/30 text-white placeholder:text-white/60 rounded-xl h-10 text-lg font-bold"
             autoComplete="off"
             required
             disabled={loadingClients}

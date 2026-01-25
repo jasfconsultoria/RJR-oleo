@@ -176,24 +176,24 @@ const ContratoPDF = React.forwardRef(({ contrato, empresa, showSignature }, ref)
         </p>
 
         <p className="text-center mb-6 leading-normal">
-          {empresa?.municipio || 'Cidade'}, {formatarDataExtenso(new Date())}.
+          {empresa?.municipio || 'Cidade'} - {empresa?.estado || 'UF'}, {formatarDataExtenso(new Date())}.
         </p>
 
         <div className="flex justify-around mt-8">
           <div className="w-2/5 text-center">
             {empresa?.assinatura_responsavel_url ? (
-              <img src={empresa.assinatura_responsavel_url} alt="Assinatura da Contratada" className="h-[calc(4rem-0.5cm)] border-b-2 border-black mx-auto" crossOrigin="anonymous" />
+              <img src={empresa.assinatura_responsavel_url} alt="Assinatura da Contratada" className="w-48 h-[calc(3.2rem-0.5cm)] border-b-2 border-black mx-auto object-contain" crossOrigin="anonymous" />
             ) : (
-              <div className="border-b-2 border-black pb-1 mb-1"></div>
+              <div className="w-48 h-[calc(3.2rem-0.5cm)] border-b-2 border-black pb-1 mb-1 mx-auto"></div>
             )}
             <p className="font-bold mt-1 text-xs">{empresa?.nome_responsavel_assinatura || empresa?.nome_fantasia || 'CONTRATADA'}</p>
             <p className="text-xs">CONTRATADA</p>
           </div>
           <div className="w-2/5 text-center">
             {showSignature && contrato.assinatura_url ? (
-              <img src={contrato.assinatura_url} alt="Assinatura do Cliente" className="h-[calc(4rem-0.5cm)] border-b-2 border-black mx-auto" crossOrigin="anonymous" />
+              <img src={contrato.assinatura_url} alt="Assinatura do Cliente" className="w-48 h-[calc(3.2rem-0.5cm)] border-b-2 border-black mx-auto object-contain" crossOrigin="anonymous" />
             ) : (
-              <div className="border-b-2 border-black pb-1 mb-1"></div>
+              <div className="w-48 h-[calc(3.2rem-0.5cm)] border-b-2 border-black pb-1 mb-1 mx-auto"></div>
             )}
             <p className="font-bold mt-1 text-xs">{cliente.nome}</p>
             <p className="text-xs">CONTRATANTE</p>

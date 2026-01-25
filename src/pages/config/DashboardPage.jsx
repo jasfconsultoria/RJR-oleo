@@ -12,6 +12,9 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { useLocationData } from '@/hooks/useLocationData';
+import { SearchableSelect } from '@/components/ui/SearchableSelect';
+import { UserSearchableSelect } from '@/components/ui/UserSearchableSelect';
 
 const DashboardPage = () => {
   const [stats, setStats] = useState({
@@ -31,6 +34,14 @@ const DashboardPage = () => {
   const [dataFim, setDataFim] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [filtroEstado, setFiltroEstado] = useState('all');
+  const [filtroMunicipio, setFiltroMunicipio] = useState('all');
+  const [filtroColetor, setFiltroColetor] = useState('all');
+  const [municipios, setMunicipios] = useState([]);
+  const [coletores, setColetores] = useState([]);
+  
+  // Buscar estados e municípios
+  const { estados, fetchMunicipios } = useLocationData();
 
   // Detectar se é mobile
   useEffect(() => {
@@ -67,6 +78,84 @@ const DashboardPage = () => {
     setDataInicio(defaultDates.start);
     setDataFim(defaultDates.end);
   }, []);
+
+  // Buscar municípios quando estado for selecionado
+  useEffect(() => {
+    const loadMunicipios = async () => {
+      if (filtroEstado && filtroEstado !== 'all') {
+        const municipiosList = await fetchMunicipios(filtroEstado);
+        setMunicipios(municipiosList);
+        // Resetar município quando estado mudar
+        setFiltroMunicipio('all');
+      } else {
+        setMunicipios([]);
+        setFiltroMunicipio('all');
+      }
+    };
+    loadMunicipios();
+  }, [filtroEstado, fetchMunicipios]);
+
+  // Buscar lista de coletores
+  useEffect(() => {
+    const fetchColetores = async () => {
+      if (profile?.role !== 'administrador') {
+        setColetores([]);
+        return;
+      }
+
+      try {
+        console.log('🔍 Buscando coletores...');
+        
+        // Tentar usar a função RPC primeiro
+        const { data: usuariosRPC, error: rpcError } = await supabase.rpc('get_all_users');
+        
+        if (!rpcError && usuariosRPC) {
+          console.log('✅ Usuários encontrados via RPC:', usuariosRPC.length);
+          // Filtrar apenas coletores
+          const coletoresFiltrados = usuariosRPC.filter(u => u.role === 'coletor');
+          console.log('✅ Coletores encontrados via RPC:', coletoresFiltrados.length);
+          
+          const sortedColetores = coletoresFiltrados.sort((a, b) => {
+            if (!a.full_name) return 1;
+            if (!b.full_name) return -1;
+            return a.full_name.localeCompare(b.full_name);
+          });
+          
+          setColetores(sortedColetores);
+          return;
+        }
+        
+        // Fallback: buscar diretamente da tabela profiles
+        console.log('⚠️ RPC não disponível, buscando diretamente de profiles...');
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, full_name, email, role')
+          .eq('role', 'coletor')
+          .order('full_name', { ascending: true });
+        
+        if (error) {
+          console.error('❌ Erro ao buscar coletores de profiles:', error);
+          throw error;
+        }
+        
+        console.log('✅ Coletores encontrados em profiles:', data?.length);
+        console.log('📋 Dados dos coletores:', data);
+        
+        const sortedColetores = (data || []).sort((a, b) => {
+          if (!a.full_name) return 1;
+          if (!b.full_name) return -1;
+          return a.full_name.localeCompare(b.full_name);
+        });
+        
+        setColetores(sortedColetores);
+      } catch (error) {
+        console.error('❌ Erro ao buscar coletores:', error);
+        setColetores([]);
+      }
+    };
+    
+    fetchColetores();
+  }, [profile]);
 
   // Função para obter o user_id correto
   const getUserId = () => {
@@ -291,6 +380,19 @@ const DashboardPage = () => {
             .lte('data_coleta', dateRange.end);
         }
 
+        // Aplicar filtros de estado, município e coletor
+        if (filtroEstado && filtroEstado !== 'all') {
+          coletasQuery = coletasQuery.eq('estado', filtroEstado);
+        }
+        
+        if (filtroMunicipio && filtroMunicipio !== 'all') {
+          coletasQuery = coletasQuery.eq('municipio', filtroMunicipio);
+        }
+        
+        if (filtroColetor && filtroColetor !== 'all') {
+          coletasQuery = coletasQuery.eq('user_id', filtroColetor);
+        }
+
         if (profile.role === 'administrador') {
           console.log('👑 Buscando dados como administrador...');
           
@@ -456,12 +558,25 @@ const DashboardPage = () => {
         // Dados por cliente
         let clienteQuery = supabase
           .from('coletas')
-          .select('cliente_nome, quantidade_coletada, cliente:clientes(nome_fantasia, razao_social, estado)');
+          .select('cliente_nome, quantidade_coletada, data_coleta, hora_coleta, cliente:clientes(nome_fantasia, razao_social, estado)');
 
         if (dateRange.start && dateRange.end) {
           clienteQuery = clienteQuery
             .gte('data_coleta', dateRange.start)
             .lte('data_coleta', dateRange.end);
+        }
+
+        // Aplicar filtros de estado, município e coletor também na query de clientes
+        if (filtroEstado && filtroEstado !== 'all') {
+          clienteQuery = clienteQuery.eq('estado', filtroEstado);
+        }
+        
+        if (filtroMunicipio && filtroMunicipio !== 'all') {
+          clienteQuery = clienteQuery.eq('municipio', filtroMunicipio);
+        }
+        
+        if (filtroColetor && filtroColetor !== 'all') {
+          clienteQuery = clienteQuery.eq('user_id', filtroColetor);
         }
 
         if (profile.role !== 'administrador') {
@@ -487,6 +602,13 @@ const DashboardPage = () => {
             // Chave composta: cliente/estado para agrupar por cliente e estado
             const clienteKey = `${clienteNomeFinal}|${estado}`;
             
+            // Criar timestamp da coleta para ordenação cronológica
+            const dataColeta = coleta.data_coleta || '';
+            const horaColeta = coleta.hora_coleta || '00:00';
+            const timestampColeta = dataColeta && horaColeta 
+              ? new Date(`${dataColeta}T${horaColeta}`).getTime()
+              : new Date().getTime(); // Fallback para data atual se não houver data/hora
+            
             if (!clienteMap[clienteKey]) {
               clienteMap[clienteKey] = { 
                 coletas: 0, 
@@ -494,11 +616,17 @@ const DashboardPage = () => {
                 nome_fantasia: nomeFantasia || null,
                 razao_social: razaoSocial || null,
                 cliente_nome: clienteNomeFinal,
-                estado: estado
+                estado: estado,
+                primeira_coleta_timestamp: timestampColeta // Guardar timestamp da primeira coleta
               };
             }
             clienteMap[clienteKey].coletas += 1;
             clienteMap[clienteKey].massa += parseFloat(coleta.quantidade_coletada) || 0;
+            
+            // Atualizar timestamp se esta coleta for anterior à primeira registrada
+            if (timestampColeta < clienteMap[clienteKey].primeira_coleta_timestamp) {
+              clienteMap[clienteKey].primeira_coleta_timestamp = timestampColeta;
+            }
           });
           
           clienteData = Object.entries(clienteMap)
@@ -508,9 +636,10 @@ const DashboardPage = () => {
               razao_social: dados.razao_social,
               estado: dados.estado,
               coletas: dados.coletas,
-              massa: parseFloat(dados.massa.toFixed(2))
+              massa: parseFloat(dados.massa.toFixed(2)),
+              primeira_coleta_timestamp: dados.primeira_coleta_timestamp
             }))
-            .sort((a, b) => b.massa - a.massa) // Ordenar por massa (quantidade coletada) em ordem decrescente
+            .sort((a, b) => a.primeira_coleta_timestamp - b.primeira_coleta_timestamp) // Ordenar por ordem cronológica (primeira coleta do dia)
             .slice(0, 10);
         }
 
@@ -553,7 +682,7 @@ const DashboardPage = () => {
     } else if (!profileLoading) {
       setDataLoading(false);
     }
-  }, [toast, profile, profileLoading, user, periodoFiltro, dataInicio, dataFim]);
+  }, [toast, profile, profileLoading, user, periodoFiltro, dataInicio, dataFim, filtroEstado, filtroMunicipio, filtroColetor]);
 
   const handlePeriodoChange = (periodo) => {
     setPeriodoFiltro(periodo);
@@ -584,7 +713,21 @@ const DashboardPage = () => {
     const defaultDates = getDefaultMonthDates();
     setDataInicio(defaultDates.start);
     setDataFim(defaultDates.end);
+    setFiltroEstado('all');
+    setFiltroMunicipio('all');
+    setFiltroColetor('all');
   };
+
+  // Preparar opções para os selects
+  const estadoOptions = [
+    { value: 'all', label: 'Todos os Estados' },
+    ...estados.map(e => ({ value: e.value, label: e.label }))
+  ];
+
+  const municipioOptions = [
+    { value: 'all', label: 'Todos os Municípios' },
+    ...municipios.map(m => ({ value: m, label: m }))
+  ];
 
   if (profileLoading) {
     return (
@@ -737,10 +880,48 @@ const DashboardPage = () => {
           <CardContent>
             <div className={`${isMobile && !showFilters ? 'hidden' : 'block'}`}>
               {/* DESKTOP: Grid alinhado corretamente */}
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+              <div className="grid grid-cols-1 md:grid-cols-14 gap-2 items-end">
                 
-                {/* Período - 3 colunas */}
-                <div className="md:col-span-3 space-y-2">
+                {/* Estado - 2 colunas */}
+                <div className="md:col-span-2">
+                  <SearchableSelect
+                    options={estadoOptions}
+                    value={filtroEstado}
+                    onChange={setFiltroEstado}
+                    labelText="Estado"
+                    inputClassName="bg-white/20 border-white/30 text-white rounded-xl h-10"
+                  />
+                </div>
+
+                {/* Município - 3 colunas (aumentado 0,5cm) */}
+                <div className="md:col-span-3">
+                  <SearchableSelect
+                    options={municipioOptions}
+                    value={filtroMunicipio}
+                    onChange={setFiltroMunicipio}
+                    labelText="Município"
+                    inputClassName="bg-white/20 border-white/30 text-white rounded-xl h-10"
+                    disabled={!filtroEstado || filtroEstado === 'all'}
+                  />
+                </div>
+
+                {/* Coletor - 3 colunas (aumentado 0,5cm) */}
+                {profile?.role === 'administrador' ? (
+                  <div className="md:col-span-3">
+                    <UserSearchableSelect
+                      labelText="Coletor"
+                      value={filtroColetor}
+                      onChange={setFiltroColetor}
+                      users={coletores}
+                      inputClassName="bg-white/20 border-white/30 text-white rounded-xl h-10"
+                    />
+                  </div>
+                ) : (
+                  <div className="md:col-span-3"></div>
+                )}
+
+                {/* Período - 1 coluna (diminuído 0,5cm) */}
+                <div className="md:col-span-1">
                   <Label htmlFor="periodo" className="text-white mb-2 block text-sm">Período</Label>
                   <Select value={periodoFiltro} onValueChange={handlePeriodoChange}>
                     <SelectTrigger className="bg-white/20 border-white/30 text-white rounded-xl h-10">
@@ -759,8 +940,8 @@ const DashboardPage = () => {
                   </Select>
                 </div>
 
-                {/* Data Início - 3 colunas */}
-                <div className="md:col-span-3 space-y-2">
+                {/* Data Início - 1 coluna */}
+                <div className="md:col-span-1 md:pr-2">
                   <Label htmlFor="dataInicio" className="text-white mb-2 block text-sm">Data Início</Label>
                   <input
                     type="date"
@@ -771,8 +952,8 @@ const DashboardPage = () => {
                   />
                 </div>
 
-                {/* Data Fim - 3 colunas */}
-                <div className="md:col-span-3 space-y-2">
+                {/* Data Fim - 1 coluna */}
+                <div className="md:col-span-1 md:pl-2">
                   <Label htmlFor="dataFim" className="text-white mb-2 block text-sm">Data Fim</Label>
                   <input
                     type="date"
@@ -783,20 +964,24 @@ const DashboardPage = () => {
                   />
                 </div>
 
-                {/* Botões de Ação - 3 colunas */}
-                <div className="md:col-span-3 flex gap-2 items-end">
+                {/* Botão Filtrar - 1 coluna */}
+                <div className="md:col-span-1">
                   <Button 
                     onClick={handleCustomDateFilter}
                     disabled={!dataInicio || !dataFim}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl h-10 px-4 flex-1 flex items-center gap-2"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl h-10 px-3 flex items-center gap-2 w-full"
                   >
-                    <Calendar className="h-4 w-4" />
+                    <Filter className="h-4 w-4" />
                     Filtrar
                   </Button>
+                </div>
+
+                {/* Botão Limpar - 1 coluna */}
+                <div className="md:col-span-1">
                   <Button 
                     onClick={clearFilters}
                     variant="outline"
-                    className="border-white/30 text-white hover:bg-white/10 rounded-xl h-10 px-4 flex items-center gap-2"
+                    className="border-white/30 text-white hover:bg-white/10 rounded-xl h-10 px-2 flex items-center gap-1.5 w-full"
                   >
                     <Eraser className="h-4 w-4" />
                     Limpar
@@ -806,6 +991,39 @@ const DashboardPage = () => {
 
               {/* MOBILE: Layout vertical */}
               <div className="md:hidden space-y-4 mt-4">
+                <div className="space-y-2">
+                  <SearchableSelect
+                    options={estadoOptions}
+                    value={filtroEstado}
+                    onChange={setFiltroEstado}
+                    labelText="Estado"
+                    inputClassName="bg-white/20 border-white/30 text-white rounded-xl h-10"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <SearchableSelect
+                    options={municipioOptions}
+                    value={filtroMunicipio}
+                    onChange={setFiltroMunicipio}
+                    labelText="Município"
+                    inputClassName="bg-white/20 border-white/30 text-white rounded-xl h-10"
+                    disabled={!filtroEstado || filtroEstado === 'all'}
+                  />
+                </div>
+
+                {profile?.role === 'administrador' && (
+                  <div className="space-y-2">
+                    <UserSearchableSelect
+                      labelText="Coletor"
+                      value={filtroColetor}
+                      onChange={setFiltroColetor}
+                      users={coletores}
+                      inputClassName="bg-white/20 border-white/30 text-white rounded-xl h-10"
+                    />
+                  </div>
+                )}
+
                 <div className="space-y-2">
                   <Label htmlFor="periodo-mobile" className="text-white mb-2 block text-sm">Período</Label>
                   <Select value={periodoFiltro} onValueChange={handlePeriodoChange}>
@@ -849,19 +1067,19 @@ const DashboardPage = () => {
                   </div>
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex gap-2 justify-end">
                   <Button 
                     onClick={handleCustomDateFilter}
                     disabled={!dataInicio || !dataFim}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl h-10 flex-1 flex items-center gap-2"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl h-10 px-3 flex items-center gap-2"
                   >
-                    <Calendar className="h-4 w-4" />
+                    <Filter className="h-4 w-4" />
                     Filtrar
                   </Button>
                   <Button 
                     onClick={clearFilters}
                     variant="outline"
-                    className="border-white/30 text-white hover:bg-white/10 rounded-xl h-10 px-4 flex items-center gap-2"
+                    className="border-white/30 text-white hover:bg-white/10 rounded-xl h-10 px-2 flex items-center gap-1.5"
                   >
                     <Eraser className="h-4 w-4" />
                     Limpar

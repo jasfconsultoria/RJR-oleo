@@ -338,7 +338,7 @@ export const Recibo = React.forwardRef(({ data, signature, empresa, timezone, co
                         <img 
                             src={signature} 
                             alt="Assinatura do cliente" 
-                            className="max-h-[75%] max-w-[75%] object-contain"
+                            className="max-h-[54%] max-w-[54%] object-contain"
                             crossOrigin="anonymous"
                             onError={(e) => {
                                 console.warn('Erro ao carregar assinatura');
