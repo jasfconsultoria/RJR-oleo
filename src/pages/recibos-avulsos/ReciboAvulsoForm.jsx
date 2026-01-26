@@ -45,12 +45,38 @@ const ReciboAvulsoForm = () => {
   const [loading, setLoading] = useState(isEditing);
   const [saving, setSaving] = useState(false);
   const [pessoaSelecionada, setPessoaSelecionada] = useState(null);
+  const [pessoaSearchTerm, setPessoaSearchTerm] = useState('');
+  const [previousTipo, setPreviousTipo] = useState(null);
 
   useEffect(() => {
     if (isEditing) {
       fetchRecibo();
     }
   }, [id, isEditing]);
+
+  // Limpar campos de pessoa quando o tipo mudar
+  useEffect(() => {
+    // Só limpar se o tipo realmente mudou (não na primeira renderização)
+    if (previousTipo !== null && previousTipo !== formData.tipo) {
+      setPessoaSelecionada(null);
+      setPessoaSearchTerm('');
+      setFormData(prev => ({
+        ...prev,
+        pessoa_id: null,
+        pessoa_nome: '',
+        pessoa_cnpj_cpf: '',
+        pessoa_endereco: '',
+        pessoa_municipio: '',
+        pessoa_estado: '',
+        pessoa_telefone: '',
+        pessoa_email: ''
+      }));
+    }
+    // Atualizar previousTipo apenas se mudou
+    if (previousTipo !== formData.tipo) {
+      setPreviousTipo(formData.tipo);
+    }
+  }, [formData.tipo]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchRecibo = async () => {
     try {
@@ -81,6 +107,35 @@ const ReciboAvulsoForm = () => {
           data_recibo: data.data_recibo ? new Date(data.data_recibo) : new Date(),
           observacoes: data.observacoes || ''
         });
+        
+        // Definir o termo de busca com o nome da pessoa
+        if (data.tipo === 'coletor') {
+          // Para coletores, sempre usar pessoa_nome (pois pessoa_id pode ser NULL)
+          if (data.pessoa_nome) {
+            setPessoaSearchTerm(data.pessoa_nome);
+          }
+        } else if (data.pessoa_id) {
+          // Para clientes/fornecedores, tentar buscar o nome completo
+          try {
+            const { data: clienteData } = await supabase
+              .from('clientes')
+              .select('nome_fantasia, razao_social')
+              .eq('id', data.pessoa_id)
+              .single();
+            if (clienteData) {
+              const displayValue = clienteData.nome_fantasia && clienteData.razao_social
+                ? `${clienteData.nome_fantasia} - ${clienteData.razao_social}`
+                : clienteData.nome_fantasia || clienteData.razao_social || '';
+              setPessoaSearchTerm(displayValue);
+            } else {
+              setPessoaSearchTerm(data.pessoa_nome || '');
+            }
+          } catch (err) {
+            setPessoaSearchTerm(data.pessoa_nome || '');
+          }
+        } else {
+          setPessoaSearchTerm(data.pessoa_nome || '');
+        }
       }
     } catch (error) {
       console.error('Erro ao buscar recibo:', error);
@@ -115,6 +170,17 @@ const ReciboAvulsoForm = () => {
           ? `${pessoa.nome_fantasia} - ${pessoa.razao_social}`
           : pessoa.nome_fantasia || pessoa.razao_social || '';
       }
+      
+      // Determinar o valor de exibição para o campo de busca
+      let displayValue = '';
+      if (formData.tipo === 'coletor') {
+        displayValue = pessoa.nome_fantasia || pessoa.razao_social || '';
+      } else {
+        displayValue = pessoa.nome_fantasia && pessoa.razao_social
+          ? `${pessoa.nome_fantasia} - ${pessoa.razao_social}`
+          : pessoa.nome_fantasia || pessoa.razao_social || '';
+      }
+      setPessoaSearchTerm(displayValue);
       
       setFormData(prev => ({
         ...prev,
@@ -179,6 +245,17 @@ const ReciboAvulsoForm = () => {
               : pessoaData.nome_fantasia || pessoaData.razao_social || '';
           }
           
+          // Determinar o valor de exibição para o campo de busca
+          let displayValue = '';
+          if (formData.tipo === 'coletor') {
+            displayValue = pessoaData.nome_fantasia || pessoaData.razao_social || '';
+          } else {
+            displayValue = pessoaData.nome_fantasia && pessoaData.razao_social
+              ? `${pessoaData.nome_fantasia} - ${pessoaData.razao_social}`
+              : pessoaData.nome_fantasia || pessoaData.razao_social || '';
+          }
+          setPessoaSearchTerm(displayValue);
+          
           setFormData(prev => ({
             ...prev,
             pessoa_id: pessoaData.id,
@@ -197,6 +274,7 @@ const ReciboAvulsoForm = () => {
     } else {
       // Limpar seleção
       setPessoaSelecionada(null);
+      setPessoaSearchTerm('');
       setFormData(prev => ({
         ...prev,
         pessoa_id: null,
@@ -217,14 +295,28 @@ const ReciboAvulsoForm = () => {
 
     try {
       // Validações
-      if (!formData.pessoa_id) {
-        toast({
-          title: 'Campo obrigatório',
-          description: 'É necessário selecionar uma pessoa (cliente, fornecedor ou coletor).',
-          variant: 'destructive'
-        });
-        setSaving(false);
-        return;
+      // Para coletores, pessoa_id pode ser NULL, então validar pelo nome
+      if (formData.tipo === 'coletor') {
+        if (!formData.pessoa_nome || !formData.pessoa_nome.trim()) {
+          toast({
+            title: 'Campo obrigatório',
+            description: 'É necessário selecionar um coletor.',
+            variant: 'destructive'
+          });
+          setSaving(false);
+          return;
+        }
+      } else {
+        // Para clientes e fornecedores, validar pelo pessoa_id
+        if (!formData.pessoa_id) {
+          toast({
+            title: 'Campo obrigatório',
+            description: 'É necessário selecionar uma pessoa (cliente ou fornecedor).',
+            variant: 'destructive'
+          });
+          setSaving(false);
+          return;
+        }
       }
 
       if (!formData.descricao.trim()) {
@@ -286,7 +378,8 @@ const ReciboAvulsoForm = () => {
 
       const reciboData = {
         tipo: formData.tipo,
-        pessoa_id: formData.pessoa_id,
+        // Se for coletor, pessoa_id deve ser NULL pois coletores não estão na tabela clientes
+        pessoa_id: formData.tipo === 'coletor' ? null : formData.pessoa_id,
         pessoa_nome: formData.pessoa_nome?.trim() || '',
         pessoa_cnpj_cpf: unmask(formData.pessoa_cnpj_cpf || ''),
         pessoa_endereco: formData.pessoa_endereco?.trim() || null,
@@ -433,6 +526,8 @@ const ReciboAvulsoForm = () => {
                     onChange={handlePessoaSelect}
                     returnFullClientData={true}
                     personType={formData.tipo}
+                    searchTerm={pessoaSearchTerm}
+                    onSearchTermChange={setPessoaSearchTerm}
                   />
                 </div>
 

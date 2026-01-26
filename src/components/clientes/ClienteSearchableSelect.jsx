@@ -146,6 +146,9 @@ const ClienteSearchableSelect = ({
         setInternalSearchTerm(displayValue);
         onSearchTermChange && onSearchTermChange(displayValue);
       }
+    } else if (!value && controlledSearchTerm) {
+      // Se não há value mas há controlledSearchTerm (ex: quando pessoa_id é NULL mas temos o nome)
+      setInternalSearchTerm(controlledSearchTerm);
     } else if (!value && !controlledSearchTerm) {
       setInternalSearchTerm('');
       onSearchTermChange && onSearchTermChange('');
