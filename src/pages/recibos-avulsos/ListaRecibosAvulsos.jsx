@@ -381,8 +381,9 @@ const ListaRecibosAvulsos = () => {
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => navigate(`/app/financeiro/recibos/editar/${recibo.id}`)}
-                                title="Editar Recibo"
-                                className="text-yellow-400 hover:text-yellow-300 rounded-xl"
+                                title={recibo.assinatura_url ? "Recibo assinado não pode ser editado" : "Editar Recibo"}
+                                disabled={!!recibo.assinatura_url}
+                                className="text-yellow-400 hover:text-yellow-300 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
                               >
                                 <Edit className="h-4 w-4" />
                               </Button>
