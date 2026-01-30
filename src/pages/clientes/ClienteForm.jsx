@@ -15,9 +15,11 @@ import { useLocationData } from '@/hooks/useLocationData';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { validateCnpjCpf as validateCnpjCpfFormat } from '@/lib/validators';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
-import { unmask } from '@/lib/utils';
+import { unmask, formatCnpjCpf } from '@/lib/utils';
 import { useAutoSave } from '@/hooks/useAutoSave';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Info } from 'lucide-react';
 
 const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', onCancel }) => {
   const { id } = useParams();
@@ -128,35 +130,108 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
           variant: 'destructive' 
         });
       } else if (data) {
+        // 🔍 LOG CRÍTICO: Ver o valor RAW do banco ANTES de qualquer processamento
+        console.log('🔍 [ClienteForm] Valor RAW do banco de dados:');
+        console.log('  - cnpj_cpf do banco:', data.cnpj_cpf);
+        console.log('  - Tipo:', typeof data.cnpj_cpf);
+        console.log('  - Tamanho:', data.cnpj_cpf?.length);
+        console.log('  - Valor desmascarado:', unmask(String(data.cnpj_cpf || '')));
+        console.log('  - Tamanho desmascarado:', unmask(String(data.cnpj_cpf || '')).length);
+        
         // ✅ CORREÇÃO: Merge inteligente entre auto-save e dados do banco
-        setFormData(prevFormData => {
-          // Se não há dados no auto-save ou estão vazios, usa os dados do banco
-          const isAutoSaveEmpty = Object.values(prevFormData).every(value => 
-            value === '' || value === null || value === undefined
-          );
+        const isAutoSaveEmpty = Object.values(formData).every(value => 
+          value === '' || value === null || value === undefined
+        );
+        
+        console.log('  - formData.cnpj_cpf antes do merge:', formData.cnpj_cpf);
+        console.log('  - hasAutoSaveData:', hasAutoSaveData);
+        console.log('  - isAutoSaveEmpty:', isAutoSaveEmpty);
+        
+        // ✅ CORREÇÃO CRÍTICA: Se o auto-save tem um valor diferente do banco e o ID é o mesmo,
+        // significa que o auto-save está desatualizado. Usar os dados do banco e limpar o auto-save.
+        const bankCnpjCpf = unmask(String(data.cnpj_cpf || ''));
+        const autoSaveCnpjCpf = unmask(String(formData.cnpj_cpf || ''));
+        
+        // Se os valores são diferentes, o auto-save está desatualizado - usar dados do banco
+        const autoSaveIsOutdated = hasAutoSaveData && bankCnpjCpf !== autoSaveCnpjCpf && bankCnpjCpf.length > 0;
+        
+        if (autoSaveIsOutdated) {
+          console.log('⚠️ Auto-save desatualizado detectado! Limpando e usando dados do banco.');
+          console.log('  - Valor do banco:', bankCnpjCpf);
+          console.log('  - Valor do auto-save:', autoSaveCnpjCpf);
+          // Limpar o auto-save desatualizado
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem(autoSaveKey);
+          }
+        }
+        
+        const finalData = (isAutoSaveEmpty || !hasAutoSaveData || autoSaveIsOutdated) ? data : {
+          ...data,        // Dados base do banco
+          ...formData     // Preserva alterações do auto-save (tem prioridade)
+        };
+        
+        console.log('  - finalData.cnpj_cpf após merge:', finalData.cnpj_cpf);
+        
+        // Detectar tipo de documento ANTES de atualizar o formData (síncrono)
+        // Regra simples: 14 caracteres = CNPJ, 11 caracteres = CPF, 12 caracteres = Outro
+        if (finalData.cnpj_cpf) {
+          const originalValue = finalData.cnpj_cpf;
+          const unmaskedValue = unmask(originalValue);
           
-          const finalData = (isAutoSaveEmpty || !hasAutoSaveData) ? data : {
-            ...data,        // Dados base do banco
-            ...prevFormData // Preserva alterações do auto-save (tem prioridade)
-          };
+          console.log('🔍 [ClienteForm] Detecção de tipo de documento:');
+          console.log('  - Valor original:', originalValue);
+          console.log('  - Valor sem máscara:', unmaskedValue);
+          console.log('  - Tamanho original:', originalValue.length);
+          console.log('  - Tamanho sem máscara:', unmaskedValue.length);
           
-          // Carregar municípios imediatamente se houver estado
-          if (finalData.estado) {
-            fetchMunicipios(finalData.estado).then(municipios => {
-              const options = municipios.map(m => ({ value: m, label: m })).sort((a, b) => a.label.localeCompare(b.label));
-              
-              // Se há um município nos dados mas não está nas opções, adicionar
-              if (finalData.municipio && !options.find(opt => opt.value === finalData.municipio)) {
-                options.push({ value: finalData.municipio, label: finalData.municipio });
-                options.sort((a, b) => a.label.localeCompare(b.label));
-              }
-              
-              setMunicipiosOptions(options);
-            });
+          if (unmaskedValue.length === 14) {
+            console.log('  ✅ Detectado: CNPJ (14 dígitos)');
+            setDocumentType('cnpj');
+          } else if (unmaskedValue.length === 11) {
+            console.log('  ✅ Detectado: CPF (11 dígitos)');
+            setDocumentType('cpf');
+          } else if (unmaskedValue.length === 12) {
+            console.log('  ✅ Detectado: Outro (12 dígitos)');
+            setDocumentType('outro');
+          } else {
+            console.log('  ⚠️ Tamanho não reconhecido:', unmaskedValue.length);
           }
           
-          return finalData;
-        });
+          // Formatar o CNPJ/CPF antes de salvar no formData (garantir que está formatado)
+          // IMPORTANTE: Usar o valor desmascarado para formatar, não o valor original
+          if (unmaskedValue.length === 14) {
+            // É CNPJ - formatar como CNPJ usando apenas os dígitos
+            finalData.cnpj_cpf = formatCnpjCpf(unmaskedValue);
+          } else if (unmaskedValue.length === 11) {
+            // É CPF - formatar como CPF usando apenas os dígitos
+            finalData.cnpj_cpf = formatCnpjCpf(unmaskedValue);
+          } else if (unmaskedValue.length === 12) {
+            // É Outro - manter apenas os dígitos, sem formatação
+            finalData.cnpj_cpf = unmaskedValue;
+          } else {
+            // Tamanho desconhecido - manter original
+            finalData.cnpj_cpf = originalValue;
+          }
+          console.log('  - Valor formatado:', finalData.cnpj_cpf);
+        }
+        
+        // Atualizar formData com os dados formatados
+        setFormData(finalData);
+        
+        // Carregar municípios imediatamente se houver estado
+        if (finalData.estado) {
+          fetchMunicipios(finalData.estado).then(municipios => {
+            const options = municipios.map(m => ({ value: m, label: m })).sort((a, b) => a.label.localeCompare(b.label));
+            
+            // Se há um município nos dados mas não está nas opções, adicionar
+            if (finalData.municipio && !options.find(opt => opt.value === finalData.municipio)) {
+              options.push({ value: finalData.municipio, label: finalData.municipio });
+              options.sort((a, b) => a.label.localeCompare(b.label));
+            }
+            
+            setMunicipiosOptions(options);
+          });
+        }
       }
     } catch (error) {
       console.error("Error fetching client data:", error);
@@ -199,33 +274,44 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
     return `${timestamp}${random}`;
   };
 
-  // Detectar automaticamente o tipo de documento baseado no número de caracteres e validação
+  // Detectar automaticamente o tipo de documento baseado no número de caracteres
+  // Regra simples: 14 caracteres = CNPJ, 11 caracteres = CPF, 12 caracteres = Outro
+  // (apenas quando o usuário digita, não durante o carregamento inicial)
   useEffect(() => {
-    if (formData.cnpj_cpf) {
-      const unmaskedValue = unmask(formData.cnpj_cpf);
-      
-      if (unmaskedValue.length === 12) {
-        // 12 dígitos = sempre "Outro"
-        setDocumentType('outro');
-      } else if (unmaskedValue.length === 11) {
-        // 11 dígitos: verificar se é CPF válido, senão pode ser código "Outro" antigo
-        if (validateCnpjCpfFormat(formData.cnpj_cpf)) {
-          setDocumentType('cpf');
-        } else {
-          // Se não é CPF válido, provavelmente é código "Outro" antigo
-          setDocumentType('outro');
-        }
-      } else if (unmaskedValue.length === 14) {
-        // 14 dígitos: verificar se é CNPJ válido, senão pode ser código "Outro" antigo
-        if (validateCnpjCpfFormat(formData.cnpj_cpf)) {
-          setDocumentType('cnpj');
-        } else {
-          // Se não é CNPJ válido, provavelmente é código "Outro" antigo
-          setDocumentType('outro');
-        }
-      }
+    // Não detectar durante o carregamento inicial (loading)
+    if (loading || !formData.cnpj_cpf) return;
+    
+    const originalValue = formData.cnpj_cpf;
+    const unmaskedValue = unmask(originalValue);
+    
+    // Verificar se o tamanho atual corresponde ao tipo de documento selecionado
+    const expectedLength = documentType === 'cnpj' ? 14 : documentType === 'cpf' ? 11 : documentType === 'outro' ? 12 : null;
+    
+    // Se o tamanho já corresponde ao tipo atual, não fazer nada (respeitar a escolha do usuário)
+    if (expectedLength !== null && unmaskedValue.length === expectedLength) {
+      return;
     }
-  }, [formData.cnpj_cpf]);
+    
+    console.log('🔍 [ClienteForm] useEffect - Detecção automática:');
+    console.log('  - Valor no formData:', originalValue);
+    console.log('  - Valor sem máscara:', unmaskedValue);
+    console.log('  - Tamanho original:', originalValue.length);
+    console.log('  - Tamanho sem máscara:', unmaskedValue.length);
+    console.log('  - documentType atual:', documentType);
+    console.log('  - Tamanho esperado para o tipo atual:', expectedLength);
+    
+    // Detectar baseado apenas no tamanho, mas apenas se não corresponder ao tipo atual
+    if (unmaskedValue.length === 14 && documentType !== 'cnpj') {
+      console.log('  ✅ Mudando para: CNPJ');
+      setDocumentType('cnpj');
+    } else if (unmaskedValue.length === 11 && documentType !== 'cpf') {
+      console.log('  ✅ Mudando para: CPF');
+      setDocumentType('cpf');
+    } else if (unmaskedValue.length === 12 && documentType !== 'outro') {
+      console.log('  ✅ Mudando para: Outro');
+      setDocumentType('outro');
+    }
+  }, [formData.cnpj_cpf, loading]); // Removido documentType das dependências para evitar loops
 
 
   // Handler para mudança do tipo de documento
@@ -241,6 +327,21 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
       // Limpar o campo quando mudar para CPF ou CNPJ (apenas se o tipo anterior era "Outro")
       if (documentType === 'outro') {
         setFormData((prev) => ({ ...prev, cnpj_cpf: '' }));
+      } else if (formData.cnpj_cpf) {
+        // Se há um valor e está mudando entre CPF e CNPJ, reformatar o valor
+        const unmaskedValue = unmask(formData.cnpj_cpf);
+        const expectedLength = type === 'cnpj' ? 14 : 11;
+        
+        // Se o valor não tem o tamanho esperado para o novo tipo, limpar
+        // Caso contrário, reformatar com a máscara correta
+        if (unmaskedValue.length === expectedLength) {
+          // Reformatar com a máscara correta
+          const formattedValue = formatCnpjCpf(unmaskedValue);
+          setFormData((prev) => ({ ...prev, cnpj_cpf: formattedValue }));
+        } else if (unmaskedValue.length > 0) {
+          // Se o tamanho não corresponde, limpar para evitar formatação incorreta
+          setFormData((prev) => ({ ...prev, cnpj_cpf: '' }));
+        }
       }
     }
   };
@@ -437,6 +538,56 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
       return;
     }
     
+    // IMPORTANTE: Garantir que o valor não seja corrompido
+    // Se o documentType é CNPJ mas o valor tem menos de 14 dígitos, há um problema
+    if (documentType === 'cnpj' && unmaskedCnpjCpf.length !== 14) {
+      console.error('⚠️ ERRO: CNPJ com tamanho incorreto!', {
+        documentType,
+        unmaskedCnpjCpf,
+        length: unmaskedCnpjCpf.length,
+        formDataValue: formData.cnpj_cpf
+      });
+      toast({ 
+        title: 'Erro de validação', 
+        description: 'O CNPJ deve ter exatamente 14 dígitos. Verifique o valor digitado.', 
+        variant: 'destructive' 
+      });
+      setSaving(false);
+      return;
+    }
+    
+    if (documentType === 'cpf' && unmaskedCnpjCpf.length !== 11) {
+      console.error('⚠️ ERRO: CPF com tamanho incorreto!', {
+        documentType,
+        unmaskedCnpjCpf,
+        length: unmaskedCnpjCpf.length,
+        formDataValue: formData.cnpj_cpf
+      });
+      toast({ 
+        title: 'Erro de validação', 
+        description: 'O CPF deve ter exatamente 11 dígitos. Verifique o valor digitado.', 
+        variant: 'destructive' 
+      });
+      setSaving(false);
+      return;
+    }
+    
+    if (documentType === 'outro' && unmaskedCnpjCpf.length !== 12) {
+      console.error('⚠️ ERRO: Código "Outro" com tamanho incorreto!', {
+        documentType,
+        unmaskedCnpjCpf,
+        length: unmaskedCnpjCpf.length,
+        formDataValue: formData.cnpj_cpf
+      });
+      toast({ 
+        title: 'Erro de validação', 
+        description: 'O código "Outro" deve ter exatamente 12 dígitos. Verifique o valor digitado.', 
+        variant: 'destructive' 
+      });
+      setSaving(false);
+      return;
+    }
+
     const dataToSave = { 
       ...formData, 
       cnpj_cpf: unmaskedCnpjCpf,
@@ -525,97 +676,124 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
           <CardContent className="p-3 pt-0 space-y-4 md:space-y-3">
             <form onSubmit={handleSubmit} className="space-y-4 md:space-y-3">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-3">
-                <div className="md:col-span-2">
-                  <Label className="text-sm md:text-xs mb-2 block">Tipo de Documento</Label>
-                  <RadioGroup 
-                    value={documentType} 
-                    onValueChange={handleDocumentTypeChange}
-                    className="flex flex-row gap-4"
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="cpf" id="cpf" className="border-white/30 text-emerald-400" />
-                      <Label htmlFor="cpf" className="text-sm md:text-xs cursor-pointer text-white">
-                        CPF
-                      </Label>
+                <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-3">
+                  <div>
+                    <Label className="text-sm md:text-xs mb-2 flex items-center gap-1">
+                      Tipo de Documento <span className="text-red-500">*</span>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="w-3 h-3 md:w-3 md:h-3 text-emerald-400 cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent 
+                            side="bottom" 
+                            align="start"
+                            className="bg-gray-800 text-white border-gray-700 text-xs max-w-xs z-50"
+                            sideOffset={5}
+                          >
+                            <p className="font-semibold mb-1">Tipos de Documento:</p>
+                            <p>• 11 caracteres (números) = CPF</p>
+                            <p>• 14 caracteres (números) = CNPJ</p>
+                            <p>• 12 caracteres (números) = Outro</p>
+                            <p className="mt-1 text-gray-400 text-xs">A contagem considera apenas os números, sem pontos, traços e barras.</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </Label>
+                    <div className="flex items-center gap-1 mb-2">
+                      {isCnpjCpfChecking && <Loader2 className="w-3 h-3 md:w-3 md:h-3 animate-spin" />}
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="cnpj" id="cnpj" className="border-white/30 text-emerald-400" />
-                      <Label htmlFor="cnpj" className="text-sm md:text-xs cursor-pointer text-white">
-                        CNPJ
-                      </Label>
+                    <RadioGroup 
+                      value={documentType} 
+                      onValueChange={handleDocumentTypeChange}
+                      className="flex flex-row gap-4 mb-3"
+                      disabled={isEditing}
+                    >
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="cpf" id="cpf" className="border-white/30 text-emerald-400" />
+                        <Label htmlFor="cpf" className="text-sm md:text-xs cursor-pointer text-white">
+                          CPF
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="cnpj" id="cnpj" className="border-white/30 text-emerald-400" />
+                        <Label htmlFor="cnpj" className="text-sm md:text-xs cursor-pointer text-white">
+                          CNPJ
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="outro" id="outro" className="border-white/30 text-emerald-400" />
+                        <Label htmlFor="outro" className="text-sm md:text-xs cursor-pointer text-white">
+                          Outro
+                        </Label>
+                      </div>
+                    </RadioGroup>
+                    <div>
+                      {documentType === 'outro' ? (
+                        <Input
+                          ref={cnpjCpfInputRef}
+                          id="cnpj_cpf"
+                          name="cnpj_cpf"
+                          value={formData.cnpj_cpf || ''}
+                          readOnly
+                          disabled={isEditing}
+                          className={`w-full flex h-10 md:h-8 rounded-xl border ${cnpjCpfError ? 'border-red-500' : 'border-white/20'} bg-white/10 px-3 py-2 text-sm md:text-xs ring-offset-background cursor-not-allowed opacity-70`}
+                        />
+                      ) : (
+                        <IMaskInput
+                          mask={
+                            documentType === 'cpf' 
+                              ? [{ mask: '000.000.000-00', maxLength: 11 }]
+                              : [{ mask: '00.000.000/0000-00' }]
+                          }
+                          as={Input}
+                          ref={cnpjCpfInputRef}
+                          id="cnpj_cpf"
+                          name="cnpj_cpf"
+                          value={formData.cnpj_cpf || ''}
+                          onAccept={(value) => handleMaskedChange(String(value), 'cnpj_cpf')}
+                          onBlur={handleCnpjCpfBlur}
+                          placeholder={documentType === 'cpf' 
+                            ? `Digite o CPF d${article} ${titleLabel.toLowerCase()}`
+                            : `Digite o CNPJ d${article} ${titleLabel.toLowerCase()}`
+                          }
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          disabled={isEditing}
+                          className={`w-full flex h-10 md:h-8 rounded-xl border ${cnpjCpfError ? 'border-red-500' : 'border-white/20'} bg-white/5 px-3 py-2 text-sm md:text-xs ring-offset-background file:border-0 file:bg-transparent file:text-sm md:file:text-xs file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50`}
+                          required
+                        />
+                      )}
+                      {cnpjCpfError && <p className="text-red-500 text-sm md:text-xs mt-1">{cnpjCpfError}</p>}
+                      {documentType === 'outro' && (
+                        <p className="text-xs text-emerald-300 mt-1">Código gerado automaticamente</p>
+                      )}
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="outro" id="outro" className="border-white/30 text-emerald-400" />
-                      <Label htmlFor="outro" className="text-sm md:text-xs cursor-pointer text-white">
-                        Outro
-                      </Label>
+                  </div>
+                  
+                  <div>
+                    <div className="mb-2" style={{ height: '1.5rem' }}></div>
+                    <Label htmlFor="telefone" className="text-sm md:text-xs flex items-center gap-1">
+                      Telefone <span className="text-red-500">*</span>
+                    </Label>
+                    <div className="mt-3">
+                      <IMaskInput
+                        mask={[{ mask: '(00) 0000-0000' }, { mask: '(00) 00000-0000' }]}
+                        as={Input}
+                        ref={telefoneInputRef}
+                        id="telefone"
+                        name="telefone"
+                        value={formData.telefone || ''}
+                        onAccept={(value) => handleMaskedChange(String(value), 'telefone')}
+                        onBlur={handleTelefoneBlur}
+                        placeholder="(00) 00000-0000"
+                        inputMode="tel"
+                        className={`w-full flex h-10 md:h-8 rounded-xl border ${telefoneError ? 'border-red-500' : 'border-white/20'} bg-white/5 px-3 py-2 text-sm md:text-xs ring-offset-background file:border-0 file:bg-transparent file:text-sm md:file:text-xs file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50`}
+                        required
+                      />
                     </div>
-                  </RadioGroup>
-                </div>
-
-                <div>
-                  <Label htmlFor="cnpj_cpf" className="text-sm md:text-xs flex items-center gap-1">
-                    CNPJ/CPF <span className="text-red-500">*</span>
-                    {isCnpjCpfChecking && <Loader2 className="w-3 h-3 md:w-3 md:h-3 animate-spin" />}
-                  </Label>
-                  {documentType === 'outro' ? (
-                    <Input
-                      ref={cnpjCpfInputRef}
-                      id="cnpj_cpf"
-                      name="cnpj_cpf"
-                      value={formData.cnpj_cpf || ''}
-                      readOnly
-                      className={`w-full flex h-10 md:h-8 rounded-xl border ${cnpjCpfError ? 'border-red-500' : 'border-white/20'} bg-white/10 px-3 py-2 text-sm md:text-xs ring-offset-background cursor-not-allowed opacity-70`}
-                    />
-                  ) : (
-                    <IMaskInput
-                      mask={
-                        documentType === 'cpf' 
-                          ? [{ mask: '000.000.000-00', maxLength: 11 }]
-                          : [{ mask: '00.000.000/0000-00' }]
-                      }
-                      as={Input}
-                      ref={cnpjCpfInputRef}
-                      id="cnpj_cpf"
-                      name="cnpj_cpf"
-                      value={formData.cnpj_cpf || ''}
-                      onAccept={(value) => handleMaskedChange(String(value), 'cnpj_cpf')}
-                      onBlur={handleCnpjCpfBlur}
-                      placeholder={documentType === 'cpf' 
-                        ? `Digite o CPF d${article} ${titleLabel.toLowerCase()}`
-                        : `Digite o CNPJ d${article} ${titleLabel.toLowerCase()}`
-                      }
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      className={`w-full flex h-10 md:h-8 rounded-xl border ${cnpjCpfError ? 'border-red-500' : 'border-white/20'} bg-white/5 px-3 py-2 text-sm md:text-xs ring-offset-background file:border-0 file:bg-transparent file:text-sm md:file:text-xs file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50`}
-                      required
-                    />
-                  )}
-                  {cnpjCpfError && <p className="text-red-500 text-sm md:text-xs mt-1">{cnpjCpfError}</p>}
-                  {documentType === 'outro' && (
-                    <p className="text-xs text-emerald-300 mt-1">Código gerado automaticamente</p>
-                  )}
-                </div>
-                
-                <div>
-                  <Label htmlFor="telefone" className="text-sm md:text-xs flex items-center gap-1">
-                    Telefone <span className="text-red-500">*</span>
-                  </Label>
-                  <IMaskInput
-                    mask={[{ mask: '(00) 0000-0000' }, { mask: '(00) 00000-0000' }]}
-                    as={Input}
-                    ref={telefoneInputRef}
-                    id="telefone"
-                    name="telefone"
-                    value={formData.telefone || ''}
-                    onAccept={(value) => handleMaskedChange(String(value), 'telefone')}
-                    onBlur={handleTelefoneBlur}
-                    placeholder="(00) 00000-0000"
-                    inputMode="tel"
-                    className={`w-full flex h-10 md:h-8 rounded-xl border ${telefoneError ? 'border-red-500' : 'border-white/20'} bg-white/5 px-3 py-2 text-sm md:text-xs ring-offset-background file:border-0 file:bg-transparent file:text-sm md:file:text-xs file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50`}
-                    required
-                  />
-                  {telefoneError && <p className="text-red-500 text-sm md:text-xs mt-1">{telefoneError}</p>}
+                    {telefoneError && <p className="text-red-500 text-sm md:text-xs mt-1">{telefoneError}</p>}
+                  </div>
                 </div>
                 
                 {/* ✅ CORREÇÃO: Mudar "nome" para "razao_social" */}

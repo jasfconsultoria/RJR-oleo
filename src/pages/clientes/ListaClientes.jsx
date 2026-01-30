@@ -714,7 +714,7 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
                     />
                     <TableHeaderSortable
                       columnKey="cnpj_cpf"
-                      label="CNPJ/CPF"
+                      label="CPF/CNPJ/Outro"
                       sortConfig={sortConfig}
                       onSort={requestSort}
                       className={CONFIG.TABLE_COLUMNS.cnpj_cpf.width}
