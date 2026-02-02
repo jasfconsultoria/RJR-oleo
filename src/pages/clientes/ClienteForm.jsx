@@ -60,7 +60,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
 
   // ✅ CORREÇÃO: Estratégia simplificada - SEMPRE carregar do auto-save primeiro
   const autoSaveKey = id ? `clienteForm_edit_${id}` : `clienteForm_new_${personType}`;
-  
+
   const [formData, setFormData, clearSavedData] = useAutoSave(
     autoSaveKey,
     getEmptyFormData(),
@@ -86,19 +86,19 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
         setMunicipiosOptions([]);
         return;
       }
-      
+
       const municipios = await fetchMunicipios(formData.estado);
       const options = municipios.map(m => ({ value: m, label: m })).sort((a, b) => a.label.localeCompare(b.label));
-      
+
       // Se há um município no formData mas não está nas opções, adicionar
       if (formData.municipio && !options.find(opt => opt.value === formData.municipio)) {
         options.push({ value: formData.municipio, label: formData.municipio });
         options.sort((a, b) => a.label.localeCompare(b.label));
       }
-      
+
       setMunicipiosOptions(options);
     };
-    
+
     loadMunicipios();
   }, [formData.estado, formData.municipio, fetchMunicipios]);
 
@@ -115,7 +115,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
     if (hasFetchedInitialData.current || !isEditing) return;
 
     setLoading(true);
-    
+
     try {
       const { data, error } = await supabase
         .from('clientes')
@@ -124,10 +124,10 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
         .single();
 
       if (error) {
-        toast({ 
-          title: 'Erro ao buscar dados', 
-          description: error.message, 
-          variant: 'destructive' 
+        toast({
+          title: 'Erro ao buscar dados',
+          description: error.message,
+          variant: 'destructive'
         });
       } else if (data) {
         // 🔍 LOG CRÍTICO: Ver o valor RAW do banco ANTES de qualquer processamento
@@ -137,24 +137,24 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
         console.log('  - Tamanho:', data.cnpj_cpf?.length);
         console.log('  - Valor desmascarado:', unmask(String(data.cnpj_cpf || '')));
         console.log('  - Tamanho desmascarado:', unmask(String(data.cnpj_cpf || '')).length);
-        
+
         // ✅ CORREÇÃO: Merge inteligente entre auto-save e dados do banco
-        const isAutoSaveEmpty = Object.values(formData).every(value => 
+        const isAutoSaveEmpty = Object.values(formData).every(value =>
           value === '' || value === null || value === undefined
         );
-        
+
         console.log('  - formData.cnpj_cpf antes do merge:', formData.cnpj_cpf);
         console.log('  - hasAutoSaveData:', hasAutoSaveData);
         console.log('  - isAutoSaveEmpty:', isAutoSaveEmpty);
-        
+
         // ✅ CORREÇÃO CRÍTICA: Se o auto-save tem um valor diferente do banco e o ID é o mesmo,
         // significa que o auto-save está desatualizado. Usar os dados do banco e limpar o auto-save.
         const bankCnpjCpf = unmask(String(data.cnpj_cpf || ''));
         const autoSaveCnpjCpf = unmask(String(formData.cnpj_cpf || ''));
-        
+
         // Se os valores são diferentes, o auto-save está desatualizado - usar dados do banco
         const autoSaveIsOutdated = hasAutoSaveData && bankCnpjCpf !== autoSaveCnpjCpf && bankCnpjCpf.length > 0;
-        
+
         if (autoSaveIsOutdated) {
           console.log('⚠️ Auto-save desatualizado detectado! Limpando e usando dados do banco.');
           console.log('  - Valor do banco:', bankCnpjCpf);
@@ -164,26 +164,26 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
             localStorage.removeItem(autoSaveKey);
           }
         }
-        
+
         const finalData = (isAutoSaveEmpty || !hasAutoSaveData || autoSaveIsOutdated) ? data : {
           ...data,        // Dados base do banco
           ...formData     // Preserva alterações do auto-save (tem prioridade)
         };
-        
+
         console.log('  - finalData.cnpj_cpf após merge:', finalData.cnpj_cpf);
-        
+
         // Detectar tipo de documento ANTES de atualizar o formData (síncrono)
         // Regra simples: 14 caracteres = CNPJ, 11 caracteres = CPF, 12 caracteres = Outro
         if (finalData.cnpj_cpf) {
           const originalValue = finalData.cnpj_cpf;
           const unmaskedValue = unmask(originalValue);
-          
+
           console.log('🔍 [ClienteForm] Detecção de tipo de documento:');
           console.log('  - Valor original:', originalValue);
           console.log('  - Valor sem máscara:', unmaskedValue);
           console.log('  - Tamanho original:', originalValue.length);
           console.log('  - Tamanho sem máscara:', unmaskedValue.length);
-          
+
           if (unmaskedValue.length === 14) {
             console.log('  ✅ Detectado: CNPJ (14 dígitos)');
             setDocumentType('cnpj');
@@ -196,7 +196,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
           } else {
             console.log('  ⚠️ Tamanho não reconhecido:', unmaskedValue.length);
           }
-          
+
           // Formatar o CNPJ/CPF antes de salvar no formData (garantir que está formatado)
           // IMPORTANTE: Usar o valor desmascarado para formatar, não o valor original
           if (unmaskedValue.length === 14) {
@@ -214,31 +214,31 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
           }
           console.log('  - Valor formatado:', finalData.cnpj_cpf);
         }
-        
+
         // Atualizar formData com os dados formatados
         setFormData(finalData);
-        
+
         // Carregar municípios imediatamente se houver estado
         if (finalData.estado) {
           fetchMunicipios(finalData.estado).then(municipios => {
             const options = municipios.map(m => ({ value: m, label: m })).sort((a, b) => a.label.localeCompare(b.label));
-            
+
             // Se há um município nos dados mas não está nas opções, adicionar
             if (finalData.municipio && !options.find(opt => opt.value === finalData.municipio)) {
               options.push({ value: finalData.municipio, label: finalData.municipio });
               options.sort((a, b) => a.label.localeCompare(b.label));
             }
-            
+
             setMunicipiosOptions(options);
           });
         }
       }
     } catch (error) {
       console.error("Error fetching client data:", error);
-      toast({ 
-        title: 'Erro inesperado', 
-        description: 'Não foi possível carregar os dados.', 
-        variant: 'destructive' 
+      toast({
+        title: 'Erro inesperado',
+        description: 'Não foi possível carregar os dados.',
+        variant: 'destructive'
       });
     } finally {
       setLoading(false);
@@ -253,7 +253,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
       const timer = setTimeout(() => {
         fetchClientData();
       }, 100);
-      
+
       return () => clearTimeout(timer);
     }
   }, [isEditing, fetchClientData]);
@@ -280,18 +280,18 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
   useEffect(() => {
     // Não detectar durante o carregamento inicial (loading)
     if (loading || !formData.cnpj_cpf) return;
-    
+
     const originalValue = formData.cnpj_cpf;
     const unmaskedValue = unmask(originalValue);
-    
+
     // Verificar se o tamanho atual corresponde ao tipo de documento selecionado
     const expectedLength = documentType === 'cnpj' ? 14 : documentType === 'cpf' ? 11 : documentType === 'outro' ? 12 : null;
-    
+
     // Se o tamanho já corresponde ao tipo atual, não fazer nada (respeitar a escolha do usuário)
     if (expectedLength !== null && unmaskedValue.length === expectedLength) {
       return;
     }
-    
+
     console.log('🔍 [ClienteForm] useEffect - Detecção automática:');
     console.log('  - Valor no formData:', originalValue);
     console.log('  - Valor sem máscara:', unmaskedValue);
@@ -299,17 +299,24 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
     console.log('  - Tamanho sem máscara:', unmaskedValue.length);
     console.log('  - documentType atual:', documentType);
     console.log('  - Tamanho esperado para o tipo atual:', expectedLength);
-    
+
+    // Detectar baseado apenas no tamanho, mas apenas se não corresponder ao tipo atual
     // Detectar baseado apenas no tamanho, mas apenas se não corresponder ao tipo atual
     if (unmaskedValue.length === 14 && documentType !== 'cnpj') {
       console.log('  ✅ Mudando para: CNPJ');
       setDocumentType('cnpj');
     } else if (unmaskedValue.length === 11 && documentType !== 'cpf') {
-      console.log('  ✅ Mudando para: CPF');
-      setDocumentType('cpf');
+      // ✅ FIX: Não mudar para CPF se estiver digitando um CNPJ (pois 11 dígitos é parte do caminho para 14)
+      if (documentType !== 'cnpj') {
+        console.log('  ✅ Mudando para: CPF');
+        setDocumentType('cpf');
+      }
     } else if (unmaskedValue.length === 12 && documentType !== 'outro') {
-      console.log('  ✅ Mudando para: Outro');
-      setDocumentType('outro');
+      // ✅ FIX: Não mudar para Outro se estiver digitando um CNPJ (pois 12 dígitos é parte do caminho para 14)
+      if (documentType !== 'cnpj') {
+        console.log('  ✅ Mudando para: Outro');
+        setDocumentType('outro');
+      }
     }
   }, [formData.cnpj_cpf, loading]); // Removido documentType das dependências para evitar loops
 
@@ -318,7 +325,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
   const handleDocumentTypeChange = (type) => {
     setDocumentType(type);
     setCnpjCpfError('');
-    
+
     if (type === 'outro') {
       // Gerar código aleatório quando "Outro" for selecionado
       const randomCode = generateRandomCode();
@@ -331,7 +338,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
         // Se há um valor e está mudando entre CPF e CNPJ, reformatar o valor
         const unmaskedValue = unmask(formData.cnpj_cpf);
         const expectedLength = type === 'cnpj' ? 14 : 11;
-        
+
         // Se o valor não tem o tamanho esperado para o novo tipo, limpar
         // Caso contrário, reformatar com a máscara correta
         if (unmaskedValue.length === expectedLength) {
@@ -348,7 +355,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
 
   const validateAndCheckCnpjCpf = useCallback(async (value) => {
     const unmaskedValue = unmask(value);
-    
+
     if (!unmaskedValue) {
       setCnpjCpfError('O CNPJ/CPF é um campo obrigatório.');
       return false;
@@ -365,7 +372,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
         const { count, error } = await query;
 
         if (error) throw error;
-        
+
         if (count > 0) {
           setCnpjCpfError(`Código ${value} já cadastrado. Verifique!`);
           return false;
@@ -387,7 +394,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
       setCnpjCpfError('O CNPJ/CPF está incompleto.');
       return false;
     }
-    
+
     if (!validateCnpjCpfFormat(value)) {
       setCnpjCpfError('O número digitado não possui um dígito verificador (DV) válido.');
       return false;
@@ -402,7 +409,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
       const { count, error } = await query;
 
       if (error) throw error;
-      
+
       if (count > 0) {
         setCnpjCpfError(`CPF/CNPJ ${value} já cadastrado. Verifique!`);
         return false;
@@ -445,7 +452,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
   const handleStateChange = (estado) => {
     setFormData((prev) => ({ ...prev, estado, municipio: '' }));
   };
-  
+
   const handleMunicipioChange = (municipio) => {
     setFormData((prev) => ({ ...prev, municipio: municipio || '' }));
   };
@@ -454,7 +461,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
-  
+
   const handleMaskedChange = (value, field) => {
     if (field === 'cnpj_cpf') {
       setCnpjCpfError('');
@@ -484,10 +491,10 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
 
     // ✅ CORREÇÃO: Usar razao_social em vez de nome
     if (!formData.razao_social || !formData.estado || !formData.municipio) {
-      toast({ 
-        title: 'Campos obrigatórios', 
-        description: 'Razão Social, Estado e Município são obrigatórios.', 
-        variant: 'destructive' 
+      toast({
+        title: 'Campos obrigatórios',
+        description: 'Razão Social, Estado e Município são obrigatórios.',
+        variant: 'destructive'
       });
       setSaving(false);
       return;
@@ -501,10 +508,10 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
       } else if (cnpjCpfInputRef.current) {
         cnpjCpfInputRef.current.focus();
       }
-      toast({ 
-        title: 'Verificação falhou', 
-        description: 'O CNPJ/CPF é um campo obrigatório.', 
-        variant: 'destructive' 
+      toast({
+        title: 'Verificação falhou',
+        description: 'O CNPJ/CPF é um campo obrigatório.',
+        variant: 'destructive'
       });
       setSaving(false);
       return;
@@ -512,10 +519,10 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
 
     const isCnpjCpfValid = await validateAndCheckCnpjCpf(formData.cnpj_cpf);
     if (!isCnpjCpfValid) {
-      toast({ 
-        title: 'Verificação falhou', 
-        description: cnpjCpfError, 
-        variant: 'destructive' 
+      toast({
+        title: 'Verificação falhou',
+        description: cnpjCpfError,
+        variant: 'destructive'
       });
       if (cnpjCpfInputRef.current?.element) {
         cnpjCpfInputRef.current.element.focus();
@@ -528,16 +535,16 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
 
     const isTelefoneValid = validateTelefone(formData.telefone);
     if (!isTelefoneValid) {
-      toast({ 
-        title: 'Verificação falhou', 
-        description: telefoneError, 
-        variant: 'destructive' 
+      toast({
+        title: 'Verificação falhou',
+        description: telefoneError,
+        variant: 'destructive'
       });
       telefoneInputRef.current?.element?.focus();
       setSaving(false);
       return;
     }
-    
+
     // IMPORTANTE: Garantir que o valor não seja corrompido
     // Se o documentType é CNPJ mas o valor tem menos de 14 dígitos, há um problema
     if (documentType === 'cnpj' && unmaskedCnpjCpf.length !== 14) {
@@ -547,15 +554,15 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
         length: unmaskedCnpjCpf.length,
         formDataValue: formData.cnpj_cpf
       });
-      toast({ 
-        title: 'Erro de validação', 
-        description: 'O CNPJ deve ter exatamente 14 dígitos. Verifique o valor digitado.', 
-        variant: 'destructive' 
+      toast({
+        title: 'Erro de validação',
+        description: 'O CNPJ deve ter exatamente 14 dígitos. Verifique o valor digitado.',
+        variant: 'destructive'
       });
       setSaving(false);
       return;
     }
-    
+
     if (documentType === 'cpf' && unmaskedCnpjCpf.length !== 11) {
       console.error('⚠️ ERRO: CPF com tamanho incorreto!', {
         documentType,
@@ -563,15 +570,15 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
         length: unmaskedCnpjCpf.length,
         formDataValue: formData.cnpj_cpf
       });
-      toast({ 
-        title: 'Erro de validação', 
-        description: 'O CPF deve ter exatamente 11 dígitos. Verifique o valor digitado.', 
-        variant: 'destructive' 
+      toast({
+        title: 'Erro de validação',
+        description: 'O CPF deve ter exatamente 11 dígitos. Verifique o valor digitado.',
+        variant: 'destructive'
       });
       setSaving(false);
       return;
     }
-    
+
     if (documentType === 'outro' && unmaskedCnpjCpf.length !== 12) {
       console.error('⚠️ ERRO: Código "Outro" com tamanho incorreto!', {
         documentType,
@@ -579,20 +586,20 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
         length: unmaskedCnpjCpf.length,
         formDataValue: formData.cnpj_cpf
       });
-      toast({ 
-        title: 'Erro de validação', 
-        description: 'O código "Outro" deve ter exatamente 12 dígitos. Verifique o valor digitado.', 
-        variant: 'destructive' 
+      toast({
+        title: 'Erro de validação',
+        description: 'O código "Outro" deve ter exatamente 12 dígitos. Verifique o valor digitado.',
+        variant: 'destructive'
       });
       setSaving(false);
       return;
     }
 
-    const dataToSave = { 
-      ...formData, 
+    const dataToSave = {
+      ...formData,
       cnpj_cpf: unmaskedCnpjCpf,
       telefone: unmask(formData.telefone),
-      user_id: user.id 
+      user_id: user.id
     };
 
     let result;
@@ -617,16 +624,16 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
 
       toast({ title, description, variant: 'destructive' });
     } else {
-      toast({ 
-        title: `${titleLabel} ${isEditing ? 'atualizado' : 'cadastrado'} com sucesso!`, 
+      toast({
+        title: `${titleLabel} ${isEditing ? 'atualizado' : 'cadastrado'} com sucesso!`,
         // ✅ CORREÇÃO: Usar razao_social em vez de nome
-        description: `${formData.razao_social} foi salvo.` 
+        description: `${formData.razao_social} foi salvo.`
       });
-      
+
       // ✅ CORREÇÃO: Limpar auto-save apenas após salvar com sucesso
       clearSavedData();
       hasFetchedInitialData.current = false;
-      
+
       if (onSaveSuccess) {
         onSaveSuccess(data);
       } else {
@@ -685,8 +692,8 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
                           <TooltipTrigger asChild>
                             <Info className="w-3 h-3 md:w-3 md:h-3 text-emerald-400 cursor-help" />
                           </TooltipTrigger>
-                          <TooltipContent 
-                            side="bottom" 
+                          <TooltipContent
+                            side="bottom"
                             align="start"
                             className="bg-gray-800 text-white border-gray-700 text-xs max-w-xs z-50"
                             sideOffset={5}
@@ -703,8 +710,8 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
                     <div className="flex items-center gap-1 mb-2">
                       {isCnpjCpfChecking && <Loader2 className="w-3 h-3 md:w-3 md:h-3 animate-spin" />}
                     </div>
-                    <RadioGroup 
-                      value={documentType} 
+                    <RadioGroup
+                      value={documentType}
                       onValueChange={handleDocumentTypeChange}
                       className="flex flex-row gap-4 mb-3"
                       disabled={isEditing}
@@ -742,7 +749,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
                       ) : (
                         <IMaskInput
                           mask={
-                            documentType === 'cpf' 
+                            documentType === 'cpf'
                               ? [{ mask: '000.000.000-00', maxLength: 11 }]
                               : [{ mask: '00.000.000/0000-00' }]
                           }
@@ -753,7 +760,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
                           value={formData.cnpj_cpf || ''}
                           onAccept={(value) => handleMaskedChange(String(value), 'cnpj_cpf')}
                           onBlur={handleCnpjCpfBlur}
-                          placeholder={documentType === 'cpf' 
+                          placeholder={documentType === 'cpf'
                             ? `Digite o CPF d${article} ${titleLabel.toLowerCase()}`
                             : `Digite o CNPJ d${article} ${titleLabel.toLowerCase()}`
                           }
@@ -770,7 +777,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
                       )}
                     </div>
                   </div>
-                  
+
                   <div>
                     <div className="mb-2" style={{ height: '1.5rem' }}></div>
                     <Label htmlFor="telefone" className="text-sm md:text-xs flex items-center gap-1">
@@ -795,48 +802,48 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
                     {telefoneError && <p className="text-red-500 text-sm md:text-xs mt-1">{telefoneError}</p>}
                   </div>
                 </div>
-                
+
                 {/* ✅ CORREÇÃO: Mudar "nome" para "razao_social" */}
                 <div className="md:col-span-2">
                   <Label htmlFor="razao_social" className="text-sm md:text-xs">
                     Razão Social <span className="text-red-500">*</span>
                   </Label>
-                  <Input 
-                    id="razao_social" 
-                    name="razao_social" 
-                    value={formData.razao_social || ''} 
-                    onChange={handleChange} 
-                    placeholder={`Razão Social d${article} ${titleLabel.toLowerCase()}`} 
-                    required 
-                    className="bg-white/5 border-white/20 rounded-xl h-10 md:h-8 text-sm md:text-xs" 
+                  <Input
+                    id="razao_social"
+                    name="razao_social"
+                    value={formData.razao_social || ''}
+                    onChange={handleChange}
+                    placeholder={`Razão Social d${article} ${titleLabel.toLowerCase()}`}
+                    required
+                    className="bg-white/5 border-white/20 rounded-xl h-10 md:h-8 text-sm md:text-xs"
                   />
                 </div>
-                
+
                 <div className="md:col-span-2">
                   <Label htmlFor="nome_fantasia" className="text-sm md:text-xs">Nome Fantasia</Label>
-                  <Input 
-                    id="nome_fantasia" 
-                    name="nome_fantasia" 
-                    value={formData.nome_fantasia || ''} 
-                    onChange={handleChange} 
-                    placeholder={`Nome Fantasia d${article} ${titleLabel.toLowerCase()}`} 
-                    className="bg-white/5 border-white/20 rounded-xl h-10 md:h-8 text-sm md:text-xs" 
+                  <Input
+                    id="nome_fantasia"
+                    name="nome_fantasia"
+                    value={formData.nome_fantasia || ''}
+                    onChange={handleChange}
+                    placeholder={`Nome Fantasia d${article} ${titleLabel.toLowerCase()}`}
+                    className="bg-white/5 border-white/20 rounded-xl h-10 md:h-8 text-sm md:text-xs"
                   />
                 </div>
-                
+
                 <div className="md:col-span-2">
                   <Label htmlFor="email" className="text-sm md:text-xs">Email</Label>
-                  <Input 
-                    id="email" 
-                    name="email" 
-                    type="email" 
-                    value={formData.email || ''} 
-                    onChange={handleChange} 
-                    placeholder={`email d${article} ${titleLabel.toLowerCase()}`} 
-                    className="bg-white/5 border-white/20 rounded-xl h-10 md:h-8 text-sm md:text-xs" 
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    value={formData.email || ''}
+                    onChange={handleChange}
+                    placeholder={`email d${article} ${titleLabel.toLowerCase()}`}
+                    className="bg-white/5 border-white/20 rounded-xl h-10 md:h-8 text-sm md:text-xs"
                   />
                 </div>
-                
+
                 <div className="w-full sm:w-auto">
                   <Label htmlFor="estado" className="text-sm md:text-xs">
                     Estado <span className="text-red-500">*</span>
@@ -863,51 +870,51 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
                     onChange={handleMunicipioChange}
                     placeholder="Selecione o Município"
                     disabled={!formData.estado}
-                    inputClassName="text-sm md:text-xs px-3 py-2 bg-white/5 border-white/20 rounded-xl h-10 md:h-8 w-full" 
+                    inputClassName="text-sm md:text-xs px-3 py-2 bg-white/5 border-white/20 rounded-xl h-10 md:h-8 w-full"
                     contentClassName="text-sm md:text-xs bg-gray-800 text-white border-gray-700 rounded-xl max-h-60"
                     required
                   />
                 </div>
-                
+
                 <div className="md:col-span-2">
                   <Label htmlFor="endereco" className="text-sm md:text-xs">Endereço</Label>
-                  <Input 
-                    id="endereco" 
-                    name="endereco" 
-                    value={formData.endereco || ''} 
-                    onChange={handleChange} 
-                    placeholder={`Endereço d${article} ${titleLabel.toLowerCase()}`} 
-                    className="bg-white/5 border-white/20 rounded-xl h-10 md:h-8 text-sm md:text-xs" 
+                  <Input
+                    id="endereco"
+                    name="endereco"
+                    value={formData.endereco || ''}
+                    onChange={handleChange}
+                    placeholder={`Endereço d${article} ${titleLabel.toLowerCase()}`}
+                    className="bg-white/5 border-white/20 rounded-xl h-10 md:h-8 text-sm md:text-xs"
                   />
                 </div>
-                
+
                 <div className="md:col-span-2">
                   <Label htmlFor="referencia" className="text-sm md:text-xs">Ponto de Referência</Label>
-                  <Input 
-                    id="referencia" 
-                    name="referencia" 
-                    value={formData.referencia || ''} 
-                    onChange={handleChange} 
-                    placeholder={`Ex: Próximo à padaria d${article} ${titleLabel.toLowerCase()}`} 
-                    className="bg-white/5 border-white/20 rounded-xl h-10 md:h-8 text-sm md:text-xs" 
+                  <Input
+                    id="referencia"
+                    name="referencia"
+                    value={formData.referencia || ''}
+                    onChange={handleChange}
+                    placeholder={`Ex: Próximo à padaria d${article} ${titleLabel.toLowerCase()}`}
+                    className="bg-white/5 border-white/20 rounded-xl h-10 md:h-8 text-sm md:text-xs"
                   />
                 </div>
               </div>
 
               <div className="flex flex-row justify-between items-center pt-4 gap-2 sm:gap-3">
-                <Button 
-                  type="button" 
-                  onClick={handleBack} 
-                  variant="outline" 
+                <Button
+                  type="button"
+                  onClick={handleBack}
+                  variant="outline"
                   className="rounded-xl h-10 md:h-8 px-3 md:px-2 text-sm md:text-xs flex-1 sm:flex-initial"
                 >
                   <ArrowLeft className="w-4 h-4 md:w-3 md:h-3 mr-1" />
                   Voltar
                 </Button>
-                
+
                 <div className="flex flex-row gap-2 flex-1 sm:flex-initial sm:justify-end">
                   {hasAutoSaveData && (
-                    <Button 
+                    <Button
                       type="button"
                       onClick={() => {
                         clearSavedData();
@@ -919,10 +926,10 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
                       Descartar
                     </Button>
                   )}
-                  
-                  <Button 
-                    type="submit" 
-                    disabled={saving || isCnpjCpfChecking} 
+
+                  <Button
+                    type="submit"
+                    disabled={saving || isCnpjCpfChecking}
                     className="bg-emerald-600 hover:bg-emerald-700 rounded-xl h-10 md:h-8 px-3 md:px-2 text-sm md:text-xs flex-1 sm:flex-initial"
                   >
                     {saving ? <Loader2 className="w-4 h-4 md:w-3 md:h-3 mr-1 animate-spin" /> : <Save className="w-4 h-4 md:w-3 md:h-3 mr-1" />}
