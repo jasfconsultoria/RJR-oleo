@@ -1,68 +1,73 @@
-# Guia de Git para o Projeto RJR-oleo
+# Guia de Git e Implantação - RJR-oleo
 
-Este guia explica como configurar sua identidade no Git e como seguir o fluxo de trabalho na branch `main`.
+Este guia centraliza as melhores práticas para o desenvolvimento, versionamento e deploy do projeto RJR-oleo.
 
-## 1. Configuração Inicial (Identidade)
+## 1. Configuração de Identidade
 
-Se você recebeu o erro `fatal: unable to auto-detect email address`, execute os comandos abaixo substituindo pelos seus dados:
+Se você ainda não configurou seu usuário, execute os comandos abaixo no terminal:
 
 ```bash
-git config --global user.email "seu-email@exemplo.com"
+git config --global user.email "jasfconsultoria@gmail.com"
 git config --global user.name "Seu Nome"
 ```
 
-> [!TIP]
-> Use `--global` para aplicar a todos os seus projetos ou remova para configurar apenas neste repositório.
+## 2. Fluxo de Trabalho (GitHub Best Practices)
 
-## 2. Mudando de `master` para `main`
+Seguir um fluxo organizado evita conflitos de código e facilita o rastreamento de mudanças.
 
-Se o seu repositório ainda usa `master` e você deseja mudar para `main`:
+### Boas Práticas Diárias
+1.  **Sempre comece com `git pull`**: Antes de iniciar qualquer alteração, garanta que sua branch local está atualizada com o servidor.
+    ```bash
+    git pull origin main
+    ```
+2.  **Commits Pequenos e Frequentes**: Evite fazer commits gigantescos. Divida o trabalho em partes lógicas.
+3.  **Mensagens de Commit Claras**: Use mensagens que descrevam o "porquê" da mudança.
+    *   *Exemplo:* `feat: adiciona campo de centro de custo obrigatório no financeiro`
 
+### Ciclo de Desenvolvimento
 ```bash
-# Renomear a branch localmente
-git branch -m master main
-
-# Se já houver um remote (GitHub/GitLab), atualize-o
-# git push -u origin main
-```
-
-## 3. Fluxo de Trabalho na Branch `main`
-
-Sempre siga estes passos para manter o código atualizado e seguro:
-
-### Passo 1: Atualizar seu código local
-Antes de começar qualquer trabalho, puxe as últimas mudanças do servidor:
-```bash
+# 1. Puxe as atualizações
 git pull origin main
-```
 
-### Passo 2: Adicionar suas alterações
-Após fazer as modificações, adicione os arquivos ao "stage":
-```bash
-# Adicionar tudo
+# 2. Faça suas alterações no código
+
+# 3. Adicione e Comite
 git add .
+git commit -m "tipo: descrição curta da mudança"
 
-# Ou adicionar um arquivo específico
-git add caminho/do/arquivo.js
-```
-
-### Passo 3: Criar um Commit
-Grave suas alterações com uma mensagem clara:
-```bash
-git commit -m "Explique o que você fez aqui"
-```
-
-### Passo 4: Enviar para o servidor (Push)
-Envie suas alterações locais para a branch `main` no servidor:
-```bash
+# 4. Envie para o GitHub
 git push origin main
 ```
 
-## 4. Comandos Úteis
+## 3. Guia de Implantação (Deployment)
 
-- `git status`: Verifica quais arquivos foram modificados.
-- `git log --oneline -n 10`: Mostra os últimos 10 commits de forma resumida.
-- `git diff`: Mostra as diferenças exatas que ainda não foram adicionadas ao commit.
+Para levar as alterações para o ambiente de produção, siga estes passos:
+
+### Passo 1: Gerar o Build de Produção
+O comando de build compila o código React/Vite para arquivos estáticos otimizados.
+```bash
+npm run build
+```
+
+### Passo 2: Verificar a Pasta `dist`
+Após o build, uma pasta chamada `dist` será atualizada na raiz do projeto. Estes são os arquivos que devem ser enviados ao servidor ou serviço de hospedagem.
+
+### Passo 3: Comitar e Enviar
+Se o deploy for automatizado via GitHub Actions ou similar ao dar push na `main`:
+```bash
+git add .
+git commit -m "deploy: atualiza sistema para versão X.Y.Z"
+git push origin main
+```
+
+## 4. Comandos Úteis de Referência
+
+| Comando | Descrição |
+| :--- | :--- |
+| `git status` | Lista arquivos modificados e prontos para commit. |
+| `git log --oneline` | Mostra o histórico de commits de forma resumida. |
+| `git diff` | Mostra as alterações exatas feitas nos arquivos. |
+| `git checkout -b <nome>` | Cria uma nova branch para uma funcionalidade específica. |
 
 ---
-*Criado automaticamente para auxiliar no desenvolvimento do projeto RJR-oleo.*
+*Este documento deve ser mantido atualizado conforme novas ferramentas de deploy forem integradas.*
