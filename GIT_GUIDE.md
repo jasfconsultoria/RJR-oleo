@@ -2,72 +2,74 @@
 
 Este guia centraliza as melhores práticas para o desenvolvimento, versionamento e deploy do projeto RJR-oleo.
 
-## 1. Configuração de Identidade
+## 1. 🚨 RESOLUÇÃO DE PROBLEMAS (FIX FINAL) 🚨
 
-Se você ainda não configurou seu usuário, execute os comandos abaixo no terminal:
+Se você tentou dar `push` e deu **erro de "rejected"** ou **"fetch first"**, é porque o GitHub tem alterações que você não tem no seu computador. Siga estes passos para sincronizar tudo:
 
+### Passo 1: Corrigir o nome do servidor (se ainda não fez)
 ```bash
-git config --global user.email "jasfconsultoria@gmail.com"
-git config --global user.name "Seu Nome"
+git remote rename master origin
 ```
+
+### Passo 2: Puxar as alterações do servidor e mesclar com as suas
+Este comando baixa o que está no GitHub e coloca os seus novos commits "em cima".
+```bash
+git pull origin main --rebase
+```
+
+### Passo 3: Enviar tudo para o GitHub
+```bash
+git push -u origin main
+```
+
+---
 
 ## 2. Fluxo de Trabalho (GitHub Best Practices)
 
-Seguir um fluxo organizado evita conflitos de código e facilita o rastreamento de mudanças.
+Sempre use a branch `main` como referência.
 
-### Boas Práticas Diárias
-1.  **Sempre comece com `git pull`**: Antes de iniciar qualquer alteração, garanta que sua branch local está atualizada com o servidor.
-    ```bash
-    git pull origin main
-    ```
-2.  **Commits Pequenos e Frequentes**: Evite fazer commits gigantescos. Divida o trabalho em partes lógicas.
-3.  **Mensagens de Commit Claras**: Use mensagens que descrevam o "porquê" da mudança.
-    *   *Exemplo:* `feat: adiciona campo de centro de custo obrigatório no financeiro`
+### Ciclo Completo de Trabalho Diário
+Estes são os comandos que você usará 99% do tempo:
 
-### Ciclo de Desenvolvimento
 ```bash
-# 1. Puxe as atualizações
+# 1. Puxar alterações (SEMPRE faça isso ao começar)
 git pull origin main
 
-# 2. Faça suas alterações no código
+# 2. Desenvolver e fazer suas alterações
 
-# 3. Adicione e Comite
+# 3. Adicionar mudanças para o commit
 git add .
-git commit -m "tipo: descrição curta da mudança"
 
-# 4. Envie para o GitHub
+# 4. Criar o ponto de salvamento (Commit)
+git commit -m "feat: descrição da sua mudança"
+
+# 5. Enviar para o Servidor
 git push origin main
 ```
 
 ## 3. Guia de Implantação (Deployment)
 
-Para levar as alterações para o ambiente de produção, siga estes passos:
-
 ### Passo 1: Gerar o Build de Produção
-O comando de build compila o código React/Vite para arquivos estáticos otimizados.
 ```bash
 npm run build
 ```
 
-### Passo 2: Verificar a Pasta `dist`
-Após o build, uma pasta chamada `dist` será atualizada na raiz do projeto. Estes são os arquivos que devem ser enviados ao servidor ou serviço de hospedagem.
-
-### Passo 3: Comitar e Enviar
-Se o deploy for automatizado via GitHub Actions ou similar ao dar push na `main`:
+### Passo 2: Enviar para Produção
+Após o build, você deve comitar o que foi gerado na pasta `dist`.
 ```bash
 git add .
-git commit -m "deploy: atualiza sistema para versão X.Y.Z"
+git commit -m "deploy: versão atualizada"
 git push origin main
 ```
 
-## 4. Comandos Úteis de Referência
+## 4. Referência de Comandos
 
-| Comando | Descrição |
+| Comando | Função |
 | :--- | :--- |
-| `git status` | Lista arquivos modificados e prontos para commit. |
-| `git log --oneline` | Mostra o histórico de commits de forma resumida. |
-| `git diff` | Mostra as alterações exatas feitas nos arquivos. |
-| `git checkout -b <nome>` | Cria uma nova branch para uma funcionalidade específica. |
+| `git remote -v` | Verifica o link com o GitHub. |
+| `git branch` | Mostra se você está na `main`. |
+| `git status` | Mostra arquivos modificados. |
+| `git log --oneline` | Histórico de commits. |
 
 ---
-*Este documento deve ser mantido atualizado conforme novas ferramentas de deploy forem integradas.*
+*Criado para auxiliar o fluxo de trabalho do projeto RJR-oleo.*
