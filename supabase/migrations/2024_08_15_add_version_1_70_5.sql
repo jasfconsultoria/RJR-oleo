@@ -1,0 +1,2 @@
+INSERT INTO public.versoes (versao, hash, descricao)
+VALUES ('1.70.5', 'b344556', '- **Correção de Acesso Público ao Recibo:** Corrigido um problema de permissão que impedia a página de assinatura de recibo de carregar os dados. A permissão para executar a função de busca de dados públicos foi concedida, garantindo que o link de assinatura funcione corretamente para usuários não autenticados.');
