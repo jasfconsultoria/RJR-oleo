@@ -24,14 +24,19 @@
     *   **Maximizar Espaço Útil (Menu Toggle):** Implementamos um botão de recolhimento do menu lateral. Em telas de desktop, isso permite que o usuário "ganhe" até 20% mais espaço lateral, facilitando o trabalho em tabelas financeiras extensas.
     *   **Identidade Visual e Contratos Profissionais:** Redesenhamos o cabeçalho de documentos (Contratos e Propostas). O Nome Fantasia agora tem destaque visual como título principal, e o endereço foi organizado em duas linhas para melhorar a legibilidade e a estética profissional da marca perante o cliente.
 
-5.  **Script de Atualização de Versão (SQL):**
+5.  **Protocolo de Segurança em Exclusões Críticas (Double-Check Admin):**
+    *   **Confirmação de Segundo Administrador:** Implementamos uma camada adicional de segurança onde a exclusão de registros sensíveis (Clientes, Fornecedores e Contratos) agora exige a autenticação (e-mail e senha) de um segundo administrador. Isso evita exclusões acidentais ou não autorizadas por um único operador.
+    *   **Logs de Auditoria Detalhados:** Cada operação de exclusão agora registra não apenas quem solicitou a ação, mas também qual administrador autorizou a operação, garantindo total rastreabilidade em caso de auditoria.
+    *   **Proteção de Integridade Financeira:** Esta medida foi estendida à exclusão de lançamentos de entrada no módulo financeiro, garantindo que a base de dados de contratos e pagamentos permaneça íntegra.
+
+6.  **Script de Atualização de Versão (SQL):**
 
 ```sql
 INSERT INTO public.versoes (versao, data_implantacao, hash, notas)
 VALUES (
-  '2.1.0', 
+  '2.2.0', 
   NOW(), 
-  'b85f944', 
-  'Consolidado de melhorias: Integração API CNPJ/CEP, novo módulo de Recibo Avulso, correções no Financeiro e otimizações de UI/UX.'
+  '94f2d3a', 
+  'Atualização de segurança: Protocolo de confirmação dupla para exclusões (Clientes, Fornecedores, Contratos) e melhorias na auditoria.'
 );
 ```

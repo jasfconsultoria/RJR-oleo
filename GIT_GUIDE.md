@@ -13,39 +13,90 @@ git config --global user.name "Seu Nome"
 
 ---
 
-## 2. Fluxo de Trabalho Integrado (GitHub)
+## 2. 🚨 Padronização Global (Fix de Master para Main) 🚨
 
-Sempre utilize a branch **`main`** como referência para desenvolvimento e produção.
-
-### Ciclo Diário Recomendado:
-
+### Comando para configurar `main` como padrão definitivo:
+Execute este comando **uma vez** no seu terminal para que todo novo projeto já nasça como `main`:
 ```bash
-# 1. Atualizar seu código local com o servidor
-git pull origin main
-
-# 2. Desenvolver suas tarefas e melhorias
-
-# 3. Adicionar arquivos modificados
-git add .
-
-# 4. Gravar suas alterações (Commit)
-git commit -m "tipo: descrição curta do que foi feito"
-
-# 5. Enviar para o servidor (GitHub)
-git push origin main
+git config --global init.defaultBranch main
 ```
 
-> [!TIP]
-> Use prefixos nos commits para melhor organização: `feat:` para novas funções, `fix:` para correções, `deploy:` para atualizações de versão.
+### Como mudar de `master` para `main` em um projeto já existente:
+```bash
+git branch -m master main
+```
 
 ---
 
-## 3. Guia de Implantação (Deployment)
+## 3. Trabalhando com Branches (Funcionalidades)
 
-Para levar as alterações para o ambiente de produção, siga estes passos:
+Usar branches permite que você trabalhe em novas funções sem estragar o código que já está funcionando na `main`.
+
+### Criar uma nova branch e entrar nela:
+```bash
+# O nome deve ser curto e descritivo (ex: feat-relatorios)
+git checkout -b nome-da-nova-branch
+```
+
+### Voltar para a `main`:
+```bash
+git checkout main
+```
+
+---
+
+## 4. Como fazer Merge (Unir o código)
+
+Quando terminar o trabalho na sua branch e quiser levar as mudanças para a `main`, siga estes passos:
+
+### Passo 1: Salve tudo na sua branch atual
+```bash
+git add .
+git commit -m "feat: finaliza nova funcionalidade"
+git push origin nome-da-sua-branch
+```
+
+### Passo 2: Vá para a `main` e atualize-a
+```bash
+git checkout main
+git pull origin main
+```
+
+### Passo 3: Una as branches (Merge)
+```bash
+git merge nome-da-sua-branch
+```
+
+### Passo 4: Envie a `main` atualizada para o servidor
+```bash
+git push origin main
+```
+
+---
+
+## 5. Ciclo Diário Recomendado (Fluxo Simples)
+
+Se estiver trabalhando direto na **`main`**:
+
+```bash
+# 1. Atualizar
+git pull origin main
+
+# 2. Alterar o código
+
+# 3. Add e Commit
+git add .
+git commit -m "tipo: descrição curta"
+
+# 4. Enviar
+git push origin main
+```
+
+---
+
+## 6. Guia de Implantação (Deployment)
 
 ### Passo 1: Gerar o Build de Produção
-O comando abaixo gera os arquivos otimizados na pasta `dist/`.
 ```bash
 npm run build
 ```
@@ -59,14 +110,13 @@ git push origin main
 
 ---
 
-## 4. Referência de Comandos Úteis
+## 7. Referência de Comandos Úteis
 
 | Comando | Descrição |
 | :--- | :--- |
-| `git status` | Verifica o estado dos arquivos (quais foram alterados). |
-| `git pull origin main` | Puxa e mescla as últimas mudanças do servidor. |
-| `git log --oneline -n 10` | Mostra os últimos 10 commits de forma resumida. |
-| `git remote -v` | Mostra os endereços dos servidores remotos configurados. |
+| `git status` | Verifica o estado dos arquivos modificados. |
+| `git branch` | Lista todas as branches e mostra em qual você está. |
+| `git log --oneline -n 10` | Mostra os últimos 10 commits. |
 
 ---
 *Este documento é o padrão de versionamento para o projeto RJR-oleo.*
