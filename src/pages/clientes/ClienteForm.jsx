@@ -213,11 +213,14 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
 
       if (!response.ok) {
         if (response.status === 404) {
+          setCnpjRegistryStatus('NOT_FOUND');
           toast({
             title: "CNPJ não encontrado",
             description: "O CNPJ informado não foi encontrado na base de dados.",
             variant: "destructive"
           });
+        } else {
+          setCnpjRegistryStatus('ERROR');
         }
         return;
       }
@@ -238,7 +241,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
 
       if (data) {
         // Armazenar status para alerta visual (API usa situacao_cadastral ou status)
-        const situacao = data.situacao_cadastral || data.status || (data.company && data.company.status);
+        const situacao = data.situacao_cadastral || data.status || (data.company && data.company.status) || 'ATIVA';
         console.log('📍 [ClienteForm] Situação cadastral:', situacao);
         setCnpjRegistryStatus(situacao);
 
@@ -306,6 +309,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
       }
     } catch (error) {
       console.error("Erro ao buscar CNPJ:", error);
+      setCnpjRegistryStatus('ERROR');
       toast({
         title: "Erro na consulta",
         description: "Não foi possível consultar o CNPJ. Você pode preencher manualmente.",
@@ -876,15 +880,32 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
             </CardTitle>
           </CardHeader>
           <CardContent className="p-3 pt-0 space-y-4 md:space-y-3">
-            {cnpjRegistryStatus && cnpjRegistryStatus.toUpperCase() !== 'ATIVA' && (
-              <div className="bg-yellow-500/20 border border-yellow-500/50 text-yellow-200 p-3 rounded-xl flex items-center gap-2 mb-4 animate-pulse">
-                <Info className="w-5 h-5 flex-shrink-0" />
-                <div>
-                  <p className="text-sm font-bold">ALERTA DE SITUAÇÃO CADASTRAL</p>
-                  <p className="text-xs">Este CNPJ encontra-se em situação: <span className="underline">{cnpjRegistryStatus}</span></p>
+            {cnpjRegistryStatus && cnpjRegistryStatus.toUpperCase() !== 'ATIVA' && (() => {
+              const status = cnpjRegistryStatus.toUpperCase();
+              const isError = status === 'NOT_FOUND' || status === 'ERROR';
+
+              const statusMap = {
+                'NOT_FOUND': 'Inválido ou não encontrado',
+                'ERROR': 'Erro na consulta',
+                'INATIVA': 'Empresa Inativa',
+                'SUSPENSA': 'Empresa Suspensa'
+              };
+
+              const displayStatus = statusMap[status] || cnpjRegistryStatus;
+              const alertClass = isError
+                ? "bg-red-500/20 border-red-500/50 text-red-200"
+                : "bg-yellow-500/20 border-yellow-500/50 text-yellow-200";
+
+              return (
+                <div className={`${alertClass} border p-3 rounded-xl flex items-center gap-2 mb-4 animate-pulse`}>
+                  <Info className="w-5 h-5 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-bold">ALERTA DE SITUAÇÃO CADASTRAL</p>
+                    <p className="text-xs">Este CNPJ encontra-se em situação: <span className="underline font-semibold">{displayStatus}</span></p>
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
             <form onSubmit={handleSubmit} className="space-y-4 md:space-y-3">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-3">
                 <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-3">

@@ -32,9 +32,9 @@
 6.  **Script de Atualização de Versão (SQL):**
 
 ```sql
-INSERT INTO public.versoes (versao, data_implantacao, hash, notas)
+INSERT INTO public.versoes (versao, data_implantacao, hash, descricao)
 VALUES (
-  '2.2.0', 
+  '3.9.0', 
   NOW(), 
   '94f2d3a', 
   'Atualização de segurança: Protocolo de confirmação dupla para exclusões (Clientes, Fornecedores, Contratos) e melhorias na auditoria.'
