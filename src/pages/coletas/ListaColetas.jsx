@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Helmet } from 'react-helmet';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
@@ -21,6 +21,8 @@ const ListaColetas = () => {
   const [loading, setLoading] = useState(true);
   const [coletaSearchTerm, setColetaSearchTerm] = useState('');
   const [clientSearchTerm, setClientSearchTerm] = useState('');
+  const [searchParams] = useSearchParams();
+  const clienteId = searchParams.get('clienteId');
 
   const [sortConfig, setSortConfig] = useState({ key: 'numero_coleta', direction: 'desc' });
   const { profile, loading: profileLoading } = useProfile();
@@ -133,7 +135,7 @@ const ListaColetas = () => {
       const params = {
         p_start_date: debouncedStartDate || null,
         p_end_date: debouncedEndDate || null,
-        p_cliente_id: null,
+        p_cliente_id: clienteId || null,
         // Só passa o numero_coleta_term se for numérico, senão passa null
         p_numero_coleta_term: isNumericSearch ? debouncedColetaSearchTerm : null,
         // Se não for numérico, usa o termo de busca no nome do cliente
@@ -180,7 +182,7 @@ const ListaColetas = () => {
       console.error("❌ Erro inesperado ao buscar totais:", catchError);
       setPeriodTotals({ coletado: 0, compras: 0, entregue: 0 });
     }
-  }, [profile, profileLoading, empresa, debouncedStartDate, debouncedEndDate, debouncedColetaSearchTerm, debouncedClientSearchTerm, userRole, userId, toast]);
+  }, [profile, profileLoading, empresa, debouncedStartDate, debouncedEndDate, debouncedColetaSearchTerm, debouncedClientSearchTerm, userRole, userId, clienteId, toast]);
 
   const fetchColetas = useCallback(async () => {
     // ✅ CORREÇÃO: Não buscar até ter o role definido
@@ -207,6 +209,11 @@ const ListaColetas = () => {
       // Não aplica filtro - vê todas as coletas
     } else {
       console.log('⚠️ Perfil não reconhecido:', userRole);
+    }
+
+    if (clienteId) {
+      query = query.eq('cliente_id', clienteId);
+      console.log('🎯 Aplicando filtro por cliente_id via URL:', clienteId);
     }
 
     if (debouncedColetaSearchTerm) {
@@ -252,7 +259,7 @@ const ListaColetas = () => {
       setTotalCount(count || 0);
     }
     setLoading(false);
-  }, [profile, profileLoading, sortConfig, debouncedColetaSearchTerm, debouncedClientSearchTerm, debouncedStartDate, debouncedEndDate, empresa, toast, currentPage, pageSize, userRole, userId]);
+  }, [profile, profileLoading, sortConfig, debouncedColetaSearchTerm, debouncedClientSearchTerm, debouncedStartDate, debouncedEndDate, empresa, toast, currentPage, pageSize, userRole, userId, clienteId]);
 
   const refreshColetasData = useCallback(async () => {
     await fetchColetas();
@@ -288,6 +295,23 @@ const ListaColetas = () => {
       setClientSearchTerm('');
     }
   }, [debouncedColetaSearchTerm, debouncedClientSearchTerm, debouncedStartDate, debouncedEndDate, pageSize, coletaSearchTerm]);
+
+  // NOVO: Buscar nome do cliente para feedback visual no filtro
+  useEffect(() => {
+    if (clienteId) {
+      const fetchClientName = async () => {
+        const { data, error } = await supabase
+          .from('clientes')
+          .select('nome_fantasia, razao_social')
+          .eq('id', clienteId)
+          .single();
+        if (data && !error) {
+          setClientSearchTerm(data.nome_fantasia || data.razao_social);
+        }
+      };
+      fetchClientName();
+    }
+  }, [clienteId]);
 
   const handleDelete = async (coletaId) => {
     const coletaToDelete = coletas.find(c => c.id === coletaId);

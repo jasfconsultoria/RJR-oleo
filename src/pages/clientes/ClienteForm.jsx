@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Helmet } from 'react-helmet';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, Save, UserPlus, Loader2 } from 'lucide-react';
+import { ArrowLeft, Save, UserPlus, Loader2, MapPin } from 'lucide-react';
 import { IMaskInput } from 'react-imask';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useLocationData } from '@/hooks/useLocationData';
@@ -26,6 +26,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
+  const location = useLocation();
   const isEditing = Boolean(id) && !isModal;
   const cnpjCpfInputRef = useRef(null);
   const telefoneInputRef = useRef(null);
@@ -57,6 +58,11 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
     endereco: '',
     referencia: '',
     cep: '',
+    latitude: '',
+    longitude: '',
+    data_ultima_coleta: null,
+    media_dias_coleta: '',
+    proxima_coleta_prevista: null,
   });
 
   // ✅ CORREÇÃO: Estratégia simplificada - SEMPRE carregar do auto-save primeiro
@@ -99,6 +105,15 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
 
   // Carregar municípios quando o estado mudar
   useEffect(() => {
+    // Sincronizar coordenadas vindas do mapa se houver
+    if (location.state?.latitude && location.state?.longitude) {
+      setFormData(prev => ({
+        ...prev,
+        ...location.state
+      }));
+    }
+  }, [location.state, setFormData]);
+  useEffect(() => {
     const loadMunicipios = async () => {
       if (!formData.estado) {
         setMunicipiosOptions([]);
@@ -119,6 +134,28 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
 
     loadMunicipios();
   }, [formData.estado, formData.municipio, fetchMunicipios]);
+
+  // ✅ NOVO: Recalcular próxima coleta automaticamente ao mudar a média
+  useEffect(() => {
+    if (formData.data_ultima_coleta && formData.media_dias_coleta) {
+      const lastDate = new Date(formData.data_ultima_coleta);
+      const days = parseInt(formData.media_dias_coleta, 10);
+
+      if (!isNaN(days)) {
+        const nextDate = new Date(lastDate);
+        nextDate.setDate(lastDate.getDate() + days);
+
+        // Só atualiza se for diferente para evitar loop
+        const nextDateStr = nextDate.toISOString();
+        if (formData.proxima_coleta_prevista !== nextDateStr) {
+          setFormData(prev => ({
+            ...prev,
+            proxima_coleta_prevista: nextDateStr
+          }));
+        }
+      }
+    }
+  }, [formData.data_ultima_coleta, formData.media_dias_coleta, formData.proxima_coleta_prevista, setFormData]);
 
   // ✅ CORREÇÃO: Verificar se há dados no auto-save
   useEffect(() => {
@@ -798,6 +835,8 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
       ...formData,
       cnpj_cpf: unmaskedCnpjCpf,
       telefone: unmask(formData.telefone),
+      latitude: formData.latitude ? String(formData.latitude) : null,
+      longitude: formData.longitude ? String(formData.longitude) : null,
       user_id: user.id
     };
 
@@ -1141,6 +1180,76 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
                     className="bg-white/5 border-white/20 rounded-xl h-10 md:h-8 text-sm md:text-xs"
                   />
                 </div>
+
+                {/* Seção de Inteligência - Exibir sempre para dar feedback ao usuário */}
+                <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-3 p-3 bg-emerald-500/5 rounded-xl border border-emerald-500/10">
+                  <div className="space-y-1">
+                    <Label className="text-sm md:text-xs text-emerald-400">Última Coleta</Label>
+                    <Input
+                      value={formData.data_ultima_coleta ? new Date(formData.data_ultima_coleta).toLocaleDateString('pt-BR') : 'Sem histórico'}
+                      disabled
+                      className="bg-white/5 border-white/20 rounded-xl h-10 md:h-8 text-sm md:text-xs opacity-80 cursor-not-allowed text-white"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="media_dias_coleta" className="text-sm md:text-xs text-yellow-400 font-bold">Média (dias)</Label>
+                    <Input
+                      id="media_dias_coleta"
+                      name="media_dias_coleta"
+                      type="number"
+                      value={formData.media_dias_coleta || ''}
+                      onChange={handleChange}
+                      placeholder="Ex: 15"
+                      className="bg-white/10 border-yellow-500/30 rounded-xl h-10 md:h-8 text-sm md:text-xs text-white focus:border-yellow-500/60"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-sm md:text-xs text-blue-400">Previsão</Label>
+                    <Input
+                      value={formData.proxima_coleta_prevista ? new Date(formData.proxima_coleta_prevista).toLocaleDateString('pt-BR') : 'Não estimada'}
+                      disabled
+                      className="bg-white/5 border-white/20 rounded-xl h-10 md:h-8 text-sm md:text-xs opacity-80 cursor-not-allowed text-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-12 gap-4 md:gap-3 items-end">
+                  <div className="sm:col-span-3">
+                    <Label htmlFor="latitude" className="text-sm md:text-xs">Latitude</Label>
+                    <Input
+                      id="latitude"
+                      name="latitude"
+                      value={formData.latitude || ''}
+                      onChange={handleChange}
+                      placeholder="Ex: -23.5505"
+                      disabled
+                      className="bg-white/5 border-white/20 rounded-xl h-10 md:h-8 text-sm md:text-xs opacity-70 cursor-not-allowed"
+                    />
+                  </div>
+                  <div className="sm:col-span-3">
+                    <Label htmlFor="longitude" className="text-sm md:text-xs">Longitude</Label>
+                    <Input
+                      id="longitude"
+                      name="longitude"
+                      value={formData.longitude || ''}
+                      onChange={handleChange}
+                      placeholder="Ex: -46.6333"
+                      disabled
+                      className="bg-white/5 border-white/20 rounded-xl h-10 md:h-8 text-sm md:text-xs opacity-70 cursor-not-allowed"
+                    />
+                  </div>
+                  <div className="sm:col-span-6">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full bg-blue-600/20 border-blue-500/50 text-blue-300 hover:bg-blue-600/30 rounded-xl h-10 md:h-8 flex items-center justify-center gap-2"
+                      onClick={() => navigate('/app/cadastro/clientes/mapa', { state: { returnTo: location.pathname, currentData: formData } })}
+                    >
+                      <MapPin className="w-4 h-4" />
+                      {formData.latitude && formData.longitude ? 'Visualizar no Mapa' : 'Selecionar no Mapa'}
+                    </Button>
+                  </div>
+                </div>
               </div>
 
               <div className="flex flex-row justify-between items-center pt-4 gap-2 sm:gap-3">
@@ -1182,7 +1291,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
             </form>
           </CardContent>
         </Card>
-      </motion.div>
+      </motion.div >
     </>
   );
 };

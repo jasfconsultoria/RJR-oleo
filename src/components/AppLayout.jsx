@@ -33,6 +33,7 @@ import {
   Box, // New icon for Recipientes
   ChevronsLeft,
   ChevronsRight,
+  MapPin,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useProfile } from '@/contexts/ProfileContext';
@@ -93,6 +94,7 @@ const AppLayout = ({ children }) => {
       icon: ClipboardList, // Using ClipboardList for Cadastro
       subItems: [
         { to: '/app/cadastro/clientes', label: 'Clientes', icon: Users },
+        { to: '/app/cadastro/clientes/mapa', label: 'Mapa de Clientes', icon: MapPin },
         { to: '/app/cadastro/fornecedores', label: 'Fornecedores', icon: Users },
         { to: '/app/cadastro/contratos', label: 'Contratos', icon: FileSignature },
       ]
@@ -108,7 +110,14 @@ const AppLayout = ({ children }) => {
         { to: '/app/centros-custo', label: 'Centro de Custos', icon: Tag },
       ]
     },
-    { to: '/app/coletas', icon: Truck, label: 'Coletas' },
+    {
+      label: 'Coletas',
+      icon: Truck,
+      subItems: [
+        { to: '/app/coletas', label: 'Lista de Coletas', icon: Truck },
+        { to: '/app/coletas/agenda', label: 'Agenda Operacional', icon: ClipboardList },
+      ]
+    },
     { to: '/app/certificados', icon: FileText, label: 'Certificados', adminOnly: true },
     {
       label: 'Relatórios',

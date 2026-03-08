@@ -33,11 +33,14 @@ import {
   ChevronUp,
   ChevronDown,
   Users,
-  FileText
+  FileText,
+  Truck,
+  MapPin
 } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useProfile } from '@/contexts/ProfileContext';
 import { formatCnpjCpf, cn } from '@/lib/utils';
+import { format } from 'date-fns';
 import { logAction } from '@/lib/logger';
 import { Pagination } from '@/components/ui/pagination';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -48,12 +51,13 @@ const CONFIG = {
   PAGE_SIZE_DEFAULT: 25,
   DEBOUNCE_DELAY: 500,
   TABLE_COLUMNS: {
-    nome: { label: 'Nome Fantasia / Razão Social', width: 'w-[20%]' },
-    cnpj_cpf: { label: 'CNPJ/CPF', width: 'w-[15%]' },
-    endereco: { label: 'Endereço', width: 'w-[25%]' },
-    municipio: { label: 'Localização', width: 'w-[20%]' },
+    nome: { label: 'Nome Fantasia / Razão Social', width: 'w-[15%]' },
+    cnpj_cpf: { label: 'CNPJ/CPF', width: 'w-[10%]' },
+    endereco: { label: 'Endereço', width: 'w-[20%]' },
+    localizacao: { label: 'Localização', width: 'w-[10%]' },
+    inteligencia: { label: 'Inteligência de Coleta', width: 'w-[15%]' },
     contrato: { label: 'Contrato', width: 'w-[10%]' },
-    acoes: { label: 'Ações', width: 'w-[10%]' }
+    acoes: { label: 'Ações', width: 'w-[12%]' }
   }
 };
 
@@ -267,7 +271,7 @@ const useClientesList = (personType, profile) => {
       // Buscar TODOS os clientes do banco
       const { data: allClientes, error, count } = await supabase
         .from('clientes')
-        .select('id, nome_fantasia, razao_social, cnpj_cpf, endereco, municipio, estado, user_id', {
+        .select('id, nome_fantasia, razao_social, cnpj_cpf, endereco, municipio, estado, user_id, media_dias_coleta, data_ultima_coleta, proxima_coleta_prevista, latitude, longitude', {
           count: 'exact'
         });
 
@@ -653,6 +657,29 @@ const RowActions = ({
       <Button
         variant="ghost"
         size="icon"
+        title="Ver Coletas"
+        onClick={() => navigate(`/app/coletas?clienteId=${cliente.id}`)}
+      >
+        <Truck className="h-4 w-4 text-emerald-400" />
+      </Button>
+
+      <Button
+        variant="ghost"
+        size="icon"
+        title={cliente.latitude && cliente.longitude ? "Abrir GPS" : "Sem coordenadas cadastradas"}
+        disabled={!cliente.latitude || !cliente.longitude}
+        onClick={() => {
+          const url = `https://www.google.com/maps/dir/?api=1&destination=${cliente.latitude},${cliente.longitude}`;
+          window.open(url, '_blank');
+        }}
+        className={!cliente.latitude || !cliente.longitude ? "opacity-30" : ""}
+      >
+        <MapPin className="h-4 w-4 text-blue-400" />
+      </Button>
+
+      <Button
+        variant="ghost"
+        size="icon"
         title="Ver Contratos"
         onClick={() => navigate(`/app/cadastro/contratos?clienteId=${cliente.id}`)}
       >
@@ -833,8 +860,11 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
                       label="Localização"
                       sortConfig={sortConfig}
                       onSort={requestSort}
-                      className={CONFIG.TABLE_COLUMNS.municipio.width}
+                      className={CONFIG.TABLE_COLUMNS.localizacao.width}
                     />
+                    <TableHead className={cn("text-emerald-300", CONFIG.TABLE_COLUMNS.inteligencia.width)}>
+                      Última / Média / Próxima
+                    </TableHead>
                     <TableHead className={cn("text-emerald-300", CONFIG.TABLE_COLUMNS.contrato.width)}>
                       Contrato
                     </TableHead>
@@ -867,6 +897,32 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
                         </TableCell>
                         <TableCell data-label="Localização">
                           {cliente.municipio}, {cliente.estado}
+                        </TableCell>
+                        <TableCell data-label="Inteligência">
+                          <div className="flex flex-col gap-1.5">
+                            <div className="flex items-center gap-2">
+                              {cliente.data_ultima_coleta ? (
+                                <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-white/10 text-white/70 border border-white/10" title="Última Coleta">
+                                  {format(new Date(cliente.data_ultima_coleta), 'dd/MM/yyyy')}
+                                </span>
+                              ) : (
+                                <span className="text-white/30 text-[10px]">Sem histórico</span>
+                              )}
+                              <span className="text-[10px] text-white/50">{cliente.media_dias_coleta || '?'} dias</span>
+                            </div>
+
+                            {cliente.proxima_coleta_prevista && (
+                              <div className="flex items-center gap-2">
+                                <span className={cn(
+                                  "text-[10px] px-2 py-0.5 rounded-full font-bold",
+                                  new Date(cliente.proxima_coleta_prevista) < new Date() ? "bg-red-500/20 text-red-400" : "bg-emerald-500/20 text-emerald-400"
+                                )} title="Próxima Coleta">
+                                  {format(new Date(cliente.proxima_coleta_prevista), 'dd/MM/yyyy')}
+                                </span>
+                                <span className="text-[9px] text-white/30 uppercase tracking-tighter">Previsão</span>
+                              </div>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell data-label="Contrato">
                           <ContractStatus

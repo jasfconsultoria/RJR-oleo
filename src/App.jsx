@@ -8,8 +8,11 @@ import ResetPasswordScreen from '@/pages/auth/ResetPasswordScreen';
 import DashboardPage from '@/pages/config/DashboardPage';
 import ListaColetas from '@/pages/coletas/ListaColetas';
 import ColetaForm from '@/pages/coletas/ColetaForm';
+import AgendaColetasPage from '@/pages/coletas/AgendaColetasPage';
+import RoteiroOperacionalPage from '@/pages/coletas/RoteiroOperacionalPage';
 import ListaClientes from '@/pages/clientes/ListaClientes';
 import ClienteForm from '@/pages/clientes/ClienteForm';
+import MapaClientesPage from '@/pages/clientes/MapaClientesPage';
 import CertificadoPage from '@/pages/certificados/CertificadoPage';
 import ListaCertificados from '@/pages/certificados/ListaCertificados';
 import CertificadoViewPage from '@/pages/certificados/CertificadoViewPage';
@@ -63,7 +66,7 @@ const ProtectedRoute = ({ children, requiredRole }) => {
   if (authLoading || profileLoading) {
     return <div className="flex justify-center items-center h-screen bg-gradient-to-br from-emerald-900 via-teal-900 to-cyan-900 text-white"><p>Carregando...</p></div>;
   }
-  
+
   if (!session) {
     return <Navigate to="/app/login" state={{ from: location }} replace />;
   }
@@ -96,16 +99,16 @@ function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         if (event === 'SIGNED_OUT') {
-           // This will be handled by the redirect in ProtectedRoute
+          // This will be handled by the redirect in ProtectedRoute
         } else if (event === 'TOKEN_REFRESHED' && session === null) {
           // This case indicates a problem with the refresh token.
           handleSignOutAndRedirect(true);
         } else if (event === 'USER_DELETED') {
-           handleSignOutAndRedirect(true);
+          handleSignOutAndRedirect(true);
         }
       }
     );
-    
+
     return () => {
       subscription.unsubscribe();
     };
@@ -128,7 +131,7 @@ function App() {
         <Route path="/contrato-assinado/:id" element={<ContratoAssinadoPage />} />
         <Route path="/reset-password" element={<ResetPasswordScreen />} />
         <Route path="/app/login" element={!session ? <LoginScreen /> : <Navigate to="/app/dashboard" />} />
-        <Route 
+        <Route
           path="/app/*"
           element={
             <ProtectedRoute>
@@ -138,11 +141,14 @@ function App() {
                   <Route path="coletas" element={<ListaColetas />} />
                   <Route path="coletas/nova" element={<ColetaForm />} />
                   <Route path="coletas/editar/:id" element={<ColetaForm />} />
-                  
+                  <Route path="coletas/agenda" element={<AgendaColetasPage />} />
+                  <Route path="coletas/roteiro" element={<RoteiroOperacionalPage />} />
+
                   {/* Updated Cadastro Routes */}
                   <Route path="cadastro/clientes" element={<ListaClientes personType="cliente" />} />
                   <Route path="cadastro/clientes/novo" element={<ClienteForm personType="cliente" />} />
                   <Route path="cadastro/clientes/editar/:id" element={<ClienteForm personType="cliente" />} />
+                  <Route path="cadastro/clientes/mapa" element={<MapaClientesPage />} />
                   <Route path="cadastro/fornecedores" element={<ListaClientes personType="fornecedor" />} />
                   <Route path="cadastro/fornecedores/novo" element={<ClienteForm personType="fornecedor" />} />
                   <Route path="cadastro/fornecedores/editar/:id" element={<ClienteForm personType="fornecedor" />} />
@@ -152,7 +158,7 @@ function App() {
 
                   <Route path="sobre" element={<SobreSistemaPage />} />
                   <Route path="versoes" element={<VersoesPage />} />
-                  
+
                   <Route path="certificados" element={<ProtectedRoute requiredRole="administrador"><ListaCertificados /></ProtectedRoute>} />
                   <Route path="certificados/novo" element={<ProtectedRoute requiredRole="administrador"><CertificadoPage /></ProtectedRoute>} />
                   <Route path="certificados/editar/:id" element={<ProtectedRoute requiredRole="administrador"><CertificadoPage /></ProtectedRoute>} />
@@ -161,7 +167,7 @@ function App() {
                   <Route path="relatorios/financeiro" element={<ProtectedRoute requiredRole="administrador"><RelatorioFinanceiroPage /></ProtectedRoute>} />
                   <Route path="relatorios/estoque" element={<ProtectedRoute requiredRole="administrador"><RelatorioEstoquePage /></ProtectedRoute>} />
                   <Route path="relatorios/recipientes" element={<ProtectedRoute requiredRole="administrador"><RelatorioRecipientesPage /></ProtectedRoute>} /> {/* New route */}
-                  
+
                   {/* New Financeiro Routes */}
                   <Route path="financeiro/credito" element={<ProtectedRoute requiredRole="administrador"><ListaFinanceiro type="credito" /></ProtectedRoute>} />
                   <Route path="financeiro/credito/novo" element={<ProtectedRoute requiredRole="administrador"><FinanceiroForm type="credito" /></ProtectedRoute>} />
@@ -196,7 +202,7 @@ function App() {
                       <UserManagementPage />
                     </ProtectedRoute>
                   } />
-                   <Route path="usuarios/novo" element={
+                  <Route path="usuarios/novo" element={
                     <ProtectedRoute requiredRole="administrador">
                       <UserFormPage />
                     </ProtectedRoute>
@@ -220,7 +226,7 @@ function App() {
                 </Routes>
               </AppLayout>
             </ProtectedRoute>
-          } 
+          }
         />
       </Routes>
       <Toaster />

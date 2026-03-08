@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { ColetaStep1 } from '@/components/coletas/ColetaStep1';
 import { ColetaStep2 } from '@/components/coletas/ColetaStep2';
 import { ColetaStep3 } from '@/components/coletas/ColetaStep3';
@@ -35,7 +35,7 @@ const ClienteSearchableSelect = ({ value, onSelect, className }) => {
       setLoading(true);
       try {
         const escapedSearchTerm = escapePostgrestLikePattern(debouncedSearchTerm);
-        
+
         // ✅ BUSCA TODOS OS CLIENTES - SEM FILTRO DE USER_ID
         let query = supabase
           .from('clientes')
@@ -119,18 +119,18 @@ const ClienteSearchableSelect = ({ value, onSelect, className }) => {
     const nomeFantasia = cliente.nome_fantasia || '';
     const razaoSocial = cliente.razao_social || '';
     const cnpjCpf = cliente.cnpj_cpf || '';
-    
+
     let display = '';
     if (nomeFantasia && razaoSocial) {
       display = `${nomeFantasia} - ${razaoSocial}`;
     } else {
       display = nomeFantasia || razaoSocial || 'Cliente sem nome';
     }
-    
+
     if (cnpjCpf) {
       display += ` (${cnpjCpf})`;
     }
-    
+
     return display;
   };
 
@@ -209,6 +209,7 @@ const ClienteSearchableSelect = ({ value, onSelect, className }) => {
 const ColetaForm = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const navigate = useNavigate();
+  const location = useLocation();
   const { id } = useParams();
   const { user } = useAuth();
   const isEditing = !!id;
@@ -226,8 +227,8 @@ const ColetaForm = () => {
         const { data, error } = await supabase.from('empresa').select('id, nome_fantasia, razao_social, cnpj, telefone, email, endereco, logo_sistema_url, logo_documento_url, timezone, items_per_page, estado, municipio, assinatura_responsavel_url, nome_responsavel_assinatura, created_at, updated_at').single();
         if (error) {
           console.warn('Erro ao buscar dados da empresa:', error);
-          setEmpresa({ 
-            timezone: 'America/Sao_Paulo', 
+          setEmpresa({
+            timezone: 'America/Sao_Paulo',
             items_per_page: 25,
             nome_fantasia: 'Nome da Empresa',
             razao_social: 'Razão Social',
@@ -243,8 +244,8 @@ const ColetaForm = () => {
         }
       } catch (error) {
         console.error('Erro ao carregar empresa:', error);
-        setEmpresa({ 
-          timezone: 'America/Sao_Paulo', 
+        setEmpresa({
+          timezone: 'America/Sao_Paulo',
           items_per_page: 25,
           nome_fantasia: 'Nome da Empresa',
           razao_social: 'Razão Social',
@@ -285,6 +286,51 @@ const ColetaForm = () => {
     };
   }, [user]);
 
+  // ✅ NOVO: Efeito para lidar com cliente pré-selecionado (vindo do mapa ou roteiro)
+  useEffect(() => {
+    // Tenta pegar o ID de duas fontes: do estado da navegação ou da URL (?clienteId=...)
+    const searchParams = new URLSearchParams(location.search);
+    const preselectId = location.state?.preselectClienteId || searchParams.get('clienteId');
+
+    if (preselectId && !isEditing && !hasFetchedInitialData.current) {
+      console.log('🎯 Pré-selecionando cliente para nova coleta:', preselectId);
+
+      const fetchPreselected = async () => {
+        try {
+          const { data, error } = await supabase
+            .from('clientes')
+            .select('*')
+            .eq('id', preselectId)
+            .single();
+
+          if (data && !error) {
+            console.log('✅ Dados do cliente pré-carregados:', data.nome_fantasia);
+            setRawColetaData(prev => ({
+              ...prev,
+              cliente_id: data.id,
+              cliente: data.nome_fantasia && data.razao_social
+                ? `${data.nome_fantasia} - ${data.razao_social}`
+                : data.nome_fantasia || data.razao_social,
+              cnpj_cpf: data.cnpj_cpf,
+              endereco: data.endereco,
+              email: data.email,
+              municipio: data.municipio,
+              estado: data.estado,
+              telefone: data.telefone
+            }));
+
+            // Marca como carregado para não repetir
+            hasFetchedInitialData.current = true;
+          }
+        } catch (err) {
+          console.error('Erro ao pré-carregar cliente:', err);
+        }
+      };
+
+      fetchPreselected();
+    }
+  }, [location.state, location.search, isEditing]);
+
   const processDateValue = useCallback((dateValue, defaultValue) => {
     if (typeof dateValue === 'string') {
       const parsed = parseISO(dateValue);
@@ -310,9 +356,9 @@ const ColetaForm = () => {
           const hasUserChanges = Object.keys(parsed).some(key => {
             const savedValue = parsed[key];
             const initialValue = initialData[key];
-            
+
             if (key === 'user_id') return false;
-            
+
             if (savedValue !== initialValue) {
               if (typeof savedValue === 'string' && typeof initialValue === 'string') {
                 return savedValue.trim() !== initialValue.trim();
@@ -383,12 +429,12 @@ const ColetaForm = () => {
       };
 
       setRawColetaData(prevFormData => {
-        const isAutoSaveEmpty = Object.values(prevFormData).every(value => 
-          value === '' || value === null || value === undefined || 
+        const isAutoSaveEmpty = Object.values(prevFormData).every(value =>
+          value === '' || value === null || value === undefined ||
           (typeof value === 'string' && value.trim() === '') ||
           (Array.isArray(value) && value.length === 0)
         );
-        
+
         if (isAutoSaveEmpty || !hasAutoSaveData) {
           return entryDataFromDB;
         } else {
@@ -407,7 +453,7 @@ const ColetaForm = () => {
         fetchColeta();
         hasFetchedInitialData.current = true;
       }, 100);
-      
+
       return () => clearTimeout(timer);
     }
   }, [isEditing, fetchColeta]);
@@ -438,10 +484,10 @@ const ColetaForm = () => {
 
   const handleSave = async (finalData, returnData = false) => {
     setIsSaving(true);
-    
+
     try {
       const finalColetaData = { ...coletaData, ...finalData };
-      
+
       // Verificar se user existe
       if (!user?.id) {
         const error = new Error('Usuário não autenticado');
@@ -470,43 +516,43 @@ const ColetaForm = () => {
       }
 
       let clienteId = finalColetaData.cliente_id;
-      
+
       if (!finalColetaData.cliente_id) {
-          const { data: cliente, error: clientError } = await supabase
+        const { data: cliente, error: clientError } = await supabase
           .from('clientes')
           .upsert({
-              id: clienteId,
-              nome: finalColetaData.cliente,
-              nome_fantasia: finalColetaData.nome_fantasia,
-              cnpj_cpf: finalColetaData.cnpj_cpf,
-              email: finalColetaData.email,
-              endereco: finalColetaData.endereco,
-              municipio: finalColetaData.municipio,
-              estado: finalColetaData.estado,
-              telefone: finalColetaData.telefone,
-              user_id: user.id
+            id: clienteId,
+            nome: finalColetaData.cliente,
+            nome_fantasia: finalColetaData.nome_fantasia,
+            cnpj_cpf: finalColetaData.cnpj_cpf,
+            email: finalColetaData.email,
+            endereco: finalColetaData.endereco,
+            municipio: finalColetaData.municipio,
+            estado: finalColetaData.estado,
+            telefone: finalColetaData.telefone,
+            user_id: user.id
           }, { onConflict: 'cnpj_cpf', ignoreDuplicates: false })
           .select()
           .single();
 
-          if (clientError) {
+        if (clientError) {
           toast({ title: "Erro ao salvar cliente", description: clientError.message, variant: "destructive" });
           if (returnData) return { error: clientError };
           return;
-          }
-          clienteId = cliente.id;
+        }
+        clienteId = cliente.id;
       }
-      
+
       let combinedDateTimeString;
       if (finalColetaData.data_coleta instanceof Date && isValid(finalColetaData.data_coleta)) {
-          combinedDateTimeString = `${format(finalColetaData.data_coleta, 'yyyy-MM-dd')} ${finalColetaData.hora_coleta}`;
+        combinedDateTimeString = `${format(finalColetaData.data_coleta, 'yyyy-MM-dd')} ${finalColetaData.hora_coleta}`;
       } else {
-          console.error("ColetaForm.jsx - finalColetaData.data_coleta is invalid:", finalColetaData.data_coleta);
-          toast({ title: "Erro de Data", description: "A data da coleta é inválida. Por favor, verifique.", variant: "destructive" });
-          if (returnData) return { error: new Error("Invalid coleta date") };
-          return;
+        console.error("ColetaForm.jsx - finalColetaData.data_coleta is invalid:", finalColetaData.data_coleta);
+        toast({ title: "Erro de Data", description: "A data da coleta é inválida. Por favor, verifique.", variant: "destructive" });
+        if (returnData) return { error: new Error("Invalid coleta date") };
+        return;
       }
-      
+
       const dateInCompanyTimezone = toDate(combinedDateTimeString, { timeZone: empresaTimezone });
       const utcDateISOString = dateInCompanyTimezone.toISOString();
 
@@ -538,17 +584,17 @@ const ColetaForm = () => {
 
       if (coletaError) {
         console.error('DEBUG - Erro ao salvar coleta:', coletaError);
-        
+
         // Tratamento específico para erro de foreign key constraint
         let errorMessage = coletaError.message;
         if (coletaError.message?.includes('foreign key constraint') || coletaError.message?.includes('coletas_user_id_fkey')) {
           errorMessage = 'Erro ao salvar: O usuário não está registrado corretamente no sistema. Por favor, faça logout e login novamente, ou entre em contato com o administrador.';
         }
-        
-        toast({ 
-          title: "Erro ao salvar coleta", 
-          description: errorMessage, 
-          variant: "destructive" 
+
+        toast({
+          title: "Erro ao salvar coleta",
+          description: errorMessage,
+          variant: "destructive"
         });
         if (returnData) return { error: coletaError };
         return;
@@ -559,7 +605,7 @@ const ColetaForm = () => {
       try {
         const { data: reciboData, error: reciboError } = await supabase
           .from('recibos')
-          .upsert({ 
+          .upsert({
             coleta_id: savedData.id,
             assinatura_url: isEditing ? null : undefined
           }, { onConflict: 'coleta_id' })
@@ -573,7 +619,7 @@ const ColetaForm = () => {
             .select('*')
             .eq('coleta_id', savedData.id)
             .single();
-          
+
           reciboEntry = existingRecibo;
         } else {
           reciboEntry = reciboData;
@@ -585,14 +631,14 @@ const ColetaForm = () => {
           .select('*')
           .eq('coleta_id', savedData.id)
           .single();
-        
+
         reciboEntry = existingRecibo;
       }
 
-      await logAction(isEditing ? 'update_coleta' : 'create_coleta', { 
-        coleta_id: savedData.id, 
+      await logAction(isEditing ? 'update_coleta' : 'create_coleta', {
+        coleta_id: savedData.id,
         cliente_nome: savedData.cliente_nome,
-        numero_coleta: savedData.numero_coleta 
+        numero_coleta: savedData.numero_coleta
       });
 
       // Limpar auto-save após salvar com sucesso
@@ -606,7 +652,7 @@ const ColetaForm = () => {
         variant: "default"
       });
 
-      if(returnData) {
+      if (returnData) {
         const { data: cliente } = await supabase.from('clientes').select('cnpj_cpf, endereco').eq('id', clienteId).single();
         const fullSavedData = {
           ...savedData,
@@ -616,19 +662,19 @@ const ColetaForm = () => {
         };
         return { data: fullSavedData, error: null };
       }
-      
+
       // Navegar para o recibo
       console.log('DEBUG - Navegando para recibo:', savedData.id);
       navigate(`/app/recibo/${savedData.id}`);
-      
+
     } catch (error) {
       console.error('Erro no processo de salvamento:', error);
-      toast({ 
-        title: "Erro ao Salvar", 
-        description: error.message, 
-        variant: "destructive" 
+      toast({
+        title: "Erro ao Salvar",
+        description: error.message,
+        variant: "destructive"
       });
-      
+
       if (returnData) return { error };
     } finally {
       setIsSaving(false);
@@ -646,7 +692,7 @@ const ColetaForm = () => {
       <Helmet>
         <title>{isEditing ? 'Editar' : 'Nova'} Coleta - Sistema de Coleta de Óleo</title>
       </Helmet>
-      
+
       <div className="max-w-4xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -674,18 +720,17 @@ const ColetaForm = () => {
               <React.Fragment key={step.number}>
                 <div className="flex flex-col items-center text-center w-20">
                   <div
-                    className={`w-8 h-8 md:w-10 md:h-10 rounded-xl flex items-center justify-center font-bold transition-all duration-300 ${
-                      currentStep >= step.number
-                        ? 'bg-emerald-500 text-white'
-                        : 'bg-white/20 text-white/60'
-                    }`}
+                    className={`w-8 h-8 md:w-10 md:h-10 rounded-xl flex items-center justify-center font-bold transition-all duration-300 ${currentStep >= step.number
+                      ? 'bg-emerald-500 text-white'
+                      : 'bg-white/20 text-white/60'
+                      }`}
                   >
                     {step.number}
                   </div>
                   <p className={`mt-2 text-xs md:text-sm truncate ${currentStep >= step.number ? 'text-white' : 'text-white/60'}`}>{step.name}</p>
                 </div>
                 {index < steps.length - 1 && (
-                   <div className={`flex-1 h-1 mx-1 md:mx-4 transition-all duration-300 ${currentStep > step.number ? 'bg-emerald-500' : 'bg-white/20'}`} />
+                  <div className={`flex-1 h-1 mx-1 md:mx-4 transition-all duration-300 ${currentStep > step.number ? 'bg-emerald-500' : 'bg-white/20'}`} />
                 )}
               </React.Fragment>
             ))}
