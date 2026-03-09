@@ -26,6 +26,8 @@ import { useLocationData } from '@/hooks/useLocationData';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { logAction } from '@/lib/logger';
+import AdminConfirmationDialog from '@/components/financeiro/AdminConfirmationDialog';
 import {
     Table,
     TableBody,
@@ -72,6 +74,10 @@ const RotasListaPage = () => {
         data_planejada: ''
     });
     const [updating, setUpdating] = useState(false);
+
+    // Exclusão com confirmação de 2º Admin
+    const [isAdminConfirmationOpen, setIsAdminConfirmationOpen] = useState(false);
+    const [rotaToDelete, setRotaToDelete] = useState(null);
 
     const { fetchMunicipiosByCodes } = useLocationData();
     const [municipiosMap, setMunicipiosMap] = useState({});
@@ -153,12 +159,38 @@ const RotasListaPage = () => {
     }, [fetchCollectors, fetchRotas]);
 
     const handleDeleteRota = async (id) => {
-        const { error } = await supabase.from('rotas').delete().eq('id', id);
-        if (error) {
-            toast({ variant: "destructive", title: "Erro ao excluir rota" });
-        } else {
-            toast({ title: "Rota excluída com sucesso" });
+        // Agora apenas prepara para a confirmação
+        const rota = rotas.find(r => r.id === id);
+        setRotaToDelete(rota);
+        setIsAdminConfirmationOpen(true);
+    };
+
+    const handleConfirmDeletion = async (secondAdmin) => {
+        if (!rotaToDelete) return;
+
+        setLoading(true);
+        try {
+            const { error } = await supabase.from('rotas').delete().eq('id', rotaToDelete.id);
+            if (error) throw error;
+
+            await logAction('delete_rota', {
+                details: {
+                    rota_id: rotaToDelete.id,
+                    data_planejada: rotaToDelete.data_planejada,
+                    coletor: rotaToDelete.coletor?.full_name,
+                    confirmed_by_admin_id: secondAdmin.id,
+                    confirmed_by_admin_name: secondAdmin.name
+                }
+            });
+
+            toast({ title: "Rota excluída com sucesso", description: `Confirmado por ${secondAdmin.name}` });
             fetchRotas();
+        } catch (error) {
+            console.error('Erro ao excluir rota:', error);
+            toast({ variant: "destructive", title: "Erro ao excluir rota", description: error.message });
+        } finally {
+            setLoading(false);
+            setRotaToDelete(null);
         }
     };
 
@@ -493,25 +525,15 @@ const RotasListaPage = () => {
                                                 <Edit className="w-4 h-4" />
                                             </Button>
 
-                                            <AlertDialog>
-                                                <AlertDialogTrigger asChild>
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:bg-red-500/10">
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </Button>
-                                                </AlertDialogTrigger>
-                                                <AlertDialogContent className="bg-slate-900 border-white/10 text-white">
-                                                    <AlertDialogHeader>
-                                                        <AlertDialogTitle>Excluir Rota?</AlertDialogTitle>
-                                                        <AlertDialogDescription className="text-slate-400">
-                                                            Esta ação excluirá permanentemente a rota e todos os seus itens vinculados.
-                                                        </AlertDialogDescription>
-                                                    </AlertDialogHeader>
-                                                    <AlertDialogFooter>
-                                                        <AlertDialogCancel className="bg-transparent border-white/10 text-white hover:bg-white/5">Cancelar</AlertDialogCancel>
-                                                        <AlertDialogAction onClick={() => handleDeleteRota(rota.id)} className="bg-red-600 hover:bg-red-700">Excluir</AlertDialogAction>
-                                                    </AlertDialogFooter>
-                                                </AlertDialogContent>
-                                            </AlertDialog>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 text-red-500 hover:bg-red-500/10"
+                                                onClick={() => handleDeleteRota(rota.id)}
+                                                title="Excluir Rota"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </Button>
                                         </div>
                                     </TableCell>
                                 </TableRow>
@@ -722,6 +744,14 @@ const RotasListaPage = () => {
                         </DialogFooter>
                     </DialogContent>
                 </Dialog>
+
+                <AdminConfirmationDialog
+                    isOpen={isAdminConfirmationOpen}
+                    onClose={() => setIsAdminConfirmationOpen(false)}
+                    onConfirm={handleConfirmDeletion}
+                    currentUserId={profile?.id}
+                    documentInfo={`Rota #${rotaToDelete?.id?.slice(0, 8).toUpperCase()} - ${rotaToDelete ? format(parseISO(rotaToDelete.data_planejada), 'dd/MM/yyyy') : ''}`}
+                />
             </div >
         </>
     );

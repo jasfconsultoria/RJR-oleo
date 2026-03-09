@@ -123,10 +123,10 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
       const municipios = await fetchMunicipios(formData.estado);
       const options = [...municipios].sort((a, b) => a.label.localeCompare(b.label));
 
-      // Se há um município no formData mas não está nas opções (pode ser o nome legado), adicionar
-      if (formData.municipio && !options.find(opt => opt.value === formData.municipio)) {
-        options.push({ value: formData.municipio, label: formData.municipio });
-        options.sort((a, b) => a.label.localeCompare(b.label));
+      // Se há um município no formData mas não é um código numérico (nome legado), não adicionar às opções
+      // Isso força o usuário a selecionar um município da lista oficial
+      if (formData.municipio && !options.find(opt => opt.value === formData.municipio) && isNaN(formData.municipio)) {
+        console.warn('⚠️ [ClienteForm] Município legado detectado (nome em vez de código):', formData.municipio);
       }
 
       setMunicipiosOptions(options);
@@ -316,9 +316,24 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
         const uf = data.uf || data.estado || (data.address && data.address.state);
         if (uf && !manualEdits.estado) newValues.estado = uf;
 
-        const municipio = data.municipio || (data.address && data.address.city);
-        if (municipio && !manualEdits.municipio) newValues.municipio = formatMunicipio(municipio);
+        const municipioNome = data.municipio || (data.address && data.address.city);
+        if (municipioNome && uf && !manualEdits.municipio) {
+          // Buscar o código do município no banco de dados pelo nome e UF
+          const { data: municipioData } = await supabase
+            .from('municipios')
+            .select('codigo')
+            .eq('uf', uf)
+            .ilike('municipio', municipioNome)
+            .single();
 
+          if (municipioData?.codigo) {
+            newValues.municipio = municipioData.codigo;
+          } else {
+            // Se não encontrar o código, mantém vazio para obrigar seleção manual
+            newValues.municipio = '';
+            console.warn(`⚠️ [ClienteForm] Código IBGE não encontrado para: ${municipioNome} (${uf})`);
+          }
+        }
         if (!manualEdits.endereco) {
           const street = data.logradouro || (data.address && data.address.street);
           const number = data.numero || (data.address && data.address.number);
@@ -481,10 +496,9 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
           fetchMunicipios(finalData.estado).then(municipios => {
             const options = [...municipios].sort((a, b) => a.label.localeCompare(b.label));
 
-            // Se há um município nos dados mas não está nas opções, adicionar
-            if (finalData.municipio && !options.find(opt => opt.value === finalData.municipio)) {
-              options.push({ value: finalData.municipio, label: finalData.municipio });
-              options.sort((a, b) => a.label.localeCompare(b.label));
+            // Se há um município nos dados mas não é código (nome legado), apenas avisar no console
+            if (finalData.municipio && !options.find(opt => opt.value === finalData.municipio) && isNaN(finalData.municipio)) {
+              console.warn('⚠️ [ClienteForm] Município legado detectado no fetch:', finalData.municipio);
             }
 
             setMunicipiosOptions(options);
@@ -656,7 +670,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
           setFormData(prev => ({
             ...prev,
             endereco: data.logradouro ? `${data.logradouro}${data.bairro ? `, ${data.bairro}` : ''}` : prev.endereco,
-            municipio: data.localidade || prev.municipio,
+            municipio: data.ibge || prev.municipio, // ✅ CORREÇÃO: Usar data.ibge em vez de data.localidade
             estado: data.uf || prev.estado
           }));
 
