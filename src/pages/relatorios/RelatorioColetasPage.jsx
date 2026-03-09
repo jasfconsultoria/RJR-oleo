@@ -24,21 +24,45 @@ const RelatoriosPage = () => {
   const [reportData, setReportData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [usuarios, setUsuarios] = useState([]);
-  const [filters, setFilters] = useState({
-    estado: 'all',
-    municipio: 'all',
-    clientSearchTerm: '',
-    userId: 'all',
-    tipoColeta: 'all',
-    startDate: null,
-    endDate: null,
+  const [filters, setFilters] = useState(() => {
+    const savedFilters = localStorage.getItem('relatorio_coletas_filters');
+    if (savedFilters) {
+      try {
+        const parsed = JSON.parse(savedFilters);
+        return {
+          ...parsed,
+          // Mantém as datas como nulas se não houver um padrão salvo, 
+          // caso contrário elas serão sobrescritas pelo useEffect de data inicial
+          startDate: parsed.startDate || null,
+          endDate: parsed.endDate || null,
+        };
+      } catch (e) {
+        console.error('Erro ao carregar filtros salvos:', e);
+      }
+    }
+    return {
+      estado: 'all',
+      municipio: 'all',
+      clientSearchTerm: '',
+      userId: 'all',
+      tipoColeta: 'all',
+      startDate: null,
+      endDate: null,
+    };
   });
+
+  // Salvar filtros no localStorage sempre que mudarem
+  useEffect(() => {
+    const filtersToSave = { ...filters };
+    localStorage.setItem('relatorio_coletas_filters', JSON.stringify(filtersToSave));
+  }, [filters]);
+
   const [municipios, setMunicipiosList] = useState([]);
   const { toast } = useToast();
   const { profile } = useProfile();
 
   // Buscar estados e municípios do banco de dados
-  const { estados, fetchMunicipios } = useLocationData();
+  const { estados, fetchMunicipios, fetchMunicipiosByCodes } = useLocationData();
   const debouncedFilters = useDebounce(filters, 500);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
@@ -50,6 +74,8 @@ const RelatoriosPage = () => {
     totalPago: 0,
     totalEntregue: 0
   });
+  // ✅ NOVO: Estado para armazenar nomes de municípios por código (mapeamento global)
+  const [municipioNamesMap, setMunicipioNamesMap] = useState({});
 
   const pageSize = useMemo(() => empresa?.items_per_page || 25, [empresa]);
 
@@ -89,21 +115,21 @@ const RelatoriosPage = () => {
           toast({ title: 'Erro ao buscar configurações da empresa', variant: 'destructive' });
           const defaultEmpresa = { items_per_page: 25, timezone: 'America/Sao_Paulo' };
           setEmpresa(defaultEmpresa);
-          if (!filters.startDate) {
+          if (!filters.startDate || !filters.endDate) {
             setFilters(prev => ({
               ...prev,
-              startDate: format(getZonedStartOfMonth(defaultEmpresa.timezone), 'yyyy-MM-dd'),
-              endDate: format(getZonedEndOfMonth(defaultEmpresa.timezone), 'yyyy-MM-dd')
+              startDate: prev.startDate || format(getZonedStartOfMonth(defaultEmpresa.timezone), 'yyyy-MM-dd'),
+              endDate: prev.endDate || format(getZonedEndOfMonth(defaultEmpresa.timezone), 'yyyy-MM-dd')
             }));
           }
         } else {
           const empresaData = empresaRes.data || { items_per_page: 25, timezone: 'America/Sao_Paulo' };
           setEmpresa(empresaData);
-          if (!filters.startDate) {
+          if (!filters.startDate || !filters.endDate) {
             setFilters(prev => ({
               ...prev,
-              startDate: format(getZonedStartOfMonth(empresaData.timezone), 'yyyy-MM-dd'),
-              endDate: format(getZonedEndOfMonth(empresaData.timezone), 'yyyy-MM-dd')
+              startDate: prev.startDate || format(getZonedStartOfMonth(empresaData.timezone), 'yyyy-MM-dd'),
+              endDate: prev.endDate || format(getZonedEndOfMonth(empresaData.timezone), 'yyyy-MM-dd')
             }));
           }
         }
@@ -175,10 +201,36 @@ const RelatoriosPage = () => {
     // Se já é um nome (legado), retorna ele mesmo
     if (isNaN(code)) return code;
 
-    // Procura nas opções carregadas
+    // 1. Tenta buscar no mapa global (carregado para os itens do relatório)
+    if (municipioNamesMap[code]) return municipioNamesMap[code];
+
+    // 2. Procura nas opções carregadas do filtro atual
     const found = municipios.find(m => m.value === code);
     return found ? found.label : code;
   };
+
+  // ✅ NOVO: Efeito para carregar nomes de municípios que não estão no filtro atual
+  useEffect(() => {
+    const loadMissingMunicipioNames = async () => {
+      if (reportData.length === 0) return;
+
+      // Extrair códigos únicos dos itens do relatório que não estão no map nem nas opções do filtro
+      const codes = [...new Set(reportData.map(item => item.municipio))]
+        .filter(code => code && !isNaN(code)) // Apenas códigos numéricos
+        .filter(code => !municipioNamesMap[code]); // Que ainda não temos o nome
+
+      if (codes.length === 0) return;
+
+      console.log('🔍 Buscando nomes para códigos de municípios:', codes);
+      const newNamesMapping = await fetchMunicipiosByCodes(codes);
+
+      if (Object.keys(newNamesMapping).length > 0) {
+        setMunicipioNamesMap(prev => ({ ...prev, ...newNamesMapping }));
+      }
+    };
+
+    loadMissingMunicipioNames();
+  }, [reportData, fetchMunicipiosByCodes, municipioNamesMap]);
 
   // ✅ NOVO: Função para buscar totais do período completo
   const fetchPeriodTotals = useCallback(async (currentFilters) => {
