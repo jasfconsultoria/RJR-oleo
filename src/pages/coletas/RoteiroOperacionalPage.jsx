@@ -151,6 +151,7 @@ const RoteiroOperacionalPage = () => {
             toast({ title: "Rota salva com sucesso!", description: "A rota foi atribuída ao coletor selecionado." });
             setIsSaveRouteOpen(false);
             setSelectedIds([]);
+            navigate('/app/coletas/rotas');
         } catch (error) {
             console.error('Erro ao salvar rota:', error);
             toast({ variant: "destructive", title: "Erro ao salvar rota", description: error.message });

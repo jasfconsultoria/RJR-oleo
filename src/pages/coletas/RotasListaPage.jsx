@@ -72,7 +72,6 @@ const RotasListaPage = () => {
         data_planejada: ''
     });
     const [updating, setUpdating] = useState(false);
-    const [selectedItemIds, setSelectedItemIds] = useState([]);
 
     const { fetchMunicipiosByCodes } = useLocationData();
     const [municipiosMap, setMunicipiosMap] = useState({});
@@ -170,7 +169,6 @@ const RotasListaPage = () => {
             data_planejada: rota.data_planejada,
             status: rota.status || 'pendente'
         });
-        setSelectedItemIds(rota.itens?.map(i => i.id) || []);
         setIsEditOpen(true);
 
         // Resolver nomes de municípios para os itens desta rota
@@ -185,29 +183,35 @@ const RotasListaPage = () => {
         if (!editingRota) return;
         setUpdating(true);
         try {
+            // Calcular o status automático baseado nos itens que estão na rota
+            const remainingItems = editingRota.itens;
+            let finalStatus = editData.status;
+
+            if (remainingItems.length > 0) {
+                const allConcluida = remainingItems.every(i => i.status === 'concluida');
+                const someConcluida = remainingItems.some(i => i.status === 'concluida');
+
+                if (allConcluida) {
+                    finalStatus = 'concluida';
+                } else if (someConcluida) {
+                    finalStatus = 'em_progresso';
+                }
+            }
+
             // 1. Atualizar dados básicos da rota
-            const { error: updateError } = await supabase
+            const { data, error: updateError } = await supabase
                 .from('rotas')
                 .update({
                     coletor_id: editData.coletor_id,
                     data_planejada: editData.data_planejada,
-                    status: editData.status
+                    status: finalStatus
                 })
-                .eq('id', editingRota.id);
+                .eq('id', editingRota.id)
+                .select();
 
             if (updateError) throw updateError;
-
-            // 2. Remover itens desmarcados (se houver)
-            const internalIds = editingRota.itens.map(i => i.id);
-            const toRemove = internalIds.filter(id => !selectedItemIds.includes(id));
-
-            if (toRemove.length > 0) {
-                const { error: deleteError } = await supabase
-                    .from('rota_clientes')
-                    .delete()
-                    .in('id', toRemove);
-
-                if (deleteError) throw deleteError;
+            if (!data || data.length === 0) {
+                throw new Error("Não foi possível atualizar a rota. RLS pode estar bloqueando a atualização.");
             }
 
             toast({ title: "Rota atualizada com sucesso" });
@@ -223,12 +227,16 @@ const RotasListaPage = () => {
 
     const handleUpdateItemStatus = async (itemId, newStatus) => {
         try {
-            const { error } = await supabase
+            const { data, error } = await supabase
                 .from('rota_clientes')
                 .update({ status: newStatus })
-                .eq('id', itemId);
+                .eq('id', itemId)
+                .select();
 
             if (error) throw error;
+            if (!data || data.length === 0) {
+                throw new Error("Não foi possível atualizar o item. RLS pode estar bloqueando a atualização.");
+            }
 
             toast({ title: "Status atualizado", description: `Item marcado como ${newStatus}` });
 
@@ -262,20 +270,21 @@ const RotasListaPage = () => {
         return groups;
     }, [editingRota, municipiosMap]);
 
-    const toggleItemSelection = (id) => {
-        setSelectedItemIds(prev =>
-            prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
-        );
-    };
+    const handleRemoveItem = async (itemId) => {
+        if (!window.confirm("Deseja realmente remover este cliente do roteiro?")) return;
+        try {
+            const { error } = await supabase.from('rota_clientes').delete().eq('id', itemId);
+            if (error) throw error;
+            toast({ title: "Cliente removido da rota" });
 
-    const toggleGroupSelection = (items) => {
-        const itemIds = items.map(i => i.id);
-        const allSelected = itemIds.every(id => selectedItemIds.includes(id));
-
-        if (allSelected) {
-            setSelectedItemIds(prev => prev.filter(id => !itemIds.includes(id)));
-        } else {
-            setSelectedItemIds(prev => [...new Set([...prev, ...itemIds])]);
+            setEditingRota(prev => ({
+                ...prev,
+                itens: prev.itens.filter(i => i.id !== itemId)
+            }));
+            fetchRotas();
+        } catch (error) {
+            console.error('Erro ao remover cliente:', error);
+            toast({ variant: "destructive", title: "Erro ao remover", description: error.message });
         }
     };
 
@@ -502,10 +511,10 @@ const RotasListaPage = () => {
                                 <div className="col-span-4 space-y-2">
                                     <Label className="text-xs text-slate-400">Status</Label>
                                     <select
-                                        className="w-full h-10 bg-black/20 border border-white/10 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-50"
+                                        className="w-full h-10 bg-black/20 border border-white/10 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
                                         value={editData.status || 'pendente'}
                                         onChange={(e) => setEditData(prev => ({ ...prev, status: e.target.value }))}
-                                        disabled={profile?.role === 'coletor'}
+                                        disabled={!['super_admin', 'administrador'].includes(profile?.role)}
                                     >
                                         <option value="pendente" className="bg-slate-900">Pendente</option>
                                         <option value="em_progresso" className="bg-slate-900">Em Progresso</option>
@@ -544,12 +553,6 @@ const RotasListaPage = () => {
                                     <div key={location} className="space-y-2">
                                         <div className="bg-white/5 px-3 py-1.5 rounded-lg border border-white/5 flex items-center justify-between">
                                             <div className="flex items-center gap-3">
-                                                <Checkbox
-                                                    checked={items.length > 0 && items.every(i => selectedItemIds.includes(i.id))}
-                                                    onCheckedChange={() => toggleGroupSelection(items)}
-                                                    className="rounded-full w-5 h-5 border-white/20 data-[state=checked]:bg-emerald-500 data-[state=checked]:border-transparent disabled:opacity-30"
-                                                    disabled={profile?.role === 'coletor'}
-                                                />
                                                 <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">{location}</span>
                                             </div>
                                             <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-500 border-emerald-500/20">
@@ -560,16 +563,8 @@ const RotasListaPage = () => {
                                             {items.map(item => (
                                                 <div
                                                     key={item.id}
-                                                    className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/5 hover:bg-white/5 transition-all cursor-pointer"
-                                                    onClick={() => toggleItemSelection(item.id)}
+                                                    className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/5 hover:bg-white/5 transition-all"
                                                 >
-                                                    <Checkbox
-                                                        checked={selectedItemIds.includes(item.id)}
-                                                        onCheckedChange={() => toggleItemSelection(item.id)}
-                                                        className="rounded-full w-5 h-5 border-white/20 data-[state=checked]:bg-emerald-500 data-[state=checked]:border-transparent disabled:opacity-30"
-                                                        disabled={profile?.role === 'coletor'}
-                                                        onClick={(e) => e.stopPropagation()}
-                                                    />
                                                     <div className="w-9 h-9 rounded-full bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
                                                         <User className="w-4 h-4 text-emerald-500" />
                                                     </div>
@@ -594,28 +589,42 @@ const RotasListaPage = () => {
                                                     <div className="flex bg-white/5 rounded-lg overflow-hidden border border-white/5">
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); handleUpdateItemStatus(item.id, 'remarcada'); }}
-                                                            className="flex flex-col items-center justify-center px-4 py-2 hover:bg-white/5 transition-colors group"
+                                                            className="flex flex-col items-center justify-center px-4 py-2 hover:bg-white/5 transition-colors group disabled:opacity-50 disabled:pointer-events-none"
                                                             title="Remarcar"
+                                                            disabled={editData.status === 'concluida'}
                                                         >
                                                             <Clock className="w-4 h-4 text-blue-400 group-hover:scale-110 transition-transform" />
                                                             <span className="text-[8px] text-slate-500 mt-1">REMARCAR</span>
                                                         </button>
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); handleUpdateItemStatus(item.id, 'pulada'); }}
-                                                            className="flex flex-col items-center justify-center px-4 py-2 hover:bg-white/5 transition-colors group border-x border-white/10"
+                                                            className="flex flex-col items-center justify-center px-4 py-2 hover:bg-white/5 transition-colors group border-x border-white/10 disabled:opacity-50 disabled:pointer-events-none"
                                                             title="Pular"
+                                                            disabled={editData.status === 'concluida'}
                                                         >
                                                             <XCircle className="w-4 h-4 text-red-500 group-hover:scale-110 transition-transform" />
                                                             <span className="text-[8px] text-slate-500 mt-1">PULAR</span>
                                                         </button>
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); handleUpdateItemStatus(item.id, 'concluida'); }}
-                                                            className="flex flex-col items-center justify-center px-4 py-2 hover:bg-white/5 transition-colors group"
+                                                            className="flex flex-col items-center justify-center px-4 py-2 hover:bg-white/5 transition-colors group disabled:opacity-50 disabled:pointer-events-none"
                                                             title="Concluir"
+                                                            disabled={editData.status === 'concluida'}
                                                         >
                                                             <CheckCircle className="w-4 h-4 text-emerald-500 group-hover:scale-110 transition-transform" />
                                                             <span className="text-[8px] text-slate-500 mt-1">CONCLUIR</span>
                                                         </button>
+                                                        {['super_admin', 'administrador'].includes(profile?.role) && (
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); handleRemoveItem(item.id); }}
+                                                                className="flex flex-col items-center justify-center px-4 py-2 hover:bg-red-500/10 transition-colors group border-l border-white/10 disabled:opacity-50 disabled:pointer-events-none"
+                                                                title="Remover"
+                                                                disabled={editData.status === 'concluida'}
+                                                            >
+                                                                <Trash2 className="w-4 h-4 text-red-500 group-hover:scale-110 transition-transform" />
+                                                                <span className="text-[8px] text-red-500 mt-1">REMOVER</span>
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 </div>
                                             ))}
