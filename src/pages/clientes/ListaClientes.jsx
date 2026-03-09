@@ -870,6 +870,7 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
 
           <Link
             to={personType === 'fornecedor' ? '/app/cadastro/fornecedores/novo' : '/app/cadastro/clientes/novo'}
+            state={{ clearForm: true }}
             className='w-full sm:w-auto'
           >
             <Button className="bg-emerald-600 hover:bg-emerald-700 text-white w-full rounded-xl">

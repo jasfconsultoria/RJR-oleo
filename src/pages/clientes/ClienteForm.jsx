@@ -15,7 +15,7 @@ import { useLocationData } from '@/hooks/useLocationData';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { validateCnpjCpf as validateCnpjCpfFormat } from '@/lib/validators';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
-import { unmask, formatCnpjCpf } from '@/lib/utils';
+import { unmask, formatCnpjCpf, cn } from '@/lib/utils';
 import { useAutoSave } from '@/hooks/useAutoSave';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -71,7 +71,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
   const [formData, setFormData, clearSavedData] = useAutoSave(
     autoSaveKey,
     getEmptyFormData(),
-    true // ✅ SEMPRE carregar do auto-save
+    !location.state?.clearForm // ✅ Só carregar se não for solicitado limpar (Vindo da lista)
   );
 
   // Helper para formatar município em Title Case (Palmas em vez de PALMAS)
@@ -157,6 +157,46 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
     }
   }, [formData.data_ultima_coleta, formData.media_dias_coleta, formData.proxima_coleta_prevista, setFormData]);
 
+  // ✅ CORREÇÃO: Limpeza inteligente no MOUNT e via State
+  useEffect(() => {
+    // 1. Prioridade: Limpeza solicitada via navegação (Botão "Novo")
+    if (location.state?.clearForm && !id) {
+      console.log('🧹 [ClienteForm] Limpando formulário via navigation state');
+      clearSavedData();
+      navigate(location.pathname, { replace: true, state: {} });
+      return;
+    }
+
+    // 2. Limpeza de rascunhos de registros já existentes
+    if (!id && (formData.id || formData.cnpj_cpf)) {
+      const checkAndPurgeDuplicateDraft = async () => {
+        // Se tem ID no rascunho de um "Novo", é lixo de um duplicado anterior. LIMPAR.
+        if (formData.id) {
+          console.log('🧹 [ClienteForm] Detectado ID em rascunho de novo registro. Limpando...');
+          clearSavedData();
+          return;
+        }
+
+        const unmasked = unmask(formData.cnpj_cpf);
+        if (unmasked.length === 11 || unmasked.length === 14) {
+          const { count, error } = await supabase
+            .from('clientes')
+            .select('id', { count: 'exact' })
+            .eq('cnpj_cpf', unmasked);
+
+          if (!error && count > 0) {
+            console.log('🧹 [ClienteForm] Detectado rascunho de registro já existente. Limpando...');
+            clearSavedData();
+          }
+        }
+      };
+
+      checkAndPurgeDuplicateDraft();
+    }
+  }, [id, location.state?.clearForm]); // Mantemos dependências mínimas para o mount
+
+  // ✅ CORREÇÃO: Remover o useEffect anterior que limpava via state, pois agora é via mount-check
+
   // ✅ CORREÇÃO: Verificar se há dados no auto-save
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -165,8 +205,11 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
     }
   }, [autoSaveKey]);
 
+  // ✅ NOVO: O campo de documento deve estar bloqueado se for edição ou se detectado um duplicado carregado
+  const isDocumentDisabled = isEditing || cnpjRegistryStatus === 'DUPLICATE' || formData.id;
+
   // ✅ NOVO: O botão do mapa só deve estar habilitado para registros que já existem no banco
-  const isMapEnabled = isEditing;
+  const isMapEnabled = isEditing || formData.id;
 
   const validateAndCheckCnpjCpf = useCallback(async (value) => {
     const unmaskedValue = unmask(value);
@@ -217,7 +260,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
 
     setIsCnpjCpfChecking(true);
     try {
-      let query = supabase.from('clientes').select('id', { count: 'exact' }).eq('cnpj_cpf', unmaskedValue);
+      let query = supabase.from('clientes').select('*', { count: 'exact' }).eq('cnpj_cpf', unmaskedValue);
       if (isEditing) {
         query = query.not('id', 'eq', id);
       }
@@ -226,23 +269,29 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
       if (checkError) throw checkError;
 
       if (count > 0) {
-        const existingId = checkData[0]?.id;
-        const msg = `${documentType === 'cnpj' ? 'CNPJ' : 'CPF'} ${value} já cadastrado. Redirecionando para edição...`;
+        const existingRecord = checkData[0];
+        const msg = `${documentType === 'cnpj' ? 'CNPJ' : 'CPF'} ${value} já cadastrado no sistema.`;
 
         setCnpjCpfError(msg);
         if (documentType === 'cnpj') setCnpjRegistryStatus('DUPLICATE');
 
-        // Se for um novo registro, redirecionar para edição
-        if (!isEditing && existingId) {
-          setTimeout(() => {
-            const basePath = personType === 'fornecedor' ? '/app/cadastro/fornecedores' : '/app/cadastro/clientes';
-            navigate(`${basePath}/editar/${existingId}`, { replace: true });
+        // Carregar dados existentes no formulário atual
+        if (!isEditing && existingRecord) {
+          console.log('📝 [ClienteForm] Carregando dados do registro duplicado:', existingRecord.id);
 
-            toast({
-              title: "Registro encontrado",
-              description: "Redirecionando para a edição do cadastro existente.",
-            });
-          }, 1500);
+          // Formatar datas e valores para o formulário
+          const recordToLoad = {
+            ...existingRecord,
+            cnpj_cpf: formatCnpjCpf(existingRecord.cnpj_cpf),
+            telefone: existingRecord.telefone ? existingRecord.telefone : ''
+          };
+
+          setFormData(recordToLoad);
+
+          toast({
+            title: "Registro encontrado",
+            description: "Os dados existentes foram carregados no formulário.",
+          });
         }
 
         return false;
@@ -261,36 +310,48 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
 
   const fetchCnpjData = useCallback(async (cnpj) => {
     const unmaskedCnpj = unmask(cnpj);
-    if (unmaskedCnpj.length !== 14) return;
+    if (unmaskedCnpj.length !== 14 || isCnpjCpfChecking) return;
+
+    setIsCnpjCpfChecking(true);
+    setCnpjRegistryStatus(null);
+    setCnpjCpfError('');
 
     try {
       // 1. Verificar duplicidade no banco local PRIMEIRO
-      let query = supabase.from('clientes').select('id', { count: 'exact' }).eq('cnpj_cpf', unmaskedCnpj);
+      let query = supabase.from('clientes').select('*', { count: 'exact' }).eq('cnpj_cpf', unmaskedCnpj);
       if (isEditing) {
         query = query.not('id', 'eq', id);
       }
       const { data: cnpjCheckData, count, error: checkError } = await query;
 
-      if (checkError) console.error("Erro na verificação de duplicidade preemptiva:", checkError);
+      if (checkError) {
+        console.error("Erro na verificação de duplicidade:", checkError);
+        throw new Error("Erro ao verificar duplicidade no banco de dados.");
+      }
 
       if (count > 0) {
-        const existingId = cnpjCheckData[0]?.id;
-        console.log('📍 [ClienteForm] CNPJ já cadastrado localmente, ID:', existingId);
+        const existingRecord = cnpjCheckData[0];
+        console.log('📍 [ClienteForm] CNPJ já cadastrado localmente, ID:', existingRecord.id);
+
+        // Parar o loading antes de atualizar os dados
+        setIsCnpjCpfChecking(false);
         setCnpjRegistryStatus('DUPLICATE');
-        setCnpjCpfError(`CNPJ ${cnpj} já cadastrado. Redirecionando...`);
+        setCnpjCpfError(`CNPJ ${cnpj} já cadastrado no sistema.`);
 
-        if (!isEditing && existingId) {
-          setTimeout(() => {
-            const basePath = personType === 'fornecedor' ? '/app/cadastro/fornecedores' : '/app/cadastro/clientes';
-            navigate(`${basePath}/editar/${existingId}`, { replace: true });
+        if (!isEditing && existingRecord) {
+          const recordToLoad = {
+            ...existingRecord,
+            cnpj_cpf: formatCnpjCpf(existingRecord.cnpj_cpf),
+            telefone: existingRecord.telefone ? existingRecord.telefone : ''
+          };
+          setFormData(recordToLoad);
 
-            toast({
-              title: "CNPJ já cadastrado",
-              description: "Redirecionando para edição do registro existente.",
-            });
-          }, 1000);
+          toast({
+            title: "CNPJ já cadastrado",
+            description: "Os dados foram carregados automaticamente.",
+          });
         }
-        return;
+        return; // Retorna aqui, NÃO define ERROR
       }
 
       const response = await fetch(`https://api.opencnpj.org/${unmaskedCnpj}`);
@@ -417,7 +478,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
     } finally {
       setIsCnpjCpfChecking(false);
     }
-  }, [user?.id, toast, setFormData, manualEdits, formatMunicipio]);
+  }, [user?.id, toast, setFormData, manualEdits, formatMunicipio, id, isEditing, isCnpjCpfChecking]);
 
   const handleCnpjCpfBlur = useCallback(async (e) => {
     const value = e.target.value;
@@ -560,7 +621,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
       setLoading(false);
       hasFetchedInitialData.current = true;
     }
-  }, [id, isEditing, toast, setFormData, hasAutoSaveData, fetchMunicipios]);
+  }, [id, isEditing, toast, setFormData, hasAutoSaveData, fetchMunicipios, formData, autoSaveKey]);
 
   // ✅ CORREÇÃO: Buscar dados do banco apenas se estiver editando
   useEffect(() => {
@@ -980,7 +1041,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
             </CardTitle>
           </CardHeader>
           <CardContent className="p-3 pt-0 space-y-4 md:space-y-3">
-            {cnpjRegistryStatus && cnpjRegistryStatus.toUpperCase() !== 'ATIVA' && (() => {
+            {cnpjRegistryStatus && !['ATIVA', 'DUPLICATE'].includes(cnpjRegistryStatus.toUpperCase()) && (() => {
               const status = cnpjRegistryStatus.toUpperCase();
               const isError = status === 'NOT_FOUND' || status === 'ERROR';
 
@@ -1001,7 +1062,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
                 <div className={`${alertClass} border p-3 rounded-xl flex items-center gap-2 mb-4 animate-pulse`}>
                   <Info className="w-5 h-5 flex-shrink-0" />
                   <div>
-                    <p className="text-sm font-bold">ALERTA DE SITUAÇÃO CADASTRAL</p>
+                    <p className="text-sm font-bold">Alerta de situação cadastral</p>
                     <p className="text-xs">Este CNPJ encontra-se em situação: <span className="underline font-semibold">{displayStatus}</span></p>
                   </div>
                 </div>
@@ -1073,28 +1134,26 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
                           className={`w-full flex h-10 md:h-8 rounded-xl border ${cnpjCpfError ? 'border-red-500' : 'border-white/20'} bg-white/10 px-3 py-2 text-sm md:text-xs ring-offset-background cursor-not-allowed opacity-70`}
                         />
                       ) : (
-                        <IMaskInput
-                          mask={[
-                            { mask: '000.000.000-00' },
-                            { mask: '00.000.000/0000-00' }
-                          ]}
-                          as={Input}
-                          ref={cnpjCpfInputRef}
-                          id="cnpj_cpf"
-                          name="cnpj_cpf"
-                          value={formData.cnpj_cpf || ''}
-                          onAccept={(value) => handleMaskedChange(String(value), 'cnpj_cpf')}
-                          onBlur={handleCnpjCpfBlur}
-                          placeholder={documentType === 'cpf'
-                            ? `Digite o CPF d${article} ${titleLabel.toLowerCase()}`
-                            : `Digite o CNPJ d${article} ${titleLabel.toLowerCase()}`
-                          }
-                          inputMode="numeric"
-                          pattern="[0-9]*"
-                          disabled={isEditing}
-                          className={`w-full flex h-10 md:h-8 rounded-xl border ${cnpjCpfError ? 'border-red-500' : 'border-white/20'} bg-white/5 px-3 py-2 text-sm md:text-xs ring-offset-background file:border-0 file:bg-transparent file:text-sm md:file:text-xs file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50`}
-                          required
-                        />
+                        <div className="relative group">
+                          <IMaskInput
+                            mask={[
+                              { mask: '00.000.000/0000-00' },
+                              { mask: '000.000.000-00' }
+                            ]}
+                            value={formData.cnpj_cpf || ''}
+                            unmask={false}
+                            onAccept={(value) => handleMaskedChange(String(value), 'cnpj_cpf')}
+                            onBlur={handleCnpjCpfBlur}
+                            placeholder={
+                              documentType === 'cnpj'
+                                ? '00.000.000/0000-00'
+                                : '000.000.000-00'
+                            }
+                            className={`w-full flex h-10 md:h-8 rounded-xl border ${cnpjCpfError ? 'border-red-500' : 'border-white/20'} bg-white/5 px-3 py-2 text-sm md:text-xs ring-offset-background file:border-0 file:bg-transparent file:text-sm md:file:text-xs file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50`}
+                            inputRef={cnpjCpfInputRef}
+                            disabled={isDocumentDisabled}
+                          />
+                        </div>
                       )}
                       {cnpjCpfError && <p className="text-red-500 text-sm md:text-xs mt-1">{cnpjCpfError}</p>}
                       {documentType === 'outro' && (
@@ -1243,64 +1302,56 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
                   />
                 </div>
 
-                {/* Seção de Inteligência - Exibir sempre para dar feedback ao usuário */}
-                <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-3 p-3 bg-emerald-500/5 rounded-xl border border-emerald-500/10">
-                  <div className="space-y-1">
-                    <Label className="text-sm md:text-xs text-emerald-400">Última Coleta</Label>
+                <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-12 gap-3 p-3 bg-emerald-500/5 rounded-xl border border-emerald-500/10 items-end">
+                  <div className="md:col-span-2">
+                    <Label className="text-[10px] md:text-[10px] text-emerald-400 block mb-1">Última Coleta</Label>
                     <Input
                       value={formData.data_ultima_coleta ? new Date(formData.data_ultima_coleta).toLocaleDateString('pt-BR') : 'Sem histórico'}
                       disabled
-                      className="bg-white/5 border-white/20 rounded-xl h-10 md:h-8 text-sm md:text-xs opacity-80 cursor-not-allowed text-white"
+                      className="bg-white/5 border-white/20 rounded-xl h-8 text-[11px] opacity-80 cursor-not-allowed text-white"
                     />
                   </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="media_dias_coleta" className="text-sm md:text-xs text-yellow-400 font-bold">Média (dias)</Label>
+                  <div className="md:col-span-1">
+                    <Label htmlFor="media_dias_coleta" className="text-[10px] md:text-[10px] text-yellow-400 font-bold block mb-1">Média</Label>
                     <Input
                       id="media_dias_coleta"
                       name="media_dias_coleta"
                       type="number"
                       value={formData.media_dias_coleta || ''}
                       onChange={handleChange}
-                      placeholder="Ex: 15"
-                      className="bg-white/10 border-yellow-500/30 rounded-xl h-10 md:h-8 text-sm md:text-xs text-white focus:border-yellow-500/60"
+                      placeholder="Dias"
+                      className="bg-white/10 border-yellow-500/30 rounded-xl h-8 text-[11px] text-white focus:border-yellow-500/60"
                     />
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-sm md:text-xs text-blue-400">Previsão</Label>
+                  <div className="md:col-span-2">
+                    <Label className="text-[10px] md:text-[10px] text-blue-400 block mb-1">Previsão</Label>
                     <Input
                       value={formData.proxima_coleta_prevista ? new Date(formData.proxima_coleta_prevista).toLocaleDateString('pt-BR') : 'Não estimada'}
                       disabled
-                      className="bg-white/5 border-white/20 rounded-xl h-10 md:h-8 text-sm md:text-xs opacity-80 cursor-not-allowed text-white"
+                      className="bg-white/5 border-white/20 rounded-xl h-8 text-[11px] opacity-80 cursor-not-allowed text-white"
                     />
                   </div>
-                </div>
-
-                <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-12 gap-4 md:gap-3 items-end">
-                  <div className="sm:col-span-3">
-                    <Label htmlFor="latitude" className="text-sm md:text-xs">Latitude</Label>
+                  <div className="md:col-span-2">
+                    <Label htmlFor="latitude" className="text-[10px] md:text-[10px] block mb-1">Latitude</Label>
                     <Input
                       id="latitude"
                       name="latitude"
                       value={formData.latitude || ''}
-                      onChange={handleChange}
-                      placeholder="Ex: -23.5505"
                       disabled
-                      className="bg-white/5 border-white/20 rounded-xl h-10 md:h-8 text-sm md:text-xs opacity-70 cursor-not-allowed"
+                      className="bg-white/5 border-white/20 rounded-xl h-8 text-[11px] opacity-70 cursor-not-allowed"
                     />
                   </div>
-                  <div className="sm:col-span-3">
-                    <Label htmlFor="longitude" className="text-sm md:text-xs">Longitude</Label>
+                  <div className="md:col-span-2">
+                    <Label htmlFor="longitude" className="text-[10px] md:text-[10px] block mb-1">Longitude</Label>
                     <Input
                       id="longitude"
                       name="longitude"
                       value={formData.longitude || ''}
-                      onChange={handleChange}
-                      placeholder="Ex: -46.6333"
                       disabled
-                      className="bg-white/5 border-white/20 rounded-xl h-10 md:h-8 text-sm md:text-xs opacity-70 cursor-not-allowed"
+                      className="bg-white/5 border-white/20 rounded-xl h-8 text-[11px] opacity-70 cursor-not-allowed"
                     />
                   </div>
-                  <div className="sm:col-span-6">
+                  <div className="md:col-span-3">
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -1308,18 +1359,18 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
                             <Button
                               type="button"
                               variant="outline"
-                              className={`w-full ${!isMapEnabled ? 'bg-white/5 border-white/10 text-white/30' : 'bg-blue-600/20 border-blue-500/50 text-blue-300 hover:bg-blue-600/30'} rounded-xl h-10 md:h-8 flex items-center justify-center gap-2`}
+                              className={`w-full ${!isMapEnabled ? 'bg-white/5 border-white/10 text-white/30' : 'bg-blue-600/20 border-blue-500/50 text-blue-300 hover:bg-blue-600/30'} rounded-xl h-8 flex items-center justify-center gap-2 text-[11px]`}
                               onClick={() => isMapEnabled && navigate('/app/cadastro/clientes/mapa', { state: { returnTo: location.pathname, currentData: formData } })}
                               disabled={!isMapEnabled}
                             >
                               <MapPin className="w-4 h-4" />
-                              {formData.latitude && formData.longitude ? 'Visualizar no Mapa' : 'Selecionar no Mapa'}
+                              Localização
                             </Button>
                           </div>
                         </TooltipTrigger>
                         {!isMapEnabled && (
-                          <TooltipContent className="bg-gray-800 text-white border-gray-700 text-xs text-center p-2 rounded-xl">
-                            <p>Salve o registro primeiro para habilitar a seleção no mapa.</p>
+                          <TooltipContent className="bg-gray-800 text-white border-gray-700 text-[10px] text-center p-2 rounded-xl">
+                            <p>Salve o registro primeiro para habilitar a localização.</p>
                           </TooltipContent>
                         )}
                       </Tooltip>
