@@ -221,12 +221,30 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
       if (isEditing) {
         query = query.not('id', 'eq', id);
       }
-      const { count, error } = await query;
+      const { data: checkData, count, error: checkError } = await query;
 
-      if (error) throw error;
+      if (checkError) throw checkError;
 
       if (count > 0) {
-        setCnpjCpfError(`CPF/CNPJ ${value} já cadastrado. Verifique!`);
+        const existingId = checkData[0]?.id;
+        const msg = `${documentType === 'cnpj' ? 'CNPJ' : 'CPF'} ${value} já cadastrado. Redirecionando para edição...`;
+
+        setCnpjCpfError(msg);
+        if (documentType === 'cnpj') setCnpjRegistryStatus('DUPLICATE');
+
+        // Se for um novo registro, redirecionar para edição
+        if (!isEditing && existingId) {
+          setTimeout(() => {
+            const basePath = personType === 'fornecedor' ? '/app/cadastro/fornecedores' : '/app/cadastro/clientes';
+            navigate(`${basePath}/editar/${existingId}`, { replace: true });
+
+            toast({
+              title: "Registro encontrado",
+              description: "Redirecionando para a edição do cadastro existente.",
+            });
+          }, 1500);
+        }
+
         return false;
       }
     } catch (error) {
@@ -245,10 +263,36 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
     const unmaskedCnpj = unmask(cnpj);
     if (unmaskedCnpj.length !== 14) return;
 
-    setIsCnpjCpfChecking(true);
-    setCnpjRegistryStatus(null);
-
     try {
+      // 1. Verificar duplicidade no banco local PRIMEIRO
+      let query = supabase.from('clientes').select('id', { count: 'exact' }).eq('cnpj_cpf', unmaskedCnpj);
+      if (isEditing) {
+        query = query.not('id', 'eq', id);
+      }
+      const { data: cnpjCheckData, count, error: checkError } = await query;
+
+      if (checkError) console.error("Erro na verificação de duplicidade preemptiva:", checkError);
+
+      if (count > 0) {
+        const existingId = cnpjCheckData[0]?.id;
+        console.log('📍 [ClienteForm] CNPJ já cadastrado localmente, ID:', existingId);
+        setCnpjRegistryStatus('DUPLICATE');
+        setCnpjCpfError(`CNPJ ${cnpj} já cadastrado. Redirecionando...`);
+
+        if (!isEditing && existingId) {
+          setTimeout(() => {
+            const basePath = personType === 'fornecedor' ? '/app/cadastro/fornecedores' : '/app/cadastro/clientes';
+            navigate(`${basePath}/editar/${existingId}`, { replace: true });
+
+            toast({
+              title: "CNPJ já cadastrado",
+              description: "Redirecionando para edição do registro existente.",
+            });
+          }, 1000);
+        }
+        return;
+      }
+
       const response = await fetch(`https://api.opencnpj.org/${unmaskedCnpj}`);
 
       if (!response.ok) {
@@ -944,11 +988,12 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
                 'NOT_FOUND': 'Inválido ou não encontrado',
                 'ERROR': 'Erro na consulta',
                 'INATIVA': 'Empresa Inativa',
-                'SUSPENSA': 'Empresa Suspensa'
+                'SUSPENSA': 'Empresa Suspensa',
+                'DUPLICATE': 'Já cadastrado no sistema'
               };
 
               const displayStatus = statusMap[status] || cnpjRegistryStatus;
-              const alertClass = isError
+              const alertClass = (isError || status === 'DUPLICATE')
                 ? "bg-red-500/20 border-red-500/50 text-red-200"
                 : "bg-yellow-500/20 border-yellow-500/50 text-yellow-200";
 
