@@ -112,7 +112,7 @@ BEGIN
     SELECT
         c.id, c.data_coleta, c.tipo_coleta, c.quantidade_coletada, c.quantidade_entregue,
         c.valor_compra, c.total_pago, c.data_lancamento, c.user_id, c.estado, c.municipio,
-        c.numero_coleta, cl.id AS cliente_id, cl.nome AS cliente_nome, cl.cnpj_cpf,
+        c.numero_coleta, cl.id AS cliente_id, cl.razao_social AS cliente_nome, cl.cnpj_cpf,
         cl.nome_fantasia AS cliente_nome_fantasia
     INTO v_coleta_data
     FROM public.coletas c
