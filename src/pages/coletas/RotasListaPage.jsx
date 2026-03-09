@@ -691,7 +691,7 @@ const RotasListaPage = () => {
                                         className="w-full h-10 bg-black/20 border border-white/10 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
                                         value={editData.status || 'pendente'}
                                         onChange={(e) => setEditData(prev => ({ ...prev, status: e.target.value }))}
-                                        disabled={!['super_admin', 'administrador'].includes(profile?.role)}
+                                        disabled={!['super_admin', 'administrador', 'gerente'].includes(profile?.role)}
                                     >
                                         <option value="pendente" className="bg-slate-900">Pendente</option>
                                         <option value="em_progresso" className="bg-slate-900">Em Progresso</option>
@@ -803,7 +803,7 @@ const RotasListaPage = () => {
                                                             <CheckCircle className="w-4 h-4 text-emerald-500 group-hover:scale-110 transition-transform" />
                                                             <span className="text-[8px] text-slate-500 mt-1">CONCLUIR</span>
                                                         </button>
-                                                        {['super_admin', 'administrador'].includes(profile?.role) && (
+                                                        {['super_admin', 'administrador', 'gerente'].includes(profile?.role) && (
                                                             <button
                                                                 onClick={(e) => { e.stopPropagation(); handleRemoveItem(item.id); }}
                                                                 className="flex-1 md:flex-none flex flex-col items-center justify-center px-4 py-2 hover:bg-red-500/10 transition-colors group border-l border-white/10 disabled:opacity-50 disabled:pointer-events-none"
