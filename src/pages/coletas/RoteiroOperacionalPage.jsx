@@ -152,7 +152,7 @@ const RoteiroOperacionalPage = () => {
             setIsSaveRouteOpen(false);
 
             // Remove os clientes salvos da lista em tela para continuar marcando os próximos
-            setClientesRaw(prev => prev.filter(c => !selectedIds.includes(c.id)));
+            setClientes(prev => prev.filter(c => !selectedIds.includes(c.id)));
             // Limpa as seleções para o prox roteiro
             setSelectedIds([]);
         } catch (error) {
@@ -355,7 +355,7 @@ const RoteiroOperacionalPage = () => {
             </div>
 
             <Dialog open={isSaveRouteOpen} onOpenChange={setIsSaveRouteOpen}>
-                <DialogContent className="bg-slate-900 border-white/10 text-white">
+                <DialogContent aria-describedby={undefined} className="bg-slate-900 border-white/10 text-white">
                     <DialogHeader>
                         <DialogTitle>Salvar Roteiro</DialogTitle>
                     </DialogHeader>

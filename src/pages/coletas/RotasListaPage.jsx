@@ -288,11 +288,47 @@ const RotasListaPage = () => {
         }
     };
 
-    const handleOpenGps = () => {
-        if (!editingRota || !editingRota.itens || editingRota.itens.length === 0) return;
+    const handleOpenClientGps = (cliente) => {
+        if (!cliente) return;
+
+        // Priorizar latitude/longitude se disponível
+        let query = '';
+        if (cliente.latitude && cliente.longitude) {
+            query = `${cliente.latitude},${cliente.longitude}`;
+        } else {
+            // Caso contrário, usar endereço completo
+            const cityName = municipiosMap[cliente.municipio] || cliente.municipio || '';
+            const address = `${cliente.endereco || ''} ${cityName} ${cliente.estado || ''}`.trim();
+            if (address) query = address;
+        }
+
+        if (!query) {
+            toast({
+                variant: "destructive",
+                title: "Localização não encontrada",
+                description: "Este cliente não possui endereço ou coordenadas cadastradas."
+            });
+            return;
+        }
+
+        window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`, '_blank');
+    };
+
+    const handleOpenGps = (externalRota = null) => {
+        // Se a chamada vier com uma rota (ex: botão da tabela principal), usa ela. Se não usa a que está aberta.
+        const targetRota = externalRota || editingRota;
+
+        if (!targetRota || !targetRota.itens || targetRota.itens.length === 0) {
+            toast({
+                variant: "destructive",
+                title: "Rota vazia",
+                description: "Não existem clientes vinculados a esta rota para gerar o trajeto."
+            });
+            return;
+        }
 
         // Ordenar itens pela ordem definida
-        const sortedItens = [...editingRota.itens].sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
+        const sortedItens = [...targetRota.itens].sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
 
         // Filtrar clientes que possuem alguma forma de localização
         const waypoints = sortedItens
@@ -440,8 +476,19 @@ const RotasListaPage = () => {
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
+                                                className="h-8 w-8 text-emerald-400 hover:bg-emerald-400/10"
+                                                onClick={() => handleOpenGps(rota)}
+                                                title="Abrir GPS da Rota"
+                                            >
+                                                <MapPin className="w-4 h-4" />
+                                            </Button>
+
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
                                                 className="h-8 w-8 text-blue-400 hover:bg-blue-400/10"
                                                 onClick={() => handleOpenEdit(rota)}
+                                                title="Editar Rota"
                                             >
                                                 <Pencil className="w-4 h-4" />
                                             </Button>
@@ -475,7 +522,7 @@ const RotasListaPage = () => {
 
                 {/* Modal de Edição */}
                 <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-                    <DialogContent className="bg-slate-900 border-white/10 text-white max-w-4xl w-[95vw] h-[90vh] flex flex-col p-0 overflow-hidden">
+                    <DialogContent aria-describedby={undefined} className="bg-slate-900 border-white/10 text-white max-w-4xl w-[95vw] h-[90vh] flex flex-col p-0 overflow-hidden">
                         <DialogHeader className="p-6 pb-2">
                             <DialogTitle className="flex items-center gap-2 text-emerald-400">
                                 <Truck className="w-5 h-5" />
@@ -587,6 +634,14 @@ const RotasListaPage = () => {
 
                                                     {/* Ações Rápidas de Roteiro */}
                                                     <div className="flex bg-white/5 rounded-lg overflow-hidden border border-white/5">
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); handleOpenClientGps(item.cliente); }}
+                                                            className="flex flex-col items-center justify-center px-4 py-2 hover:bg-white/5 transition-colors group disabled:opacity-50 disabled:pointer-events-none"
+                                                            title="Abrir GPS"
+                                                        >
+                                                            <MapPin className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform" />
+                                                            <span className="text-[8px] text-slate-500 mt-1">GPS</span>
+                                                        </button>
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); handleUpdateItemStatus(item.id, 'remarcada'); }}
                                                             className="flex flex-col items-center justify-center px-4 py-2 hover:bg-white/5 transition-colors group disabled:opacity-50 disabled:pointer-events-none"
