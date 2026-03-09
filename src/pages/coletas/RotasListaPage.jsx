@@ -11,7 +11,7 @@ import {
     Eye,
     ChevronDown,
     ChevronUp,
-    Pencil,
+    Edit,
     CheckCircle,
     XCircle,
     Clock,
@@ -486,11 +486,11 @@ const RotasListaPage = () => {
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
-                                                className="h-8 w-8 text-blue-400 hover:bg-blue-400/10"
+                                                className="h-8 w-8 text-yellow-400 hover:bg-yellow-400/10"
                                                 onClick={() => handleOpenEdit(rota)}
                                                 title="Editar Rota"
                                             >
-                                                <Pencil className="w-4 h-4" />
+                                                <Edit className="w-4 h-4" />
                                             </Button>
 
                                             <AlertDialog>
