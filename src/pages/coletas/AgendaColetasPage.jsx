@@ -269,7 +269,11 @@ const AgendaColetasPage = () => {
             const popupContent = document.createElement('div');
             popupContent.className = 'p-3 min-w-[200px] bg-slate-900 text-white rounded-lg';
             popupContent.innerHTML = `
-                <div class="font-bold border-b border-slate-700 pb-2 mb-2">${cliente.nome_fantasia || cliente.razao_social}</div>
+                <div class="font-bold border-b border-slate-700 pb-2 mb-2">
+                    ${cliente.nome_fantasia && cliente.razao_social && cliente.nome_fantasia !== cliente.razao_social
+                    ? `${cliente.nome_fantasia} - ${cliente.razao_social}`
+                    : (cliente.nome_fantasia || cliente.razao_social)}
+                </div>
                 <div class="text-xs text-slate-300 mb-1">📅 Previsão: ${cliente.proxima_coleta_prevista ? format(parseISO(cliente.proxima_coleta_prevista), "dd/MM/yyyy") : 'Não definida'}</div>
                 <div class="text-xs text-slate-300 mb-3">📍 ${cliente.endereco || 'Sem endereço'}</div>
                 <button id="btn-select-${cliente.id}" class="w-full ${isSelected ? 'bg-red-500 hover:bg-red-600' : 'bg-emerald-600 hover:bg-emerald-700'} text-white text-[10px] py-2 rounded transition font-bold">
@@ -680,7 +684,9 @@ const AgendaColetasPage = () => {
                                                                     </div>
                                                                 </TableCell>
                                                                 <TableCell data-label="Cliente" className="py-3 font-medium text-white max-w-[250px] truncate">
-                                                                    {cliente.nome_fantasia || cliente.razao_social}
+                                                                    {cliente.nome_fantasia && cliente.razao_social && cliente.nome_fantasia !== cliente.razao_social
+                                                                        ? `${cliente.nome_fantasia} - ${cliente.razao_social}`
+                                                                        : (cliente.nome_fantasia || cliente.razao_social)}
                                                                 </TableCell>
                                                                 <TableCell data-label="Localização" className="py-3 text-slate-400 text-xs truncate max-w-[200px]">
                                                                     <div className="truncate">{cliente.endereco || 'Sem endereço'}</div>

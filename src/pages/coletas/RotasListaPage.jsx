@@ -17,7 +17,8 @@ import {
     Clock,
     MapPin,
     Navigation,
-    Filter
+    Filter,
+    ClipboardList
 } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useProfile } from '@/contexts/ProfileContext';
@@ -451,8 +452,8 @@ const RotasListaPage = () => {
                     role={profile?.role}
                 />
 
-                {/* Tabela */}
-                <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 overflow-hidden">
+                {/* Visualização em Tabela (Desktop) */}
+                <div className="hidden lg:block bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 overflow-hidden">
                     <Table>
                         <TableHeader className="bg-white/5">
                             <TableRow className="border-white/10 hover:bg-transparent">
@@ -473,7 +474,7 @@ const RotasListaPage = () => {
                                 </TableRow>
                             ) : rotas.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={5} className="text-center h-48 text-slate-500">
+                                    <TableCell colSpan={6} className="text-center h-48 text-slate-500">
                                         Nenhuma rota encontrada para os filtros selecionados.
                                     </TableCell>
                                 </TableRow>
@@ -540,6 +541,113 @@ const RotasListaPage = () => {
                             ))}
                         </TableBody>
                     </Table>
+                </div>
+
+                {/* Visualização em Cards (Mobile) */}
+                <div className="lg:hidden space-y-4">
+                    {loading ? (
+                        <div className="flex flex-col items-center justify-center h-48 bg-white/5 rounded-xl border border-white/10">
+                            <Loader2 className="w-8 h-8 animate-spin text-emerald-500 mb-2" />
+                            <p className="text-emerald-400 text-sm">Carregando rotas...</p>
+                        </div>
+                    ) : rotas.length === 0 ? (
+                        <div className="text-center py-12 bg-white/5 rounded-xl border border-white/10 text-slate-500">
+                            <Truck className="w-8 h-8 mx-auto opacity-20 mb-2" />
+                            <p>Nenhuma rota encontrada para os filtros selecionados.</p>
+                        </div>
+                    ) : (
+                        rotas.map((rota) => (
+                            <motion.div
+                                key={rota.id}
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4 space-y-4 shadow-xl"
+                            >
+                                {/* Cabeçalho do Card */}
+                                <div className="flex justify-between items-center pb-3 border-b border-white/10">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
+                                            <ClipboardList className="w-4 h-4 text-emerald-500" />
+                                        </div>
+                                        <span className="font-mono text-xs font-bold text-emerald-400 tracking-wider">
+                                            #{rota.id.slice(0, 8).toUpperCase()}
+                                        </span>
+                                    </div>
+                                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide ${rota.status === 'concluida' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/20' :
+                                        rota.status === 'em_progresso' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/20' :
+                                            'bg-slate-500/20 text-slate-400 border border-white/5'
+                                        }`}>
+                                        {rota.status}
+                                    </span>
+                                </div>
+
+                                {/* Conteúdo do Card */}
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1">
+                                        <div className="flex items-center gap-1.5 text-[10px] text-slate-400 uppercase font-bold tracking-tight">
+                                            <Calendar className="w-3 h-3 text-emerald-400" />
+                                            Data Planejada
+                                        </div>
+                                        <p className="text-sm font-semibold text-white">
+                                            {format(parseISO(rota.data_planejada), 'dd/MM/yyyy')}
+                                        </p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <div className="flex items-center gap-1.5 text-[10px] text-slate-400 uppercase font-bold tracking-tight">
+                                            <Truck className="w-3 h-3 text-emerald-400" />
+                                            Coletas
+                                        </div>
+                                        <p className="text-sm font-bold text-white">
+                                            {rota.itens?.length || 0} vinculadas
+                                        </p>
+                                    </div>
+                                    <div className="col-span-2 space-y-1">
+                                        <div className="flex items-center gap-1.5 text-[10px] text-slate-400 uppercase font-bold tracking-tight">
+                                            <User className="w-3 h-3 text-emerald-400" />
+                                            Coletor Responsável
+                                        </div>
+                                        <p className="text-sm text-slate-200">
+                                            {rota.coletor?.full_name || 'Não Atribuído'}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* Ações do Card */}
+                                <div className="flex gap-2 pt-1">
+                                    <Button
+                                        variant="outline"
+                                        className="flex-1 h-11 gap-2 bg-emerald-500/5 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300"
+                                        onClick={() => handleOpenGps(rota)}
+                                    >
+                                        <MapPin className="w-4 h-4" />
+                                        <span className="text-xs font-bold">GPS Rota</span>
+                                    </Button>
+
+                                    <div className="flex gap-2">
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            className="h-11 w-11 bg-yellow-500/5 border-yellow-500/20 text-yellow-400 hover:bg-yellow-500/10"
+                                            onClick={() => handleOpenEdit(rota)}
+                                            title="Editar Rota"
+                                        >
+                                            <Edit className="w-4 h-4" />
+                                        </Button>
+
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            className="h-11 w-11 bg-red-500/5 border-red-500/20 text-red-500 hover:bg-red-500/10"
+                                            onClick={() => handleDeleteRota(rota.id)}
+                                            title="Excluir Rota"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </Button>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        ))
+                    )}
                 </div>
 
                 {/* Modal de Edição */}
@@ -632,33 +740,37 @@ const RotasListaPage = () => {
                                             {items.map(item => (
                                                 <div
                                                     key={item.id}
-                                                    className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/5 hover:bg-white/5 transition-all"
+                                                    className="flex flex-col md:flex-row md:items-center gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/5 hover:bg-white/5 transition-all"
                                                 >
-                                                    <div className="w-9 h-9 rounded-full bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
-                                                        <User className="w-4 h-4 text-emerald-500" />
-                                                    </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="flex items-center gap-2">
-                                                            <p className="text-sm font-semibold text-white truncate">
-                                                                {item.cliente?.nome_fantasia || item.cliente?.razao_social}
-                                                            </p>
-                                                            <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase ${item.status === 'concluida' ? 'bg-emerald-500/20 text-emerald-400' :
-                                                                item.status === 'em_progresso' ? 'bg-blue-500/20 text-blue-400' :
-                                                                    'bg-slate-500/20 text-slate-400'
-                                                                }`}>
-                                                                {item.status || 'Pendente'}
-                                                            </span>
+                                                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                                                        <div className="w-9 h-9 rounded-full bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 flex-shrink-0">
+                                                            <User className="w-4 h-4 text-emerald-500" />
                                                         </div>
-                                                        <p className="text-[11px] text-slate-400 truncate mt-0.5">
-                                                            {item.cliente?.endereco || 'Endereço não cadastrado'}
-                                                        </p>
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="flex items-center gap-2">
+                                                                <p className="text-sm font-semibold text-white truncate">
+                                                                    {item.cliente?.nome_fantasia && item.cliente?.razao_social && item.cliente?.nome_fantasia !== item.cliente?.razao_social
+                                                                        ? `${item.cliente?.nome_fantasia} - ${item.cliente?.razao_social}`
+                                                                        : (item.cliente?.nome_fantasia || item.cliente?.razao_social)}
+                                                                </p>
+                                                                <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase whitespace-nowrap ${item.status === 'concluida' ? 'bg-emerald-500/20 text-emerald-400' :
+                                                                    item.status === 'em_progresso' ? 'bg-blue-500/20 text-blue-400' :
+                                                                        'bg-slate-500/20 text-slate-400'
+                                                                    }`}>
+                                                                    {item.status || 'Pendente'}
+                                                                </span>
+                                                            </div>
+                                                            <p className="text-[11px] text-slate-400 truncate mt-0.5">
+                                                                {item.cliente?.endereco || 'Endereço não cadastrado'}
+                                                            </p>
+                                                        </div>
                                                     </div>
 
                                                     {/* Ações Rápidas de Roteiro */}
-                                                    <div className="flex bg-white/5 rounded-lg overflow-hidden border border-white/5">
+                                                    <div className="flex bg-white/5 rounded-lg overflow-hidden border border-white/5 w-full md:w-auto">
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); handleOpenClientGps(item.cliente); }}
-                                                            className="flex flex-col items-center justify-center px-4 py-2 hover:bg-white/5 transition-colors group disabled:opacity-50 disabled:pointer-events-none"
+                                                            className="flex-1 md:flex-none flex flex-col items-center justify-center px-4 py-2 hover:bg-white/5 transition-colors group disabled:opacity-50 disabled:pointer-events-none"
                                                             title="Abrir GPS"
                                                         >
                                                             <MapPin className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform" />
@@ -666,7 +778,7 @@ const RotasListaPage = () => {
                                                         </button>
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); handleUpdateItemStatus(item.id, 'remarcada'); }}
-                                                            className="flex flex-col items-center justify-center px-4 py-2 hover:bg-white/5 transition-colors group disabled:opacity-50 disabled:pointer-events-none"
+                                                            className="flex-1 md:flex-none flex flex-col items-center justify-center px-4 py-2 hover:bg-white/5 transition-colors group disabled:opacity-50 disabled:pointer-events-none border-l border-white/5 md:border-l-0"
                                                             title="Remarcar"
                                                             disabled={editData.status === 'concluida'}
                                                         >
@@ -675,7 +787,7 @@ const RotasListaPage = () => {
                                                         </button>
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); handleUpdateItemStatus(item.id, 'pulada'); }}
-                                                            className="flex flex-col items-center justify-center px-4 py-2 hover:bg-white/5 transition-colors group border-x border-white/10 disabled:opacity-50 disabled:pointer-events-none"
+                                                            className="flex-1 md:flex-none flex flex-col items-center justify-center px-4 py-2 hover:bg-white/5 transition-colors group border-x border-white/10 disabled:opacity-50 disabled:pointer-events-none"
                                                             title="Pular"
                                                             disabled={editData.status === 'concluida'}
                                                         >
@@ -684,7 +796,7 @@ const RotasListaPage = () => {
                                                         </button>
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); handleUpdateItemStatus(item.id, 'concluida'); }}
-                                                            className="flex flex-col items-center justify-center px-4 py-2 hover:bg-white/5 transition-colors group disabled:opacity-50 disabled:pointer-events-none"
+                                                            className="flex-1 md:flex-none flex flex-col items-center justify-center px-4 py-2 hover:bg-white/5 transition-colors group border-r border-white/5 md:border-r-0 disabled:opacity-50 disabled:pointer-events-none"
                                                             title="Concluir"
                                                             disabled={editData.status === 'concluida'}
                                                         >
@@ -694,7 +806,7 @@ const RotasListaPage = () => {
                                                         {['super_admin', 'administrador'].includes(profile?.role) && (
                                                             <button
                                                                 onClick={(e) => { e.stopPropagation(); handleRemoveItem(item.id); }}
-                                                                className="flex flex-col items-center justify-center px-4 py-2 hover:bg-red-500/10 transition-colors group border-l border-white/10 disabled:opacity-50 disabled:pointer-events-none"
+                                                                className="flex-1 md:flex-none flex flex-col items-center justify-center px-4 py-2 hover:bg-red-500/10 transition-colors group border-l border-white/10 disabled:opacity-50 disabled:pointer-events-none"
                                                                 title="Remover"
                                                                 disabled={editData.status === 'concluida'}
                                                             >

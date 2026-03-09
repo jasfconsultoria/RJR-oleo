@@ -309,7 +309,9 @@ const RoteiroOperacionalPage = () => {
                                                             <div className="min-w-0">
                                                                 <div className="flex items-center gap-2 mb-1">
                                                                     <h2 className="text-base font-bold text-white truncate leading-none">
-                                                                        {cliente.nome_fantasia || cliente.razao_social}
+                                                                        {cliente.nome_fantasia && cliente.razao_social && cliente.nome_fantasia !== cliente.razao_social
+                                                                            ? `${cliente.nome_fantasia} - ${cliente.razao_social}`
+                                                                            : (cliente.nome_fantasia || cliente.razao_social)}
                                                                     </h2>
                                                                 </div>
                                                                 <p className="text-[11px] text-slate-400 flex items-start gap-1">
