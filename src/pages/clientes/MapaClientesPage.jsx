@@ -15,12 +15,14 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Helmet } from 'react-helmet';
+import { useLocationData } from '@/hooks/useLocationData';
 
 const MapaClientesPage = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const { user: currentUser } = useAuth();
     const { toast } = useToast();
+    const { fetchMunicipiosByCodes } = useLocationData();
 
     // Estados de controle
     const [loading, setLoading] = useState(true);
@@ -32,13 +34,14 @@ const MapaClientesPage = () => {
     const [mapInitialized, setMapInitialized] = useState(false);
     const markersLayerRef = useRef(null);
     const tempMarkerRef = useRef(null);
+    const [municipioMap, setMunicipioMap] = useState({});
 
     // Buscar clientes para o mapa
     const fetchClientes = useCallback(async () => {
         try {
             const { data, error } = await supabase
                 .from('clientes')
-                .select('id, nome_fantasia, razao_social, endereco, latitude, longitude')
+                .select('id, nome_fantasia, razao_social, endereco, latitude, longitude, municipio, estado')
                 .not('latitude', 'is', null);
 
             if (error) throw error;
@@ -54,6 +57,19 @@ const MapaClientesPage = () => {
     useEffect(() => {
         fetchClientes();
     }, [fetchClientes]);
+
+    // Resolver nomes de municípios
+    useEffect(() => {
+        const resolveNames = async () => {
+            if (clientes.length === 0) return;
+            const codesToResolve = [...new Set(clientes.map(c => c.municipio).filter(c => c && !isNaN(c)))];
+            if (codesToResolve.length > 0) {
+                const mapping = await fetchMunicipiosByCodes(codesToResolve);
+                setMunicipioMap(prev => ({ ...prev, ...mapping }));
+            }
+        };
+        resolveNames();
+    }, [clientes, fetchMunicipiosByCodes]);
 
     // Inicializar Mapa
     useEffect(() => {
@@ -196,6 +212,10 @@ const MapaClientesPage = () => {
                     <div class="space-y-1">
                         <div class="font-bold text-emerald-400 text-sm">${cliente.nome_fantasia || cliente.razao_social}</div>
                         <div class="text-[10px] text-slate-400 leading-tight">${cliente.endereco || 'Sem endereço registrado'}</div>
+                        <div class="text-[10px] text-emerald-400/70 font-medium">
+                            ${!isNaN(cliente.municipio) && municipioMap[cliente.municipio] ? municipioMap[cliente.municipio] : (cliente.municipio || '')}
+                            ${cliente.estado ? ` - ${cliente.estado}` : ''}
+                        </div>
                     </div>
                     
                     <div class="grid grid-cols-1 gap-2 pt-1">
@@ -232,8 +252,11 @@ const MapaClientesPage = () => {
                         });
                     }
                     if (btnAgenda) {
-                        btnAgenda.onclick = () => navigate('/app/coletas/agenda', {
-                            state: { preselectClienteId: cliente.id }
+                        btnAgenda.onclick = () => navigate('/app/agenda', {
+                            state: {
+                                preselectClienteId: cliente.id,
+                                searchTerm: cliente.nome_fantasia || cliente.razao_social
+                            }
                         });
                     }
                     if (btnGps) {
@@ -250,7 +273,7 @@ const MapaClientesPage = () => {
     return (
         <div className="h-[calc(100vh-100px)] flex flex-col space-y-4">
             <Helmet>
-                <title>Mapa de Clientes - RJR Óleo</title>
+                <title>Mapa de Coletas - RJR Óleo</title>
                 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
                 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
             </Helmet>
@@ -261,7 +284,7 @@ const MapaClientesPage = () => {
                         <ArrowLeft className="w-5 h-5" />
                     </Button>
                     <div>
-                        <h1 className="text-lg font-bold text-white">Mapa de Clientes</h1>
+                        <h1 className="text-lg font-bold text-white">Mapa de Coletas</h1>
                         <p className="text-[10px] text-emerald-400">CLIQUE NO MAPA PARA CADASTRAR OU SELECIONAR</p>
                     </div>
                 </div>
@@ -304,8 +327,8 @@ const MapaClientesPage = () => {
 
             <style>{`
                 .leaflet-container { background: #0f172a !important; }
-                .leaflet-popup-content-wrapper { background: #1e293b !important; color: white !important; border-radius: 12px !important; border: 1px solid rgba(255,255,255,0.1) !important; padding: 0 !important; }
-                .leaflet-popup-content { margin: 0 !important; width: auto !important; }
+                .leaflet-popup-content-wrapper { background: #1e293b !important; color: white !important; border-radius: 12px !important; border: 1px solid rgba(255,255,255,0.1) !important; padding: 0 !important; max-width: 250px !important; }
+                .leaflet-popup-content { margin: 0 !important; width: 100% !important; }
                 .leaflet-popup-tip { background: #1e293b !important; border: 1px solid rgba(255,255,255,0.1) !important; }
                 .leaflet-bar { border: none !important; }
                 .leaflet-bar a { background-color: #1e293b !important; color: white !important; border: 1px solid rgba(255,255,255,0.1) !important; }

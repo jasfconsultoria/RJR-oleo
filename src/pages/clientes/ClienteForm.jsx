@@ -121,9 +121,9 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
       }
 
       const municipios = await fetchMunicipios(formData.estado);
-      const options = municipios.map(m => ({ value: m, label: m })).sort((a, b) => a.label.localeCompare(b.label));
+      const options = [...municipios].sort((a, b) => a.label.localeCompare(b.label));
 
-      // Se há um município no formData mas não está nas opções, adicionar
+      // Se há um município no formData mas não está nas opções (pode ser o nome legado), adicionar
       if (formData.municipio && !options.find(opt => opt.value === formData.municipio)) {
         options.push({ value: formData.municipio, label: formData.municipio });
         options.sort((a, b) => a.label.localeCompare(b.label));
@@ -164,6 +164,9 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
       setHasAutoSaveData(!!saved);
     }
   }, [autoSaveKey]);
+
+  // ✅ NOVO: O botão do mapa só deve estar habilitado para registros que já existem no banco
+  const isMapEnabled = isEditing;
 
   const validateAndCheckCnpjCpf = useCallback(async (value) => {
     const unmaskedValue = unmask(value);
@@ -476,7 +479,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
         // Carregar municípios imediatamente se houver estado
         if (finalData.estado) {
           fetchMunicipios(finalData.estado).then(municipios => {
-            const options = municipios.map(m => ({ value: m, label: m })).sort((a, b) => a.label.localeCompare(b.label));
+            const options = [...municipios].sort((a, b) => a.label.localeCompare(b.label));
 
             // Se há um município nos dados mas não está nas opções, adicionar
             if (finalData.municipio && !options.find(opt => opt.value === finalData.municipio)) {
@@ -1239,15 +1242,29 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
                     />
                   </div>
                   <div className="sm:col-span-6">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full bg-blue-600/20 border-blue-500/50 text-blue-300 hover:bg-blue-600/30 rounded-xl h-10 md:h-8 flex items-center justify-center gap-2"
-                      onClick={() => navigate('/app/cadastro/clientes/mapa', { state: { returnTo: location.pathname, currentData: formData } })}
-                    >
-                      <MapPin className="w-4 h-4" />
-                      {formData.latitude && formData.longitude ? 'Visualizar no Mapa' : 'Selecionar no Mapa'}
-                    </Button>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="w-full">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className={`w-full ${!isMapEnabled ? 'bg-white/5 border-white/10 text-white/30' : 'bg-blue-600/20 border-blue-500/50 text-blue-300 hover:bg-blue-600/30'} rounded-xl h-10 md:h-8 flex items-center justify-center gap-2`}
+                              onClick={() => isMapEnabled && navigate('/app/cadastro/clientes/mapa', { state: { returnTo: location.pathname, currentData: formData } })}
+                              disabled={!isMapEnabled}
+                            >
+                              <MapPin className="w-4 h-4" />
+                              {formData.latitude && formData.longitude ? 'Visualizar no Mapa' : 'Selecionar no Mapa'}
+                            </Button>
+                          </div>
+                        </TooltipTrigger>
+                        {!isMapEnabled && (
+                          <TooltipContent className="bg-gray-800 text-white border-gray-700 text-xs text-center p-2 rounded-xl">
+                            <p>Salve o registro primeiro para habilitar a seleção no mapa.</p>
+                          </TooltipContent>
+                        )}
+                      </Tooltip>
+                    </TooltipProvider>
                   </div>
                 </div>
               </div>

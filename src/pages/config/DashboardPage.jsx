@@ -3,7 +3,7 @@ import { Helmet } from 'react-helmet';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, Truck, Droplets, MapPin, User, LayoutDashboard, Users, Calendar, Eraser, Filter } from 'lucide-react';
+import { Loader2, Truck, Droplets, MapPin, User, LayoutDashboard, Users, Calendar, Eraser, Filter, ChevronDown } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useProfile } from '@/contexts/ProfileContext';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -56,15 +56,17 @@ const DashboardPage = () => {
   const [dataFimInput, setDataFimInput] = useState(defaultDates.end); // Estado local para o input
   const [showFilters, setShowFilters] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [filtroEstado, setFiltroEstado] = useState('all');
-  const [filtroMunicipio, setFiltroMunicipio] = useState('all');
+  const [filtroEstado, setFiltroEstado] = useState('todos');
+  const [filtroMunicipio, setFiltroMunicipio] = useState('todos');
   const [filtroColetor, setFiltroColetor] = useState('all');
-  const [municipios, setMunicipios] = useState([]);
+  const [municipiosFiltro, setMunicipiosFiltro] = useState([]);
+  const [estadosFiltro, setEstadosFiltro] = useState([]);
+  const [municipioMapResolved, setMunicipioMapResolved] = useState({});
   const [coletores, setColetores] = useState([]);
   const [empresaTimezone, setEmpresaTimezone] = useState('America/Sao_Paulo');
 
   // Buscar estados e municípios
-  const { estados, fetchMunicipios } = useLocationData();
+  const { estados, fetchMunicipios, fetchMunicipiosByCodes } = useLocationData();
 
   // Detectar se é mobile
   useEffect(() => {
@@ -80,26 +82,57 @@ const DashboardPage = () => {
 
   // Os estados de data agora são inicializados diretamente para evitar buscas sem filtro
 
-  // Buscar municípios quando estado for selecionado
+  // Buscar estados e municípios únicos que possuem coletas
   useEffect(() => {
-    const loadMunicipios = async () => {
-      if (filtroEstado && filtroEstado !== 'all') {
-        const municipiosList = await fetchMunicipios(filtroEstado);
-        setMunicipios(municipiosList);
-        // Resetar município quando estado mudar
-        setFiltroMunicipio('all');
-      } else {
-        setMunicipios([]);
-        setFiltroMunicipio('all');
+    const loadGeoFilters = async () => {
+      try {
+        // Buscar estados únicos das coletas
+        let query = supabase.from('coletas').select('estado, municipio');
+
+        // Se for coletor, filtrar apenas as dele
+        if (profile?.role === 'coletor') {
+          query = query.eq('user_id', user.id);
+        }
+
+        const { data: coletasLocais, error } = await query;
+        if (error) throw error;
+
+        // Extrair estados únicos
+        const uniqueEstados = [...new Set(coletasLocais.map(c => c.estado).filter(Boolean))].sort();
+        setEstadosFiltro(uniqueEstados);
+
+        // Extrair municípios únicos e resolver nomes se forem códigos
+        const uniqueMunicipioCodes = [...new Set(coletasLocais.map(c => c.municipio).filter(Boolean))];
+        const solvedMunicipios = await fetchMunicipiosByCodes(uniqueMunicipioCodes);
+        setMunicipioMapResolved(solvedMunicipios);
+
+        // Atualizar lista de municípios baseada no estado selecionado
+        let filteredMunicipios = coletasLocais;
+        if (filtroEstado !== 'todos') {
+          filteredMunicipios = filteredMunicipios.filter(c => c.estado === filtroEstado);
+        }
+
+        const uniqueVals = [...new Set(filteredMunicipios.map(c => c.municipio).filter(Boolean))];
+        const muniList = uniqueVals.map(val => {
+          const label = !isNaN(val) && solvedMunicipios[val] ? solvedMunicipios[val] : val;
+          return { value: val, label: label };
+        }).sort((a, b) => a.label.localeCompare(b.label));
+
+        setMunicipiosFiltro(muniList);
+      } catch (err) {
+        console.error('Erro ao carregar filtros geográficos:', err);
       }
     };
-    loadMunicipios();
-  }, [filtroEstado, fetchMunicipios]);
+
+    if (profile) {
+      loadGeoFilters();
+    }
+  }, [profile, filtroEstado, fetchMunicipiosByCodes, user.id]);
 
   // Buscar lista de coletores
   useEffect(() => {
     const fetchColetores = async () => {
-      if (profile?.role !== 'administrador') {
+      if (!['administrador', 'super_admin'].includes(profile?.role)) {
         setColetores([]);
         return;
       }
@@ -406,11 +439,11 @@ const DashboardPage = () => {
         }
 
         // Aplicar filtros de estado, município e coletor
-        if (filtroEstado && filtroEstado !== 'all') {
+        if (filtroEstado && filtroEstado !== 'todos') {
           coletasQuery = coletasQuery.eq('estado', filtroEstado);
         }
 
-        if (filtroMunicipio && filtroMunicipio !== 'all') {
+        if (filtroMunicipio && filtroMunicipio !== 'todos') {
           coletasQuery = coletasQuery.eq('municipio', filtroMunicipio);
         }
 
@@ -418,8 +451,8 @@ const DashboardPage = () => {
           coletasQuery = coletasQuery.eq('user_id', filtroColetor);
         }
 
-        if (profile.role === 'administrador') {
-          console.log('👑 Buscando dados como administrador...');
+        if (['administrador', 'super_admin'].includes(profile.role)) {
+          console.log('👑 Buscando dados como administrador/super_admin...');
 
           const { data: todasColetas, error: coletasError } = await coletasQuery;
 
@@ -431,6 +464,10 @@ const DashboardPage = () => {
           console.log('📋 Total de coletas encontradas:', todasColetas?.length);
 
           if (todasColetas && todasColetas.length > 0) {
+            // Resolver nomes dos municípios para os gráficos (Admin)
+            const uniqueCodes = [...new Set(todasColetas.map(c => c.municipio).filter(Boolean))];
+            const resolvedNames = await fetchMunicipiosByCodes(uniqueCodes);
+
             // Processar dados por estado
             const estadoMap = {};
             const municipioMap = {};
@@ -461,11 +498,16 @@ const DashboardPage = () => {
               .sort((a, b) => b.coletas - a.coletas);
 
             municipioData = Object.entries(municipioMap)
-              .map(([municipio, dados]) => ({
-                local: `${municipio} - ${dados.estado}`,
-                coletas: dados.coletas,
-                massa: parseFloat(dados.massa.toFixed(2))
-              }))
+              .map(([municipio, dados]) => {
+                const nomeMunicipio = !isNaN(municipio) && resolvedNames[municipio]
+                  ? resolvedNames[municipio]
+                  : municipio;
+                return {
+                  local: `${nomeMunicipio} - ${dados.estado}`,
+                  coletas: dados.coletas,
+                  massa: parseFloat(dados.massa.toFixed(2))
+                };
+              })
               .sort((a, b) => b.coletas - a.coletas)
               .slice(0, 10);
 
@@ -541,6 +583,10 @@ const DashboardPage = () => {
           console.log('📋 Coletas do usuário encontradas:', coletasUsuario?.length);
 
           if (coletasUsuario && coletasUsuario.length > 0) {
+            // Resolver nomes dos municípios para os gráficos (Coletor)
+            const uniqueCodes = [...new Set(coletasUsuario.map(c => c.municipio).filter(Boolean))];
+            const resolvedNames = await fetchMunicipiosByCodes(uniqueCodes);
+
             const estadoMap = {};
             const municipioMap = {};
 
@@ -570,11 +616,16 @@ const DashboardPage = () => {
               .sort((a, b) => b.coletas - a.coletas);
 
             municipioData = Object.entries(municipioMap)
-              .map(([municipio, dados]) => ({
-                local: `${municipio} - ${dados.estado}`,
-                coletas: dados.coletas,
-                massa: parseFloat(dados.massa.toFixed(2))
-              }))
+              .map(([municipio, dados]) => {
+                const nomeMunicipio = !isNaN(municipio) && resolvedNames[municipio]
+                  ? resolvedNames[municipio]
+                  : municipio;
+                return {
+                  local: `${nomeMunicipio} - ${dados.estado}`,
+                  coletas: dados.coletas,
+                  massa: parseFloat(dados.massa.toFixed(2))
+                };
+              })
               .sort((a, b) => b.coletas - a.coletas)
               .slice(0, 10);
           }
@@ -593,11 +644,11 @@ const DashboardPage = () => {
         }
 
         // Aplicar filtros de estado, município e coletor também na query de clientes
-        if (filtroEstado && filtroEstado !== 'all') {
+        if (filtroEstado && filtroEstado !== 'todos') {
           clienteQuery = clienteQuery.eq('estado', filtroEstado);
         }
 
-        if (filtroMunicipio && filtroMunicipio !== 'all') {
+        if (filtroMunicipio && filtroMunicipio !== 'todos') {
           clienteQuery = clienteQuery.eq('municipio', filtroMunicipio);
         }
 
@@ -605,7 +656,7 @@ const DashboardPage = () => {
           clienteQuery = clienteQuery.eq('user_id', filtroColetor);
         }
 
-        if (profile.role !== 'administrador') {
+        if (!['administrador', 'super_admin'].includes(profile.role)) {
           clienteQuery = clienteQuery.eq('user_id', userId);
         }
 
@@ -775,20 +826,20 @@ const DashboardPage = () => {
     setDataFim(defaultDates.end);
     setDataInicioInput(defaultDates.start);
     setDataFimInput(defaultDates.end);
-    setFiltroEstado('all');
-    setFiltroMunicipio('all');
+    setFiltroEstado('todos');
+    setFiltroMunicipio('todos');
     setFiltroColetor('all');
   };
 
   // Preparar opções para os selects
   const estadoOptions = [
-    { value: 'all', label: 'Todos os Estados' },
-    ...estados.map(e => ({ value: e.value, label: e.label }))
+    { value: 'todos', label: `Estado: Todos (${estadosFiltro.length})` },
+    ...estadosFiltro.map(e => ({ value: e, label: e }))
   ];
 
   const municipioOptions = [
-    { value: 'all', label: 'Todos os Municípios' },
-    ...municipios.map(m => ({ value: m, label: m }))
+    { value: 'todos', label: `Município: Todos (${municipiosFiltro.length})` },
+    ...municipiosFiltro
   ];
 
   if (profileLoading) {
@@ -941,97 +992,106 @@ const DashboardPage = () => {
 
           <CardContent>
             <div className={`${isMobile && !showFilters ? 'hidden' : 'block'}`}>
-              {/* DESKTOP: Grid alinhado corretamente */}
-              <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-[repeat(20,minmax(0,1fr))] gap-4 md:gap-2 items-end">
+              {/* DESKTOP: Layout Flexível para aproximar os campos */}
+              <div className="flex flex-col md:grid md:grid-cols-4 lg:flex lg:flex-row lg:flex-wrap gap-4 md:gap-2 items-end">
 
-                {/* Estado - 1 col md, 2 col lg */}
-                <div className="md:col-span-1 lg:col-span-2 space-y-2">
-                  <SearchableSelect
-                    options={estadoOptions}
-                    value={filtroEstado}
-                    onChange={setFiltroEstado}
-                    labelText="Estado"
-                    inputClassName="bg-white/20 border-white/30 text-white rounded-xl h-10"
-                  />
+                {/* Estado - ~15% no desktop */}
+                <div className="md:col-span-1 lg:w-[15%] min-w-[120px] space-y-2">
+                  <div className="relative">
+                    <select
+                      id="filtroEstado"
+                      className="w-full h-11 bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all appearance-none cursor-pointer"
+                      value={filtroEstado}
+                      onChange={(e) => setFiltroEstado(e.target.value)}
+                    >
+                      {estadoOptions.map(opt => (
+                        <option key={opt.value} value={opt.value} className="bg-slate-900">{opt.label}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/50 pointer-events-none" />
+                  </div>
                 </div>
 
-                {/* Município - 1 col md, 4 col lg */}
-                <div className="md:col-span-1 lg:col-span-4 space-y-2">
-                  <SearchableSelect
-                    options={municipioOptions}
-                    value={filtroMunicipio}
-                    onChange={setFiltroMunicipio}
-                    labelText="Município"
-                    inputClassName="bg-white/20 border-white/30 text-white rounded-xl h-10"
-                    disabled={!filtroEstado || filtroEstado === 'all'}
-                  />
+                {/* Município - ~25% no desktop */}
+                <div className="md:col-span-1 lg:w-[25%] min-w-[180px] space-y-2">
+                  <div className="relative">
+                    <select
+                      id="filtroMunicipio"
+                      className="w-full h-11 bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all appearance-none cursor-pointer disabled:opacity-50"
+                      value={filtroMunicipio}
+                      onChange={(e) => setFiltroMunicipio(e.target.value)}
+                    >
+                      {municipioOptions.map(opt => (
+                        <option key={opt.value} value={opt.value} className="bg-slate-900">{opt.label}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/50 pointer-events-none" />
+                  </div>
                 </div>
 
-                {/* Coletor - 2 col md, 4 col lg (apenas para admin) */}
-                {profile?.role === 'administrador' ? (
-                  <div className="md:col-span-2 lg:col-span-4 space-y-2">
+                {/* Coletor - Apenas para admin */}
+                {profile?.role === 'administrador' && (
+                  <div className="md:col-span-2 lg:w-[20%] min-w-[150px] space-y-2">
                     <UserSearchableSelect
                       labelText="Coletor"
                       value={filtroColetor}
                       onChange={setFiltroColetor}
                       users={coletores}
-                      inputClassName="bg-white/20 border-white/30 text-white rounded-xl h-10"
+                      inputClassName="bg-white/10 border-white/20 text-white rounded-xl h-11 focus:ring-emerald-500"
                     />
                   </div>
-                ) : (
-                  <div className="md:col-span-2 lg:col-span-4"></div>
                 )}
 
-                {/* Período - 1 col md, 2 col lg */}
-                <div className="md:col-span-1 lg:col-span-2 space-y-2">
-                  <Label htmlFor="periodo" className="text-white mb-2 block text-sm">Período</Label>
-                  <Select value={periodoFiltro} onValueChange={handlePeriodoChange}>
-                    <SelectTrigger className="bg-white/20 border-white/30 text-white rounded-xl h-10">
-                      <SelectValue placeholder="Selecione o período" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-gray-800 border-gray-600 text-white rounded-xl">
-                      <SelectItem value="personalizado">Período Personalizado</SelectItem>
-                      <SelectItem value="semana">Última Semana</SelectItem>
-                      <SelectItem value="quinzena">Última Quinzena</SelectItem>
-                      <SelectItem value="mes">Último Mês</SelectItem>
-                      <SelectItem value="bimestre">Último Bimestre</SelectItem>
-                      <SelectItem value="trimestre">Último Trimestre</SelectItem>
-                      <SelectItem value="semestre">Último Semestre</SelectItem>
-                      <SelectItem value="ano">Último Ano</SelectItem>
-                    </SelectContent>
-                  </Select>
+                {/* Período - Compacto */}
+                <div className="md:col-span-1 lg:w-[12%] min-w-[130px] space-y-2">
+                  <div className="relative">
+                    <select
+                      id="periodo"
+                      className="w-full h-11 bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all appearance-none cursor-pointer"
+                      value={periodoFiltro}
+                      onChange={(e) => handlePeriodoChange(e.target.value)}
+                    >
+                      <option value="personalizado" className="bg-slate-900">Período Personalizado</option>
+                      <option value="semana" className="bg-slate-900">Última Semana</option>
+                      <option value="quinzena" className="bg-slate-900">Última Quinzena</option>
+                      <option value="mes" className="bg-slate-900">Último Mês</option>
+                      <option value="bimestre" className="bg-slate-900">Último Bimestre</option>
+                      <option value="trimestre" className="bg-slate-900">Último Trimestre</option>
+                      <option value="semestre" className="bg-slate-900">Último Semestre</option>
+                      <option value="ano" className="bg-slate-900">Último Ano</option>
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/50 pointer-events-none" />
+                  </div>
                 </div>
 
-                {/* Data Início - 1 col md, 2 col lg */}
-                <div className="md:col-span-1 lg:col-span-2 space-y-2">
-                  <Label htmlFor="dataInicio" className="text-white mb-2 block text-sm">Data Início</Label>
+                {/* Data Início */}
+                <div className="md:col-span-1 lg:w-[10%] min-w-[110px] space-y-2">
                   <input
                     type="date"
                     id="dataInicio"
                     value={dataInicioInput}
                     onChange={(e) => setDataInicioInput(e.target.value)}
-                    className="w-full bg-white/20 border border-white/30 text-white rounded-xl px-3 py-2 h-10 focus:outline-none focus:ring-2 focus:ring-emerald-400 text-sm"
+                    className="w-full bg-white/10 border border-white/20 text-white rounded-xl px-3 py-2 h-11 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm focus:border-transparent transition-all"
                   />
                 </div>
 
-                {/* Data Fim - 1 col md, 2 col lg */}
-                <div className="md:col-span-1 lg:col-span-2 space-y-2">
-                  <Label htmlFor="dataFim" className="text-white mb-2 block text-sm">Data Fim</Label>
+                {/* Data Fim */}
+                <div className="md:col-span-1 lg:w-[10%] min-w-[110px] space-y-2">
                   <input
                     type="date"
                     id="dataFim"
                     value={dataFimInput}
                     onChange={(e) => setDataFimInput(e.target.value)}
-                    className="w-full bg-white/20 border border-white/30 text-white rounded-xl px-3 py-2 h-10 focus:outline-none focus:ring-2 focus:ring-emerald-400 text-sm"
+                    className="w-full bg-white/10 border border-white/20 text-white rounded-xl px-3 py-2 h-11 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm focus:border-transparent transition-all"
                   />
                 </div>
 
-                {/* Botões de Ação - 1 col md, 4 col lg */}
-                <div className="md:col-span-1 lg:col-span-4 flex gap-2 items-end justify-end">
+                {/* Botões de Ação */}
+                <div className="md:col-span-1 flex gap-2 items-end">
                   <Button
                     onClick={handleCustomDateFilter}
                     disabled={!dataInicioInput || !dataFimInput}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl h-10 px-4 flex-1 flex items-center justify-center gap-2"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl h-11 px-6 flex items-center justify-center gap-2"
                   >
                     <Filter className="h-4 w-4" />
                     Filtrar
@@ -1039,7 +1099,7 @@ const DashboardPage = () => {
                   <Button
                     onClick={clearFilters}
                     variant="outline"
-                    className="border-white/30 text-white hover:bg-white/10 rounded-xl h-10 px-4 flex-1 flex items-center justify-center gap-2"
+                    className="border-white/20 text-white hover:bg-white/10 rounded-xl h-11 px-6 flex items-center justify-center gap-2"
                   >
                     <Eraser className="h-4 w-4" />
                     Limpar
@@ -1050,24 +1110,35 @@ const DashboardPage = () => {
               {/* MOBILE: Layout vertical */}
               <div className="md:hidden space-y-4 mt-4">
                 <div className="space-y-2">
-                  <SearchableSelect
-                    options={estadoOptions}
-                    value={filtroEstado}
-                    onChange={setFiltroEstado}
-                    labelText="Estado"
-                    inputClassName="bg-white/20 border-white/30 text-white rounded-xl h-10"
-                  />
+                  <div className="relative">
+                    <select
+                      id="filtroEstado-mobile"
+                      className="w-full h-11 bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all appearance-none cursor-pointer"
+                      value={filtroEstado}
+                      onChange={(e) => setFiltroEstado(e.target.value)}
+                    >
+                      {estadoOptions.map(opt => (
+                        <option key={opt.value} value={opt.value} className="bg-slate-900">{opt.label}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/50 pointer-events-none" />
+                  </div>
                 </div>
 
                 <div className="space-y-2">
-                  <SearchableSelect
-                    options={municipioOptions}
-                    value={filtroMunicipio}
-                    onChange={setFiltroMunicipio}
-                    labelText="Município"
-                    inputClassName="bg-white/20 border-white/30 text-white rounded-xl h-10"
-                    disabled={!filtroEstado || filtroEstado === 'all'}
-                  />
+                  <div className="relative">
+                    <select
+                      id="filtroMunicipio-mobile"
+                      className="w-full h-11 bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all appearance-none cursor-pointer disabled:opacity-50"
+                      value={filtroMunicipio}
+                      onChange={(e) => setFiltroMunicipio(e.target.value)}
+                    >
+                      {municipioOptions.map(opt => (
+                        <option key={opt.value} value={opt.value} className="bg-slate-900">{opt.label}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/50 pointer-events-none" />
+                  </div>
                 </div>
 
                 {profile?.role === 'administrador' && (
@@ -1077,50 +1148,50 @@ const DashboardPage = () => {
                       value={filtroColetor}
                       onChange={setFiltroColetor}
                       users={coletores}
-                      inputClassName="bg-white/20 border-white/30 text-white rounded-xl h-10"
+                      inputClassName="bg-white/10 border-white/20 text-white rounded-xl h-11 focus:ring-emerald-500"
                     />
                   </div>
                 )}
 
                 <div className="space-y-2">
-                  <Label htmlFor="periodo-mobile" className="text-white mb-2 block text-sm">Período</Label>
-                  <Select value={periodoFiltro} onValueChange={handlePeriodoChange}>
-                    <SelectTrigger className="bg-white/20 border-white/30 text-white rounded-xl h-10">
-                      <SelectValue placeholder="Selecione o período" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-gray-800 border-gray-600 text-white rounded-xl">
-                      <SelectItem value="personalizado">Período Personalizado</SelectItem>
-                      <SelectItem value="semana">Última Semana</SelectItem>
-                      <SelectItem value="quinzena">Última Quinzena</SelectItem>
-                      <SelectItem value="mes">Último Mês</SelectItem>
-                      <SelectItem value="bimestre">Último Bimestre</SelectItem>
-                      <SelectItem value="trimestre">Último Trimestre</SelectItem>
-                      <SelectItem value="semestre">Último Semestre</SelectItem>
-                      <SelectItem value="ano">Último Ano</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <div className="relative">
+                    <select
+                      id="periodo-mobile"
+                      className="w-full h-11 bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all appearance-none cursor-pointer"
+                      value={periodoFiltro}
+                      onChange={(e) => handlePeriodoChange(e.target.value)}
+                    >
+                      <option value="personalizado" className="bg-slate-900">Período Personalizado</option>
+                      <option value="semana" className="bg-slate-900">Última Semana</option>
+                      <option value="quinzena" className="bg-slate-900">Última Quinzena</option>
+                      <option value="mes" className="bg-slate-900">Último Mês</option>
+                      <option value="bimestre" className="bg-slate-900">Último Bimestre</option>
+                      <option value="trimestre" className="bg-slate-900">Último Trimestre</option>
+                      <option value="semestre" className="bg-slate-900">Último Semestre</option>
+                      <option value="ano" className="bg-slate-900">Último Ano</option>
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/50 pointer-events-none" />
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="dataInicio-mobile" className="text-white mb-2 block text-sm">Data Início</Label>
                     <input
                       type="date"
                       id="dataInicio-mobile"
                       value={dataInicioInput}
                       onChange={(e) => setDataInicioInput(e.target.value)}
-                      className="w-full bg-white/20 border border-white/30 text-white rounded-xl px-3 py-2 h-10 focus:outline-none focus:ring-2 focus:ring-emerald-400 text-sm"
+                      className="w-full bg-white/10 border border-white/20 text-white rounded-xl px-3 py-2 h-11 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm focus:border-transparent transition-all"
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="dataFim-mobile" className="text-white mb-2 block text-sm">Data Fim</Label>
                     <input
                       type="date"
                       id="dataFim-mobile"
                       value={dataFimInput}
                       onChange={(e) => setDataFimInput(e.target.value)}
-                      className="w-full bg-white/20 border border-white/30 text-white rounded-xl px-3 py-2 h-10 focus:outline-none focus:ring-2 focus:ring-emerald-400 text-sm"
+                      className="w-full bg-white/10 border border-white/20 text-white rounded-xl px-3 py-2 h-11 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm focus:border-transparent transition-all"
                     />
                   </div>
                 </div>
@@ -1129,7 +1200,7 @@ const DashboardPage = () => {
                   <Button
                     onClick={handleCustomDateFilter}
                     disabled={!dataInicioInput || !dataFimInput}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl h-10 px-3 flex items-center gap-2"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl h-11 px-4 flex items-center gap-2"
                   >
                     <Filter className="h-4 w-4" />
                     Filtrar
@@ -1137,7 +1208,7 @@ const DashboardPage = () => {
                   <Button
                     onClick={clearFilters}
                     variant="outline"
-                    className="border-white/30 text-white hover:bg-white/10 rounded-xl h-10 px-2 flex items-center gap-1.5"
+                    className="border-white/20 text-white hover:bg-white/10 rounded-xl h-11 px-4 flex items-center gap-2"
                   >
                     <Eraser className="h-4 w-4" />
                     Limpar
@@ -1331,7 +1402,7 @@ const DashboardPage = () => {
           </Card>
         )}
 
-      </div>
+      </div >
     </>
   );
 };

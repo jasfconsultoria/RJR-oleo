@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { format, isValid, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { formatCurrency, formatCnpjCpf, valorPorExtenso } from '@/lib/utils';
+import { useLocationData } from '@/hooks/useLocationData';
 
 const formatDisplayDate = (dateInput) => {
     if (!dateInput) {
@@ -37,6 +38,24 @@ const formatDisplayDate = (dateInput) => {
 };
 
 export const ReciboAvulso = React.forwardRef(({ data, signature, empresa, timezone, hideHeader = false }, ref) => {
+    const { fetchMunicipiosByCodes } = useLocationData();
+    const [resolvedMunicipios, setResolvedMunicipios] = useState({});
+
+    useEffect(() => {
+        const resolveNames = async () => {
+            if (!data) return;
+            const codes = [];
+            if (data.pessoa_municipio && !isNaN(data.pessoa_municipio)) codes.push(data.pessoa_municipio);
+            if (empresa?.municipio && !isNaN(empresa.municipio)) codes.push(empresa.municipio);
+
+            if (codes.length > 0) {
+                const mapping = await fetchMunicipiosByCodes(codes);
+                setResolvedMunicipios(mapping);
+            }
+        };
+        resolveNames();
+    }, [data, empresa?.municipio, fetchMunicipiosByCodes]);
+
     if (!data) return null;
 
     // Dados fallback robustos para a empresa
@@ -129,7 +148,7 @@ export const ReciboAvulso = React.forwardRef(({ data, signature, empresa, timezo
                         </h1>
                         <p>CNPJ: {empresaData.cnpj ? formatCnpjCpf(empresaData.cnpj) : 'N/A'}</p>
                         <p>{empresaData.endereco}</p>
-                        <p>{empresaData.municipio}{empresaData.municipio && empresaData.estado ? ' - ' : ''}{empresaData.estado}</p>
+                        <p>{(!isNaN(empresaData.municipio) && resolvedMunicipios[empresaData.municipio] ? resolvedMunicipios[empresaData.municipio] : empresaData.municipio) || ''}{empresaData.municipio && empresaData.estado ? ' - ' : ''}{empresaData.estado}</p>
                         <p>Telefone: {empresaData.telefone} | Email: {empresaData.email}</p>
                     </div>
                 </header>
@@ -164,25 +183,17 @@ export const ReciboAvulso = React.forwardRef(({ data, signature, empresa, timezo
                     Eu, <strong className="uppercase">{data.pessoa_nome || '________________________________________'}</strong>,
                     CPF/CNPJ nº <strong>{data.pessoa_cnpj_cpf ? formatCnpjCpf(data.pessoa_cnpj_cpf) : '_________________________________'}</strong>,
                     residente/sediado à <strong>{(() => {
-                        const parts = [];
-                        if (data.pessoa_endereco) parts.push(data.pessoa_endereco);
-                        if (data.pessoa_municipio) parts.push(data.pessoa_municipio);
-                        if (data.pessoa_estado) parts.push(data.pessoa_estado);
+                        const municipioResolved = !isNaN(data.pessoa_municipio) && resolvedMunicipios[data.pessoa_municipio]
+                            ? resolvedMunicipios[data.pessoa_municipio]
+                            : data.pessoa_municipio;
 
-                        // Se tiver endereço de rua, coloca vírgula antes da cidade
-                        // Se não tiver rua mas tiver cidade, separa cidade-estado
-                        const enderecoCompleto = parts.length > 0 ? parts.join(', ') : '';
-
-                        // Ajuste visual para separar cidade e estado por hífen em vez de vírgula se desejar seguir o padrão brasileiro,
-                        // mas manter partes.join(', ') é mais seguro para endereços genéricos.
-                        // Vamos usar uma lógica mais refinada:
                         let displayEndereco = '';
                         if (data.pessoa_endereco) {
                             displayEndereco += data.pessoa_endereco;
-                            if (data.pessoa_municipio || data.pessoa_estado) displayEndereco += ', ';
+                            if (municipioResolved || data.pessoa_estado) displayEndereco += ', ';
                         }
-                        if (data.pessoa_municipio) {
-                            displayEndereco += data.pessoa_municipio;
+                        if (municipioResolved) {
+                            displayEndereco += municipioResolved;
                             if (data.pessoa_estado) displayEndereco += ' - ';
                         }
                         if (data.pessoa_estado) {
@@ -207,7 +218,7 @@ export const ReciboAvulso = React.forwardRef(({ data, signature, empresa, timezo
 
                 <div className="mt-12 text-right">
                     <p>
-                        <strong>{empresaData.municipio || '____________'} - {empresaData.estado || '____'}, {data.data_recibo ? format(data.data_recibo instanceof Date ? data.data_recibo : parseISO(data.data_recibo), "dd 'de' MMMM 'de' yyyy", { locale: ptBR }) : '____ de ________ de _______'}.</strong>
+                        <strong>{(!isNaN(empresaData.municipio) && resolvedMunicipios[empresaData.municipio] ? resolvedMunicipios[empresaData.municipio] : empresaData.municipio) || '____________'} - {empresaData.estado || '____'}, {data.data_recibo ? format(data.data_recibo instanceof Date ? data.data_recibo : parseISO(data.data_recibo), "dd 'de' MMMM 'de' yyyy", { locale: ptBR }) : '____ de ________ de _______'}.</strong>
                     </p>
                 </div>
             </main>
@@ -233,7 +244,7 @@ export const ReciboAvulso = React.forwardRef(({ data, signature, empresa, timezo
                     </div>
                 </div>
             </footer>
-        </div>
+        </div >
     );
 });
 

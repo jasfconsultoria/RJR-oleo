@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, lazy, Suspense } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Toaster } from '@/components/ui/toaster';
 import LandingPage from '@/pages/info/LandingPage';
@@ -8,8 +8,9 @@ import ResetPasswordScreen from '@/pages/auth/ResetPasswordScreen';
 import DashboardPage from '@/pages/config/DashboardPage';
 import ListaColetas from '@/pages/coletas/ListaColetas';
 import ColetaForm from '@/pages/coletas/ColetaForm';
-import AgendaColetasPage from '@/pages/coletas/AgendaColetasPage';
-import RoteiroOperacionalPage from '@/pages/coletas/RoteiroOperacionalPage';
+const AgendaColetasPage = lazy(() => import('@/pages/coletas/AgendaColetasPage'));
+const RotasListaPage = lazy(() => import('@/pages/coletas/RotasListaPage'));
+const RoteiroOperacionalPage = lazy(() => import('@/pages/coletas/RoteiroOperacionalPage'));
 import ListaClientes from '@/pages/clientes/ListaClientes';
 import ClienteForm from '@/pages/clientes/ClienteForm';
 import MapaClientesPage from '@/pages/clientes/MapaClientesPage';
@@ -57,6 +58,7 @@ import CentroCustoForm from '@/pages/centros-custo/CentroCustoForm'; // New form
 import CertificadoDisplayPage from '@/pages/certificados/CertificadoDisplayPage';
 import CertificadoPublicoPage from '@/pages/certificados/CertificadoPublicoPage';
 import RelatorioRecipientesPage from '@/pages/relatorios/RelatorioRecipientesPage'; // New import
+import PlaceholderPage from '@/pages/PlaceholderPage';
 
 const ProtectedRoute = ({ children, requiredRole }) => {
   const { session, loading: authLoading } = useAuth();
@@ -71,8 +73,11 @@ const ProtectedRoute = ({ children, requiredRole }) => {
     return <Navigate to="/app/login" state={{ from: location }} replace />;
   }
 
-  if (requiredRole && profile?.role !== requiredRole) {
-    return <Navigate to="/app/dashboard" replace />;
+  if (requiredRole) {
+    const roles = Array.isArray(requiredRole) ? requiredRole : [requiredRole];
+    if (!roles.includes(profile?.role)) {
+      return <Navigate to="/app/dashboard" replace />;
+    }
   }
 
   return children;
@@ -136,99 +141,111 @@ function App() {
           element={
             <ProtectedRoute>
               <AppLayout>
-                <Routes>
-                  <Route path="dashboard" element={<DashboardPage />} />
-                  <Route path="coletas" element={<ListaColetas />} />
-                  <Route path="coletas/nova" element={<ColetaForm />} />
-                  <Route path="coletas/editar/:id" element={<ColetaForm />} />
-                  <Route path="coletas/agenda" element={<AgendaColetasPage />} />
-                  <Route path="coletas/roteiro" element={<RoteiroOperacionalPage />} />
+                <Suspense fallback={<div className="flex justify-center items-center h-64"><p className="text-white">Carregando...</p></div>}>
+                  <Routes>
+                    <Route path="dashboard" element={<DashboardPage />} />
 
-                  {/* Updated Cadastro Routes */}
-                  <Route path="cadastro/clientes" element={<ListaClientes personType="cliente" />} />
-                  <Route path="cadastro/clientes/novo" element={<ClienteForm personType="cliente" />} />
-                  <Route path="cadastro/clientes/editar/:id" element={<ClienteForm personType="cliente" />} />
-                  <Route path="cadastro/clientes/mapa" element={<MapaClientesPage />} />
-                  <Route path="cadastro/fornecedores" element={<ListaClientes personType="fornecedor" />} />
-                  <Route path="cadastro/fornecedores/novo" element={<ClienteForm personType="fornecedor" />} />
-                  <Route path="cadastro/fornecedores/editar/:id" element={<ClienteForm personType="fornecedor" />} />
-                  <Route path="cadastro/contratos" element={<ListaContratos />} />
-                  <Route path="cadastro/contratos/novo" element={<ContratoForm />} />
-                  <Route path="cadastro/contratos/editar/:id" element={<ContratoForm />} />
+                    {/* Coletas Route Group */}
+                    <Route path="coletas">
+                      <Route index element={<ListaColetas />} />
+                      <Route path="nova" element={<ColetaForm />} />
+                      <Route path="editar/:id" element={<ColetaForm />} />
+                      <Route path="rotas" element={<RotasListaPage />} />
+                      <Route path="mapa" element={<MapaClientesPage />} />
+                    </Route>
 
-                  <Route path="sobre" element={<SobreSistemaPage />} />
-                  <Route path="versoes" element={<VersoesPage />} />
+                    <Route path="recipientes" element={<ProtectedRoute requiredRole={['super_admin', 'administrador', 'gerente']}><PlaceholderPage title="Recipientes" /></ProtectedRoute>} />
 
-                  <Route path="certificados" element={<ProtectedRoute requiredRole="administrador"><ListaCertificados /></ProtectedRoute>} />
-                  <Route path="certificados/novo" element={<ProtectedRoute requiredRole="administrador"><CertificadoPage /></ProtectedRoute>} />
-                  <Route path="certificados/editar/:id" element={<ProtectedRoute requiredRole="administrador"><CertificadoPage /></ProtectedRoute>} />
-                  <Route path="certificados/view/:id" element={<ProtectedRoute requiredRole="administrador"><CertificadoDisplayPage /></ProtectedRoute>} />
-                  <Route path="relatorios/coletas" element={<ProtectedRoute requiredRole="administrador"><RelatorioColetasPage /></ProtectedRoute>} />
-                  <Route path="relatorios/financeiro" element={<ProtectedRoute requiredRole="administrador"><RelatorioFinanceiroPage /></ProtectedRoute>} />
-                  <Route path="relatorios/estoque" element={<ProtectedRoute requiredRole="administrador"><RelatorioEstoquePage /></ProtectedRoute>} />
-                  <Route path="relatorios/recipientes" element={<ProtectedRoute requiredRole="administrador"><RelatorioRecipientesPage /></ProtectedRoute>} /> {/* New route */}
+                    <Route path="agenda" element={<AgendaColetasPage />} />
+                    <Route path="roteiro" element={<RoteiroOperacionalPage />} />
 
-                  {/* New Financeiro Routes */}
-                  <Route path="financeiro/credito" element={<ProtectedRoute requiredRole="administrador"><ListaFinanceiro type="credito" /></ProtectedRoute>} />
-                  <Route path="financeiro/credito/novo" element={<ProtectedRoute requiredRole="administrador"><FinanceiroForm type="credito" /></ProtectedRoute>} />
-                  <Route path="financeiro/credito/editar/:id" element={<ProtectedRoute requiredRole="administrador"><FinanceiroForm type="credito" /></ProtectedRoute>} />
-                  <Route path="financeiro/debito" element={<ProtectedRoute requiredRole="administrador"><ListaFinanceiro type="debito" /></ProtectedRoute>} />
-                  <Route path="financeiro/debito/novo" element={<ProtectedRoute requiredRole="administrador"><FinanceiroForm type="debito" /></ProtectedRoute>} />
-                  <Route path="financeiro/debito/editar/:id" element={<ProtectedRoute requiredRole="administrador"><FinanceiroForm type="debito" /></ProtectedRoute>} />
-                  <Route path="financeiro/recibos" element={<ProtectedRoute requiredRole="administrador"><ListaRecibosAvulsos /></ProtectedRoute>} />
-                  <Route path="financeiro/recibos/novo" element={<ProtectedRoute requiredRole="administrador"><ReciboAvulsoForm /></ProtectedRoute>} />
-                  <Route path="financeiro/recibos/editar/:id" element={<ProtectedRoute requiredRole="administrador"><ReciboAvulsoForm /></ProtectedRoute>} />
+                    {/* Cadastro Route Group */}
+                    <Route path="cadastro">
+                      <Route path="clientes" element={<ListaClientes personType="cliente" />} />
+                      <Route path="clientes/novo" element={<ClienteForm personType="cliente" />} />
+                      <Route path="clientes/editar/:id" element={<ClienteForm personType="cliente" />} />
+                      <Route path="fornecedores" element={<ListaClientes personType="fornecedor" />} />
+                      <Route path="fornecedores/novo" element={<ClienteForm personType="fornecedor" />} />
+                      <Route path="fornecedores/editar/:id" element={<ClienteForm personType="fornecedor" />} />
+                      <Route path="contratos" element={<ListaContratos />} />
+                      <Route path="contratos/novo" element={<ContratoForm />} />
+                      <Route path="contratos/editar/:id" element={<ContratoForm />} />
+                    </Route>
 
-                  {/* New Estoque Routes */}
-                  <Route path="estoque/produtos" element={<ProtectedRoute requiredRole="administrador"><ListaProdutosPage /></ProtectedRoute>} />
-                  <Route path="estoque/produtos/novo" element={<ProtectedRoute requiredRole="administrador"><ProdutoFormPage /></ProtectedRoute>} />
-                  <Route path="estoque/produtos/editar/:id" element={<ProtectedRoute requiredRole="administrador"><ProdutoFormPage /></ProtectedRoute>} />
-                  <Route path="estoque/entradas" element={<ProtectedRoute requiredRole="administrador"><ListaEntradasPage /></ProtectedRoute>} /> {/* New list page */}
-                  <Route path="estoque/entradas/novo" element={<ProtectedRoute requiredRole="administrador"><EntradaFormPage /></ProtectedRoute>} /> {/* Form for new entry */}
-                  <Route path="estoque/entradas/editar/:id" element={<ProtectedRoute requiredRole="administrador"><EntradaFormPage /></ProtectedRoute>} /> {/* Form for editing entry */}
-                  <Route path="estoque/saidas" element={<ProtectedRoute requiredRole="administrador"><ListaSaidasPage /></ProtectedRoute>} /> {/* New list page */}
-                  <Route path="estoque/saidas/novo" element={<ProtectedRoute requiredRole="administrador"><SaidaFormPage /></ProtectedRoute>} /> {/* Form for new exit */}
-                  <Route path="estoque/saidas/editar/:id" element={<ProtectedRoute requiredRole="administrador"><SaidaFormPage /></ProtectedRoute>} /> {/* Form for editing exit */}
-                  <Route path="estoque/movimentacoes" element={<ProtectedRoute requiredRole="administrador"><ListaMovimentacoesPage /></ProtectedRoute>} />
-                  <Route path="estoque/saldo" element={<ProtectedRoute requiredRole="administrador"><SaldoEstoquePage /></ProtectedRoute>} />
+                    <Route path="sobre" element={<SobreSistemaPage />} />
+                    <Route path="versoes" element={<VersoesPage />} />
 
-                  {/* New Cost Center Routes */}
-                  <Route path="centros-custo" element={<ProtectedRoute requiredRole="administrador"><ListaCentrosCusto /></ProtectedRoute>} />
-                  <Route path="centros-custo/novo" element={<ProtectedRoute requiredRole="administrador"><CentroCustoForm /></ProtectedRoute>} />
-                  <Route path="centros-custo/editar/:id" element={<ProtectedRoute requiredRole="administrador"><CentroCustoForm /></ProtectedRoute>} />
+                    <Route path="certificados" element={<ProtectedRoute requiredRole={['super_admin', 'administrador', 'gerente']}><ListaCertificados /></ProtectedRoute>} />
+                    <Route path="certificados/novo" element={<ProtectedRoute requiredRole={['super_admin', 'administrador', 'gerente']}><CertificadoPage /></ProtectedRoute>} />
+                    <Route path="certificados/editar/:id" element={<ProtectedRoute requiredRole={['super_admin', 'administrador', 'gerente']}><CertificadoPage /></ProtectedRoute>} />
+                    <Route path="certificados/view/:id" element={<ProtectedRoute requiredRole={['super_admin', 'administrador', 'gerente']}><CertificadoDisplayPage /></ProtectedRoute>} />
+                    <Route path="relatorios/coletas" element={<ProtectedRoute requiredRole={['super_admin', 'administrador', 'gerente']}><RelatorioColetasPage /></ProtectedRoute>} />
+                    <Route path="relatorios/financeiro" element={<ProtectedRoute requiredRole={['super_admin', 'administrador']}><RelatorioFinanceiroPage /></ProtectedRoute>} />
+                    <Route path="relatorios/estoque" element={<ProtectedRoute requiredRole={['super_admin', 'administrador', 'gerente']}><RelatorioEstoquePage /></ProtectedRoute>} />
+                    <Route path="relatorios/recipientes" element={<ProtectedRoute requiredRole={['super_admin', 'administrador', 'gerente']}><RelatorioRecipientesPage /></ProtectedRoute>} />
 
-                  <Route path="usuarios" element={
-                    <ProtectedRoute requiredRole="administrador">
-                      <UserManagementPage />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="usuarios/novo" element={
-                    <ProtectedRoute requiredRole="administrador">
-                      <UserFormPage />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="usuarios/editar/:id" element={
-                    <ProtectedRoute requiredRole="administrador">
-                      <UserFormPage />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="empresa" element={
-                    <ProtectedRoute requiredRole="administrador">
-                      <EmpresaPage />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="logs" element={
-                    <ProtectedRoute requiredRole="administrador">
-                      <LogsPage />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="*" element={<Navigate to="/app/dashboard" />} />
-                </Routes>
+                    {/* Financeiro Routes */}
+                    <Route path="financeiro/credito" element={<ProtectedRoute requiredRole={['super_admin', 'administrador']}><ListaFinanceiro type="credito" /></ProtectedRoute>} />
+                    <Route path="financeiro/credito/novo" element={<ProtectedRoute requiredRole={['super_admin', 'administrador']}><FinanceiroForm type="credito" /></ProtectedRoute>} />
+                    <Route path="financeiro/credito/editar/:id" element={<ProtectedRoute requiredRole={['super_admin', 'administrador']}><FinanceiroForm type="credito" /></ProtectedRoute>} />
+                    <Route path="financeiro/debito" element={<ProtectedRoute requiredRole={['super_admin', 'administrador']}><ListaFinanceiro type="debito" /></ProtectedRoute>} />
+                    <Route path="financeiro/debito/novo" element={<ProtectedRoute requiredRole={['super_admin', 'administrador']}><FinanceiroForm type="debito" /></ProtectedRoute>} />
+                    <Route path="financeiro/debito/editar/:id" element={<ProtectedRoute requiredRole={['super_admin', 'administrador']}><FinanceiroForm type="debito" /></ProtectedRoute>} />
+                    <Route path="financeiro/recibos" element={<ProtectedRoute requiredRole={['super_admin', 'administrador']}><ListaRecibosAvulsos /></ProtectedRoute>} />
+                    <Route path="financeiro/recibos/novo" element={<ProtectedRoute requiredRole={['super_admin', 'administrador']}><ReciboAvulsoForm /></ProtectedRoute>} />
+                    <Route path="financeiro/recibos/editar/:id" element={<ProtectedRoute requiredRole={['super_admin', 'administrador']}><ReciboAvulsoForm /></ProtectedRoute>} />
+
+                    {/* Estoque Routes */}
+                    <Route path="estoque/produtos" element={<ProtectedRoute requiredRole={['super_admin', 'administrador', 'gerente']}><ListaProdutosPage /></ProtectedRoute>} />
+                    <Route path="estoque/produtos/novo" element={<ProtectedRoute requiredRole={['super_admin', 'administrador', 'gerente']}><ProdutoFormPage /></ProtectedRoute>} />
+                    <Route path="estoque/produtos/editar/:id" element={<ProtectedRoute requiredRole={['super_admin', 'administrador', 'gerente']}><ProdutoFormPage /></ProtectedRoute>} />
+                    <Route path="estoque/entradas" element={<ProtectedRoute requiredRole={['super_admin', 'administrador', 'gerente']}><ListaEntradasPage /></ProtectedRoute>} />
+                    <Route path="estoque/entradas/novo" element={<ProtectedRoute requiredRole={['super_admin', 'administrador', 'gerente']}><EntradaFormPage /></ProtectedRoute>} />
+                    <Route path="estoque/entradas/editar/:id" element={<ProtectedRoute requiredRole={['super_admin', 'administrador', 'gerente']}><EntradaFormPage /></ProtectedRoute>} />
+                    <Route path="estoque/saidas" element={<ProtectedRoute requiredRole={['super_admin', 'administrador', 'gerente']}><ListaSaidasPage /></ProtectedRoute>} />
+                    <Route path="estoque/saidas/novo" element={<ProtectedRoute requiredRole={['super_admin', 'administrador', 'gerente']}><SaidaFormPage /></ProtectedRoute>} />
+                    <Route path="estoque/saidas/editar/:id" element={<ProtectedRoute requiredRole={['super_admin', 'administrador', 'gerente']}><SaidaFormPage /></ProtectedRoute>} />
+                    <Route path="estoque/movimentacoes" element={<ProtectedRoute requiredRole={['super_admin', 'administrador', 'gerente']}><ListaMovimentacoesPage /></ProtectedRoute>} />
+                    <Route path="estoque/saldo" element={<ProtectedRoute requiredRole={['super_admin', 'administrador', 'gerente']}><SaldoEstoquePage /></ProtectedRoute>} />
+
+                    {/* Cost Center Routes */}
+                    <Route path="centros-custo" element={<ProtectedRoute requiredRole={['super_admin', 'administrador']}><ListaCentrosCusto /></ProtectedRoute>} />
+                    <Route path="centros-custo/novo" element={<ProtectedRoute requiredRole={['super_admin', 'administrador']}><CentroCustoForm /></ProtectedRoute>} />
+                    <Route path="centros-custo/editar/:id" element={<ProtectedRoute requiredRole={['super_admin', 'administrador']}><CentroCustoForm /></ProtectedRoute>} />
+
+                    <Route path="usuarios" element={
+                      <ProtectedRoute requiredRole={['super_admin', 'administrador']}>
+                        <UserManagementPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="usuarios/novo" element={
+                      <ProtectedRoute requiredRole={['super_admin', 'administrador']}>
+                        <UserFormPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="usuarios/editar/:id" element={
+                      <ProtectedRoute requiredRole={['super_admin', 'administrador']}>
+                        <UserFormPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="empresa" element={
+                      <ProtectedRoute requiredRole={['super_admin', 'administrador']}>
+                        <EmpresaPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="logs" element={
+                      <ProtectedRoute requiredRole={['super_admin', 'administrador']}>
+                        <LogsPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="*" element={<Navigate to="/app/dashboard" />} />
+                  </Routes>
+                </Suspense>
               </AppLayout>
             </ProtectedRoute>
           }
         />
-      </Routes>
+      </Routes >
       <Toaster />
     </>
   );

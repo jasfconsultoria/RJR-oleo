@@ -61,14 +61,16 @@ const UserManagementPage = () => {
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     const { data, error } = await supabase.rpc('get_all_users');
-    
+
     if (error) {
       toast({ title: 'Erro ao buscar usuários', description: error.message, variant: 'destructive' });
       setUsers([]);
     } else {
       const sorted = data.sort((a, b) => {
-        if (a.role === 'administrador' && b.role !== 'administrador') return -1;
-        if (a.role !== 'administrador' && b.role === 'administrador') return 1;
+        const priority = { 'super_admin': 0, 'administrador': 1, 'gerente': 2, 'coletor': 3 };
+        const pA = priority[a.role] ?? 99;
+        const pB = priority[b.role] ?? 99;
+        if (pA !== pB) return pA - pB;
         if (!a.full_name || !b.full_name) return 0;
         return a.full_name.localeCompare(b.full_name);
       });
@@ -91,7 +93,7 @@ const UserManagementPage = () => {
         fetchUsers();
       }
     };
-    
+
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
   }, [fetchUsers, empresa]);
@@ -156,17 +158,17 @@ const UserManagementPage = () => {
   };
 
   const handleDeleteUser = async (userId, userEmail, userRole) => {
-    if (userRole === 'administrador') {
+    if (userRole === 'administrador' || userRole === 'super_admin') {
       toast({
         title: 'Ação não permitida',
-        description: 'Não é possível excluir um usuário administrador.',
+        description: 'Não é possível excluir um administrador ou super admin através desta lista por segurança.',
         variant: 'destructive'
       });
       return;
     }
 
     const { error } = await supabase.functions.invoke('delete-user', {
-        body: { userId },
+      body: { userId },
     });
 
     if (error) {
@@ -206,16 +208,16 @@ const UserManagementPage = () => {
         </motion.div>
 
         <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 md:p-6">
-            <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/70" />
-                <Input
-                type="search"
-                placeholder="Buscar por nome, email, CPF ou telefone..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60"
-                />
-            </div>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/70" />
+            <Input
+              type="search"
+              placeholder="Buscar por nome, email, CPF ou telefone..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60"
+            />
+          </div>
         </div>
 
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white/10 backdrop-blur-sm rounded-xl">
@@ -242,8 +244,14 @@ const UserManagementPage = () => {
                     <TableCell data-label="CPF">{user.cpf ? formatCnpjCpf(user.cpf) : '-'}</TableCell>
                     <TableCell data-label="Telefone">{formatTelefone(user.telefone)}</TableCell>
                     <TableCell data-label="Perfil">
-                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${user.role === 'administrador' ? 'bg-green-500/20 text-green-300' : 'bg-blue-500/20 text-blue-300'}`}>
-                          {user.role}
+                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${user.role === 'super_admin' ? 'bg-purple-500/20 text-purple-300' :
+                          user.role === 'administrador' ? 'bg-green-500/20 text-green-300' :
+                            user.role === 'gerente' ? 'bg-blue-500/20 text-blue-300' :
+                              'bg-gray-500/20 text-gray-300'
+                        }`}>
+                        {user.role === 'super_admin' ? 'Super Admin' :
+                          user.role === 'administrador' ? 'Administrador' :
+                            user.role === 'gerente' ? 'Gerente' : 'Coletor'}
                       </span>
                     </TableCell>
                     <TableCell data-label="Status">
@@ -263,7 +271,7 @@ const UserManagementPage = () => {
                       </Button>
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="icon" className="text-red-400 hover:text-red-300" title="Excluir" disabled={user.id === currentUser.id || user.role === 'administrador'}>
+                          <Button variant="ghost" size="icon" className="text-red-400 hover:text-red-300" title="Excluir" disabled={user.id === currentUser.id || user.role === 'administrador' || user.role === 'super_admin'}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </AlertDialogTrigger>
@@ -287,7 +295,7 @@ const UserManagementPage = () => {
                     </TableCell>
                   </TableRow>
                 ))}
-                 { !loading && paginatedUsers.length === 0 && (
+                {!loading && paginatedUsers.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center py-16 text-gray-400">
                       Nenhum usuário encontrado.
@@ -309,9 +317,9 @@ const UserManagementPage = () => {
       </div>
       {selectedUser && (
         <Dialog open={isPermsDialogOpen} onOpenChange={setIsPermsDialogOpen}>
-          <UserPermissionsModal 
-            user={selectedUser} 
-            onSave={() => setIsPermsDialogOpen(false)} 
+          <UserPermissionsModal
+            user={selectedUser}
+            onSave={() => setIsPermsDialogOpen(false)}
             onCancel={() => setIsPermsDialogOpen(false)}
           />
         </Dialog>

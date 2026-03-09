@@ -2,9 +2,26 @@ import React from 'react';
 import { format, parseISO, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { formatCnpjCpf, formatCurrency, valorPorExtenso, getMonthsDifference, parseCurrency } from '@/lib/utils';
+import { useLocationData } from '@/hooks/useLocationData';
 
 const ContratoPDF = React.forwardRef(({ contrato, empresa, showSignature }, ref) => {
   const cliente = contrato?.pessoa;
+  const { fetchMunicipiosByCodes } = useLocationData();
+  const [resolvedMunicipios, setResolvedMunicipios] = React.useState({});
+
+  React.useEffect(() => {
+    const resolveNames = async () => {
+      const codes = [];
+      if (cliente?.municipio && !isNaN(cliente.municipio)) codes.push(cliente.municipio);
+      if (empresa?.municipio && !isNaN(empresa.municipio)) codes.push(empresa.municipio);
+
+      if (codes.length > 0) {
+        const mapping = await fetchMunicipiosByCodes(codes);
+        setResolvedMunicipios(mapping);
+      }
+    };
+    resolveNames();
+  }, [cliente?.municipio, empresa?.municipio, fetchMunicipiosByCodes]);
 
   if (!contrato || !cliente) {
     return <div ref={ref}>Carregando dados do contrato...</div>;
@@ -111,14 +128,14 @@ const ContratoPDF = React.forwardRef(({ contrato, empresa, showSignature }, ref)
             </p>
             <p>CNPJ: {formatCnpjCpf(empresa?.cnpj)}</p>
             <p>{empresa?.endereco}</p>
-            <p>{empresa?.municipio} - {empresa?.estado}</p>
+            <p>{(!isNaN(empresa?.municipio) && resolvedMunicipios[empresa?.municipio] ? resolvedMunicipios[empresa?.municipio] : empresa?.municipio) || ''} - {empresa?.estado}</p>
             <p>Telefone: {empresa?.telefone} | Email: {empresa?.email}</p>
           </div>
         </header>
 
         <h1 className="text-center font-bold text-sm mb-3">CONTRATO Nº {contrato.numero_contrato}</h1>
         <p className="mb-3 text-justify leading-normal">
-          Pelo presente <strong>CONTRATO DE PRESTAÇÃO DE SERVIÇOS</strong>, de um lado a empresa <strong>{empresa?.nome_fantasia && empresa?.razao_social ? `${empresa.nome_fantasia} - ${empresa.razao_social}` : empresa?.nome_fantasia || empresa?.razao_social || 'Nome Fantasia da Contratada'}</strong>, CNPJ: <strong>{formatCnpjCpf(empresa?.cnpj) || 'CNPJ da Contratada'}</strong>, representada por <strong>{empresa?.razao_social || 'Razão Social da Contratada'}</strong>, doravante denominada <strong>CONTRATADA</strong> e de outro lado a empresa <strong>{cliente.nome_fantasia && cliente.razao_social ? `${cliente.nome_fantasia} - ${cliente.razao_social}` : cliente.nome_fantasia || cliente.razao_social || 'Nome do Cliente'}</strong>, CNPJ: <strong>{formatCnpjCpf(cliente.cnpj_cpf)}</strong>, doravante denominada <strong>CONTRATANTE</strong>.
+          Pelo presente <strong>CONTRATO DE PRESTAÇÃO DE SERVIÇOS</strong>, de um lado a empresa <strong>{empresa?.nome_fantasia && empresa?.razao_social ? `${empresa.nome_fantasia} - ${empresa.razao_social}` : empresa?.nome_fantasia || empresa?.razao_social || 'Nome Fantasia da Contratada'}</strong>, CNPJ: <strong>{formatCnpjCpf(empresa?.cnpj) || 'CNPJ da Contratada'}</strong>, representada por <strong>{empresa?.razao_social || 'Razão Social da Contratada'}</strong>, doravante denominada <strong>CONTRATADA</strong> e de outro lado a empresa <strong>{cliente.nome_fantasia && cliente.razao_social ? `${cliente.nome_fantasia} - ${cliente.razao_social}` : cliente.nome_fantasia || cliente.razao_social || 'Nome do Cliente'}</strong>, CNPJ: <strong>{formatCnpjCpf(cliente.cnpj_cpf)}</strong>, localizada à <strong>{cliente.endereco}{cliente.numero ? `, ${cliente.numero}` : ''}{cliente.bairro ? `, ${cliente.bairro}` : ''}, {(!isNaN(cliente.municipio) && resolvedMunicipios[cliente.municipio] ? resolvedMunicipios[cliente.municipio] : cliente.municipio) || ''} - {cliente.estado}</strong>, doravante denominada <strong>CONTRATANTE</strong>.
         </p>
         <h2 className="font-bold text-center mb-3 text-sm">CLÁUSULAS</h2>
 
@@ -168,7 +185,7 @@ const ContratoPDF = React.forwardRef(({ contrato, empresa, showSignature }, ref)
         <p className="mb-3 text-justify leading-normal">
           <strong>CLÁUSULA SEXTA - DO FORO</strong>
           <br />
-          Fica eleito o foro da comarca de <strong>{empresa?.municipio || 'Cidade da Empresa'}</strong>, <strong>{empresa?.estado || 'UF'}</strong>, para dirimir quaisquer dúvidas oriundas do presente contrato.
+          Fica eleito o foro da comarca de <strong>{(!isNaN(empresa?.municipio) && resolvedMunicipios[empresa?.municipio] ? resolvedMunicipios[empresa?.municipio] : empresa?.municipio) || 'Cidade da Empresa'}</strong>, <strong>{empresa?.estado || 'UF'}</strong>, para dirimir quaisquer dúvidas oriundas do presente contrato.
         </p>
 
         <p className="my-4 text-center leading-normal">
@@ -176,7 +193,7 @@ const ContratoPDF = React.forwardRef(({ contrato, empresa, showSignature }, ref)
         </p>
 
         <p className="text-center mb-6 leading-normal">
-          {empresa?.municipio || 'Cidade'} - {empresa?.estado || 'UF'}, {formatarDataExtenso(new Date())}.
+          {(!isNaN(empresa?.municipio) && resolvedMunicipios[empresa?.municipio] ? resolvedMunicipios[empresa?.municipio] : empresa?.municipio) || 'Cidade'} - {empresa?.estado || 'UF'}, {formatarDataExtenso(new Date())}.
         </p>
 
         <div className="flex justify-around mt-8">

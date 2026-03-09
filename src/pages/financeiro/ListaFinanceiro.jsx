@@ -20,6 +20,7 @@ import PaymentDialog from '@/components/financeiro/PaymentDialog';
 import PaymentHistoryDialog from '@/components/financeiro/PaymentHistoryDialog';
 import AdminConfirmationDialog from '@/components/financeiro/AdminConfirmationDialog';
 import { checkFinanceiroIntegrity } from '@/lib/integrityChecks';
+import FinanceiroFilters from '@/components/financeiro/FinanceiroFilters';
 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useProfile } from '@/contexts/ProfileContext';
@@ -416,76 +417,19 @@ const ListaFinanceiro = ({ type }) => {
           </Button>
         </div>
 
-        <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 md:p-6 space-y-4 relative z-10">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div>
-              <Label htmlFor="searchTerm" className="block text-white mb-1 text-sm">Buscar</Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/70" />
-                <Input
-                  id="searchTerm"
-                  type="search"
-                  placeholder="Nº Doc, descrição..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60 rounded-xl"
-                />
-              </div>
-            </div>
-            <div>
-              <Label htmlFor="clientSearch" className="block text-white mb-1 text-sm">{entityLabel}</Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/70" />
-                <Input
-                  id="clientSearch"
-                  type="search"
-                  placeholder={`Buscar por nome d${entityLabel.toLowerCase()}...`}
-                  value={clientSearchTerm}
-                  onChange={(e) => setClientSearchTerm(e.target.value)}
-                  className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60 rounded-xl"
-                />
-              </div>
-            </div>
-            <div>
-              <Label htmlFor="statusFilter" className="block text-white mb-1 text-sm">Status</Label>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="bg-white/20 border-white/30 text-white rounded-xl">
-                  <SelectValue placeholder="Todos os Status" />
-                </SelectTrigger>
-                <SelectContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
-                  <SelectItem value="all">Todos</SelectItem>
-                  <SelectItem value="pending">Pendente</SelectItem>
-                  <SelectItem value="partially_paid">Parcialmente Pago</SelectItem>
-                  <SelectItem value="paid">Quitado</SelectItem>
-                  <SelectItem value="overdue">Vencido</SelectItem>
-                  <SelectItem value="canceled">Cancelado</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="startDate" className="block text-white mb-1 text-sm">Venc. Início</Label>
-                <input
-                  type="date"
-                  id="startDate"
-                  value={startDate ? format(startDate, 'yyyy-MM-dd') : ''}
-                  onChange={(e) => setStartDate(e.target.value ? parseISO(e.target.value) : null)}
-                  className="w-full bg-white/20 border border-white/30 text-white rounded-xl px-3 py-2 h-10 focus:outline-none focus:ring-2 focus:ring-emerald-400 text-sm"
-                />
-              </div>
-              <div>
-                <Label htmlFor="endDate" className="block text-white mb-1 text-sm">Venc. Fim</Label>
-                <input
-                  type="date"
-                  id="endDate"
-                  value={endDate ? format(endDate, 'yyyy-MM-dd') : ''}
-                  onChange={(e) => setEndDate(e.target.value ? parseISO(e.target.value) : null)}
-                  className="w-full bg-white/20 border border-white/30 text-white rounded-xl px-3 py-2 h-10 focus:outline-none focus:ring-2 focus:ring-emerald-400 text-sm"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
+        <FinanceiroFilters
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          clientSearchTerm={clientSearchTerm}
+          setClientSearchTerm={setClientSearchTerm}
+          statusFilter={statusFilter}
+          setStatusFilter={setStatusFilter}
+          startDate={startDate}
+          setStartDate={setStartDate}
+          endDate={endDate}
+          setEndDate={setEndDate}
+          entityLabel={entityLabel}
+        />
 
         <div className="bg-white/10 backdrop-blur-sm rounded-xl">
           <div className="overflow-x-auto rounded-xl">

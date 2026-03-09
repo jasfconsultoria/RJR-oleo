@@ -73,7 +73,7 @@ export const useLocationData = () => {
     try {
       const { data, error: municipiosError } = await supabase
         .from('municipios')
-        .select('municipio')
+        .select('codigo, municipio')
         .eq('uf', uf)
         .not('municipio', 'is', null)
         .order('municipio', { ascending: true });
@@ -81,9 +81,11 @@ export const useLocationData = () => {
       if (municipiosError) throw municipiosError;
 
       const municipios = (data || [])
-        .map(item => item.municipio)
-        .filter(Boolean)
-        .sort();
+        .map(item => ({
+          value: item.codigo,
+          label: item.municipio
+        }))
+        .filter(item => item.label);
 
       // Cachear os municípios no ref e no estado
       municipiosCacheRef.current[uf] = municipios;
@@ -96,6 +98,33 @@ export const useLocationData = () => {
     } catch (err) {
       console.error(`Erro ao buscar municípios para ${uf}:`, err);
       return [];
+    }
+  }, []);
+
+  // Buscar nomes de municípios por um array de códigos
+  const fetchMunicipiosByCodes = useCallback(async (codes) => {
+    if (!codes || codes.length === 0) return {};
+
+    // Filtrar apenas códigos numéricos
+    const numericCodes = codes.filter(c => c && !isNaN(c));
+    if (numericCodes.length === 0) return {};
+
+    try {
+      const { data, error: municipiosError } = await supabase
+        .from('municipios')
+        .select('codigo, municipio')
+        .in('codigo', numericCodes);
+
+      if (municipiosError) throw municipiosError;
+
+      const mapping = {};
+      (data || []).forEach(item => {
+        mapping[item.codigo] = item.municipio;
+      });
+      return mapping;
+    } catch (err) {
+      console.error('Erro ao resolver nomes de municípios:', err);
+      return {};
     }
   }, []);
 
@@ -119,6 +148,7 @@ export const useLocationData = () => {
     estados,
     getMunicipios,
     fetchMunicipios,
+    fetchMunicipiosByCodes,
     loading,
     error
   };

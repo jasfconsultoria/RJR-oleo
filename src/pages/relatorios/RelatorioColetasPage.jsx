@@ -53,7 +53,10 @@ const RelatoriosPage = () => {
 
   const pageSize = useMemo(() => empresa?.items_per_page || 25, [empresa]);
 
-  const municipioOptions = useMemo(() => [{ value: 'all', label: 'Todos os Municípios' }, ...municipios.map(m => ({ value: m, label: m }))], [municipios]);
+  const municipioOptions = useMemo(() => [
+    { value: 'all', label: 'Todos os Municípios' },
+    ...municipios
+  ], [municipios]);
 
   const tipoColetaOptions = [
     { value: 'all', label: 'Todos os Tipos' },
@@ -163,6 +166,18 @@ const RelatoriosPage = () => {
     if (!item.user_id) return 'N/A';
     const usuario = usuarios.find(u => u.id === item.user_id);
     return usuario?.full_name || 'N/A';
+  };
+
+  // Função para obter o nome do município a partir do código
+  const getMunicipioLabel = (item) => {
+    const code = item.municipio;
+    if (!code) return 'N/A';
+    // Se já é um nome (legado), retorna ele mesmo
+    if (isNaN(code)) return code;
+
+    // Procura nas opções carregadas
+    const found = municipios.find(m => m.value === code);
+    return found ? found.label : code;
   };
 
   // ✅ NOVO: Função para buscar totais do período completo
@@ -394,7 +409,7 @@ const RelatoriosPage = () => {
         'Cliente': clientDisplayName,
         'Usuário': userName,
         'Estado': item.estado,
-        'Município': item.municipio,
+        'Município': getMunicipioLabel(item),
         'Tipo Coleta': item.tipo_coleta,
         'Qtd Coletada (kg)': formatNumber(item.quantidade_coletada),
         'Qtd Entregue (Unidades)': (item.tipo_coleta === 'Troca' || item.tipo_coleta === 'Doação') ? formatNumber(item.quantidade_entregue, { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : 'N/A',
@@ -555,7 +570,7 @@ const RelatoriosPage = () => {
                                 <TableCell data-label="Data">{formattedDate}</TableCell>
                                 <TableCell data-label="Cliente">{clientDisplayName}</TableCell>
                                 <TableCell data-label="Usuário">{getUserName(item)}</TableCell>
-                                <TableCell data-label="Local">{item.municipio}, {item.estado}</TableCell>
+                                <TableCell data-label="Local">{getMunicipioLabel(item)}, {item.estado}</TableCell>
                                 <TableCell data-label="Tipo">{item.tipo_coleta}</TableCell>
                                 <TableCell data-label="Qtd. (kg)" className="text-right">{formatNumber(item.quantidade_coletada)}</TableCell>
                                 <TableCell data-label="Valor/Entregue" className="text-right">{(item.tipo_coleta === 'Troca' || item.tipo_coleta === 'Doação') ? `${formatNumber(item.quantidade_entregue, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} Unidades` : formatCurrency(item.total_pago)}</TableCell>

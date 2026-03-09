@@ -4,6 +4,7 @@ import { format, isValid, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { formatCurrency, parseCurrency, formatCnpjCpf } from '@/lib/utils';
 import { utcToZonedTime } from 'date-fns-tz';
+import { useLocationData } from '@/hooks/useLocationData';
 
 const formatDisplayDate = (dateInput, timezone) => {
     if (!dateInput) {
@@ -26,7 +27,7 @@ const formatDisplayDate = (dateInput, timezone) => {
     }
 
     let finalDateObject = baseDate;
-    if (typeof dateInput === 'string') { 
+    if (typeof dateInput === 'string') {
         try {
             const validTimezone = typeof timezone === 'string' && timezone ? timezone : 'America/Sao_Paulo';
             finalDateObject = utcToZonedTime(baseDate, validTimezone);
@@ -50,29 +51,38 @@ const formatDisplayDate = (dateInput, timezone) => {
 };
 
 export const Recibo = React.forwardRef(({ data, signature, empresa, timezone, collectorName, coletaDateString, coletaTimeString }, ref) => {
-    if (!data) return null;
+    const { fetchMunicipiosByCodes } = useLocationData();
+    const [resolvedMunicipios, setResolvedMunicipios] = useState({});
 
-    console.log('Recibo - coletaTimeString recebido:', coletaTimeString);
-    console.log('🔍 Recibo - TODOS os campos disponíveis:', {
-        cliente_nome: data.cliente_nome,
-        nome_fantasia: data.nome_fantasia,
-        razao_social: data.razao_social,
-        cnpj_cpf: data.cnpj_cpf,
-        cliente_cnpj_cpf: data.cliente_cnpj_cpf,
-        endereco: data.endereco,
-        cliente_endereco: data.cliente_endereco,
-        TODOS_OS_CAMPOS: Object.keys(data)
-    });
+    useEffect(() => {
+        const resolveNames = async () => {
+            const codes = [];
+            // Coletar códigos do cliente
+            const clientMuni = data.cliente_municipio || data.municipio;
+            if (clientMuni && !isNaN(clientMuni)) codes.push(clientMuni);
+
+            // Coletar códigos da empresa
+            if (empresa?.municipio && !isNaN(empresa.municipio)) codes.push(empresa.municipio);
+
+            if (codes.length > 0) {
+                const mapping = await fetchMunicipiosByCodes(codes);
+                setResolvedMunicipios(mapping);
+            }
+        };
+        resolveNames();
+    }, [data.cliente_municipio, data.municipio, empresa?.municipio, fetchMunicipiosByCodes]);
+
+    if (!data) return null;
 
     const isCompra = data.tipo_coleta === 'Compra';
     const resultadoFinal = isCompra
         ? formatCurrency(parseCurrency(data.total_pago))
         : `${Math.floor(data.quantidade_entregue || 0)} unidades`;
-    
+
     // 🔽 CORREÇÃO DEFINITIVA - USA TODOS OS CAMPOS POSSÍVEIS
-    const clientName = data.nome_fantasia && data.razao_social 
-      ? `${data.nome_fantasia} - ${data.razao_social}`
-      : data.cliente_nome || data.nome_fantasia || data.razao_social || `Cliente ID: ${data.cliente_id}`;
+    const clientName = data.nome_fantasia && data.razao_social
+        ? `${data.nome_fantasia} - ${data.razao_social}`
+        : data.cliente_nome || data.nome_fantasia || data.razao_social || `Cliente ID: ${data.cliente_id}`;
 
     // USA TODOS OS CAMPOS POSSÍVEIS PARA CNPJ/CPF
     const clientCnpjCpf = data.cliente_cnpj_cpf || data.cnpj_cpf || 'Não informado';
@@ -81,45 +91,35 @@ export const Recibo = React.forwardRef(({ data, signature, empresa, timezone, co
     const formatCompleteAddress = () => {
         const endereco = data.cliente_endereco || data.endereco || '';
         const bairro = data.cliente_bairro || data.bairro || '';
-        const municipio = data.cliente_municipio || data.municipio || '';
+        const municipioRaw = data.cliente_municipio || data.municipio || '';
         const estado = data.cliente_estado || data.estado || '';
-        
+
+        // Resolver nome do município se for código
+        const municipio = !isNaN(municipioRaw) && resolvedMunicipios[municipioRaw]
+            ? resolvedMunicipios[municipioRaw]
+            : municipioRaw;
+
         // Primeira linha: endereço e bairro (se houver)
         const enderecoParts = [];
         if (endereco) enderecoParts.push(endereco);
         if (bairro) enderecoParts.push(bairro);
         const enderecoLinha = enderecoParts.length > 0 ? enderecoParts.join(', ') : 'Endereço não informado';
-        
+
         // Segunda linha: separar títulos dos valores
         const cidade = municipio ? municipio.toUpperCase() : '';
         const uf = estado ? estado.toUpperCase() : '';
-        
+
         return {
             endereco: enderecoLinha,
             cidade: cidade,
             uf: uf
         };
     };
-    
+
     const clientAddress = formatCompleteAddress();
 
-    console.log('✅ DEBUG Recibo - Dados FINAIS CORRETOS:', {
-        nomeFinal: clientName,
-        cnpj_cpf: clientCnpjCpf,
-        endereco: clientAddress.endereco,
-        cidade: clientAddress.cidade,
-        uf: clientAddress.uf,
-        cliente_nome: data.cliente_nome,
-        nome_fantasia: data.nome_fantasia,
-        razao_social: data.razao_social,
-        cliente_cnpj_cpf: data.cliente_cnpj_cpf,
-        cnpj_cpf_field: data.cnpj_cpf,
-        cliente_endereco: data.cliente_endereco,
-        endereco_field: data.endereco
-    });
-
     // Dados fallback robustos para a empresa
-    const empresaData = empresa || {
+    const empresaDataRaw = empresa || {
         nome_fantasia: 'Nome da Empresa',
         razao_social: 'Razão Social da Empresa',
         cnpj: 'N/A',
@@ -132,13 +132,15 @@ export const Recibo = React.forwardRef(({ data, signature, empresa, timezone, co
         timezone: 'America/Sao_Paulo'
     };
 
-    console.log('🏢 Recibo - Dados da empresa COMPLETOS:', empresaData);
-    console.log('🏢 Recibo - Todos os campos:', Object.keys(empresaData));
-    console.log('🏢 Recibo - empresa prop recebida (OBJETO COMPLETO):', JSON.stringify(empresa, null, 2));
-    console.log('🏢 Recibo - empresaData.municipio direto:', empresaData.municipio);
-    console.log('🏢 Recibo - empresaData.estado direto:', empresaData.estado);
-    console.log('🏢 Recibo - empresa?.municipio:', empresa?.municipio);
-    console.log('🏢 Recibo - empresa?.estado:', empresa?.estado);
+    // Resolver município da empresa se for código
+    const empresaMunicipioResolved = !isNaN(empresaDataRaw.municipio) && resolvedMunicipios[empresaDataRaw.municipio]
+        ? resolvedMunicipios[empresaDataRaw.municipio]
+        : empresaDataRaw.municipio;
+
+    const empresaData = {
+        ...empresaDataRaw,
+        municipio: empresaMunicipioResolved
+    };
 
     // Estado para controlar erros de carregamento da logo
     const [logoError, setLogoError] = useState(false);
@@ -165,16 +167,16 @@ export const Recibo = React.forwardRef(({ data, signature, empresa, timezone, co
                 <div className="flex justify-center items-center mb-4 h-20">
                     {empresaData.logo_documento_url && !logoError ? (
                         <>
-                            <img 
-                                src={empresaData.logo_documento_url} 
-                                alt="Logo da Empresa" 
-                                className="max-h-full max-w-full object-contain" 
+                            <img
+                                src={empresaData.logo_documento_url}
+                                alt="Logo da Empresa"
+                                className="max-h-full max-w-full object-contain"
                                 crossOrigin="anonymous"
                                 onError={handleLogoError}
                                 onLoad={handleLogoLoad}
-                                style={{ 
+                                style={{
                                     display: logoLoaded ? 'block' : 'none',
-                                    opacity: logoLoaded ? 1 : 0 
+                                    opacity: logoLoaded ? 1 : 0
                                 }}
                             />
                             {!logoLoaded && !logoError && (
@@ -220,7 +222,7 @@ export const Recibo = React.forwardRef(({ data, signature, empresa, timezone, co
                 <div className="grid grid-cols-2 gap-x-4 gap-y-3">
                     <div className="col-span-2">
                         <p className="text-gray-500 text-xs uppercase tracking-wide">CLIENTE</p>
-                        <p className="font-semibold mt-1" style={{ 
+                        <p className="font-semibold mt-1" style={{
                             wordWrap: 'break-word',
                             maxWidth: '100%',
                             fontFamily: 'Arial, Helvetica, sans-serif'
@@ -230,7 +232,7 @@ export const Recibo = React.forwardRef(({ data, signature, empresa, timezone, co
                     </div>
                     <div className="col-span-2">
                         <p className="text-gray-500 text-xs uppercase tracking-wide">ENDEREÇO</p>
-                        <p className="font-semibold mt-1" style={{ 
+                        <p className="font-semibold mt-1" style={{
                             wordWrap: 'break-word',
                             maxWidth: '100%',
                             fontFamily: 'Arial, Helvetica, sans-serif'
@@ -240,7 +242,7 @@ export const Recibo = React.forwardRef(({ data, signature, empresa, timezone, co
                     </div>
                     {(clientAddress.cidade || clientAddress.uf) && (
                         <div className="col-span-2">
-                            <p className="font-semibold" style={{ 
+                            <p className="font-semibold" style={{
                                 wordWrap: 'break-word',
                                 maxWidth: '100%',
                                 fontFamily: 'Arial, Helvetica, sans-serif'
@@ -270,7 +272,7 @@ export const Recibo = React.forwardRef(({ data, signature, empresa, timezone, co
                         </div>
                         <div className="min-w-[100px]">
                             <p className="text-gray-500 text-xs uppercase tracking-wide">COLETADO POR</p>
-                            <p className="font-semibold mt-1" style={{ 
+                            <p className="font-semibold mt-1" style={{
                                 wordWrap: 'break-word',
                                 maxWidth: '100%',
                                 fontFamily: 'Arial, Helvetica, sans-serif'
@@ -320,8 +322,8 @@ export const Recibo = React.forwardRef(({ data, signature, empresa, timezone, co
                                 </tr>
                                 <tr className="border-t border-gray-300 font-bold text-base">
                                     <td className="py-3 align-top">
-                                      Qtd. Entregue
-                                      <p className="text-xs font-normal text-gray-500 mt-1">* Valor Arredondado.</p>
+                                        Qtd. Entregue
+                                        <p className="text-xs font-normal text-gray-500 mt-1">* Valor Arredondado.</p>
                                     </td>
                                     <td className="text-right py-3 align-top">{resultadoFinal}</td>
                                 </tr>
@@ -335,9 +337,9 @@ export const Recibo = React.forwardRef(({ data, signature, empresa, timezone, co
                 <p className="text-gray-500 mb-2 text-xs uppercase tracking-wide">Assinatura do Cliente</p>
                 <div className="w-full h-48 border border-gray-300 rounded-md flex items-center justify-center bg-gray-50">
                     {signature ? (
-                        <img 
-                            src={signature} 
-                            alt="Assinatura do cliente" 
+                        <img
+                            src={signature}
+                            alt="Assinatura do cliente"
                             className="max-h-[54%] max-w-[54%] object-contain"
                             crossOrigin="anonymous"
                             onError={(e) => {

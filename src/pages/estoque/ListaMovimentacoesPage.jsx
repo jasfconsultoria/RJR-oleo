@@ -22,6 +22,7 @@ import { formatNumber } from '@/lib/utils';
 import MovimentacaoViewDialog from '@/components/estoque/MovimentacaoViewDialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { DatePicker } from '@/components/ui/date-picker';
+import MovimentacoesFilters from '@/components/estoque/MovimentacoesFilters';
 
 const ListaMovimentacoesPage = () => {
   const navigate = useNavigate();
@@ -103,28 +104,28 @@ const ListaMovimentacoesPage = () => {
       setTotalCount(0);
     } else {
       let filteredData = data || [];
-      
+
       // Filtro por cliente no lado do cliente (client-side)
       if (debouncedFilters.clientSearchTerm) {
         const searchTermLower = debouncedFilters.clientSearchTerm.toLowerCase();
         filteredData = filteredData.filter(mov => {
           const razaoSocial = mov.cliente?.razao_social || '';
           const nomeFantasia = mov.cliente?.nome_fantasia || '';
-          
+
           return (
             razaoSocial.toLowerCase().includes(searchTermLower) ||
             nomeFantasia.toLowerCase().includes(searchTermLower)
           );
         });
       }
-      
+
       // Filtro por produto no lado do cliente (client-side)
       if (debouncedFilters.selectedProdutoId) {
         filteredData = filteredData.filter(mov =>
           mov.itens_entrada_saida.some(item => item.produto.id === debouncedFilters.selectedProdutoId)
         );
       }
-      
+
       setMovimentacoes(filteredData);
       setTotalCount(filteredData.length);
     }
@@ -136,7 +137,7 @@ const ListaMovimentacoesPage = () => {
       fetchMovimentacoes();
     }
   }, [fetchMovimentacoes, empresa]);
-  
+
   useEffect(() => {
     setCurrentPage(1);
   }, [debouncedFilters, pageSize]);
@@ -168,10 +169,10 @@ const ListaMovimentacoesPage = () => {
   // Função para obter o nome de exibição do cliente
   const getClientDisplayName = (cliente) => {
     if (!cliente) return 'N/A';
-    
+
     const nomeFantasia = cliente.nome_fantasia || '';
     const razaoSocial = cliente.razao_social || '';
-    
+
     if (nomeFantasia && razaoSocial) {
       return `${nomeFantasia} - ${razaoSocial}`;
     }
@@ -195,7 +196,7 @@ const ListaMovimentacoesPage = () => {
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold text-white flex items-center gap-2">
-                <ListChecks className="w-8 h-8 text-emerald-400" /> Movimentações de Estoque
+              <ListChecks className="w-8 h-8 text-emerald-400" /> Movimentações de Estoque
             </h1>
             <p className="text-emerald-200/80 mt-1">Visualize e gerencie todas as entradas e saídas do estoque.</p>
           </div>
@@ -209,89 +210,10 @@ const ListaMovimentacoesPage = () => {
           </div>
         </motion.div>
 
-        <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 md:p-6 space-y-4 relative z-10">
-          {/* Primeira linha de filtros */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
-            {/* Buscar */}
-            <div className="lg:col-span-1">
-              <Label htmlFor="searchTerm" className="block text-white mb-1 text-sm">Buscar</Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/70" />
-                <Input
-                  id="searchTerm"
-                  type="search"
-                  placeholder="Nº Doc, Observação..."
-                  value={filters.searchTerm}
-                  onChange={(e) => handleFilterChange('searchTerm', e.target.value)}
-                  className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60 rounded-xl"
-                />
-              </div>
-            </div>
-            
-            {/* Cliente */}
-            <div className="lg:col-span-2">
-              <Label htmlFor="clientSearch" className="block text-white mb-1 text-sm">Cliente</Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/70" />
-                <Input
-                  id="clientSearch"
-                  type="search"
-                  placeholder="Buscar por nome fantasia ou razão social..."
-                  value={filters.clientSearchTerm}
-                  onChange={(e) => handleFilterChange('clientSearchTerm', e.target.value)}
-                  className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60 rounded-xl"
-                />
-              </div>
-            </div>
-
-            {/* Produto */}
-            <div className="lg:col-span-1">
-              <ProdutoSearchableSelect
-                labelText="Produto"
-                value={filters.selectedProdutoId}
-                onChange={(product) => handleFilterChange('selectedProdutoId', product ? product.id : null)}
-              />
-            </div>
-
-            {/* Tipo */}
-            <div className="lg:col-span-1">
-              <Label htmlFor="type" className="block text-white mb-1 text-sm">Tipo</Label>
-              <Select value={filters.type} onValueChange={(value) => handleFilterChange('type', value)}>
-                <SelectTrigger className="bg-white/20 border-white/30 text-white rounded-xl">
-                  <SelectValue placeholder="Todos" />
-                </SelectTrigger>
-                <SelectContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
-                  <SelectItem value="all">Todos</SelectItem>
-                  <SelectItem value="entrada">Entrada</SelectItem>
-                  <SelectItem value="saida">Saída</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Segunda linha de filtros */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
-            {/* Data Início */}
-            <div className="lg:col-span-1">
-              <Label htmlFor="startDate" className="block text-white mb-1 text-sm">Data Início</Label>
-              <DatePicker
-                date={filters.startDate}
-                setDate={(date) => handleFilterChange('startDate', date)}
-                className="w-full bg-white/20 border-white/30 text-white rounded-xl"
-              />
-            </div>
-            
-            {/* Data Fim */}
-            <div className="lg:col-span-1">
-              <Label htmlFor="endDate" className="block text-white mb-1 text-sm">Data Fim</Label>
-              <DatePicker
-                date={filters.endDate}
-                setDate={(date) => handleFilterChange('endDate', date)}
-                className="w-full bg-white/20 border-white/30 text-white rounded-xl"
-              />
-            </div>
-          </div>
-        </div>
+        <MovimentacoesFilters
+          filters={filters}
+          handleFilterChange={handleFilterChange}
+        />
 
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white/10 backdrop-blur-sm rounded-xl">
           <div className="overflow-x-auto rounded-xl">
@@ -351,10 +273,10 @@ const ListaMovimentacoesPage = () => {
                                 {/* Botão Editar */}
                                 <Tooltip>
                                   <TooltipTrigger asChild>
-                                    <Button 
-                                      variant="ghost" 
-                                      size="icon" 
-                                      className={`text-yellow-400 hover:text-yellow-300 rounded-xl ${isVinculadaColeta ? 'opacity-50 cursor-not-allowed' : ''}`} 
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className={`text-yellow-400 hover:text-yellow-300 rounded-xl ${isVinculadaColeta ? 'opacity-50 cursor-not-allowed' : ''}`}
                                       onClick={() => !isVinculadaColeta && navigate(getEditRoute(mov))}
                                       disabled={isVinculadaColeta}
                                     >
@@ -371,9 +293,9 @@ const ListaMovimentacoesPage = () => {
                                   // Botão desabilitado quando vinculado a coleta
                                   <Tooltip>
                                     <TooltipTrigger asChild>
-                                      <Button 
-                                        variant="ghost" 
-                                        size="icon" 
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
                                         className="opacity-50 cursor-not-allowed text-red-400 rounded-xl"
                                         disabled
                                       >
@@ -427,7 +349,7 @@ const ListaMovimentacoesPage = () => {
                 </TableBody>
               </Table>
             )}
-            </div>
+          </div>
         </motion.div>
 
         <Pagination

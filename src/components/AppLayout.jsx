@@ -11,6 +11,7 @@ import {
   UserCircle,
   Menu,
   X,
+  Calendar,
   Users,
   UserCog,
   Building,
@@ -34,6 +35,8 @@ import {
   ChevronsLeft,
   ChevronsRight,
   MapPin,
+  Route,
+  Settings,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useProfile } from '@/contexts/ProfileContext';
@@ -57,6 +60,16 @@ const AppLayout = ({ children }) => {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const { profile } = useProfile();
+
+  const getRoleLabel = (role) => {
+    const labels = {
+      super_admin: 'Super Admin',
+      administrador: 'Administrador',
+      gerente: 'Gerente',
+      coletor: 'Coletor',
+    };
+    return labels[role] || role;
+  };
 
   useEffect(() => {
     setSidebarOpen(false);
@@ -94,7 +107,6 @@ const AppLayout = ({ children }) => {
       icon: ClipboardList, // Using ClipboardList for Cadastro
       subItems: [
         { to: '/app/cadastro/clientes', label: 'Clientes', icon: Users },
-        { to: '/app/cadastro/clientes/mapa', label: 'Mapa de Clientes', icon: MapPin },
         { to: '/app/cadastro/fornecedores', label: 'Fornecedores', icon: Users },
         { to: '/app/cadastro/contratos', label: 'Contratos', icon: FileSignature },
       ]
@@ -102,38 +114,41 @@ const AppLayout = ({ children }) => {
     {
       label: 'Financeiro',
       icon: DollarSign,
-      adminOnly: true,
+      roles: ['super_admin', 'administrador'],
       subItems: [
         { to: '/app/financeiro/credito', label: 'Crédito', icon: TrendingUp },
         { to: '/app/financeiro/debito', label: 'Débito', icon: TrendingDown },
-        { to: '/app/financeiro/recibos', label: 'Recibos', icon: FileText, adminOnly: true },
+        { to: '/app/financeiro/recibos', label: 'Recibos', icon: FileText, roles: ['super_admin', 'administrador'] },
         { to: '/app/centros-custo', label: 'Centro de Custos', icon: Tag },
       ]
     },
+    { to: '/app/agenda', label: 'Agenda', icon: Calendar, roles: ['super_admin', 'administrador', 'gerente'] },
     {
       label: 'Coletas',
       icon: Truck,
       subItems: [
         { to: '/app/coletas', label: 'Lista de Coletas', icon: Truck },
-        { to: '/app/coletas/agenda', label: 'Agenda Operacional', icon: ClipboardList },
+        { to: '/app/coletas/rotas', label: 'Rotas de Coletas', icon: Route },
+        { to: '/app/coletas/mapa', label: 'Mapa de Coletas', icon: MapPin },
       ]
     },
-    { to: '/app/certificados', icon: FileText, label: 'Certificados', adminOnly: true },
+    { to: '/app/recipientes', label: 'Recipientes', icon: Box },
+    { to: '/app/certificados', icon: FileText, label: 'Certificados', roles: ['super_admin', 'administrador', 'gerente'] },
     {
       label: 'Relatórios',
       icon: BarChart2,
-      adminOnly: true,
+      roles: ['super_admin', 'administrador', 'gerente'],
       subItems: [
         { to: '/app/relatorios/coletas', label: 'Coletas', icon: Truck },
-        { to: '/app/relatorios/financeiro', label: 'Financeiro', icon: DollarSign },
+        { to: '/app/relatorios/financeiro', label: 'Financeiro', icon: DollarSign, roles: ['super_admin', 'administrador'] },
         { to: '/app/relatorios/estoque', label: 'Estoque', icon: Warehouse },
-        { to: '/app/relatorios/recipientes', label: 'Recipientes', icon: Box }, // Novo item
+        { to: '/app/relatorios/recipientes', label: 'Recipientes', icon: Box },
       ]
     },
     {
       label: 'Estoque',
       icon: Warehouse,
-      adminOnly: true,
+      roles: ['super_admin', 'administrador', 'gerente'],
       subItems: [
         { to: '/app/estoque/produtos', label: 'Produtos', icon: Package },
         { to: '/app/estoque/entradas', label: 'Entradas', icon: ArrowDownSquare },
@@ -142,9 +157,16 @@ const AppLayout = ({ children }) => {
         { to: '/app/estoque/saldo', label: 'Saldo Atual', icon: Scale },
       ]
     },
-    { to: '/app/usuarios', icon: UserCog, label: 'Usuários', adminOnly: true },
-    { to: '/app/empresa', icon: Building, label: 'Empresa', adminOnly: true },
-    { to: '/app/logs', icon: BookText, label: 'Logs', adminOnly: true },
+    {
+      label: 'Configurações',
+      icon: Settings,
+      roles: ['super_admin', 'administrador'],
+      subItems: [
+        { to: '/app/empresa', label: 'Empresa', icon: Building, roles: ['super_admin', 'administrador'] },
+        { to: '/app/usuarios', label: 'Usuários', icon: UserCog, roles: ['super_admin', 'administrador'] },
+        { to: '/app/logs', label: 'Logs', icon: BookText, roles: ['super_admin', 'administrador'] },
+      ]
+    },
     { to: '/app/sobre', icon: Info, label: 'Sobre' },
     { to: '/app/versoes', icon: GitBranch, label: 'Versões' },
   ];
@@ -157,7 +179,7 @@ const AppLayout = ({ children }) => {
   const NavLinks = () => (
     <nav className="flex flex-col gap-2 px-4">
       {navItems.map((item) => {
-        if (item.adminOnly && profile?.role !== 'administrador') {
+        if (item.roles && !item.roles.includes(profile?.role)) {
           return null;
         }
 
@@ -179,8 +201,8 @@ const AppLayout = ({ children }) => {
                 <DropdownMenuLabel>{item.label}</DropdownMenuLabel>
                 <DropdownMenuSeparator className="bg-gray-700" />
                 {item.subItems.map(subItem => {
-                  // Verificar se o subItem requer permissão de administrador
-                  if (subItem.adminOnly && profile?.role !== 'administrador') {
+                  // Verificar se o subItem requer permissão específica
+                  if (subItem.roles && !subItem.roles.includes(profile?.role)) {
                     return null;
                   }
 
@@ -334,7 +356,7 @@ const AppLayout = ({ children }) => {
               <p className="font-semibold flex items-center gap-2 text-sm truncate">
                 <UserCircle className="w-5 h-5" /> {profile?.full_name || user?.email}
               </p>
-              <p className="text-xs text-emerald-300 capitalize">{profile?.role}</p>
+              <p className="text-xs text-emerald-300 capitalize">{getRoleLabel(profile?.role)}</p>
             </div>
           </header>
           <main className="flex-1 p-4 lg:p-6 overflow-auto">

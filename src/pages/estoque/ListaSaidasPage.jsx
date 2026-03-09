@@ -18,6 +18,7 @@ import { format, parseISO, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import SaidasFilters from '@/components/estoque/SaidasFilters';
 
 // Helper component for sortable table headers
 const TableHeaderSortable = ({ columnKey, label, sortConfig, onSort, className }) => {
@@ -50,7 +51,7 @@ const ListaSaidasPage = () => {
   const [startDate, setStartDate] = useState(startOfMonth(new Date()));
   const [endDate, setEndDate] = useState(endOfMonth(new Date()));
   const [sortConfig, setSortConfig] = useState({ key: 'data', direction: 'desc' });
-  
+
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
   const debouncedProductSearchTerm = useDebounce(productSearchTerm, 500);
   const debouncedStartDate = useDebounce(startDate ? format(startDate, 'yyyy-MM-dd') : null, 500);
@@ -138,7 +139,7 @@ const ListaSaidasPage = () => {
       fetchSummary();
     }
   }, [fetchEntries, fetchSummary, empresa]);
-  
+
   useEffect(() => {
     setCurrentPage(1);
   }, [debouncedSearchTerm, debouncedProductSearchTerm, debouncedStartDate, debouncedEndDate, pageSize, sortConfig]);
@@ -178,7 +179,7 @@ const ListaSaidasPage = () => {
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold text-white flex items-center gap-2">
-                <ArrowUpSquare className="w-8 h-8 text-emerald-400" /> Lista de Saídas
+              <ArrowUpSquare className="w-8 h-8 text-emerald-400" /> Lista de Saídas
             </h1>
             <p className="text-emerald-200/80 mt-1">Gerencie as saídas de produtos do estoque.</p>
           </div>
@@ -187,56 +188,16 @@ const ListaSaidasPage = () => {
           </Button>
         </div>
 
-        <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 md:p-6 space-y-4 relative z-10">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div>
-              <Label htmlFor="searchTerm" className="block text-white mb-1 text-sm">Buscar Documento</Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/70" />
-                <Input
-                  id="searchTerm"
-                  type="search"
-                  placeholder="Nº Documento, observação..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60 rounded-xl"
-                />
-              </div>
-            </div>
-            <div>
-              <Label htmlFor="productSearchTerm" className="block text-white mb-1 text-sm">Buscar Produto</Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/70" />
-                <Input
-                  id="productSearchTerm"
-                  type="search"
-                  placeholder="Nome, código do produto..."
-                  value={productSearchTerm}
-                  onChange={(e) => setProductSearchTerm(e.target.value)}
-                  className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60 rounded-xl"
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4 col-span-2">
-              <div>
-                <Label htmlFor="startDate" className="block text-white mb-1 text-sm">Data Início</Label>
-                <DatePicker
-                  date={startDate}
-                  setDate={setStartDate}
-                  className="w-full bg-white/20 border-white/30 text-white rounded-xl"
-                />
-              </div>
-              <div>
-                <Label htmlFor="endDate" className="block text-white mb-1 text-sm">Data Fim</Label>
-                <DatePicker
-                  date={endDate}
-                  setDate={setEndDate}
-                  className="w-full bg-white/20 border-white/30 text-white rounded-xl"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
+        <SaidasFilters
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          productSearchTerm={productSearchTerm}
+          setProductSearchTerm={setProductSearchTerm}
+          startDate={startDate}
+          setStartDate={setStartDate}
+          endDate={endDate}
+          setEndDate={setEndDate}
+        />
 
         <div className="bg-white/10 backdrop-blur-sm rounded-xl">
           <div className="overflow-x-auto rounded-xl">
@@ -283,9 +244,9 @@ const ListaSaidasPage = () => {
                                   // Botão desabilitado quando vinculado a coleta
                                   <Tooltip>
                                     <TooltipTrigger asChild>
-                                      <Button 
-                                        variant="ghost" 
-                                        size="icon" 
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
                                         className="opacity-50 cursor-not-allowed text-yellow-400 rounded-xl"
                                         disabled
                                       >
@@ -300,11 +261,11 @@ const ListaSaidasPage = () => {
                                   // Botão habilitado quando NÃO vinculado a coleta
                                   <Tooltip>
                                     <TooltipTrigger asChild>
-                                      <Button 
-                                        variant="ghost" 
-                                        size="icon" 
-                                        title="Editar Saída" 
-                                        className="text-yellow-400 hover:text-yellow-300 rounded-xl" 
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        title="Editar Saída"
+                                        className="text-yellow-400 hover:text-yellow-300 rounded-xl"
                                         onClick={() => navigate(`/app/estoque/saidas/editar/${entry.id}`)}
                                       >
                                         <Edit className="h-4 w-4" />
@@ -321,9 +282,9 @@ const ListaSaidasPage = () => {
                                   // Botão desabilitado quando vinculado a coleta
                                   <Tooltip>
                                     <TooltipTrigger asChild>
-                                      <Button 
-                                        variant="ghost" 
-                                        size="icon" 
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
                                         className="opacity-50 cursor-not-allowed text-red-400 rounded-xl"
                                         disabled
                                       >
@@ -340,9 +301,9 @@ const ListaSaidasPage = () => {
                                     <Tooltip>
                                       <TooltipTrigger asChild>
                                         <AlertDialogTrigger asChild>
-                                          <Button 
-                                            variant="ghost" 
-                                            size="icon" 
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
                                             className="text-red-400 hover:text-red-300 rounded-xl"
                                             title="Excluir Saída"
                                           >
@@ -389,15 +350,15 @@ const ListaSaidasPage = () => {
                 )}
               </Table>
             )}
-            </div>
-            {entries.length > 0 && !loading && (
-              <div className="md:hidden bg-black/20 font-bold text-white border-t-2 border-emerald-500 text-sm p-4 mt-0 rounded-b-xl space-y-2">
-                <div className="flex justify-between items-center">
-                  <span>Total de Saídas (Período):</span>
-                  <span>{formatNumber(summary.total_quantity_out)} kg</span>
-                </div>
+          </div>
+          {entries.length > 0 && !loading && (
+            <div className="md:hidden bg-black/20 font-bold text-white border-t-2 border-emerald-500 text-sm p-4 mt-0 rounded-b-xl space-y-2">
+              <div className="flex justify-between items-center">
+                <span>Total de Saídas (Período):</span>
+                <span>{formatNumber(summary.total_quantity_out)} kg</span>
               </div>
-            )}
+            </div>
+          )}
         </div>
 
         {totalCount > 0 && (

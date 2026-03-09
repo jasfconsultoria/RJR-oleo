@@ -3,8 +3,29 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { formatDateWithTimezone, formatCnpjCpf, formatNumber } from '@/lib/utils';
 import { QRCodeSVG as QRCode } from 'qrcode.react';
+import { useLocationData } from '@/hooks/useLocationData';
 
 const CertificadoPDF = ({ data }) => {
+  const { fetchMunicipiosByCodes } = useLocationData();
+  const [resolvedMunicipios, setResolvedMunicipios] = React.useState({});
+
+  React.useEffect(() => {
+    const resolveNames = async () => {
+      if (!data) return;
+      const codes = [];
+      if (data.cliente?.municipio && !isNaN(data.cliente.municipio)) codes.push(data.cliente.municipio);
+
+      const emp = data.empresa || data.empresaData;
+      if (emp?.municipio && !isNaN(emp.municipio)) codes.push(emp.municipio);
+
+      if (codes.length > 0) {
+        const mapping = await fetchMunicipiosByCodes(codes);
+        setResolvedMunicipios(mapping);
+      }
+    };
+    resolveNames();
+  }, [data, fetchMunicipiosByCodes]);
+
   if (!data) return null;
 
   const { id, cliente, empresa, periodo, totalKg, data_emissao } = data;
@@ -43,7 +64,7 @@ const CertificadoPDF = ({ data }) => {
           </p>
           <p>CNPJ: {formatCnpjCpf(empresaData?.cnpj)}</p>
           <p>{empresaData?.endereco}</p>
-          <p>{empresaData?.municipio} - {empresaData?.estado}</p>
+          <p>{(!isNaN(empresaData?.municipio) && resolvedMunicipios[empresaData?.municipio] ? resolvedMunicipios[empresaData?.municipio] : empresaData?.municipio) || ''} - {empresaData?.estado}</p>
           <p>Telefone: {empresaData?.telefone} | Email: {empresaData?.email}</p>
         </div>
       </header>

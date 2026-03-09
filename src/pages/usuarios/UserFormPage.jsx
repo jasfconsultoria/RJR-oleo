@@ -33,7 +33,7 @@ const UserFormPage = () => {
   const fetchUser = useCallback(async (userId) => {
     setLoading(true);
     const { data, error } = await supabase.rpc('get_all_users');
-    
+
     if (error) {
       toast({ title: 'Erro ao carregar usuário', description: error.message, variant: 'destructive' });
       navigate('/app/usuarios');
@@ -90,16 +90,16 @@ const UserFormPage = () => {
 
   const handleUpdateUser = async () => {
     console.log('🔄 Atualizando usuário:', { id, userFormData });
-    
+
     if (!id) {
       return { message: 'ID do usuário não fornecido' };
     }
 
     // Validar role
-    const validRole = userFormData.role === 'coletor' || userFormData.role === 'administrador' 
-      ? userFormData.role 
+    const validRole = ['super_admin', 'administrador', 'gerente', 'coletor'].includes(userFormData.role)
+      ? userFormData.role
       : 'coletor';
-    
+
     console.log('📝 Role validado:', validRole);
 
     // Atualizar diretamente em profiles usando UPDATE (não upsert) para garantir que atualize
@@ -107,7 +107,7 @@ const UserFormPage = () => {
     console.log('📝 Tentando atualizar via UPDATE direto...');
     const { data: updateData, error: updateError } = await supabase
       .from('profiles')
-      .update({ 
+      .update({
         full_name: userFormData.full_name,
         role: validRole,
         cpf: userFormData.cpf || null,
@@ -119,7 +119,7 @@ const UserFormPage = () => {
 
     if (updateError) {
       console.error('❌ Erro no update:', updateError);
-      
+
       // Se update falhar (pode ser porque o registro não existe), tentar upsert
       console.log('🔄 Tentando upsert (pode ser que o registro não exista)...');
       const profileData = {
@@ -139,18 +139,18 @@ const UserFormPage = () => {
           onConflict: 'id'
         })
         .select();
-      
+
       if (upsertError) {
         console.error('❌ Erro no upsert também:', upsertError);
         return upsertError;
       }
-      
+
       console.log('✅ Perfil criado/atualizado com sucesso (upsert):', upsertData);
       return null;
     }
 
     console.log('✅ Perfil atualizado com sucesso (update):', updateData);
-    
+
     // Verificar se o role foi realmente atualizado
     if (updateData && updateData[0]) {
       console.log('✅ Role confirmado na resposta:', updateData[0].role);
@@ -166,8 +166,8 @@ const UserFormPage = () => {
     // A função get_all_users agora busca de profiles, então isso é apenas para sincronização
     try {
       const { error: functionError } = await supabase.functions.invoke('update-user', {
-        body: { 
-          userId: id, 
+        body: {
+          userId: id,
           userData: {
             full_name: userFormData.full_name,
             role: validRole
@@ -182,7 +182,7 @@ const UserFormPage = () => {
     } catch (err) {
       console.warn('⚠️ Erro ao chamar edge function update-user (não crítico):', err);
     }
-    
+
     return null;
   };
 
@@ -192,7 +192,7 @@ const UserFormPage = () => {
       email: userFormData.email,
       password: userFormData.password,
       options: {
-        data: { 
+        data: {
           full_name: userFormData.full_name,
           cpf: userFormData.cpf || null,
           telefone: userFormData.telefone || null,
@@ -250,7 +250,7 @@ const UserFormPage = () => {
     } else {
       error = await handleCreateUser();
     }
-    
+
     if (error) {
       toast({ title: `Erro ao ${isEditing ? 'atualizar' : 'cadastrar'} usuário`, description: error.message, variant: 'destructive' });
       await logAction(isEditing ? 'update_user_failed' : 'create_user_failed', { error: error.message, user_email: userFormData.email });
@@ -263,7 +263,7 @@ const UserFormPage = () => {
           .select('id, full_name, role')
           .eq('id', id)
           .single();
-        
+
         if (!verifyError && verifyData) {
           console.log('✅ Dados confirmados após update:', verifyData);
           if (verifyData.role !== userFormData.role) {
@@ -271,8 +271,8 @@ const UserFormPage = () => {
               esperado: userFormData.role,
               atual: verifyData.role
             });
-            toast({ 
-              title: 'Aviso', 
+            toast({
+              title: 'Aviso',
               description: `Perfil atualizado, mas o role pode não ter sido alterado. Verifique manualmente.`,
               variant: 'default'
             });
@@ -283,12 +283,12 @@ const UserFormPage = () => {
       } else {
         toast({ title: `Usuário cadastrado com sucesso!` });
       }
-      
+
       await logAction(isEditing ? 'update_user_success' : 'create_user_success', { user_email: userFormData.email, role: userFormData.role });
-      
+
       // Pequeno delay para garantir que o banco processou
       await new Promise(resolve => setTimeout(resolve, 500));
-      
+
       navigate('/app/usuarios');
     }
     setLoading(false);
@@ -301,7 +301,7 @@ const UserFormPage = () => {
   if (loading && isEditing) {
     return <div className="flex justify-center items-center h-full"><Loader2 className="h-8 w-8 animate-spin text-emerald-400" /></div>;
   }
-  
+
   return (
     <>
       <Helmet>

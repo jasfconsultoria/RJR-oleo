@@ -14,6 +14,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Pagination } from '@/components/ui/pagination';
 import { logAction } from '@/lib/logger';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import ProdutosFilters from '@/components/produtos/ProdutosFilters';
 
 const RESTRICTED_PRODUCTS = [
   "Óleo de fritura",
@@ -84,7 +85,7 @@ const ListaProdutosPage = () => {
       fetchProdutos();
     }
   }, [fetchProdutos, empresa]);
-  
+
   useEffect(() => {
     setCurrentPage(1);
   }, [debouncedSearchTerm, typeFilter, activeFilter, pageSize]);
@@ -112,7 +113,7 @@ const ListaProdutosPage = () => {
     setSortConfig({ key, direction });
     setCurrentPage(1);
   };
-  
+
   const getSortIcon = (key) => {
     if (sortConfig.key !== key) return null;
     return sortConfig.direction === 'asc' ? <ChevronUp className="w-4 h-4 ml-1" /> : <ChevronDown className="w-4 h-4 ml-1" />;
@@ -127,7 +128,7 @@ const ListaProdutosPage = () => {
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold text-white flex items-center gap-2">
-                <Package className="w-8 h-8 text-emerald-400" /> Lista de Produtos
+              <Package className="w-8 h-8 text-emerald-400" /> Lista de Produtos
             </h1>
             <p className="text-emerald-200/80 mt-1">Gerencie os produtos disponíveis no estoque.</p>
           </div>
@@ -136,50 +137,14 @@ const ListaProdutosPage = () => {
           </Button>
         </motion.div>
 
-        <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 md:p-6 space-y-4 relative z-10">
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            <div>
-              <Label htmlFor="searchTerm" className="block text-white mb-1 text-sm">Buscar</Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/70" />
-                <Input
-                  id="searchTerm"
-                  type="search"
-                  placeholder="Nome ou código do produto..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60 rounded-xl"
-                />
-              </div>
-            </div>
-            <div>
-              <Label htmlFor="typeFilter" className="block text-white mb-1 text-sm">Tipo</Label>
-              <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger className="bg-white/20 border-white/30 text-white rounded-xl">
-                  <SelectValue placeholder="Todos os Tipos" />
-                </SelectTrigger>
-                <SelectContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
-                  <SelectItem value="all">Todos</SelectItem>
-                  <SelectItem value="coletado">Coletado</SelectItem>
-                  <SelectItem value="novo">Novo</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="activeFilter" className="block text-white mb-1 text-sm">Status</Label>
-              <Select value={activeFilter} onValueChange={setActiveFilter}>
-                <SelectTrigger className="bg-white/20 border-white/30 text-white rounded-xl">
-                  <SelectValue placeholder="Todos os Status" />
-                </SelectTrigger>
-                <SelectContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
-                  <SelectItem value="all">Todos</SelectItem>
-                  <SelectItem value="true">Ativo</SelectItem>
-                  <SelectItem value="false">Inativo</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </div>
+        <ProdutosFilters
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          typeFilter={typeFilter}
+          setTypeFilter={setTypeFilter}
+          activeFilter={activeFilter}
+          setActiveFilter={setActiveFilter}
+        />
 
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white/10 backdrop-blur-sm rounded-xl">
           <div className="overflow-x-auto rounded-xl">
@@ -223,11 +188,11 @@ const ListaProdutosPage = () => {
                             {produto.ativo ? <CheckCircle className="h-5 w-5 text-green-500 mx-auto" /> : <XCircle className="h-5 w-5 text-red-500 mx-auto" />}
                           </TableCell>
                           <TableCell className="text-right actions-cell">
-                             <div className="flex justify-end items-center gap-2">
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="text-yellow-400 hover:text-yellow-300 rounded-xl" 
+                            <div className="flex justify-end items-center gap-2">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-yellow-400 hover:text-yellow-300 rounded-xl"
                                 onClick={() => navigate(`/app/estoque/produtos/editar/${produto.id}`)}
                                 disabled={isRestricted}
                               >
@@ -235,9 +200,9 @@ const ListaProdutosPage = () => {
                               </Button>
                               <AlertDialog>
                                 <AlertDialogTrigger asChild>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="icon" 
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
                                     className="text-red-400 hover:text-red-300 rounded-xl"
                                     disabled={isRestricted}
                                   >
@@ -255,7 +220,7 @@ const ListaProdutosPage = () => {
                                   </AlertDialogFooter>
                                 </AlertDialogContent>
                               </AlertDialog>
-                             </div>
+                            </div>
                           </TableCell>
                         </TableRow>
                       );
@@ -266,7 +231,7 @@ const ListaProdutosPage = () => {
                 </TableBody>
               </Table>
             )}
-            </div>
+          </div>
         </motion.div>
 
         <Pagination

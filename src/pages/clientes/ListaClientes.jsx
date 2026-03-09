@@ -35,7 +35,8 @@ import {
   Users,
   FileText,
   Truck,
-  MapPin
+  MapPin,
+  Filter
 } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useProfile } from '@/contexts/ProfileContext';
@@ -44,7 +45,9 @@ import { format } from 'date-fns';
 import { logAction } from '@/lib/logger';
 import { Pagination } from '@/components/ui/pagination';
 import { useDebounce } from '@/hooks/useDebounce';
+import { useLocationData } from '@/hooks/useLocationData';
 import AdminConfirmationDialog from '@/components/financeiro/AdminConfirmationDialog';
+import ClientesFilters from '@/components/clientes/ClientesFilters';
 
 // Constantes e configurações
 const CONFIG = {
@@ -164,26 +167,31 @@ const checkClienteDeletable = async (clienteId) => {
 const useClientesList = (personType, profile) => {
   const [state, setState] = useState({
     clientes: [],
+    allClientes: [], // Todos os clientes do banco (respeitando o RLS/Role) sem paginação
     allContratos: [],
     loading: true,
     searchTerm: '',
     sortConfig: { key: 'razao_social', direction: 'asc' },
     currentPage: 1,
     totalCount: 0,
+    filterEstado: 'todos',
+    filterMunicipio: 'todos',
     empresa: { items_per_page: CONFIG.PAGE_SIZE_DEFAULT },
     isConfirmDialogOpen: false,
-    selectedForDeletion: null
+    selectedForDeletion: null,
+    municipioMap: {} // Novo campo para mapeamento de códigos
   });
 
-  const debouncedSearchTerm = useDebounce(state.searchTerm, CONFIG.DEBOUNCE_DELAY);
+  const { estados, fetchMunicipiosByCodes } = useLocationData();
   const { toast } = useToast();
   const labels = usePersonTypeLabels(personType);
+  const debouncedSearchTerm = useDebounce(state.searchTerm, 500);
 
   // Fetch dados da empresa
   useEffect(() => {
     const fetchEmpresaData = async () => {
       const userRole = profile?.role;
-      const canAccessEmpresa = ['administrador', 'gerente'].includes(userRole);
+      const canAccessEmpresa = ['super_admin', 'administrador', 'gerente'].includes(userRole);
 
       if (!canAccessEmpresa) {
         setState(prev => ({
@@ -289,24 +297,36 @@ const useClientesList = (personType, profile) => {
         );
         totalFiltrado = clientesFiltrados.length;
         console.log('🎯 Meus clientes após filtro:', clientesFiltrados.length);
-      } else if (profile.role === 'administrador' || profile.role === 'gerente') {
+      } else if (['super_admin', 'administrador', 'gerente'].includes(profile.role)) {
         clientesFiltrados = allClientes;
         totalFiltrado = count || 0;
-        console.log('👑 Administrador vendo todos os clientes:', totalFiltrado);
+        console.log('👑 Admin/Super Admin vendo todos os clientes:', totalFiltrado);
       }
+
+      // Armazenar os clientes brutos para os filtros geográficos (allClientes)
+      const rawClients = [...clientesFiltrados];
 
       // Aplicar busca se houver termo
       if (debouncedSearchTerm) {
         const term = debouncedSearchTerm.toLowerCase();
         clientesFiltrados = clientesFiltrados.filter(cliente =>
-        (cliente.nome_fantasia?.toLowerCase().includes(term) ||
-          cliente.razao_social?.toLowerCase().includes(term) ||
+        (cliente.nome_fantasia?.toLowerCase()?.includes(term) ||
+          cliente.razao_social?.toLowerCase()?.includes(term) ||
           cliente.cnpj_cpf?.includes(term) ||
-          cliente.municipio?.toLowerCase().includes(term) ||
-          cliente.estado?.toLowerCase().includes(term))
+          cliente.municipio?.toLowerCase()?.includes(term) ||
+          cliente.estado?.toLowerCase()?.includes(term))
         );
         totalFiltrado = clientesFiltrados.length;
       }
+
+      // Filtros Geográficos
+      if (state.filterEstado !== 'todos') {
+        clientesFiltrados = clientesFiltrados.filter(c => c.estado === state.filterEstado);
+      }
+      if (state.filterMunicipio !== 'todos') {
+        clientesFiltrados = clientesFiltrados.filter(c => c.municipio === state.filterMunicipio);
+      }
+      totalFiltrado = clientesFiltrados.length;
 
       // Aplicar ordenação
       clientesFiltrados.sort((a, b) => {
@@ -325,8 +345,16 @@ const useClientesList = (personType, profile) => {
       const endIndex = startIndex + state.empresa.items_per_page;
       const clientesPaginados = clientesFiltrados.slice(startIndex, endIndex);
 
+      // Resolver nomes de municípios para novos códigos
+      const codesToResolve = [...new Set(rawClients.map(c => c.municipio).filter(c => c && !isNaN(c)))];
+      if (codesToResolve.length > 0) {
+        const mapping = await fetchMunicipiosByCodes(codesToResolve);
+        setState(prev => ({ ...prev, municipioMap: { ...prev.municipioMap, ...mapping } }));
+      }
+
       setState(prev => ({
         ...prev,
+        allClientes: rawClients,
         clientes: clientesPaginados,
         totalCount: totalFiltrado,
         loading: false
@@ -339,9 +367,9 @@ const useClientesList = (personType, profile) => {
         description: error.message,
         variant: 'destructive',
       });
-      setState(prev => ({ ...prev, clientes: [], loading: false }));
+      setState(prev => ({ ...prev, clientes: [], allClientes: [], loading: false }));
     }
-  }, [profile, state.currentPage, state.empresa, debouncedSearchTerm, state.sortConfig, toast]);
+  }, [profile, state.currentPage, state.empresa, debouncedSearchTerm, state.sortConfig, state.filterEstado, state.filterMunicipio, toast]);
 
   useEffect(() => {
     fetchClientes();
@@ -350,7 +378,7 @@ const useClientesList = (personType, profile) => {
   // Resetar página quando search term ou page size mudar
   useEffect(() => {
     setState(prev => ({ ...prev, currentPage: 1 }));
-  }, [debouncedSearchTerm, state.empresa?.items_per_page]);
+  }, [debouncedSearchTerm, state.empresa?.items_per_page, state.filterEstado, state.filterMunicipio]);
 
   // Actions
   const handleInitiateDelete = (cliente) => {
@@ -505,6 +533,14 @@ const useClientesList = (personType, profile) => {
     setState(prev => ({ ...prev, currentPage: page }));
   };
 
+  const setFilterEstado = (estado) => {
+    setState(prev => ({ ...prev, filterEstado: estado, filterMunicipio: 'todos' }));
+  };
+
+  const setFilterMunicipio = (municipio) => {
+    setState(prev => ({ ...prev, filterMunicipio: municipio }));
+  };
+
   return {
     ...state,
     labels,
@@ -513,11 +549,41 @@ const useClientesList = (personType, profile) => {
     requestSort,
     updateSearchTerm,
     setCurrentPage,
+    setFilterEstado,
+    setFilterMunicipio,
     handleInitiateDelete,
     handleConfirmedDelete,
     setIsConfirmDialogOpen: (open) => setState(prev => ({ ...prev, isConfirmDialogOpen: open })),
-    pageSize: state.empresa?.items_per_page || CONFIG.PAGE_SIZE_DEFAULT
+    pageSize: state.empresa?.items_per_page || CONFIG.PAGE_SIZE_DEFAULT,
+    municipioMap: state.municipioMap
   };
+};
+
+// Hook para extrair estados e municípios únicos
+const useGeoFilters = (allClientes, filterEstado, municipioMap) => {
+  const estados = useMemo(() => {
+    return [...new Set(allClientes.map(c => c.estado).filter(Boolean))].sort();
+  }, [allClientes]);
+
+  const municipios = useMemo(() => {
+    let filtered = allClientes;
+    if (filterEstado !== 'todos') {
+      filtered = filtered.filter(c => c.estado === filterEstado);
+    }
+
+    // Extrair municípios únicos. 
+    // Se for um código, tenta resolver o nome.
+    const uniqueVals = [...new Set(filtered.map(c => c.municipio).filter(Boolean))];
+
+    return uniqueVals.map(val => {
+      if (!isNaN(val) && municipioMap[val]) {
+        return { value: val, label: municipioMap[val] };
+      }
+      return { value: val, label: val };
+    }).sort((a, b) => a.label.localeCompare(b.label));
+  }, [allClientes, filterEstado, municipioMap]);
+
+  return { estados, municipios };
 };
 
 // Componente para o cabeçalho da tabela
@@ -728,8 +794,16 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
     setCurrentPage,
     totalCount,
     empresa,
-    pageSize
+    pageSize,
+    allClientes,
+    filterEstado,
+    filterMunicipio,
+    setFilterEstado,
+    setFilterMunicipio,
+    municipioMap
   } = useClientesList(personType, profile);
+
+  const { estados, municipios } = useGeoFilters(allClientes, filterEstado, municipioMap);
 
   const totalPages = Math.ceil(totalCount / pageSize);
 
@@ -780,9 +854,9 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
                   Meus Clientes
                 </span>
               )}
-              {(profile?.role === 'administrador' || profile?.role === 'gerente') && (
+              {['administrador', 'gerente', 'super_admin'].includes(profile?.role) && (
                 <span className="text-sm text-blue-300 bg-blue-800/30 px-2 py-1 rounded-lg">
-                  Todos os Clientes
+                  Todos os {labels.listTitle}
                 </span>
               )}
             </h1>
@@ -805,19 +879,18 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
           </Link>
         </motion.div>
 
-        {/* Search Bar */}
-        <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 md:p-6 space-y-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/70" />
-            <Input
-              type="search"
-              placeholder={`Buscar por nome fantasia, razão social, CNPJ/CPF, município ou estado d${labels.singularArticle} ${labels.singularNoun}...`}
-              value={searchTerm}
-              onChange={(e) => updateSearchTerm(e.target.value)}
-              className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60 rounded-xl"
-            />
-          </div>
-        </div>
+        {/* Search and Filters Bar */}
+        <ClientesFilters
+          searchTerm={searchTerm}
+          updateSearchTerm={updateSearchTerm}
+          filterEstado={filterEstado}
+          setFilterEstado={setFilterEstado}
+          filterMunicipio={filterMunicipio}
+          setFilterMunicipio={setFilterMunicipio}
+          estados={estados}
+          municipios={municipios}
+          labels={labels}
+        />
 
         {/* Table */}
         <motion.div
@@ -862,8 +935,8 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
                       onSort={requestSort}
                       className={CONFIG.TABLE_COLUMNS.localizacao.width}
                     />
-                    <TableHead className={cn("text-emerald-300", CONFIG.TABLE_COLUMNS.inteligencia.width)}>
-                      Última / Média / Próxima
+                    <TableHead className={cn("text-emerald-300 whitespace-nowrap text-center", CONFIG.TABLE_COLUMNS.inteligencia.width)}>
+                      Coleta (Última / Média / Próxima)
                     </TableHead>
                     <TableHead className={cn("text-emerald-300", CONFIG.TABLE_COLUMNS.contrato.width)}>
                       Contrato
@@ -896,31 +969,27 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
                           {cliente.endereco || '-'}
                         </TableCell>
                         <TableCell data-label="Localização">
-                          {cliente.municipio}, {cliente.estado}
+                          {!isNaN(cliente.municipio) && municipioMap[cliente.municipio]
+                            ? municipioMap[cliente.municipio]
+                            : cliente.municipio}, {cliente.estado}
                         </TableCell>
                         <TableCell data-label="Inteligência">
-                          <div className="flex flex-col gap-1.5">
-                            <div className="flex items-center gap-2">
-                              {cliente.data_ultima_coleta ? (
-                                <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-white/10 text-white/70 border border-white/10" title="Última Coleta">
-                                  {format(new Date(cliente.data_ultima_coleta), 'dd/MM/yyyy')}
-                                </span>
-                              ) : (
-                                <span className="text-white/30 text-[10px]">Sem histórico</span>
-                              )}
-                              <span className="text-[10px] text-white/50">{cliente.media_dias_coleta || '?'} dias</span>
-                            </div>
-
+                          <div className="flex flex-row items-center justify-center gap-2 whitespace-nowrap">
+                            {cliente.data_ultima_coleta ? (
+                              <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-white/10 text-white/70 border border-white/10" title="Última Coleta">
+                                {format(new Date(cliente.data_ultima_coleta), 'dd/MM/yyyy')}
+                              </span>
+                            ) : (
+                              <span className="text-white/30 text-[10px]">Sem histórico</span>
+                            )}
+                            <span className="text-[10px] text-white/50">{cliente.media_dias_coleta || '?'}d</span>
                             {cliente.proxima_coleta_prevista && (
-                              <div className="flex items-center gap-2">
-                                <span className={cn(
-                                  "text-[10px] px-2 py-0.5 rounded-full font-bold",
-                                  new Date(cliente.proxima_coleta_prevista) < new Date() ? "bg-red-500/20 text-red-400" : "bg-emerald-500/20 text-emerald-400"
-                                )} title="Próxima Coleta">
-                                  {format(new Date(cliente.proxima_coleta_prevista), 'dd/MM/yyyy')}
-                                </span>
-                                <span className="text-[9px] text-white/30 uppercase tracking-tighter">Previsão</span>
-                              </div>
+                              <span className={cn(
+                                "text-[10px] px-2 py-0.5 rounded-full font-bold",
+                                new Date(cliente.proxima_coleta_prevista) < new Date() ? "bg-red-500/20 text-red-400" : "bg-emerald-500/20 text-emerald-400"
+                              )} title="Próxima Coleta">
+                                {format(new Date(cliente.proxima_coleta_prevista), 'dd/MM/yyyy')}
+                              </span>
                             )}
                           </div>
                         </TableCell>

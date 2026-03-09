@@ -100,7 +100,9 @@ const UserFormFields = ({
           </SelectTrigger>
           <SelectContent className="bg-gray-800 text-white border-gray-700 rounded-xl">
             <SelectItem value="coletor">Coletor</SelectItem>
+            <SelectItem value="gerente">Gerente</SelectItem>
             <SelectItem value="administrador">Administrador</SelectItem>
+            <SelectItem value="super_admin">Super Admin</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -108,11 +110,11 @@ const UserFormFields = ({
       {/* Status */}
       <div className="md:col-span-3">
         <Label htmlFor="status" className="text-sm">Status <span className="text-red-400">*</span></Label>
-        <Select 
+        <Select
           onValueChange={(value) => {
             const event = { target: { name: 'status', value } };
             handleChange(event);
-          }} 
+          }}
           value={userFormData.status || 'ativo'}
         >
           <SelectTrigger className="mt-1 bg-white/5 border-white/20 text-white focus:ring-emerald-400 rounded-xl h-9 text-xs">
