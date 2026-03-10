@@ -172,8 +172,23 @@ BEGIN
     IF v_coleta_data.tipo_coleta = 'Compra' AND COALESCE(v_coleta_data.total_pago, 0) > 0 THEN
         v_new_total_value := COALESCE(v_coleta_data.total_pago, 0);
         v_new_status := 'pending'::pagamento_status;
-        INSERT INTO public.credito_debito (lancamento_id, type, document_number, model, pessoa_id, cliente_fornecedor_name, cnpj_cpf, description, issue_date, total_value, payment_method, cost_center, user_id, installments_status, amount_balance, status, coleta_id)
-        VALUES (v_coleta_data.id, 'debito', v_formatted_numero_coleta, 'Recibo', v_coleta_data.cliente_id, v_coleta_data.cliente_nome, v_coleta_data.cnpj_cpf, 'Pagamento coleta Nº ' || v_formatted_numero_coleta, (v_coleta_data.data_coleta AT TIME ZONE v_current_timezone)::date, v_new_total_value, 'cash', 'OPERACIONAL', v_coleta_data.user_id, 'pending', v_new_total_value, v_new_status, v_coleta_data.id);
+        INSERT INTO public.credito_debito (
+            lancamento_id, type, document_number, model, pessoa_id, 
+            cliente_fornecedor_name, cliente_fornecedor_fantasy_name, cnpj_cpf, 
+            description, issue_date, total_value, installment_value, 
+            payment_method, cost_center, user_id, 
+            installment_number, total_installments, 
+            coleta_id, paid_amount, amount_balance, status
+        )
+        VALUES (
+            v_coleta_data.id, 'debito', v_formatted_numero_coleta, 'Recibo', v_coleta_data.cliente_id, 
+            v_coleta_data.cliente_nome, v_coleta_data.cliente_nome_fantasia, v_coleta_data.cnpj_cpf, 
+            'Pagamento coleta Nº ' || v_formatted_numero_coleta, (v_coleta_data.data_coleta AT TIME ZONE v_current_timezone)::date, 
+            v_new_total_value, v_new_total_value, 
+            'cash'::public.payment_method, 'OPERACIONAL', v_coleta_data.user_id, 
+            1, 1, 
+            v_coleta_data.id, 0, v_new_total_value, v_new_status
+        );
     END IF;
 
     -- --- 2. ATUALIZAÇÃO DE ESTATÍSTICAS DO CLIENTE (ADICIONADO) ---

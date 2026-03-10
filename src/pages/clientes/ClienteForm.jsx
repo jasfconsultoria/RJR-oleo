@@ -959,6 +959,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
       telefone: unmask(formData.telefone),
       latitude: formData.latitude ? String(formData.latitude) : null,
       longitude: formData.longitude ? String(formData.longitude) : null,
+      media_dias_coleta: formData.media_dias_coleta === '' ? null : parseInt(formData.media_dias_coleta, 10),
       user_id: user.id
     };
 
