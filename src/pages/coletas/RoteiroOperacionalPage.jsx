@@ -83,8 +83,7 @@ const RoteiroOperacionalPage = () => {
         const { data, error } = await supabase.rpc('get_all_users');
 
         if (!error && data) {
-            const coletores = data.filter(u => u.role === 'coletor');
-            setCollectors(coletores);
+            setCollectors(data);
         } else if (error) {
             console.error('Erro ao buscar coletores:', error);
         }

@@ -146,8 +146,8 @@ const DashboardPage = () => {
         if (!rpcError && usuariosRPC) {
           console.log('✅ Usuários encontrados via RPC:', usuariosRPC.length);
           // Filtrar apenas coletores
-          const coletoresFiltrados = usuariosRPC.filter(u => u.role === 'coletor');
-          console.log('✅ Coletores encontrados via RPC:', coletoresFiltrados.length);
+          const coletoresFiltrados = usuariosRPC;
+          console.log('✅ Usuários encontrados via RPC:', coletoresFiltrados.length);
 
           const sortedColetores = coletoresFiltrados.sort((a, b) => {
             if (!a.full_name) return 1;
@@ -164,7 +164,6 @@ const DashboardPage = () => {
         const { data, error } = await supabase
           .from('profiles')
           .select('id, full_name, email, role')
-          .eq('role', 'coletor')
           .order('full_name', { ascending: true });
 
         if (error) {

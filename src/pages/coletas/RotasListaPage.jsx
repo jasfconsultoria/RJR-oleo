@@ -92,8 +92,7 @@ const RotasListaPage = () => {
     const fetchCollectors = useCallback(async () => {
         const { data, error } = await supabase
             .from('profiles')
-            .select('id, full_name')
-            .eq('role', 'coletor');
+            .select('id, full_name');
         if (!error) setCollectors(data || []);
     }, []);
 
