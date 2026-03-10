@@ -210,7 +210,12 @@ const MapaClientesPage = () => {
                 popupDiv.className = 'p-3 space-y-3 min-w-[200px] bg-slate-900 text-white rounded-lg border border-white/10 shadow-2xl';
                 popupDiv.innerHTML = `
                     <div class="space-y-1">
-                        <div class="font-bold text-emerald-400 text-sm">${cliente.nome_fantasia || cliente.razao_social}</div>
+                        <div class="font-bold text-emerald-400 text-sm">
+                            ${cliente.nome_fantasia && cliente.razao_social
+                                ? `${cliente.nome_fantasia} - ${cliente.razao_social}`
+                                : (cliente.nome_fantasia || cliente.razao_social || 'Sem nome')
+                            }
+                        </div>
                         <div class="text-[10px] text-slate-400 leading-tight">${cliente.endereco || 'Sem endereço registrado'}</div>
                         <div class="text-[10px] text-emerald-400/70 font-medium">
                             ${!isNaN(cliente.municipio) && municipioMap[cliente.municipio] ? municipioMap[cliente.municipio] : (cliente.municipio || '')}
@@ -268,7 +273,7 @@ const MapaClientesPage = () => {
                 });
             }
         });
-    }, [mapInitialized, clientes, navigate]);
+    }, [mapInitialized, clientes, navigate, municipioMap]);
 
     return (
         <div className="h-[calc(100vh-100px)] flex flex-col space-y-4">

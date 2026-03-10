@@ -164,6 +164,7 @@ function App() {
                       <Route path="clientes" element={<ListaClientes personType="cliente" />} />
                       <Route path="clientes/novo" element={<ClienteForm personType="cliente" />} />
                       <Route path="clientes/editar/:id" element={<ClienteForm personType="cliente" />} />
+                      <Route path="clientes/mapa" element={<MapaClientesPage />} />
                       <Route path="fornecedores" element={<ListaClientes personType="fornecedor" />} />
                       <Route path="fornecedores/novo" element={<ClienteForm personType="fornecedor" />} />
                       <Route path="fornecedores/editar/:id" element={<ClienteForm personType="fornecedor" />} />
