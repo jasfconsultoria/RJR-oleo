@@ -19,6 +19,7 @@ import { unmask, formatCnpjCpf, cn } from '@/lib/utils';
 import { useAutoSave } from '@/hooks/useAutoSave';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { logAction } from '@/lib/logger';
 import { Info } from 'lucide-react';
 
 const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', onCancel }) => {
@@ -994,6 +995,13 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
       // ✅ CORREÇÃO: Limpar auto-save apenas após salvar com sucesso
       clearSavedData();
       hasFetchedInitialData.current = false;
+
+      // ✅ Registrar log da ação
+      await logAction(isEditing ? `update_${personType}` : `create_${personType}`, {
+        id: data.id,
+        razao_social: data.razao_social,
+        cnpj_cpf: data.cnpj_cpf
+      });
 
       if (onSaveSuccess) {
         onSaveSuccess(data);

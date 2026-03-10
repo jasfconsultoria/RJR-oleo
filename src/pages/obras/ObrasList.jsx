@@ -26,7 +26,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { logAction } from '@/lib/log';
+import { logAction } from '@/lib/logger';
 import { normalizeString } from '@/lib/utils';
 import Pagination from '@/components/ui/pagination';
 import { AdminValidationDialog } from '@/components/empresa/AdminValidationDialog';
@@ -269,10 +269,12 @@ const ObrasList = () => {
             toast({ title: 'Obra excluída!', description: `"${obraToDelete.nome}" foi removida com sucesso.` });
 
             // Gravar Log com dados do validador
-            if (currentUser) {
-                const logMsg = `Obra "${obraToDelete.nome}" (ID: ${obraToDelete.id}) excluída. Validado por: ${validatorData.validatorEmail} (${validatorData.validatorRole})`;
-                await logAction(currentUser.id, 'obra_delete', logMsg, null, obraToDelete.id);
-            }
+                await logAction('obra_delete', {
+                    obra_id: obraToDelete.id,
+                    obra_nome: obraToDelete.nome,
+                    validado_por: validatorData.validatorEmail,
+                    role_validador: validatorData.validatorRole
+                });
 
             setObraToDelete(null);
             fetchObras();
@@ -352,9 +354,11 @@ const ObrasList = () => {
 
             toast({ title: 'Obra Duplicada', description: `A obra "${obraToDuplicate.obra}" foi duplicada com sucesso.` });
 
-            if (currentUser) {
-                await logAction(currentUser.id, 'obra_duplicate', `Obra duplicada a partir de ${obraToDuplicate.id}`, activeCompany.id);
-            }
+            await logAction('obra_duplicate', {
+                obra_original_id: obraToDuplicate.id,
+                obra_original_nome: obraToDuplicate.obra,
+                empresa_id: activeCompany.id
+            });
 
             setShowDuplicateDialog(false);
             setObraToDuplicate(null);

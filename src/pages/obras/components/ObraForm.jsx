@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { logAction } from '@/lib/log';
+import { logAction } from '@/lib/logger';
 import { IMaskInput } from 'react-imask';
 import SelectSearchMunicipality from '@/components/municipios/SelectSearchMunicipality';
 import SelectSearchClient from '@/components/pessoas/SelectSearchClient';
@@ -457,13 +457,14 @@ const ObraForm = ({ id, initialCoords, onSaveSuccess, onCancel }) => {
             console.log("ObraForm: Salvamento concluído com sucesso.");
             toast({ title: 'Sucesso', description: `Obra ${id ? 'atualizada' : 'cadastrada'} com sucesso!` });
 
-            // Correção: logAction usa argumentos posicionais
             try {
                 await logAction(
-                    user.id,
-                    id ? 'UPDATE' : 'INSERT',
-                    `Obra: ${obra.obra} (Código: ${obra.codigo})`,
-                    activeCompany?.id
+                    id ? 'update_obra' : 'create_obra',
+                    {
+                        obra_nome: obra.obra,
+                        obra_codigo: obra.codigo,
+                        obra_id: id || (result.data ? result.data[0]?.id : null)
+                    }
                 );
             } catch (logErr) {
                 console.warn("ObraForm: Falha ao registrar log de ação (não impede o salvamento):", logErr);

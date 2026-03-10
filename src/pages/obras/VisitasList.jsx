@@ -32,7 +32,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import { logAction } from '@/lib/log';
+import { logAction } from '@/lib/logger';
 import Pagination from '@/components/ui/Pagination';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -261,9 +261,7 @@ const VisitasList = () => {
             if (error) throw error;
 
             toast({ title: 'Visita excluída!', description: `A visita foi removida com sucesso.` });
-            if (currentUser) {
-                await logAction(currentUser.id, 'visita_delete', `Visita ID ${visitaToDelete.id} excluída.`, null, visitaToDelete.id);
-            }
+            await logAction('visita_delete', { visita_id: visitaToDelete.id });
             fetchVisitas(searchTerm, currentPage);
         } catch (error) {
             toast({ variant: "destructive", title: "Erro ao excluir", description: error.message });
@@ -309,9 +307,7 @@ const VisitasList = () => {
 
             toast({ title: 'Visita Duplicada', description: `A visita foi duplicada com sucesso.` });
 
-            if (currentUser) {
-                await logAction(currentUser.id, 'visita_duplicate', `Visita duplicada a partir de ${visitaToDuplicate.id}`, activeCompany.id);
-            }
+            await logAction('visita_duplicate', { visita_original_id: visitaToDuplicate.id });
 
             setShowDuplicateDialog(false);
             setVisitaToDuplicate(null);

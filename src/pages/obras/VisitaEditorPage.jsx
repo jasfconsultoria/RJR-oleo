@@ -38,7 +38,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import ObraForm from './components/ObraForm';
-import { logAction } from '@/lib/log';
+import { logAction } from '@/lib/logger';
 import { format } from 'date-fns';
 
 const VisitaEditorPage = () => {
@@ -420,7 +420,10 @@ const VisitaEditorPage = () => {
 
             const dataFormatada = format(new Date(formData.data_visita), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
             toast({ title: "Sucesso!", description: id ? `Visita atualizada para ${dataFormatada}.` : `Visita registrada para ${dataFormatada}.` });
-            await logAction(currentUser.id, id ? 'visita_update' : 'visita_create', `Visita para obra ID ${formData.obra_id}`, null, id);
+            await logAction(id ? 'visita_update' : 'visita_create', { 
+                obra_id: formData.obra_id,
+                visita_id: id 
+            });
             navigate('/app/obras/visitas');
         } catch (error) {
             toast({ variant: "destructive", title: "Erro ao salvar", description: error.message });
