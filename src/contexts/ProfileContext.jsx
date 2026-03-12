@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { supabase } from '@/lib/customSupabaseClient';
+import { supabase, setAndRefreshRoutingContext } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 
 const ProfileContext = createContext(undefined);
@@ -41,10 +41,14 @@ export const ProfileProvider = ({ children }) => {
         };
         
         console.log('🔍 DEBUG ProfileContext: Enhanced profile:', enhancedProfile);
+        
+        // Configurar roteamento e atualizar cliente global do Supabase antes de setar o perfil
+        await setAndRefreshRoutingContext(user.id, enhancedProfile.role);
+        
         setProfile(enhancedProfile);
       } else {
         console.log('🔍 DEBUG ProfileContext: No profile data found');
-        // ✅ CORREÇÃO: Mesmo sem dados da RPC, criamos um perfil básico
+        // ✅ CORREÇÃO: Mesmo sem dados da RPC, criamos um perfil básico e configuramos roteamento
         const basicProfile = {
           id: user.id,
           userId: user.id,
@@ -52,11 +56,12 @@ export const ProfileProvider = ({ children }) => {
           role: 'coletor', // Default
           full_name: user.email
         };
+        await setAndRefreshRoutingContext(user.id, 'coletor');
         setProfile(basicProfile);
       }
     } catch (e) {
       console.error('Exception fetching profile:', e);
-      // ✅ CORREÇÃO: Mesmo com erro, criamos perfil básico
+      // ✅ CORREÇÃO: Mesmo com erro, criamos perfil básico e configuramos roteamento
       const basicProfile = {
         id: user?.id,
         userId: user?.id,
@@ -64,6 +69,7 @@ export const ProfileProvider = ({ children }) => {
         role: 'coletor',
         full_name: user?.email
       };
+      await setAndRefreshRoutingContext(user?.id, 'coletor');
       setProfile(basicProfile);
     } finally {
       setLoading(false);

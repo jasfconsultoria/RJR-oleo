@@ -64,7 +64,7 @@ export const AuthProvider = ({ children }) => {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state changed:', event);
+        console.log(`🔍 DEBUG AuthContext: Event ${event}, Session:`, session ? 'YES' : 'NO');
         
         // Se o evento for de erro de token, limpar dados locais
         if (event === 'SIGNED_OUT') {
@@ -131,15 +131,16 @@ export const AuthProvider = ({ children }) => {
 
       // Se o login foi bem-sucedido, verificar o status do usuário
       if (data?.user) {
+        // Verificar o status na tabela profiles usando maybeSingle para evitar erro 406 no console caso não exista
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('status')
           .eq('id', data.user.id)
-          .single();
+          .maybeSingle();
 
         if (profileError) {
-          console.error('Erro ao buscar status do usuário:', profileError);
-          // Se não conseguir buscar o perfil, permite o login (comportamento padrão)
+          console.warn('Aviso ao buscar status do usuário (profiles):', profileError);
+          // Se houver erro técnico (não 406), apenas logamos e permitimos o login
         } else if (profileData?.status === 'inativo') {
           // Se o usuário estiver inativo, fazer logout e mostrar mensagem
           await supabase.auth.signOut();

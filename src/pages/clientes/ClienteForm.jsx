@@ -209,8 +209,31 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
   // ✅ NOVO: O campo de documento deve estar bloqueado se for edição ou se detectado um duplicado carregado
   const isDocumentDisabled = isEditing || cnpjRegistryStatus === 'DUPLICATE' || formData.id;
 
-  // ✅ NOVO: O botão do mapa só deve estar habilitado para registros que já existem no banco
-  const isMapEnabled = isEditing || formData.id;
+  // No cadastro de clientes o botão selecionar no mapa deve ficar habilitado
+  // mas somente permitir selecionar no mapa se tiver cpf/cnpj e nome fantasia já preenchidos.
+  const handleMapClick = () => {
+    const unmaskedCnpjCpf = unmask(formData.cnpj_cpf || '');
+    if (!unmaskedCnpjCpf || !formData.nome_fantasia?.trim()) {
+      toast({
+        title: "Dados incompletos",
+        description: "Para selecionar no mapa, preencha o CPF/CNPJ e o Nome Fantasia.",
+        variant: "warning"
+      });
+      return;
+    }
+
+    navigate('/app/cadastro/clientes/mapa', {
+      state: {
+        returnTo: location.pathname,
+        currentData: formData
+      }
+    });
+  };
+
+  const isMapCriteriaMet = useMemo(() => {
+    const unmaskedCnpjCpf = unmask(formData.cnpj_cpf || '');
+    return !!unmaskedCnpjCpf && !!formData.nome_fantasia?.trim();
+  }, [formData.cnpj_cpf, formData.nome_fantasia]);
 
   const validateAndCheckCnpjCpf = useCallback(async (value) => {
     const unmaskedValue = unmask(value);
@@ -1368,20 +1391,17 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
                             <Button
                               type="button"
                               variant="outline"
-                              className={`w-full ${!isMapEnabled ? 'bg-white/5 border-white/10 text-white/30' : 'bg-blue-600/20 border-blue-500/50 text-blue-300 hover:bg-blue-600/30'} rounded-xl h-8 flex items-center justify-center gap-2 text-[11px]`}
-                              onClick={() => isMapEnabled && navigate('/app/cadastro/clientes/mapa', { state: { returnTo: location.pathname, currentData: formData } })}
-                              disabled={!isMapEnabled}
+                              className={`w-full ${!isMapCriteriaMet ? 'bg-blue-600/10 border-blue-500/30 text-blue-300/60' : 'bg-blue-600/20 border-blue-500/50 text-blue-300 hover:bg-blue-600/30'} rounded-xl h-8 flex items-center justify-center gap-2 text-[11px] transition-all`}
+                              onClick={handleMapClick}
                             >
                               <MapPin className="w-4 h-4" />
                               Localização
                             </Button>
                           </div>
                         </TooltipTrigger>
-                        {!isMapEnabled && (
-                          <TooltipContent className="bg-gray-800 text-white border-gray-700 text-[10px] text-center p-2 rounded-xl">
-                            <p>Salve o registro primeiro para habilitar a localização.</p>
-                          </TooltipContent>
-                        )}
+                        <TooltipContent className="bg-gray-800 text-white border-gray-700 text-[10px] text-center p-2 rounded-xl">
+                          <p>É necessário preencher o <b>CPF/CNPJ</b> e o <b>Nome Fantasia</b> para usar o mapa.</p>
+                        </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
                   </div>

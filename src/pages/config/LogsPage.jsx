@@ -15,6 +15,64 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { X, Filter, Calendar } from 'lucide-react'; // Adicionado Calendar
 
+const actionLabels = {
+  'create_coleta': 'Cadastrou Coleta',
+  'update_coleta': 'Atualizou Coleta',
+  'delete_coleta_success': 'Excluiu Coleta',
+  'delete_coleta_failed': 'Falha ao Excluir Coleta',
+  'create_contrato': 'Cadastrou Contrato',
+  'update_contrato': 'Atualizou Contrato',
+  'delete_contract': 'Excluiu Contrato',
+  'create_cliente': 'Cadastrou Cliente',
+  'update_cliente': 'Atualizou Cliente',
+  'delete_client_success': 'Excluiu Cliente',
+  'create_fornecedor': 'Cadastrou Fornecedor',
+  'update_fornecedor': 'Atualizou Fornecedor',
+  'create_debito_success': 'Lançou Débito',
+  'create_credito_success': 'Lançou Crédito',
+  'delete_debito_entry': 'Excluiu Débito',
+  'delete_credito_entry': 'Excluiu Crédito',
+  'create_recibo_avulso': 'Gerou Recibo',
+  'create_user_success': 'Cadastrou Usuário',
+  'update_user_success': 'Atualizou Usuário',
+  'delete_user_success': 'Excluiu Usuário',
+  'create_stock_entry': 'Entrada de Estoque',
+  'update_stock_entry': 'Atualizou Entrada',
+  'delete_stock_entry': 'Excluiu Entrada',
+  'create_stock_exit': 'Saída de Estoque',
+  'update_stock_exit': 'Atualizou Saída',
+  'delete_stock_exit': 'Excluiu Saída',
+  'create_cost_center_success': 'Cadastrou C. Custo',
+  'update_cost_center_success': 'Atualizou C. Custo',
+  'delete_cost_center_success': 'Excluiu C. Custo',
+  'register_payment_success': 'Registrou Pagamento',
+  'delete_payment_success': 'Excluiu Pagamento',
+  'create_certificado': 'Gerou Certificado',
+  'update_certificado': 'Atualizou Certificado',
+  'delete_certificate_success': 'Excluiu Certificado',
+  'create_obra': 'Cadastrou Obra',
+  'update_obra': 'Atualizou Obra',
+  'delete_obra': 'Excluiu Obra',
+  'obra_delete': 'Excluiu Obra',
+  'obra_duplicate': 'Duplicou Obra',
+  'create_visita': 'Registrou Visita',
+  'update_visita': 'Atualizou Visita',
+  'visita_create': 'Registrou Visita',
+  'visita_update': 'Atualizou Visita',
+  'visita_delete': 'Excluiu Visita',
+  'visita_duplicate': 'Duplicou Visita',
+  'create_produto': 'Cadastrou Produto',
+  'update_produto': 'Atualizou Produto',
+  'delete_produto_success': 'Excluiu Produto',
+  'login_success': 'Login realizado',
+  'login_failed': 'Falha no Login',
+  'logout_success': 'Logout realizado',
+  'change_password_success': 'Alterou Senha',
+  'generate_receipt_success': 'Gerou Recibo Financeiro'
+};
+
+const getFriendlyAction = (action) => actionLabels[action] || action.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+
 const LogsPage = () => {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -70,22 +128,31 @@ const LogsPage = () => {
       const { data: actions, error: actionsError } = await supabase
         .rpc('get_distinct_log_actions');
       
+      let fetchedActions = [];
       if (!actionsError && actions) {
-        // As actions are already distinct and sorted by the RPC
-        setAvailableActions(actions.map(a => typeof a === 'object' ? a.action : a));
-      } else if (actionsError) {
+        fetchedActions = actions.map(a => typeof a === 'object' ? a.action : a);
+      } else {
         // Fallback in case RPC is not yet applied to database
         console.warn("RPC 'get_distinct_log_actions' not found, falling back to sampling.");
         const { data: fallbackActions } = await supabase
           .from('logs')
           .select('action')
+          .order('created_at', { ascending: false })
           .limit(2000);
         
         if (fallbackActions) {
-          const uniqueActions = [...new Set(fallbackActions.map(a => a.action))].sort();
-          setAvailableActions(uniqueActions);
+          fetchedActions = fallbackActions.map(a => a.action);
         }
       }
+
+      // Combina ações conhecidas manualmente e ações buscadas, removendo duplicadas
+      const allKnownActions = Object.keys(actionLabels);
+      const uniqueActions = [...new Set([...allKnownActions, ...fetchedActions])];
+      
+      // Ordena alfabeticamente pela versão humanizada/amigável
+      uniqueActions.sort((a, b) => getFriendlyAction(a).localeCompare(getFriendlyAction(b)));
+      
+      setAvailableActions(uniqueActions);
     };
     fetchFilterData();
   }, []);
@@ -205,70 +272,12 @@ const LogsPage = () => {
     setSearchTerm('');
   };
 
-  const actionLabels = {
-    'create_coleta': 'Cadastrou Coleta',
-    'update_coleta': 'Atualizou Coleta',
-    'delete_coleta_success': 'Excluiu Coleta',
-    'delete_coleta_failed': 'Falha ao Excluir Coleta',
-    'create_contrato': 'Cadastrou Contrato',
-    'update_contrato': 'Atualizou Contrato',
-    'delete_contract': 'Excluiu Contrato',
-    'create_cliente': 'Cadastrou Cliente',
-    'update_cliente': 'Atualizou Cliente',
-    'delete_client_success': 'Excluiu Cliente',
-    'create_fornecedor': 'Cadastrou Fornecedor',
-    'update_fornecedor': 'Atualizou Fornecedor',
-    'create_debito_success': 'Lançou Débito',
-    'create_credito_success': 'Lançou Crédito',
-    'delete_debito_entry': 'Excluiu Débito',
-    'delete_credito_entry': 'Excluiu Crédito',
-    'create_recibo_avulso': 'Gerou Recibo',
-    'create_user_success': 'Cadastrou Usuário',
-    'update_user_success': 'Atualizou Usuário',
-    'delete_user_success': 'Excluiu Usuário',
-    'create_stock_entry': 'Entrada de Estoque',
-    'update_stock_entry': 'Atualizou Entrada',
-    'delete_stock_entry': 'Excluiu Entrada',
-    'create_stock_exit': 'Saída de Estoque',
-    'update_stock_exit': 'Atualizou Saída',
-    'delete_stock_exit': 'Excluiu Saída',
-    'create_cost_center_success': 'Cadastrou C. Custo',
-    'update_cost_center_success': 'Atualizou C. Custo',
-    'delete_cost_center_success': 'Excluiu C. Custo',
-    'register_payment_success': 'Registrou Pagamento',
-    'delete_payment_success': 'Excluiu Pagamento',
-    'create_certificado': 'Gerou Certificado',
-    'update_certificado': 'Atualizou Certificado',
-    'delete_certificate_success': 'Excluiu Certificado',
-    'create_obra': 'Cadastrou Obra',
-    'update_obra': 'Atualizou Obra',
-    'delete_obra': 'Excluiu Obra',
-    'obra_delete': 'Excluiu Obra',
-    'obra_duplicate': 'Duplicou Obra',
-    'create_visita': 'Registrou Visita',
-    'update_visita': 'Atualizou Visita',
-    'visita_create': 'Registrou Visita',
-    'visita_update': 'Atualizou Visita',
-    'visita_delete': 'Excluiu Visita',
-    'visita_duplicate': 'Duplicou Visita',
-    'create_produto': 'Cadastrou Produto',
-    'update_produto': 'Atualizou Produto',
-    'delete_produto_success': 'Excluiu Produto',
-    'login_success': 'Login realizado',
-    'login_failed': 'Falha no Login',
-    'logout_success': 'Logout realizado',
-    'change_password_success': 'Alterou Senha',
-    'generate_receipt_success': 'Gerou Recibo Financeiro'
-  };
-
   const renderDetails = (details) => {
     if (!details) return 'N/A';
     return Object.entries(details)
       .map(([key, value]) => `${key}: ${value}`)
       .join('; ');
   };
-
-  const getFriendlyAction = (action) => actionLabels[action] || action.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 
   const totalPages = Math.ceil(totalCount / pageSize);
 
@@ -331,7 +340,7 @@ const LogsPage = () => {
                   <SelectTrigger id="userFilter" className="bg-white/20 border-white/30 text-white rounded-xl">
                     <SelectValue placeholder="Todos" />
                   </SelectTrigger>
-                  <SelectContent className="bg-gray-800 text-white border-white/10 max-h-60 overflow-y-auto">
+                  <SelectContent className="bg-gray-800 text-white border-white/10">
                     <SelectItem value="all">Todos os usuários</SelectItem>
                     {availableUsers.map(user => (
                       <SelectItem key={user.id} value={user.id}>{user.full_name}</SelectItem>
@@ -347,7 +356,7 @@ const LogsPage = () => {
                   <SelectTrigger id="actionFilter" className="bg-white/20 border-white/30 text-white rounded-xl">
                     <SelectValue placeholder="Todas" />
                   </SelectTrigger>
-                  <SelectContent className="bg-gray-800 text-white border-white/10 max-h-80 overflow-y-auto">
+                  <SelectContent className="bg-gray-800 text-white border-white/10">
                     <SelectItem value="all">Todas as ações</SelectItem>
                     {availableActions.map(action => (
                       <SelectItem key={action} value={action}>{getFriendlyAction(action)}</SelectItem>

@@ -37,6 +37,7 @@ import {
   MapPin,
   Route,
   Settings,
+  Database,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useProfile } from '@/contexts/ProfileContext';
@@ -51,6 +52,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { getActiveEnvironment, defaultClient } from '@/lib/getActiveEnvironment';
+import { setAndRefreshRoutingContext } from '@/lib/customSupabaseClient';
 
 const AppLayout = ({ children }) => {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
@@ -60,6 +69,25 @@ const AppLayout = ({ children }) => {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const { profile } = useProfile();
+  const [activeEnv, setActiveEnv] = useState(null);
+
+  useEffect(() => {
+    const fetchEnv = async () => {
+      if (user?.id) {
+        // ✅ Sincroniza o contexto de roteamento global (PROD ou HOMOLOG)
+        await setAndRefreshRoutingContext(user.id, profile?.role);
+        
+        // Busca o ambiente atual para atualizar o ícone/bugate no layout localmente
+        const env = await getActiveEnvironment(false, profile?.role, user.id);
+        setActiveEnv(env);
+      }
+    };
+    fetchEnv();
+    
+    // Atualizar quando houver mudança no contexto (simplificado)
+    const interval = setInterval(fetchEnv, 30000);
+    return () => clearInterval(interval);
+  }, [user?.id, profile?.role]);
 
   const getRoleLabel = (role) => {
     const labels = {
@@ -77,19 +105,31 @@ const AppLayout = ({ children }) => {
 
   useEffect(() => {
     const fetchLatestVersion = async () => {
-      const { data, error } = await supabase
-        .from('versoes')
-        .select('versao, data_implantacao')
-        .order('data_implantacao', { ascending: false })
-        .limit(1)
-        .single();
+      try {
+        // DEBUG: Verificar qual cliente está sendo usado
+        const clientUrl = supabase.supabaseUrl;
+        console.log(`🔍 [AppLayout] Buscando versão no banco: ${clientUrl}`);
 
-      if (data) {
-        setLatestVersion(data);
+        const { data, error } = await supabase
+          .from('versoes')
+          .select('versao, data_implantacao')
+          .order('data_implantacao', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (error) {
+          console.error('❌ [AppLayout] Erro ao buscar versão:', error);
+          return;
+        }
+
+        console.log('✅ [AppLayout] Dados da versão recebidos:', data);
+        setLatestVersion(data || { versao: '?.?.?', data_implantacao: new Date().toISOString() });
+      } catch (err) {
+        console.error('❌ [AppLayout] Erro inesperado ao buscar versão:', err);
       }
     };
     fetchLatestVersion();
-  }, []);
+  }, [activeEnv]); // Atualiza quando o ambiente muda
 
   const handleLogout = async () => {
     const { error } = await signOut();
@@ -164,6 +204,7 @@ const AppLayout = ({ children }) => {
       subItems: [
         { to: '/app/empresa', label: 'Empresa', icon: Building, roles: ['super_admin', 'administrador'] },
         { to: '/app/usuarios', label: 'Usuários', icon: UserCog, roles: ['super_admin', 'administrador'] },
+        { to: '/app/config/ambientes', label: 'Banco Dados', icon: Database, roles: ['super_admin'] },
         { to: '/app/logs', label: 'Logs', icon: BookText, roles: ['super_admin', 'administrador'] },
       ]
     },
@@ -262,17 +303,47 @@ const AppLayout = ({ children }) => {
             <div className="flex-1 py-4 overflow-y-auto">
               <NavLinks />
             </div>
-            <div className="mt-auto p-4 border-t border-white/10">
-              <Button onClick={handleLogout} variant="ghost" className="w-full justify-start text-emerald-100 hover:bg-emerald-700 hover:text-white">
-                <LogOut className="mr-2 h-4 w-4" />
-                Sair
-              </Button>
-              {latestVersion && (
-                <div className="text-center text-xs text-emerald-300/70 mt-4">
-                  <p>Versão: {latestVersion.versao}</p>
-                  <p>{format(new Date(latestVersion.data_implantacao), "dd/MM/yyyy HH:mm", { locale: ptBR })}</p>
+            <div className="mt-auto px-4 pb-1">
+              <div className="border-t border-white/10 pt-3 space-y-2">
+                <Button onClick={handleLogout} variant="ghost" className="w-full justify-start text-emerald-100 hover:bg-emerald-700/50 hover:text-white rounded-xl h-8 text-xs">
+                  <LogOut className="mr-2 h-3.5 w-3.5" />
+                  Sair
+                </Button>
+
+                <div className="flex flex-col items-center justify-center w-full px-2">
+                  <div className="flex items-center justify-center gap-2 mb-0.5">
+                    <div
+                      className="cursor-pointer group flex items-center gap-1.5"
+                      onClick={() => navigate('/app/versoes')}
+                    >
+                      <span className="text-[10px] text-emerald-300/80 font-medium group-hover:text-white transition-colors">
+                        Versão: <span className="font-bold text-emerald-300">v{latestVersion?.versao || '?.?.?'}</span>
+                      </span>
+
+                      <TooltipProvider>
+                        {activeEnv && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className={`p-1 rounded-md border cursor-help transition-all transform hover:scale-110 shadow-sm ${activeEnv.tipo === 'producao'
+                                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                                : 'bg-red-500/10 border-red-500/30 text-red-500 shadow-[0_0_10px_rgba(239,68,68,0.2)]'
+                                }`}>
+                                <Database className="w-3 h-3" />
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="bg-gray-900 border-white/10 text-white p-2 shadow-xl">
+                              <p className="text-[10px] font-bold">{activeEnv.nome}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                      </TooltipProvider>
+                    </div>
+                  </div>
+                  <p className="text-[8px] text-emerald-300/20 font-medium tracking-tight uppercase">
+                    Sistema de Gerenciamento
+                  </p>
                 </div>
-              )}
+              </div>
             </div>
           </div>
         </div>
@@ -306,17 +377,35 @@ const AppLayout = ({ children }) => {
                 <div className="flex-1 py-4 overflow-y-auto">
                   <NavLinks />
                 </div>
-                <div className="mt-auto p-4 border-t border-white/10">
-                  <Button onClick={handleLogout} variant="ghost" className="w-full justify-start text-emerald-100 hover:bg-emerald-700 hover:text-white">
-                    <LogOut className="mr-2 h-4 w-4" />
-                    Sair
-                  </Button>
-                  {latestVersion && (
-                    <div className="text-center text-xs text-emerald-300/70 mt-4">
-                      <p>Versão: {latestVersion.versao}</p>
-                      <p>{format(new Date(latestVersion.data_implantacao), "dd/MM/yyyy HH:mm", { locale: ptBR })}</p>
+                <div className="mt-auto px-4 pb-1">
+                  <div className="border-t border-white/10 pt-3 space-y-2">
+                    <Button onClick={handleLogout} variant="ghost" className="w-full justify-start text-emerald-100 hover:bg-emerald-700/50 hover:text-white rounded-xl h-8 text-xs">
+                      <LogOut className="mr-2 h-3.5 w-3.5" />
+                      Sair
+                    </Button>
+
+                    <div className="flex flex-col items-center justify-center w-full pb-2">
+                      <div className="flex items-center justify-center gap-2 mb-0.5">
+                        <div className="flex items-center gap-1.5" onClick={() => navigate('/app/versoes')}>
+                          <span className="text-[10px] text-emerald-300/80 font-medium">
+                            Versão: <span className="font-bold text-emerald-300">v{latestVersion?.versao || '?.?.?'}</span>
+                          </span>
+
+                          {activeEnv && (
+                            <div className={`p-1 rounded-md border shadow-sm ${activeEnv.tipo === 'producao'
+                              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                              : 'bg-red-500/10 border-red-500/30 text-red-500 shadow-[0_0_10px_rgba(239,68,68,0.2)]'
+                              }`}>
+                              <Database className="w-3 h-3" />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <p className="text-[8px] text-emerald-300/20 font-medium tracking-tight uppercase">
+                        Sistema de Gerenciamento
+                      </p>
                     </div>
-                  )}
+                  </div>
                 </div>
                 {/* Removed the extra closing div tag here */}
               </motion.div>
