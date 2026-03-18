@@ -178,7 +178,12 @@ const ListaFinanceiro = ({ type }) => {
       p_sort_direction: sortConfig.direction,
     };
 
+    console.log(`🔍 [ListaFinanceiro] Buscando ${type}s:`, rpcParams);
     const { data: entriesData, error: entriesError } = await supabase.rpc('get_financeiro_detailed_receipt', rpcParams);
+    
+    if (entriesData) {
+      console.log(`✅ [ListaFinanceiro] ${entriesData.length} entradas recebidas.`);
+    }
 
     const rpcCountParams = {
       p_start_date: startDateISO,
@@ -227,7 +232,9 @@ const ListaFinanceiro = ({ type }) => {
         total_balance: 0
       });
     } else {
-      setSummary(data || {
+      const summaryData = Array.isArray(data) ? data[0] : (data || {});
+      console.log(`📊 [ListaFinanceiro] Resumo recebido:`, summaryData);
+      setSummary(summaryData || {
         valor_documento: 0,
         valor_desconto: 0,
         total_installment_value: 0,

@@ -59,7 +59,8 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
                 tipo_coleta, 
                 valor_coleta, 
                 fator_troca, 
-                data_fim
+                data_fim,
+                usa_recipiente
               )
             `)
             .order('razao_social', { ascending: true });
@@ -171,37 +172,41 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
     }
   }, [data.cliente, allClients]);
 
-  const handleClienteSelect = (client) => {
-    console.log('👤 Cliente selecionado:', client.nome_fantasia || client.razao_social);
-
-    // ✅ TRATAR CONTRATOS VINDO DA RPC (JSONB) OU DA QUERY NORMAL (ARRAY)
-    let activeContracts = [];
-    if (Array.isArray(client.contratos)) {
-      activeContracts = client.contratos.filter(contract => contract.status === 'Ativo');
-    } else if (client.contratos && typeof client.contratos === 'object') {
-      // Se contratos veio como objeto único da RPC
-      activeContracts = [client.contratos].filter(contract => contract.status === 'Ativo');
+  const handleClienteSelect = async (client) => {
+    console.log('👤 [ColetaStep1] Cliente selecionado:', client.nome_fantasia || client.razao_social);
+    
+    // ✅ NORMALIZAR DADOS DO CONTRATO (Pode vir da RPC [achata] ou do fallback [array])
+    let activeContract = null;
+    if (client.contrato_status === 'Ativo') {
+      // Caso RPC: os dados já estão no objeto client de forma achatada
+      activeContract = client;
+    } else if (client.contratos && Array.isArray(client.contratos)) {
+      // Caso Fallback: buscar contrato ativo no array
+      activeContract = client.contratos.find(c => c.status === 'Ativo');
     }
 
-    const latestActiveContract = activeContracts?.sort((a, b) => new Date(b.data_fim) - new Date(a.data_fim))[0];
+    console.log('📊 [ColetaStep1] Contrato ativo identificado:', activeContract ? 'Sim' : 'Não');
 
-    let newTipoColeta = data.tipo_coleta;
-    let newFator = data.fator;
-    let newValorCompra = data.valor_compra;
+    let newTipoColeta = activeContract?.tipo_coleta || data.tipo_coleta;
+    let newFator = data.fator || '6';
+    let newValorCompra = data.valor_compra || '0,00';
+    let newUsaRecipiente = activeContract?.usa_recipiente ?? (data.usa_recipiente || false);
 
-    if (latestActiveContract) {
-      newTipoColeta = latestActiveContract.tipo_coleta;
+    // Se temos um contrato, usamos os valores dele
+    if (activeContract) {
       if (newTipoColeta === 'Troca') {
-        newFator = String(latestActiveContract.fator_troca || '6');
+        newFator = String(activeContract.fator_troca || '6');
         newValorCompra = '0,00';
       } else if (newTipoColeta === 'Compra') {
-        newValorCompra = String(latestActiveContract.valor_coleta || '0,00').replace('.', ',');
+        const valor = activeContract.valor_coleta || activeContract.valor_compra || 0;
+        newValorCompra = String(valor).replace('.', ',');
         newFator = '6';
       } else if (newTipoColeta === 'Doação') {
         newValorCompra = '0,00';
         newFator = '6';
       }
     } else {
+      // Sem contrato, voltamos aos padrões de segurança
       newTipoColeta = 'Troca';
       newFator = '6';
       newValorCompra = '0,00';
@@ -221,9 +226,13 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
       tipo_coleta: newTipoColeta,
       fator: newFator,
       valor_compra: newValorCompra,
+      usa_recipiente: newUsaRecipiente,
     });
+
     if (client.estado) {
-      setMunicipios(getMunicipios(client.estado).map(m => ({ value: m, label: m })));
+      fetchMunicipios(client.estado).then(municipiosList => {
+        setMunicipios(municipiosList.map(m => ({ value: m, label: m })));
+      });
     }
     setShowClienteDropdown(false);
     setIsClienteSelected(true);

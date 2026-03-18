@@ -283,6 +283,9 @@ const ColetaForm = () => {
       total_pago: 0,
       data_lancamento: null,
       user_id: user?.id,
+      usa_recipiente: false,
+      recipientes_coletados: 0,
+      recipientes_entregues: 0,
     };
   }, [user]);
 
@@ -297,14 +300,19 @@ const ColetaForm = () => {
 
       const fetchPreselected = async () => {
         try {
+          // ✅ BUSCA CLIENTE INCLUINDO CONTRATOS ATIVOS
           const { data, error } = await supabase
             .from('clientes')
-            .select('*')
+            .select('*, contratos(*)')
             .eq('id', preselectId)
             .single();
 
           if (data && !error) {
-            console.log('✅ Dados do cliente pré-carregados:', data.nome_fantasia);
+            console.log('✅ Dados do cliente e contratos pré-carregados:', data.nome_fantasia);
+            
+            // Encontrar contrato ativo
+            const activeContract = data.contratos?.find(c => c.status === 'Ativo');
+            
             setRawColetaData(prev => ({
               ...prev,
               cliente_id: data.id,
@@ -316,7 +324,12 @@ const ColetaForm = () => {
               email: data.email,
               municipio: data.municipio,
               estado: data.estado,
-              telefone: data.telefone
+              telefone: data.telefone,
+              // Dados do contrato
+              usa_recipiente: activeContract?.usa_recipiente || false,
+              tipo_coleta: activeContract?.tipo_coleta || prev.tipo_coleta,
+              fator: activeContract?.fator_troca ? String(activeContract.fator_troca) : prev.fator,
+              valor_compra: activeContract?.valor_coleta ? String(activeContract.valor_coleta).replace('.', ',') : prev.valor_compra
             }));
 
             // Marca como carregado para não repetir
@@ -399,7 +412,7 @@ const ColetaForm = () => {
 
     const { data, error } = await supabase
       .from('coletas')
-      .select('*, pessoa:clientes (*)')
+      .select('*, pessoa:clientes (*, contratos (status, usa_recipiente))')
       .eq('id', id)
       .single();
 
@@ -426,6 +439,9 @@ const ColetaForm = () => {
         hora_coleta: formattedTime,
         valor_compra: String(data.valor_compra || '0').replace('.', ','),
         quantidade_coletada: String(data.quantidade_coletada || '').replace('.', ','),
+        recipientes_coletados: data.recipientes_coletados || 0,
+        recipientes_entregues: data.recipientes_entregues || 0,
+        usa_recipiente: data.pessoa?.contratos?.some(c => c.status === 'Ativo' && c.usa_recipiente) || false,
       };
 
       setRawColetaData(prevFormData => {
@@ -562,7 +578,7 @@ const ColetaForm = () => {
         cliente_nome: finalColetaData.cliente,
         data_coleta: utcDateISOString,
         hora_coleta: finalColetaData.hora_coleta,
-        fator: parseInt(finalColetaData.fator, 10),
+        fator: parseInt(finalColetaData.fator, 10) || 6,
         tipo_coleta: finalColetaData.tipo_coleta,
         quantidade_coletada: parseCurrency(finalColetaData.quantidade_coletada),
         quantidade_entregue: finalColetaData.tipo_coleta === 'Troca' || finalColetaData.tipo_coleta === 'Doação' ? parseFloat(finalColetaData.quantidade_entregue) : null,
@@ -572,7 +588,17 @@ const ColetaForm = () => {
         user_id: user.id,
         estado: finalColetaData.estado,
         municipio: finalColetaData.municipio,
+        recipientes_coletados: parseInt(finalColetaData.recipientes_coletados, 10) || 0,
+        recipientes_entregues: parseInt(finalColetaData.recipientes_entregues, 10) || 0,
       };
+
+      console.log('DEBUG - Coleta a ser salva com recipientes:', {
+        id: coletaToSave.id,
+        cliente_id: coletaToSave.cliente_id,
+        recipientes_coletados: coletaToSave.recipientes_coletados,
+        recipientes_entregues: coletaToSave.recipientes_entregues,
+        usa_recipiente: finalColetaData.usa_recipiente
+      });
 
       console.log('DEBUG - Coleta a ser salva:', coletaToSave);
 
@@ -598,6 +624,56 @@ const ColetaForm = () => {
         });
         if (returnData) return { error: coletaError };
         return;
+      }
+
+      // Handle Container Movement if usa_recipiente is true and there is movement
+      const qtdeColetadaRec = parseInt(finalColetaData.recipientes_coletados, 10) || 0;
+      const qtdeEntregueRec = parseInt(finalColetaData.recipientes_entregues, 10) || 0;
+
+      if (finalColetaData.usa_recipiente && (qtdeColetadaRec > 0 || qtdeEntregueRec > 0)) {
+        try {
+          console.log('📦 [ColetaForm] Registrando movimentação de recipientes:', {
+            clienteId,
+            qtdeColetadaRec,
+            qtdeEntregueRec,
+            coletaId: savedData.id
+          });
+
+          const { data: movData, error: movError } = await supabase.rpc('registrar_movimentacao_recipiente', {
+            p_cliente_id: clienteId,
+            p_qtde_coletada: qtdeColetadaRec,
+            p_qtde_entregue: qtdeEntregueRec,
+            p_tipo_operacao: 'coleta',
+            p_coleta_id: savedData.id,
+            p_observacao: `Movimentação vinculada à coleta #${savedData.id}`
+          });
+
+          if (movError) {
+             console.error('❌ [ColetaForm] Erro ao registrar movimentação de recipientes:', movError);
+             toast({ title: "Aviso", description: "Coleta salva, mas falha ao atualizar histórico de recipientes.", variant: "warning" });
+          } else {
+             console.log('✅ [ColetaForm] Movimentação de recipientes registrada com sucesso:', movData);
+          }
+        } catch (movException) {
+          console.error('❌ [ColetaForm] Exceção ao registrar movimentação de recipientes:', movException);
+        }
+      }
+
+      // --- 3. ATUALIZAÇÃO IMEDIATA DE ESTATÍSTICAS DO CLIENTE (Novo) ---
+      if (clienteId) {
+        try {
+          console.log('📊 [ColetaForm] Atualizando estatísticas do cliente:', clienteId);
+          const { error: statsError } = await supabase.rpc('update_cliente_coleta_stats_by_id', {
+            p_cliente_id: clienteId
+          });
+          if (statsError) {
+            console.error('❌ [ColetaForm] Erro ao atualizar estatísticas do cliente:', statsError);
+          } else {
+            console.log('✅ [ColetaForm] Estatísticas do cliente atualizadas.');
+          }
+        } catch (statsException) {
+          console.error('❌ [ColetaForm] Exceção ao atualizar estatísticas do cliente:', statsException);
+        }
       }
 
       // Criar recibo

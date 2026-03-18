@@ -23,11 +23,13 @@ export const UserAccountLinkModal = ({ user, isOpen, setIsOpen }) => {
     }
     setLoading(true);
     try {
-      // Fetch links from conta_usuario
+      console.log('🔍 [UserAccountLinkModal] Buscando vínculos para:', user.id);
       const { data: links, error: linksError } = await supabase
         .from('conta_usuario')
         .select('conta_corrente_id')
         .eq('user_id', user.id);
+      
+      console.log('✅ [UserAccountLinkModal] Vínculos brutos:', links);
 
       if (linksError) throw linksError;
 

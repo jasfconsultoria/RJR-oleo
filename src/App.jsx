@@ -57,7 +57,7 @@ import ListaCentrosCusto from '@/pages/centros-custo/ListaCentrosCusto'; // New 
 import CentroCustoForm from '@/pages/centros-custo/CentroCustoForm'; // New form page
 import CertificadoDisplayPage from '@/pages/certificados/CertificadoDisplayPage';
 import CertificadoPublicoPage from '@/pages/certificados/CertificadoPublicoPage';
-import RelatorioRecipientesPage from '@/pages/relatorios/RelatorioRecipientesPage'; // New import
+import RecipientesPage from '@/pages/recipientes/RecipientesPage';
 import PlaceholderPage from '@/pages/PlaceholderPage';
 const AmbientesBancoPage = lazy(() => import('@/pages/config/AmbientesBancoPage'));
 
@@ -155,7 +155,7 @@ function App() {
                       <Route path="mapa" element={<MapaClientesPage />} />
                     </Route>
 
-                    <Route path="recipientes" element={<ProtectedRoute requiredRole={['super_admin', 'administrador', 'gerente']}><PlaceholderPage title="Recipientes" /></ProtectedRoute>} />
+                    <Route path="recipientes" element={<ProtectedRoute requiredRole={['super_admin', 'administrador', 'gerente']}><RecipientesPage /></ProtectedRoute>} />
 
                     <Route path="agenda" element={<AgendaColetasPage />} />
                     <Route path="roteiro" element={<RoteiroOperacionalPage />} />
@@ -184,7 +184,6 @@ function App() {
                     <Route path="relatorios/coletas" element={<ProtectedRoute requiredRole={['super_admin', 'administrador', 'gerente']}><RelatorioColetasPage /></ProtectedRoute>} />
                     <Route path="relatorios/financeiro" element={<ProtectedRoute requiredRole={['super_admin', 'administrador']}><RelatorioFinanceiroPage /></ProtectedRoute>} />
                     <Route path="relatorios/estoque" element={<ProtectedRoute requiredRole={['super_admin', 'administrador', 'gerente']}><RelatorioEstoquePage /></ProtectedRoute>} />
-                    <Route path="relatorios/recipientes" element={<ProtectedRoute requiredRole={['super_admin', 'administrador', 'gerente']}><RelatorioRecipientesPage /></ProtectedRoute>} />
 
                     {/* Financeiro Routes */}
                     <Route path="financeiro/credito" element={<ProtectedRoute requiredRole={['super_admin', 'administrador']}><ListaFinanceiro type="credito" /></ProtectedRoute>} />

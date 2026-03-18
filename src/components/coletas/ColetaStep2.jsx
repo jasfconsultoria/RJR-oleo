@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, Droplets, Scale, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Droplets, Scale, RefreshCw, Package, Info } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { parseCurrency, formatCurrency } from '@/lib/utils';
 import { format, isValid } from 'date-fns';
@@ -14,6 +14,25 @@ export function ColetaStep2({ data, onBack, onNext, onUpdate, empresaTimezone })
   const { toast } = useToast();
   const isCompra = data.tipo_coleta === 'Compra';
   const isDoacao = data.tipo_coleta === 'Doação';
+
+  // ✅ Auto-cálculo de recipientes coletados (1kg = 1.2L aprox, recipientes de 50L)
+  React.useEffect(() => {
+    if (data.usa_recipiente) {
+      const peso = parseCurrency(data.quantidade_coletada);
+      if (peso > 0) {
+        // Usando fator 1.195 (média de 1.19 e 1.20)
+        const volumeLitros = peso * 1.195;
+        const qtdRecipientes = Math.ceil(volumeLitros / 50);
+        
+        // Só atualiza se o valor for diferente para evitar loop infinito
+        if (data.recipientes_coletados !== qtdRecipientes) {
+          onUpdate({ recipientes_coletados: qtdRecipientes });
+        }
+      } else if (data.recipientes_coletados !== 0) {
+        onUpdate({ recipientes_coletados: 0 });
+      }
+    }
+  }, [data.quantidade_coletada, data.usa_recipiente, data.recipientes_coletados, onUpdate]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -109,6 +128,51 @@ export function ColetaStep2({ data, onBack, onNext, onUpdate, empresaTimezone })
             <span className="absolute right-4 top-1/2 transform -translate-y-1/2 text-white/60 font-medium">kg</span>
           </div>
         </div>
+
+        {data.usa_recipiente && (
+          <div className="bg-emerald-900/40 border border-emerald-500/30 rounded-lg p-5 mt-6 mb-6">
+            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <Package className="w-5 h-5 text-emerald-400" />
+              Controle de Recipientes (50 Litros)
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="recipientes_coletados" className="text-emerald-100 flex items-center gap-2">
+                  Recipientes Coletados (Cheios)
+                </Label>
+                <Input
+                  id="recipientes_coletados"
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={data.recipientes_coletados || ''}
+                  readOnly
+                  placeholder="Calculado automaticamente"
+                  className="bg-emerald-950/30 border border-emerald-500/50 text-emerald-400 placeholder:text-white/40 h-12 text-lg rounded-xl cursor-not-allowed"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="recipientes_entregues" className="text-emerald-100 flex items-center gap-2">
+                  Recipientes Entregues (Vazios)
+                </Label>
+                <Input
+                  id="recipientes_entregues"
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={data.recipientes_entregues || ''}
+                  onChange={(e) => onUpdate({ recipientes_entregues: parseInt(e.target.value) || 0 })}
+                  placeholder="Ex: 2"
+                  className="bg-emerald-950/50 border border-emerald-500/50 text-white placeholder:text-white/40 h-12 text-lg rounded-xl focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400"
+                />
+              </div>
+            </div>
+            <p className="text-xs text-emerald-300/70 mt-3 flex items-center gap-1">
+              <Info className="w-3 h-3" />
+              Preencha apenas se houver movimentação de recipientes nesta coleta.
+            </p>
+          </div>
+        )}
 
         {data.quantidade_coletada && (
           <motion.div

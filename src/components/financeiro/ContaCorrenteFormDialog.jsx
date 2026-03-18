@@ -7,7 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Loader2, Save, Banknote } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
-import { formatCurrency, parseCurrency } from '@/lib/utils';
+import { IMaskInput } from 'react-imask';
+import { formatCurrency, parseCurrency, formatNumber } from '@/lib/utils';
 import { logAction } from '@/lib/logger'; // Import logAction
 
 export const ContaCorrenteFormDialog = ({ cnpjEmpresa, isOpen, onClose, onSaveSuccess, contaToEdit }) => {
@@ -28,7 +29,8 @@ export const ContaCorrenteFormDialog = ({ cnpjEmpresa, isOpen, onClose, onSaveSu
         banco: contaToEdit.banco || '',
         agencia: contaToEdit.agencia || '',
         conta: contaToEdit.conta || '',
-        saldo: String(contaToEdit.saldo || '0,00').replace('.', ','), // Format for input
+        // Format exactly how IMask expects: num.mask = Number, thousandsSeparator = '.', radix = ','
+        saldo: formatNumber(contaToEdit.saldo ?? 0),
         is_default: contaToEdit.is_default || false,
       });
     } else {
@@ -130,15 +132,31 @@ export const ContaCorrenteFormDialog = ({ cnpjEmpresa, isOpen, onClose, onSaveSu
               <Input id="conta" value={formData.conta} onChange={handleChange} required className="bg-white/10 border-white/30" />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="saldo">Saldo Inicial</Label>
-              <Input
-                id="saldo"
-                value={formData.saldo}
-                onChange={(e) => handleCurrencyChange(e.target.value)}
-                placeholder="0,00"
-                className="bg-white/10 border-white/30"
-                inputMode="numeric"
-              />
+              <Label htmlFor="saldo">Saldo Atual</Label>
+              <div className="relative">
+                <IMaskInput
+                  mask="num"
+                  blocks={{
+                    num: {
+                      mask: Number,
+                      thousandsSeparator: '.',
+                      radix: ',',
+                      mapToRadix: ['.'],
+                      scale: 2,
+                      padFractionalZeros: true,
+                      normalizeZeros: true,
+                      signed: true,
+                    },
+                  }}
+                  as={Input}
+                  id="saldo"
+                  value={formData.saldo}
+                  onAccept={(value) => handleCurrencyChange(value)}
+                  placeholder="0,00"
+                  className="bg-white/10 border-white/30 text-white pl-10"
+                />
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-white/50 text-sm">R$</div>
+              </div>
             </div>
           </div>
           <div className="flex items-center space-x-2 pt-2">

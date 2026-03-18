@@ -279,7 +279,7 @@ const useClientesList = (personType, profile) => {
       // Buscar TODOS os clientes do banco
       const { data: allClientes, error, count } = await supabase
         .from('clientes')
-        .select('id, nome_fantasia, razao_social, cnpj_cpf, endereco, municipio, estado, user_id, media_dias_coleta, data_ultima_coleta, proxima_coleta_prevista, latitude, longitude', {
+        .select('id, nome_fantasia, razao_social, cnpj_cpf, endereco, municipio, estado, user_id, media_dias_coleta, data_ultima_coleta, proxima_coleta_prevista, latitude, longitude, recipientes_saldo', {
           count: 'exact'
         });
 
@@ -939,6 +939,13 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
                     <TableHead className={cn("text-emerald-300 whitespace-nowrap text-center", CONFIG.TABLE_COLUMNS.inteligencia.width)}>
                       Coleta (Última / Média / Próxima)
                     </TableHead>
+                    <TableHeaderSortable
+                      columnKey="recipientes_saldo"
+                      label="Recipientes"
+                      sortConfig={sortConfig}
+                      onSort={requestSort}
+                      className="w-[10%]"
+                    />
                     <TableHead className={cn("text-emerald-300", CONFIG.TABLE_COLUMNS.contrato.width)}>
                       Contrato
                     </TableHead>
@@ -993,6 +1000,9 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
                               </span>
                             )}
                           </div>
+                        </TableCell>
+                        <TableCell data-label="Recipientes" className="text-center font-semibold text-emerald-400">
+                          {cliente.recipientes_saldo || 0}
                         </TableCell>
                         <TableCell data-label="Contrato">
                           <ContractStatus

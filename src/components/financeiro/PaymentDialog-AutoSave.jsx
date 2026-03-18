@@ -119,6 +119,7 @@ const PaymentDialog = ({ isOpen, onClose, entry, onSuccess, initialPaidAmount, i
       .from('conta_corrente')
       .select('*')
       .eq('cnpj_empresa', empresaData.cnpj)
+      .eq('ativo', true)
       .order('is_default', { ascending: false });
 
     if (error) {
@@ -173,10 +174,24 @@ const PaymentDialog = ({ isOpen, onClose, entry, onSuccess, initialPaidAmount, i
         p_due_date: entry.issue_date,
         p_expected_amount: entry.installment_value || entry.total_value,
         p_conta_corrente_id: selectedAccount,
+        p_user_id: supabase.auth.user?.()?.id || (await supabase.auth.getUser()).data.user?.id,
       });
 
       if (error) throw error;
       if (!data.success) throw new Error(data.message);
+
+      // Sincronizar saldo da conta corrente (que é Global/Control Table)
+      // Como o RPC rodou no banco local, ele não atualiza a conta real na Produção
+      const account = accounts.find(a => a.id === selectedAccount);
+      if (account) {
+        const currentSaldo = account.saldo || 0;
+        const newSaldo = entry.type === 'credito' ? currentSaldo + parsedPaidAmount : currentSaldo - parsedPaidAmount;
+        
+        await supabase
+          .from('conta_corrente')
+          .update({ saldo: newSaldo })
+          .eq('id', selectedAccount);
+      }
 
       toast({ title: 'Pagamento registrado', description: data.message, variant: 'success' });
       await logAction('register_payment_success', {

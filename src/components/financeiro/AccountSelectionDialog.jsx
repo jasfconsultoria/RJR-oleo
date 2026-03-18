@@ -20,6 +20,7 @@ export const AccountSelectionDialog = ({ isOpen, onClose, userId, onLinkSuccess,
     const { data, error } = await supabase
       .from('conta_corrente')
       .select('*')
+      .eq('ativo', true)
       .order('banco', { ascending: true });
 
     if (error) {
@@ -61,6 +62,7 @@ export const AccountSelectionDialog = ({ isOpen, onClose, userId, onLinkSuccess,
 
     let hasError = false;
 
+    console.log('🎯 [AccountSelectionDialog] Tentando vincular:', toAdd, 'e desvincular:', toRemove, 'para o usuário:', userId);
     // Add new links
     for (const accountId of toAdd) {
       const { error } = await supabase

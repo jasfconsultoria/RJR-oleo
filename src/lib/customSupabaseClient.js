@@ -1,10 +1,16 @@
 import { getOrCreateSupabaseClient } from './supabaseClientRegistry';
-import { getActiveEnvironment, defaultClient } from './getActiveEnvironment';
+import { getActiveEnvironment } from './getActiveEnvironment';
 import { SHARED_STORAGE_KEY, mainSupabaseUrl, mainSupabaseAnonKey } from './constants';
 
-// Valores padrão (PRODUÇÃO)
-export const supabaseUrl = mainSupabaseUrl;
-export const supabaseAnonKey = mainSupabaseAnonKey;
+/**
+ * Cliente customizado que gerencia o roteamento entre bancos (Produção/Homologação)
+ * de forma transparente para o restante da aplicação.
+ */
+
+// Cliente principal (PRODUÇÃO) - usado para o Auth e Tabelas de Controle
+const mainClient = getOrCreateSupabaseClient(mainSupabaseUrl, mainSupabaseAnonKey, {
+  auth: { storageKey: SHARED_STORAGE_KEY }
+});
 
 let currentClient = null;
 let currentUrl = null;
@@ -12,20 +18,35 @@ let currentKey = null;
 let currentUserId = null;
 let currentUserRole = null;
 
-// ✅ Inicialização síncrona do cache (essencial para páginas públicas e refresh)
-const CACHE_KEY = 'rjr_active_env';
-const cachedEnv = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
+// Valores exportados para compatibilidade (apontam para o principal)
+export const supabaseUrl = mainSupabaseUrl;
+export const supabaseAnonKey = mainSupabaseAnonKey;
 
-if (cachedEnv && cachedEnv.url && cachedEnv.anon_key) {
-  const projectRef = cachedEnv.url.split('//')[1]?.split('.')[0] || 'default';
-  const storageKey = `sb-${projectRef}-auth-token`;
+/**
+ * Retorna o cliente que deve ser usado para uma determinada operação (tabela ou RPC)
+ */
+function resolveClient(isControl) {
+  // 1. Tabelas de Controle (Auth/Profiles/Empresa) devem SEMPRE usar o banco principal
+  if (isControl) return mainClient;
   
-  currentUrl = cachedEnv.url;
-  currentKey = cachedEnv.anon_key;
-  currentClient = getOrCreateSupabaseClient(currentUrl, currentKey, {
-    auth: { storageKey }
-  });
-  console.log(`🚀 [Routing] Cliente RESTAURADO do cache local: ${currentUrl} (${cachedEnv.nome})`);
+  // 2. Se já temos o cliente de ambiente carregado em memória, usamos ele
+  if (currentClient) return currentClient;
+  
+  // 3. Se não está em memória mas temos o cache no localStorage, inicializamos síncrono agora
+  const CACHE_KEY = 'rjr_active_env';
+  const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
+  if (cached && cached.url && cached.anon_key) {
+    currentUrl = cached.url;
+    currentKey = cached.anon_key;
+    currentClient = getOrCreateSupabaseClient(currentUrl, currentKey, {
+      auth: { storageKey: SHARED_STORAGE_KEY }
+    });
+    console.log(`📡 [Routing] Cliente restaurado sob demanda para: ${currentUrl}`);
+    return currentClient;
+  }
+  
+  // 4. Se não há nada no cache e não é controle, retornamos o mainClient como último recurso
+  return mainClient;
 }
 
 /**
@@ -45,21 +66,14 @@ export function setRoutingContext(userId, role) {
 }
 
 /**
- * Obtém ou cria o cliente Supabase baseado no ambiente do usuário
+ * Obtém ou cria o cliente Supabase baseado no ambiente do usuário (Async)
  */
 async function getSupabaseClient(forceRefresh = false) {
   const env = await getActiveEnvironment(forceRefresh, currentUserRole, currentUserId);
 
   if (!currentClient || currentUrl !== env.url || currentKey !== env.anon_key) {
-    // 🛡️ Isolamento de Sessão: Cada projeto Supabase deve ter seu próprio token no localStorage
-    // Isso evita o erro 401 (PGRST301 - JWT de outro projeto)
-    const projectRef = env.url.split('//')[1]?.split('.')[0] || 'default';
-    const storageKey = `sb-${projectRef}-auth-token`;
-
     currentClient = getOrCreateSupabaseClient(env.url, env.anon_key, {
-      auth: {
-        storageKey: storageKey,
-      },
+      auth: { storageKey: SHARED_STORAGE_KEY },
     });
     currentUrl = env.url;
     currentKey = env.anon_key;
@@ -74,7 +88,9 @@ const CONTROL_TABLES = [
   'user_db_preferences',
   'db_environments',
   'empresa',
-  'logs'
+  'logs',
+  'conta_corrente',
+  'conta_usuario'
 ];
 
 // RPCs que sempre devem rodar no banco "Main" (Produção)
@@ -84,12 +100,7 @@ const CONTROL_RPCS = [
   'check_is_super_admin'
 ];
 
-// Cliente padrão para inicialização ou fallback (Main DB)
-const mainClient = getOrCreateSupabaseClient(supabaseUrl, supabaseAnonKey, {
-  auth: { storageKey: SHARED_STORAGE_KEY }
-});
-
-// Proxy para manter a interface 'supabase.from()', etc, funcionando de forma transparente e assíncrona (internamente)
+// Proxy para manter a interface 'supabase.from()', etc, funcionando de forma transparente
 export const supabase = new Proxy({}, {
   get(target, prop) {
     // 💡 IMPORTANTE: Auth deve ser SEMPRE do cliente principal para manter a sessão estável e única
@@ -101,7 +112,11 @@ export const supabase = new Proxy({}, {
     if (prop === 'from') {
       return (tableName) => {
         const isControl = CONTROL_TABLES.includes(tableName);
-        const resolvedClient = isControl ? mainClient : (currentClient || mainClient);
+        const resolvedClient = resolveClient(isControl);
+        
+        const source = isControl ? 'Controle (Main)' : (resolvedClient === mainClient ? 'Fallback (Main)' : 'Ambiente Ativo');
+        console.log(`📡 [Proxy:from] Tabela: ${tableName} -> ${source}`);
+        
         return resolvedClient.from(tableName);
       };
     }
@@ -110,13 +125,17 @@ export const supabase = new Proxy({}, {
     if (prop === 'rpc') {
       return (rpcName, params) => {
         const isControl = CONTROL_RPCS.includes(rpcName);
-        const resolvedClient = isControl ? mainClient : (currentClient || mainClient);
+        const resolvedClient = resolveClient(isControl);
+        
+        const source = isControl ? 'Controle (Main)' : (resolvedClient === mainClient ? 'Fallback (Main)' : 'Ambiente Ativo');
+        console.log(`📡 [Proxy:rpc] RPC: ${rpcName} -> ${source}`);
+        
         return resolvedClient.rpc(rpcName, params);
       };
     }
 
     // Para outras propriedades (storage, functions, etc), usamos o cliente ativo ou principal
-    const client = currentClient || mainClient;
+    const client = resolveClient(false);
     if (typeof client[prop] === 'function') {
       return client[prop].bind(client);
     }

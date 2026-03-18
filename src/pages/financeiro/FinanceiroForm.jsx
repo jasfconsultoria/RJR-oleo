@@ -244,7 +244,8 @@ const FinanceiroForm = ({ type }) => {
           cnpj_cpf, description, payment_method, cost_center, 
           notes, user_id, issue_date, total_value,
           installment_number, total_installments, installment_value, 
-          paid_amount, amount_balance, status
+          paid_amount, amount_balance, status,
+          discount, interest, document_value
         `)
         .eq('id', id)
         .single();
