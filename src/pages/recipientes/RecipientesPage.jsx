@@ -10,7 +10,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Card, CardContent } from '@/components/ui/card';
-import { Package, Box, RefreshCw, FileText, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
+import { Package, Box, RefreshCw, FileText, ArrowUp, ArrowDown, ArrowUpDown, MapPin, Building2, Users } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
 import { format } from 'date-fns';
@@ -27,6 +27,7 @@ import { useDebounce } from '@/hooks/useDebounce';
 import ClientesFilters from '@/components/clientes/ClientesFilters';
 import { formatCnpjCpf } from '@/lib/utils';
 import { cn } from '@/lib/utils';
+import { useLocationData } from '@/hooks/useLocationData';
 
 // Componente Header com Ordenação
 const TableHeaderSortable = ({ columnKey, label, sortConfig, onSort, className }) => {
@@ -48,6 +49,7 @@ const TableHeaderSortable = ({ columnKey, label, sortConfig, onSort, className }
 };
 
 const RecipientesPage = () => {
+  const { fetchMunicipiosByCodes } = useLocationData();
   const [clientes, setClientes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [Resumo, setResumo] = useState({ total_com_clientes: 0 });
@@ -84,11 +86,25 @@ const RecipientesPage = () => {
 
       if (error) throw error;
 
-      // Filter clients with containers
-      // Store all data first, we will filter in useMemo
-      setClientes(data || []);
+      let processedData = data || [];
+      const codes = [...new Set(processedData.map(c => c.municipio).filter(m => m && !isNaN(m)))];
       
-      const totalCli = (data || []).reduce((acc, c) => acc + (c.recipientes_saldo || 0), 0);
+      if (codes.length > 0) {
+        const mapping = await fetchMunicipiosByCodes(codes);
+        processedData = processedData.map(c => ({
+          ...c,
+          municipio_nome: mapping[c.municipio] || c.municipio,
+        }));
+      } else {
+        processedData = processedData.map(c => ({
+          ...c,
+          municipio_nome: c.municipio,
+        }));
+      }
+
+      setClientes(processedData);
+      
+      const totalCli = processedData.reduce((acc, c) => acc + (c.recipientes_saldo || 0), 0);
       setResumo({ total_com_clientes: totalCli });
 
     } catch (error) {
@@ -106,12 +122,29 @@ const RecipientesPage = () => {
     try {
       const { data, error } = await supabase
         .from('movimentacoes_recipientes')
-        .select('*, coletas(id)')
+        .select('*')
         .eq('cliente_id', cliente.id)
         .order('data_movimento', { ascending: false });
-      
+
       if (error) throw error;
-      setMovimentacoes(data || []);
+      
+      let moves = data || [];
+      
+      // Injetar linha sintética se extrato vazio mas tem saldo
+      if (moves.length === 0 && cliente.recipientes_saldo > 0) {
+        moves = [{
+          id: 'synthetic-initial',
+          data_movimento: new Date().toISOString(),
+          tipo_operacao: 'Ajuste de Saldo Legado',
+          quantidade_entregue: cliente.recipientes_saldo,
+          quantidade_coletada: 0,
+          saldo_anterior: 0,
+          saldo_novo: cliente.recipientes_saldo,
+          observacao: 'Movimentação anterior ao início do rastreio detalhado.'
+        }];
+      }
+
+      setMovimentacoes(moves);
     } catch (error) {
        console.error('Error fetching history:', error);
        toast({ title: 'Erro', description: 'Não foi possível ler o histórico.', variant: 'destructive' });
@@ -130,7 +163,7 @@ const RecipientesPage = () => {
     if (filterEstado !== 'todos') {
       filteredForMun = clientes.filter(c => c.estado === filterEstado);
     }
-    const munList = [...new Set(filteredForMun.map(c => c.municipio).filter(Boolean))].sort();
+    const munList = [...new Set(filteredForMun.map(c => c.municipio_nome).filter(Boolean))].sort();
     return munList.map(m => ({ value: m, label: m }));
   }, [clientes, filterEstado]);
 
@@ -153,7 +186,7 @@ const RecipientesPage = () => {
         const razaoSocial = c.razao_social || '';
         const nomeFantasia = c.nome_fantasia || '';
         const cnpjCpf = c.cnpj_cpf || '';
-        const municipio = c.municipio || '';
+        const municipio = c.municipio_nome || '';
         const estado = c.estado || '';
         return razaoSocial.toLowerCase().includes(searchLower) || 
                nomeFantasia.toLowerCase().includes(searchLower) ||
@@ -170,7 +203,7 @@ const RecipientesPage = () => {
 
     // City filter
     if (filterMunicipio !== 'todos') {
-      result = result.filter(c => c.municipio === filterMunicipio);
+      result = result.filter(c => c.municipio_nome === filterMunicipio);
     }
 
     // Sorting
@@ -197,6 +230,36 @@ const RecipientesPage = () => {
 
     return result;
   }, [clientes, debouncedSearchTerm, filterEstado, filterMunicipio, sortConfig]);
+  
+  // Stats para os cards de resumo
+  const stats = useMemo(() => {
+    // Clientes por Estado (ignora filtro de município e busca)
+    const clientsInEstado = filterEstado === 'todos' ? clientes : clientes.filter(c => c.estado === filterEstado);
+    const totalEstado = clientsInEstado.reduce((acc, c) => acc + (c.recipientes_saldo || 0), 0);
+    const mediaEstado = clientsInEstado.length > 0 ? (totalEstado / clientsInEstado.length).toFixed(1) : 0;
+
+    // Clientes por Município (ignora busca, respeita filtro de estado)
+    const clientsInMunicipio = filterMunicipio === 'todos' 
+      ? clientsInEstado 
+      : clientsInEstado.filter(c => c.municipio_nome === filterMunicipio);
+    const totalMunicipio = clientsInMunicipio.reduce((acc, c) => acc + (c.recipientes_saldo || 0), 0);
+    const mediaMunicipio = clientsInMunicipio.length > 0 ? (totalMunicipio / clientsInMunicipio.length).toFixed(1) : 0;
+
+    // Geral (respeita TODOS os filtros, inclusive busca)
+    const totalGlobalFiltro = filteredClientes.reduce((acc, c) => acc + (c.recipientes_saldo || 0), 0);
+    const mediaGlobalFiltro = filteredClientes.length > 0 ? (totalGlobalFiltro / filteredClientes.length).toFixed(1) : 0;
+    
+    return {
+      totalEstado,
+      totalMunicipio,
+      totalGlobalFiltro,
+      mediaEstado,
+      mediaMunicipio,
+      mediaGlobalFiltro,
+      estadoNome: filterEstado === 'todos' ? 'Geral' : filterEstado,
+      municipioNome: filterMunicipio === 'todos' ? 'Geral' : filterMunicipio
+    };
+  }, [clientes, filteredClientes, filterEstado, filterMunicipio]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -236,14 +299,15 @@ const RecipientesPage = () => {
           </div>
         </motion.div>
 
-        {/* Dashboard Resumo */}
+        {/* Dashboard Resumo - Oculto a pedido do usuário
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <Card className="bg-emerald-900 border-emerald-700">
+          <Card className="bg-emerald-900 border-emerald-700 shadow-lg shadow-emerald-500/10">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-emerald-300 font-medium">Recipientes com Clientes</p>
-                  <p className="text-3xl font-bold text-white mt-1">{Resumo.total_com_clientes}</p>
+                  <p className="text-emerald-300 font-medium whitespace-nowrap">Total Recipientes</p>
+                  <p className="text-3xl font-bold text-white mt-1">{stats.totalGlobalFiltro}</p>
+                  <p className="text-xs text-emerald-400/60 mt-1 uppercase tracking-wider">No Filtro</p>
                 </div>
                 <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center">
                   <Box className="w-6 h-6 text-emerald-400" />
@@ -251,7 +315,59 @@ const RecipientesPage = () => {
               </div>
             </CardContent>
           </Card>
+
+          <Card className="bg-emerald-900 border-emerald-700 shadow-lg shadow-emerald-500/10">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-emerald-300 font-medium whitespace-nowrap">Média / Estado</p>
+                  <p className="text-3xl font-bold text-white mt-1">{stats.mediaEstado}</p>
+                  <div className="flex flex-col mt-1">
+                    <span className="text-xs text-emerald-400/60 uppercase tracking-wider">{stats.estadoNome}</span>
+                    <span className="text-[10px] text-white/40 italic">Total: {stats.totalEstado}</span>
+                  </div>
+                </div>
+                <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center">
+                  <MapPin className="w-6 h-6 text-emerald-400" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-emerald-900 border-emerald-700 shadow-lg shadow-emerald-500/10">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-emerald-300 font-medium whitespace-nowrap">Média / Município</p>
+                  <p className="text-3xl font-bold text-white mt-1">{stats.mediaMunicipio}</p>
+                  <div className="flex flex-col mt-1">
+                    <span className="text-xs text-emerald-400/60 uppercase tracking-wider">{stats.municipioNome}</span>
+                    <span className="text-[10px] text-white/40 italic">Total: {stats.totalMunicipio}</span>
+                  </div>
+                </div>
+                <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center">
+                  <Building2 className="w-6 h-6 text-emerald-400" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-emerald-900 border-emerald-700 shadow-lg shadow-emerald-500/10">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-emerald-300 font-medium whitespace-nowrap">Média / Cliente</p>
+                  <p className="text-3xl font-bold text-white mt-1">{stats.mediaGlobalFiltro}</p>
+                  <p className="text-xs text-emerald-400/60 mt-1 uppercase tracking-wider">No Filtro Atual</p>
+                </div>
+                <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center">
+                  <Users className="w-6 h-6 text-emerald-400" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
+        */}
 
         {/* Search and Filters Bar */}
         <ClientesFilters
@@ -296,7 +412,7 @@ const RecipientesPage = () => {
                       className="w-[15%]"
                     />
                     <TableHeaderSortable
-                      columnKey="municipio"
+                      columnKey="municipio_nome"
                       label="Localização"
                       sortConfig={sortConfig}
                       onSort={requestSort}
@@ -328,7 +444,7 @@ const RecipientesPage = () => {
                           {c.cnpj_cpf ? formatCnpjCpf(c.cnpj_cpf) : '-'}
                         </TableCell>
                         <TableCell data-label="Localização">
-                           {c.municipio}, {c.estado}
+                           {c.municipio_nome}, {c.estado}
                         </TableCell>
                         <TableCell data-label="Saldo Atual" className="text-center">
                           <span className="bg-emerald-500/20 text-emerald-400 px-3 py-1 rounded-full font-bold">

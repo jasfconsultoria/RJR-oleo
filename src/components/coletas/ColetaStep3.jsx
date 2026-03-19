@@ -18,6 +18,32 @@ export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData, em
   const [savedColeta, setSavedColeta] = useState(null);
   const [empresa, setEmpresa] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false); // Novo estado para controlar o envio
+  const [saldoAtual, setSaldoAtual] = useState(data.saldo_recipientes_atual || 0);
+  const [totalContrato, setTotalContrato] = useState(0);
+
+  useEffect(() => {
+    const fetchSaldoEContrato = async () => {
+      if (data.cliente_id) {
+        try {
+          const { data: saldoData } = await supabase
+            .from('clientes')
+            .select('recipientes_saldo, contratos(status, qtd_recipiente)')
+            .eq('id', data.cliente_id)
+            .single();
+          if (saldoData) {
+            setSaldoAtual(saldoData.recipientes_saldo || 0);
+            const activeContract = (saldoData.contratos || []).find(c => c.status === 'Ativo');
+            setTotalContrato(activeContract?.qtd_recipiente || 0);
+            if (onUpdate) {
+              onUpdate({ saldo_recipientes_atual: saldoData.recipientes_saldo || 0 });
+            }
+          }
+        } catch(e) {}
+      }
+    };
+    fetchSaldoEContrato();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data.cliente_id]);
   const isCompra = data.tipo_coleta === 'Compra';
   const isDoacao = data.tipo_coleta === 'Doação';
   const { toast } = useToast();
@@ -80,7 +106,15 @@ export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData, em
       }
 
       onUpdate(calculatedFinalData);
-      setSavedColeta(savedData); 
+      
+      // Enriquecer os dados com o que já buscamos p/ não precisar carregar no Recibo
+      const preLoadedDataForRecibo = { 
+         ...savedData, 
+         total_recipientes_contrato: totalContrato,
+         saldo_recipientes_atual: saldoAtual 
+      };
+      
+      setSavedColeta(preLoadedDataForRecibo); 
       
       toast({
         title: "Coleta finalizada!",
@@ -166,6 +200,12 @@ export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData, em
                 }
               </p>
                {!isCompra && <p className="text-xs text-emerald-200 mt-1">* Valor Arredondado.</p>}
+            </div>
+            <div className="bg-emerald-500/10 border border-emerald-400/20 rounded-lg p-3 flex justify-between items-center text-xs text-emerald-200">
+              <span><strong>Recipientes:</strong> Total: {totalContrato}</span>
+              <span>Coletados: {data.recipientes_coletados || 0}</span>
+              <span>Entregues: {data.recipientes_entregues || 0}</span>
+              <span>Saldo: {(saldoAtual) + (data.recipientes_entregues || 0) - (data.recipientes_coletados || 0)}*</span>
             </div>
           </div>
 

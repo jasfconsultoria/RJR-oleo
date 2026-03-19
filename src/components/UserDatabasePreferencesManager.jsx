@@ -36,20 +36,21 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
-const DATABASES = {
-  homologacao: {
-    url: homologSupabaseUrl,
-    anon_key: homologSupabaseAnonKey,
-    nome: 'Homologação',
-    tipo: 'homologacao',
-  },
-  producao: {
+// Constantes para fallback se o banco estiver indisponível
+const DATABASES_FALLBACK = [
+  {
+    tipo: 'producao',
+    nome: 'Produção',
     url: defaultSupabaseUrl,
     anon_key: defaultSupabaseAnonKey,
-    nome: 'Produção',
-    tipo: 'producao',
   },
-};
+  {
+    tipo: 'homologacao',
+    nome: 'Homologação',
+    url: homologSupabaseUrl,
+    anon_key: homologSupabaseAnonKey,
+  }
+];
 
 const UserDatabasePreferencesManager = () => {
   const { user } = useAuth();
@@ -58,6 +59,7 @@ const UserDatabasePreferencesManager = () => {
   const { toast } = useToast();
   const [users, setUsers] = useState([]);
   const [preferences, setPreferences] = useState({}); // { userId: { tipo, nome, url, anon_key } }
+  const [environments, setEnvironments] = useState(DATABASES_FALLBACK);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUsers, setSelectedUsers] = useState(new Set());
@@ -79,6 +81,24 @@ const UserDatabasePreferencesManager = () => {
         .rpc('get_all_users');
 
       if (usersError) throw usersError;
+
+      // Buscar ambientes de banco para não usar url fixo
+      const { data: dbEnvs, error: envsError } = await defaultClient
+        .from('db_environments')
+        .select('*');
+        
+      if (!envsError && dbEnvs) {
+        const envsCombinados = DATABASES_FALLBACK.map(ambientePadrao => {
+          const encontrado = dbEnvs.find(a => a.tipo === ambientePadrao.tipo);
+          return encontrado || ambientePadrao;
+        });
+
+        const outrosAmbientes = dbEnvs.filter(
+          a => !DATABASES_FALLBACK.some(ap => ap.tipo === a.tipo)
+        );
+
+        setEnvironments([...envsCombinados, ...outrosAmbientes]);
+      }
 
       // Buscar todas as preferências
       const { data: allPreferences, error: prefsError } = await defaultClient
@@ -157,7 +177,9 @@ const UserDatabasePreferencesManager = () => {
 
     setBulkSaving(true);
     try {
-      const dbConfig = DATABASES[selectedDatabase];
+      const dbConfig = environments.find(env => env.tipo === selectedDatabase);
+      if (!dbConfig) throw new Error('Selecione um banco válido');
+      
       const userIds = Array.from(selectedUsers);
 
       const promises = userIds.map(async (userId) => {
@@ -313,8 +335,9 @@ const UserDatabasePreferencesManager = () => {
                   <SelectValue placeholder="Selecione o banco" />
                 </SelectTrigger>
                 <SelectContent className="bg-gray-900 border-white/10 text-white">
-                  <SelectItem value="producao">Produção</SelectItem>
-                  <SelectItem value="homologacao">Homologação</SelectItem>
+                  {environments.map((env) => (
+                    <SelectItem key={env.tipo} value={env.tipo}>{env.nome}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

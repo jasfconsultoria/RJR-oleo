@@ -218,7 +218,7 @@ export const ReciboViewDialog = ({
         console.log('🚀 ABRINDO PAGAMENTO PARA COLETA COMPRA...');
         
         const { data: debitEntry, error: debitError } = await supabase
-          .from('v_financeiro_completo')
+          .from('credito_debito')
           .select('*')
           .eq('coleta_id', coleta.id)
           .eq('type', 'debito')
@@ -237,14 +237,18 @@ export const ReciboViewDialog = ({
           console.warn('⚠️ Débito não encontrado');
           toast({ 
             title: 'Aviso', 
-            description: 'Lançamento de débito não encontrado.', 
+            description: 'Lançamento de débito não encontrado para esta coleta.', 
             variant: 'warning', 
             duration: 5000 
           });
           onClose();
         } else {
           console.log('✅ DÉBITO ENCONTRADO - ABRINDO PAGAMENTO');
-          setDebitEntryForPayment(debitEntry);
+          setDebitEntryForPayment({
+            ...debitEntry,
+            amount_balance: debitEntry.amount_balance ?? debitEntry.total_value, // Fallback se amount_balance não estiver definido no DB original
+            paid_amount: debitEntry.paid_amount ?? 0
+          });
           setShowPaymentDialog(true);
         }
       } else {

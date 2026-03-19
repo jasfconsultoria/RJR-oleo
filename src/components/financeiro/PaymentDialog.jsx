@@ -107,8 +107,7 @@ const PaymentDialog = ({ isOpen, onClose, entry, onSuccess, initialPaidAmount, i
         p_installment_number: entry.installment_number,
         p_due_date: entry.issue_date,
         p_expected_amount: entry.installment_value || entry.total_value,
-        p_conta_corrente_id: selectedAccount,
-        p_user_id: supabase.auth.user?.()?.id || (await supabase.auth.getUser()).data.user?.id,
+        p_conta_corrente_id: selectedAccount
       });
 
       if (error) throw error;
@@ -216,46 +215,48 @@ const PaymentDialog = ({ isOpen, onClose, entry, onSuccess, initialPaidAmount, i
             </Select>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="paidAmount" className="text-white flex items-center gap-2">
-              <DollarSign className="w-4 h-4" /> Valor a Pagar (R$) *
-            </Label>
-            <IMaskInput
-              mask="num"
-              blocks={{
-                num: {
-                  mask: Number,
-                  thousandsSeparator: '.',
-                  radix: ',',
-                  mapToRadix: ['.'],
-                  scale: 2,
-                  padFractionalZeros: true,
-                  normalizeZeros: true,
-                  signed: false,
-                },
-              }}
-              as={Input}
-              id="paidAmount"
-              type="text"
-              value={paidAmount}
-              lazy={false}
-              onAccept={(value) => setPaidAmount(value)}
-              placeholder="0,00"
-              inputMode="decimal"
-              className="bg-white/10 border-white/30 text-white placeholder:text-white/60 rounded-xl h-10 text-base px-3 py-2 !text-right"
-              required
-            />
-          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="paidAmount" className="text-white flex items-center gap-2">
+                <DollarSign className="w-4 h-4" /> Valor a Pagar (R$) *
+              </Label>
+              <IMaskInput
+                mask="num"
+                blocks={{
+                  num: {
+                    mask: Number,
+                    thousandsSeparator: '.',
+                    radix: ',',
+                    mapToRadix: ['.'],
+                    scale: 2,
+                    padFractionalZeros: true,
+                    normalizeZeros: true,
+                    signed: false,
+                  },
+                }}
+                as={Input}
+                id="paidAmount"
+                type="text"
+                value={paidAmount}
+                lazy={false}
+                onAccept={(value) => setPaidAmount(value)}
+                placeholder="0,00"
+                inputMode="decimal"
+                className="bg-white/10 border-white/30 text-white placeholder:text-white/60 rounded-xl h-10 text-base px-3 py-2 !text-right"
+                required
+              />
+            </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="paymentDate" className="text-white flex items-center gap-2">
-              <CalendarIcon className="w-4 h-4" /> Data do Pagamento *
-            </Label>
-            <DatePicker
-              date={paymentDate}
-              setDate={setPaymentDate}
-              className="w-full bg-white/10 border-white/30 text-white rounded-xl"
-            />
+            <div className="space-y-2">
+              <Label htmlFor="paymentDate" className="text-white flex items-center gap-2">
+                <CalendarIcon className="w-4 h-4" /> Data do Pagamento *
+              </Label>
+              <DatePicker
+                date={paymentDate}
+                setDate={setPaymentDate}
+                className="w-full bg-white/10 border-white/30 text-white rounded-xl"
+              />
+            </div>
           </div>
 
           <div className="space-y-2">

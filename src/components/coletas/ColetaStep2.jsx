@@ -9,6 +9,7 @@ import { parseCurrency, formatCurrency } from '@/lib/utils';
 import { format, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { IMaskInput } from 'react-imask'; // Adicionado IMaskInput
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export function ColetaStep2({ data, onBack, onNext, onUpdate, empresaTimezone }) {
   const { toast } = useToast();
@@ -17,8 +18,8 @@ export function ColetaStep2({ data, onBack, onNext, onUpdate, empresaTimezone })
 
   // ✅ Auto-cálculo de recipientes coletados (1kg = 1.2L aprox, recipientes de 50L)
   React.useEffect(() => {
-    if (data.usa_recipiente) {
-      const peso = parseCurrency(data.quantidade_coletada);
+    // Agora sempre exibimos e usamos o cálculo de recipientes
+    const peso = parseCurrency(data.quantidade_coletada);
       if (peso > 0) {
         // Usando fator 1.195 (média de 1.19 e 1.20)
         const volumeLitros = peso * 1.195;
@@ -26,13 +27,18 @@ export function ColetaStep2({ data, onBack, onNext, onUpdate, empresaTimezone })
         
         // Só atualiza se o valor for diferente para evitar loop infinito
         if (data.recipientes_coletados !== qtdRecipientes) {
-          onUpdate({ recipientes_coletados: qtdRecipientes });
+          onUpdate({ 
+            recipientes_coletados: qtdRecipientes,
+            recipientes_entregues: qtdRecipientes
+          });
         }
       } else if (data.recipientes_coletados !== 0) {
-        onUpdate({ recipientes_coletados: 0 });
+        onUpdate({ 
+          recipientes_coletados: 0,
+          recipientes_entregues: 0
+        });
       }
-    }
-  }, [data.quantidade_coletada, data.usa_recipiente, data.recipientes_coletados, onUpdate]);
+  }, [data.quantidade_coletada, data.recipientes_coletados, data.recipientes_entregues, onUpdate]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -129,12 +135,24 @@ export function ColetaStep2({ data, onBack, onNext, onUpdate, empresaTimezone })
           </div>
         </div>
 
-        {data.usa_recipiente && (
-          <div className="bg-emerald-900/40 border border-emerald-500/30 rounded-lg p-5 mt-6 mb-6">
-            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-              <Package className="w-5 h-5 text-emerald-400" />
-              Controle de Recipientes (50 Litros)
-            </h3>
+        <div className="bg-emerald-900/40 border border-emerald-500/30 rounded-lg p-5 mt-6 mb-6">
+          <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <Package className="w-5 h-5 text-emerald-400" />
+            <span>Controle de Recipientes (50 Litros)</span>
+            <TooltipProvider>
+              <Tooltip delayDuration={200}>
+                <TooltipTrigger asChild>
+                  <button type="button" className="cursor-help focus:outline-none flex items-center justify-center p-1 rounded-full hover:bg-emerald-500/20 transition-colors">
+                    <Info className="w-4 h-4 text-emerald-400/80" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="bg-emerald-950 border border-emerald-500/50 text-emerald-50 max-w-xs text-sm font-normal z-50 p-3">
+                  <p>1 kg de óleo equivale a aproximadamente 1.2 litros.</p>
+                  <p className="mt-1">O sistema converte o volume total e divide por 50L (capacidade do recipiente padrão), arredondando para cima para sugerir os recipientes coletados.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="recipientes_coletados" className="text-emerald-100 flex items-center gap-2">
@@ -153,26 +171,26 @@ export function ColetaStep2({ data, onBack, onNext, onUpdate, empresaTimezone })
               </div>
               <div className="space-y-2">
                 <Label htmlFor="recipientes_entregues" className="text-emerald-100 flex items-center gap-2">
-                  Recipientes Entregues (Vazios)
+                  Recipientes Entregues (Vazios) *
                 </Label>
                 <Input
                   id="recipientes_entregues"
                   type="number"
                   min="0"
                   step="1"
-                  value={data.recipientes_entregues || ''}
-                  onChange={(e) => onUpdate({ recipientes_entregues: parseInt(e.target.value) || 0 })}
+                  value={data.recipientes_entregues !== undefined ? data.recipientes_entregues : ''}
+                  onChange={(e) => onUpdate({ recipientes_entregues: e.target.value === '' ? '' : parseInt(e.target.value) })}
                   placeholder="Ex: 2"
                   className="bg-emerald-950/50 border border-emerald-500/50 text-white placeholder:text-white/40 h-12 text-lg rounded-xl focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400"
+                  required
                 />
               </div>
             </div>
             <p className="text-xs text-emerald-300/70 mt-3 flex items-center gap-1">
               <Info className="w-3 h-3" />
-              Preencha apenas se houver movimentação de recipientes nesta coleta.
+              Preencha os campos para o controle de recipientes nesta coleta.
             </p>
           </div>
-        )}
 
         {data.quantidade_coletada && (
           <motion.div

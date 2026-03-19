@@ -308,14 +308,19 @@ const useClientesList = (personType, profile) => {
 
       // Aplicar busca se houver termo
       if (debouncedSearchTerm) {
-        const term = debouncedSearchTerm.toLowerCase();
-        clientesFiltrados = clientesFiltrados.filter(cliente =>
-        (cliente.nome_fantasia?.toLowerCase()?.includes(term) ||
-          cliente.razao_social?.toLowerCase()?.includes(term) ||
-          cliente.cnpj_cpf?.includes(term) ||
-          cliente.municipio?.toLowerCase()?.includes(term) ||
-          cliente.estado?.toLowerCase()?.includes(term))
-        );
+        clientesFiltrados = clientesFiltrados.filter(cliente => {
+          const municipioNome = (!isNaN(cliente.municipio) && state.municipioMap[cliente.municipio]) 
+            ? state.municipioMap[cliente.municipio] 
+            : cliente.municipio;
+
+          return (
+            cliente.nome_fantasia?.toLowerCase()?.includes(term) ||
+            cliente.razao_social?.toLowerCase()?.includes(term) ||
+            cliente.cnpj_cpf?.includes(term) ||
+            municipioNome?.toLowerCase()?.includes(term) ||
+            cliente.estado?.toLowerCase()?.includes(term)
+          );
+        });
         totalFiltrado = clientesFiltrados.length;
       }
 

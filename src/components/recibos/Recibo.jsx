@@ -145,6 +145,35 @@ export const Recibo = React.forwardRef(({ data, signature, empresa, timezone, co
     // Estado para controlar erros de carregamento da logo
     const [logoError, setLogoError] = useState(false);
     const [logoLoaded, setLogoLoaded] = useState(false);
+    const [saldoFinalDb, setSaldoFinalDb] = useState(null);
+    const [totalContrato, setTotalContrato] = useState(data.total_recipientes_contrato || 0);
+
+    useEffect(() => {
+        const fetchSaldoFinal = async () => {
+            if (data.cliente_id) {
+                try {
+                    // Busca o saldo atual do cliente, que a esta altura (no recibo) 
+                    // já deve ter sido atualizado pelo backend após a coleta.
+                    const { data: saldoData } = await supabase
+                        .from('clientes')
+                        .select('recipientes_saldo, contratos(status, qtd_recipiente)')
+                        .eq('id', data.cliente_id)
+                        .single();
+                    if (saldoData) {
+                        setSaldoFinalDb(saldoData.recipientes_saldo || 0);
+                        const activeContract = (saldoData.contratos || []).find(c => c.status === 'Ativo');
+                        setTotalContrato(activeContract?.qtd_recipiente || 0);
+                    }
+                } catch(e) {}
+            }
+        };
+        fetchSaldoFinal();
+    }, [data.cliente_id]);
+
+    // O Saldo final a exibir. Se não conseguiu do banco, faz as contas com o que tem.
+    const saldoFinalDisplay = saldoFinalDb !== null 
+      ? saldoFinalDb 
+      : ((data.saldo_recipientes_atual || 0) + (parseInt(data.recipientes_entregues) || 0) - (parseInt(data.recipientes_coletados) || 0));
 
     // Função para lidar com erro no carregamento da logo
     const handleLogoError = () => {
@@ -331,6 +360,13 @@ export const Recibo = React.forwardRef(({ data, signature, empresa, timezone, co
                         )}
                     </tbody>
                 </table>
+
+                <div className="mt-2 bg-gray-50 border border-gray-200 rounded p-2 text-[10px] text-gray-500 flex justify-between items-center" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                    <span><strong>Recipientes:</strong> Total: {totalContrato}</span>
+                    <span>Coletados: {data.recipientes_coletados || 0}</span>
+                    <span>Entregues: {data.recipientes_entregues || 0}</span>
+                    <span>Saldo: {saldoFinalDisplay}*</span>
+                </div>
             </main>
 
             <footer className="mt-8 text-center">

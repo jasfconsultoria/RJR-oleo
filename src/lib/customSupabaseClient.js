@@ -38,8 +38,9 @@ function resolveClient(isControl) {
   if (cached && cached.url && cached.anon_key) {
     currentUrl = cached.url;
     currentKey = cached.anon_key;
+    const isMain = currentUrl === mainSupabaseUrl;
     currentClient = getOrCreateSupabaseClient(currentUrl, currentKey, {
-      auth: { storageKey: SHARED_STORAGE_KEY }
+      auth: isMain ? { storageKey: SHARED_STORAGE_KEY } : { persistSession: false }
     });
     console.log(`📡 [Routing] Cliente restaurado sob demanda para: ${currentUrl}`);
     return currentClient;
@@ -72,8 +73,9 @@ async function getSupabaseClient(forceRefresh = false) {
   const env = await getActiveEnvironment(forceRefresh, currentUserRole, currentUserId);
 
   if (!currentClient || currentUrl !== env.url || currentKey !== env.anon_key) {
+    const isMain = env.url === mainSupabaseUrl;
     currentClient = getOrCreateSupabaseClient(env.url, env.anon_key, {
-      auth: { storageKey: SHARED_STORAGE_KEY },
+      auth: isMain ? { storageKey: SHARED_STORAGE_KEY } : { persistSession: false },
     });
     currentUrl = env.url;
     currentKey = env.anon_key;

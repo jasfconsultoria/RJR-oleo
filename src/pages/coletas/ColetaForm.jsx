@@ -630,7 +630,7 @@ const ColetaForm = () => {
       const qtdeColetadaRec = parseInt(finalColetaData.recipientes_coletados, 10) || 0;
       const qtdeEntregueRec = parseInt(finalColetaData.recipientes_entregues, 10) || 0;
 
-      if (finalColetaData.usa_recipiente && (qtdeColetadaRec > 0 || qtdeEntregueRec > 0)) {
+      if (qtdeColetadaRec > 0 || qtdeEntregueRec > 0) {
         try {
           console.log('📦 [ColetaForm] Registrando movimentação de recipientes:', {
             clienteId,

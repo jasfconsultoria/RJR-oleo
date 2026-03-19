@@ -7,6 +7,7 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
 import { formatCnpjCpf } from '@/lib/utils';
 import { motion } from 'framer-motion';
+import { useLocationData } from '@/hooks/useLocationData';
 
 const ClienteSearchableSelect = ({
   labelText = "Cliente",
@@ -24,6 +25,7 @@ const ClienteSearchableSelect = ({
   // ✅ NOVA PROP: Para permitir foco programático do pai
   inputRef: externalInputRef,
 }) => {
+  const { fetchMunicipiosByCodes } = useLocationData();
   // Internal state for dropdown visibility and client list
   const [clients, setClients] = useState([]);
   const [loadingClients, setLoadingClients] = useState(true);
@@ -114,7 +116,25 @@ const ClienteSearchableSelect = ({
           const { data, error } = await query.order('razao_social', { ascending: true });
 
           if (error) throw error;
-          setClients(data || []);
+          
+          let processedData = data || [];
+          
+          // Resolve city names if they are codes
+          const codes = [...new Set(processedData.map(c => c.municipio).filter(m => m && !isNaN(m)))];
+          if (codes.length > 0) {
+            const mapping = await fetchMunicipiosByCodes(codes);
+            processedData = processedData.map(c => ({
+              ...c,
+              municipio_nome: mapping[c.municipio] || c.municipio
+            }));
+          } else {
+            processedData = processedData.map(c => ({
+              ...c,
+              municipio_nome: c.municipio
+            }));
+          }
+
+          setClients(processedData);
         }
       } catch (error) {
         console.error('Erro ao buscar dados:', error);
@@ -198,7 +218,13 @@ const ClienteSearchableSelect = ({
     const displayValue = client.nome_fantasia && client.razao_social
       ? `${client.nome_fantasia} - ${client.razao_social}`
       : client.nome_fantasia || client.razao_social || 'Nome não informado';
-    setInternalSearchTerm(displayValue);
+    
+    // Also update with city if available to help identify
+    const displayValueWithCity = client.municipio_nome 
+      ? `${displayValue} (${client.municipio_nome})`
+      : displayValue;
+
+    setInternalSearchTerm(displayValue); // Keep internal simple for display in input
     onSearchTermChange && onSearchTermChange(displayValue);
     setShowDropdown(false);
 
@@ -301,7 +327,7 @@ const ClienteSearchableSelect = ({
                     </>
                   ) : (
                     <>
-                      {client.cnpj_cpf ? formatCnpjCpf(client.cnpj_cpf) : 'CNPJ/CPF não informado'} - {client.municipio}/{client.estado}
+                      {client.cnpj_cpf ? formatCnpjCpf(client.cnpj_cpf) : 'CNPJ/CPF não informado'} - {client.municipio_nome}/{client.estado}
                     </>
                   )}
                 </div>

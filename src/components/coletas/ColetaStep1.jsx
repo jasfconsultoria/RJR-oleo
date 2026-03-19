@@ -33,7 +33,7 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
   const [loadingClients, setLoadingClients] = useState(false);
 
   // Buscar estados e municípios do banco de dados
-  const { estados, fetchMunicipios } = useLocationData();
+  const { estados, fetchMunicipios, fetchMunicipiosByCodes } = useLocationData();
 
   useEffect(() => {
     const fetchClients = async () => {
@@ -86,8 +86,24 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
           }
         } else {
           console.log(`✅ Clientes ativos via RPC: ${clientsData?.length}`);
-          setAllClients(clientsData || []);
-          setFilteredClients(clientsData || []);
+          
+          let processedData = clientsData || [];
+          const codes = [...new Set(processedData.map(c => c.municipio).filter(m => m && !isNaN(m)))];
+          if (codes.length > 0) {
+            const mapping = await fetchMunicipiosByCodes(codes);
+            processedData = processedData.map(c => ({
+              ...c,
+              municipio_nome: mapping[c.municipio] || c.municipio
+            }));
+          } else {
+            processedData = processedData.map(c => ({
+              ...c,
+              municipio_nome: c.municipio
+            }));
+          }
+
+          setAllClients(processedData);
+          setFilteredClients(processedData);
         }
       } catch (err) {
         console.error('❌ Erro inesperado:', err);
@@ -110,7 +126,7 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
     const loadMunicipios = async () => {
       if (data.estado) {
         const municipiosList = await fetchMunicipios(data.estado);
-        setMunicipios(municipiosList.map(m => ({ value: m, label: m })));
+        setMunicipios(municipiosList);
       } else {
         setMunicipios([]);
       }
@@ -126,7 +142,7 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
   const handleEstadoChange = async (value) => {
     onUpdate({ estado: value, municipio: '' });
     const municipiosList = await fetchMunicipios(value);
-    setMunicipios(municipiosList.map(m => ({ value: m, label: m })));
+    setMunicipios(municipiosList);
   };
 
   const handleMunicipioChange = (value) => {
@@ -192,6 +208,20 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
     let newValorCompra = data.valor_compra || '0,00';
     let newUsaRecipiente = activeContract?.usa_recipiente ?? (data.usa_recipiente || false);
 
+    let saldoAtual = client.recipientes_saldo;
+    if (saldoAtual === undefined) {
+      try {
+        const { data: saldoData } = await supabase
+          .from('clientes')
+          .select('recipientes_saldo')
+          .eq('id', client.id)
+          .single();
+        if (saldoData) {
+          saldoAtual = saldoData.recipientes_saldo;
+        }
+      } catch(e) { console.error('Erro ao buscar saldo de recipientes:', e); }
+    }
+
     // Se temos um contrato, usamos os valores dele
     if (activeContract) {
       if (newTipoColeta === 'Troca') {
@@ -227,11 +257,12 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
       fator: newFator,
       valor_compra: newValorCompra,
       usa_recipiente: newUsaRecipiente,
+      saldo_recipientes_atual: saldoAtual || 0,
     });
 
     if (client.estado) {
       fetchMunicipios(client.estado).then(municipiosList => {
-        setMunicipios(municipiosList.map(m => ({ value: m, label: m })));
+        setMunicipios(municipiosList);
       });
     }
     setShowClienteDropdown(false);
@@ -351,7 +382,7 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
                       : client.nome_fantasia || client.razao_social}
                   </div>
                   <div className="text-sm text-gray-600">
-                    {formatCnpjCpf(client.cnpj_cpf)} - {client.municipio}/{client.estado}
+                    {formatCnpjCpf(client.cnpj_cpf)} - {client.municipio_nome || client.municipio}/{client.estado}
                   </div>
                 </div>
               ))}

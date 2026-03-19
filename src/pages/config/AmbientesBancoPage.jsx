@@ -155,6 +155,21 @@ const AmbientesBancoPage = () => {
           .update(dbData)
           .eq('id', editingId);
         if (error) throw error;
+
+        // Atualiza as preferências de todos os usuários atrelados a este tipo de ambiente
+        const { error: prefError } = await defaultClient
+          .from('user_db_preferences')
+          .update({
+            url: dbData.url,
+            anon_key: dbData.anon_key,
+            nome: dbData.nome,
+            updated_at: new Date().toISOString()
+          })
+          .eq('tipo', dbData.tipo);
+          
+        if (prefError) {
+          console.error('Erro ao atualizar user_db_preferences', prefError);
+        }
       } else {
         const { error } = await defaultClient
           .from('db_environments')
