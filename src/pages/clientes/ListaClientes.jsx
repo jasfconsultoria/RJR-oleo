@@ -308,6 +308,7 @@ const useClientesList = (personType, profile) => {
 
       // Aplicar busca se houver termo
       if (debouncedSearchTerm) {
+        const term = debouncedSearchTerm.toLowerCase();
         clientesFiltrados = clientesFiltrados.filter(cliente => {
           const municipioNome = (!isNaN(cliente.municipio) && state.municipioMap[cliente.municipio]) 
             ? state.municipioMap[cliente.municipio] 
