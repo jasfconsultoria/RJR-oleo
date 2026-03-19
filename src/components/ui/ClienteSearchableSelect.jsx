@@ -7,6 +7,7 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
 import { formatCnpjCpf } from '@/lib/utils';
 import { motion } from 'framer-motion';
+import { useLocationData } from '@/hooks/useLocationData';
 
 const ClienteSearchableSelect = ({
   labelText = "Cliente",
@@ -15,6 +16,7 @@ const ClienteSearchableSelect = ({
   loading: parentLoading = false,
   disabled = false,
 }) => {
+  const { fetchMunicipiosByCodes } = useLocationData();
   const [searchTerm, setSearchTerm] = useState('');
   const [clients, setClients] = useState([]);
   const [loadingClients, setLoadingClients] = useState(true);
@@ -34,12 +36,29 @@ const ClienteSearchableSelect = ({
         toast({ title: 'Erro ao buscar clientes', description: error.message, variant: 'destructive' });
         setClients([]);
       } else {
-        setClients(data || []);
+        const rawData = data || [];
+        
+        // Resolve city names if they are codes
+        const codes = [...new Set(rawData.map(c => c.municipio).filter(m => m && !isNaN(m)))];
+        if (codes.length > 0) {
+          const mapping = await fetchMunicipiosByCodes(codes);
+          const processedData = rawData.map(c => ({
+            ...c,
+            municipio_nome: mapping[c.municipio] || c.municipio
+          }));
+          setClients(processedData);
+        } else {
+          const processedData = rawData.map(c => ({
+            ...c,
+            municipio_nome: c.municipio
+          }));
+          setClients(processedData);
+        }
       }
       setLoadingClients(false);
     };
     fetchClients();
-  }, [toast]);
+  }, [toast, fetchMunicipiosByCodes]);
 
   useEffect(() => {
     // Set initial input value if a client is already selected
@@ -142,7 +161,7 @@ const ClienteSearchableSelect = ({
               >
                 <div className="font-medium text-gray-900">{client.nome_fantasia ? `${client.razao_social} - ${client.nome_fantasia}` : client.razao_social}</div>
                 <div className="text-sm text-gray-600">
-                  {client.cnpj_cpf ? formatCnpjCpf(client.cnpj_cpf) : 'CNPJ/CPF não informado'} - {client.municipio}/{client.estado}
+                  {client.cnpj_cpf ? formatCnpjCpf(client.cnpj_cpf) : 'CNPJ/CPF não informado'} - {client.municipio_nome || client.municipio}/{client.estado}
                 </div>
               </div>
             ))

@@ -12,6 +12,8 @@ import MovimentacaoFormFields from '@/components/estoque/MovimentacaoFormFields'
 import ItensMovimentacaoTable from '@/components/estoque/ItensMovimentacaoTable';
 import { parseCurrency, formatCnpjCpf } from '@/lib/utils';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { useLocationData } from '@/hooks/useLocationData';
+import { useAutoSave } from '@/hooks/useAutoSave';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -22,8 +24,9 @@ const EntradaFormPage = () => {
   const { toast } = useToast();
   const isEditing = Boolean(id);
   const { user } = useAuth();
+  const { fetchMunicipiosByCodes } = useLocationData();
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData, clearSavedData] = useAutoSave('stock_entry_entrada_draft', {
     data: new Date(),
     tipo: 'entrada',
     origem: 'manual',
@@ -36,7 +39,7 @@ const EntradaFormPage = () => {
     observacao: '',
     itens: [{ id: null, produto_id: null, produto_nome: '', unidade: '', quantidade: '' }], // Inicializa com um item vazio
     cliente: '', // Campo único para busca,
-  });
+  }, !isEditing);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -66,8 +69,25 @@ const EntradaFormPage = () => {
 
         if (error) throw error;
 
-        setAllClients(data || []);
-        setFilteredClients(data || []);
+        let processedData = data || [];
+        
+        // Resolve city names if they are codes
+        const codes = [...new Set(processedData.map(c => c.municipio).filter(m => m && !isNaN(m)))];
+        if (codes.length > 0) {
+          const mapping = await fetchMunicipiosByCodes(codes);
+          processedData = processedData.map(c => ({
+            ...c,
+            municipio_nome: mapping[c.municipio] || c.municipio
+          }));
+        } else {
+          processedData = processedData.map(c => ({
+            ...c,
+            municipio_nome: c.municipio
+          }));
+        }
+
+        setAllClients(processedData);
+        setFilteredClients(processedData);
       } catch (error) {
         toast({ title: 'Erro ao buscar clientes', description: error.message, variant: 'destructive' });
         setAllClients([]);
@@ -76,7 +96,7 @@ const EntradaFormPage = () => {
     };
 
     fetchClients();
-  }, [toast]);
+  }, [toast, fetchMunicipiosByCodes]);
 
   // FILTRO: razao_social | nome_fantasia | cnpj (formatado)
   useEffect(() => {
@@ -386,6 +406,7 @@ const EntradaFormPage = () => {
       });
 
       toast({ title: `Movimentação de ${formData.tipo} ${isEditing ? 'atualizada' : 'registrada'} com sucesso!` });
+      clearSavedData();
       navigate('/app/estoque/movimentacoes');
 
     } catch (error) {
@@ -488,7 +509,7 @@ const EntradaFormPage = () => {
                               {client.nome_fantasia ? `${client.nome_fantasia} - ${client.razao_social}` : client.razao_social}
                             </div>
                             <div className="text-sm text-gray-600">
-                              {formatCnpjCpf(client.cnpj_cpf)} - {client.municipio}/{client.estado}
+                              {formatCnpjCpf(client.cnpj_cpf)} - {client.municipio_nome || client.municipio}/{client.estado}
                             </div>
                           </div>
                         ))

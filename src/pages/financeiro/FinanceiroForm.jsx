@@ -850,8 +850,11 @@ const FinanceiroForm = ({ type }) => {
           informado: parsedTotalValue,
           somaReal: calculoValorDocumento,
           entrada: parsedDownPayment,
-          parcelas: installmentsPayload.length
+          parcelas: installmentsPayload.length,
+          pessoa_id: basePayload.pessoa_id,
+          active_env: supabase.supabaseUrl
         });
+
 
         try {
           console.log('🚀 [RPC] Tentando salvar com assinatura de 19 parâmetros...');

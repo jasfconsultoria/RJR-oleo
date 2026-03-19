@@ -220,11 +220,11 @@ const ListaEntradasPage = () => {
                 </TableHeader>
                 <TableBody>
                   {entries.length > 0 ? (
-                    entries.map(entry => {
+                    entries.map((entry, index) => {
                       const isVinculadaColeta = isEntradaVinculadaColeta(entry);
 
                       return (
-                        <TableRow key={entry.id} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
+                        <TableRow key={`${entry.id}-${entry.produto_id}-${index}`} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
                           <TableCell data-label="Data">{formatDateWithTimezone(entry.data, empresa?.timezone)}</TableCell>
                           <TableCell data-label="Documento">{entry.document_number || 'N/A'}</TableCell>
                           <TableCell data-label="Origem">{entry.origem}</TableCell>

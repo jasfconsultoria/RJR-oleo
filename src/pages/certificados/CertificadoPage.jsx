@@ -19,6 +19,7 @@ import CertificadoPDF from '@/components/certificados/CertificadoPDF';
 import { Progress } from '@/components/ui/progress';
 import { useAutoSave } from '@/hooks/useAutoSave';
 import { useProfile } from '@/contexts/ProfileContext';
+import { useLocationData } from '@/hooks/useLocationData';
 
 const getTodayDate = () => new Date();
 const getFirstDayOfMonth = () => {
@@ -48,6 +49,7 @@ const CertificadoPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { profile } = useProfile();
+  const { fetchMunicipiosByCodes } = useLocationData();
 
   const isEditMode = !!id;
   const pdfContainerRef = useRef(null);
@@ -127,9 +129,26 @@ const CertificadoPage = () => {
         const activeClients = (data || []).filter(client => 
           client.contratos && client.contratos.some(contract => contract.status === 'Ativo')
         );
+
+        let processedData = activeClients;
+
+        // Resolve city names if they are codes
+        const codes = [...new Set(processedData.map(c => c.municipio).filter(m => m && !isNaN(m)))];
+        if (codes.length > 0) {
+          const mapping = await fetchMunicipiosByCodes(codes);
+          processedData = processedData.map(c => ({
+            ...c,
+            municipio_nome: mapping[c.municipio] || c.municipio
+          }));
+        } else {
+          processedData = processedData.map(c => ({
+            ...c,
+            municipio_nome: c.municipio
+          }));
+        }
         
-        setAllClients(activeClients);
-        setFilteredClients(activeClients);
+        setAllClients(processedData);
+        setFilteredClients(processedData);
       } catch (error) {
         toast({ 
           title: 'Erro ao buscar clientes', 
@@ -142,7 +161,7 @@ const CertificadoPage = () => {
     };
     
     fetchAllClients();
-  }, [toast]);
+  }, [toast, fetchMunicipiosByCodes]);
 
   // Filtrar clientes baseado no termo de busca - CORRIGIDO
   useEffect(() => {

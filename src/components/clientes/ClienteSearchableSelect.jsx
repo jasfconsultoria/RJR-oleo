@@ -54,11 +54,30 @@ const ClienteSearchableSelect = ({
           // Buscar coletores da tabela profiles
           const { data: usuariosRPC, error: rpcError } = await supabase.rpc('get_all_users');
 
-          if (!rpcError && usuariosRPC) {
-            // Filtrar apenas coletores ATIVOS e mapear para formato compatível
-            const coletores = usuariosRPC
-              .filter(u => u.role === 'coletor' && u.status === 'ativo')
-              .map(u => ({
+            let coletores = [];
+            if (!rpcError && usuariosRPC) {
+                coletores = usuariosRPC
+                  .filter(u => u.role === 'coletor' && u.status === 'ativo')
+                  .map(u => ({
+                    id: u.id,
+                    nome_fantasia: u.full_name || '',
+                    razao_social: u.full_name || '',
+                    cnpj_cpf: u.cpf || null,
+                    municipio: u.municipio || null,
+                    estado: u.estado || null,
+                    email: u.email || null,
+                    telefone: u.telefone || null,
+                    endereco: null
+                  }));
+            } else {
+              const { data, error } = await supabase
+                .from('profiles')
+                .select('id, full_name, email, municipio, estado, cpf, telefone')
+                .eq('role', 'coletor')
+                .eq('status', 'ativo');
+
+              if (error) throw error;
+              coletores = (data || []).map(u => ({
                 id: u.id,
                 nome_fantasia: u.full_name || '',
                 razao_social: u.full_name || '',
@@ -68,39 +87,31 @@ const ClienteSearchableSelect = ({
                 email: u.email || null,
                 telefone: u.telefone || null,
                 endereco: null
-              }))
-              .sort((a, b) => {
-                const nomeA = a.nome_fantasia || '';
-                const nomeB = b.nome_fantasia || '';
-                return nomeA.localeCompare(nomeB);
-              });
+              }));
+            }
+
+            // Resolve city names if they are codes
+            const codes = [...new Set(coletores.map(u => u.municipio).filter(m => m && !isNaN(m)))];
+            if (codes.length > 0) {
+              const mapping = await fetchMunicipiosByCodes(codes);
+              coletores = coletores.map(u => ({
+                ...u,
+                municipio_nome: mapping[u.municipio] || u.municipio
+              }));
+            } else {
+              coletores = coletores.map(u => ({
+                ...u,
+                municipio_nome: u.municipio
+              }));
+            }
+
+            coletores.sort((a, b) => {
+              const nomeA = a.nome_fantasia || '';
+              const nomeB = b.nome_fantasia || '';
+              return nomeA.localeCompare(nomeB);
+            });
 
             setClients(coletores);
-          } else {
-            // Fallback: buscar diretamente de profiles (apenas ativos)
-            const { data, error } = await supabase
-              .from('profiles')
-              .select('id, full_name, email, municipio, estado, cpf, telefone')
-              .eq('role', 'coletor')
-              .eq('status', 'ativo')
-              .order('full_name', { ascending: true });
-
-            if (error) throw error;
-
-            const coletores = (data || []).map(u => ({
-              id: u.id,
-              nome_fantasia: u.full_name || '',
-              razao_social: u.full_name || '',
-              cnpj_cpf: u.cpf || null,
-              municipio: u.municipio || null,
-              estado: u.estado || null,
-              email: u.email || null,
-              telefone: u.telefone || null,
-              endereco: null
-            }));
-
-            setClients(coletores);
-          }
         } else {
           // Buscar clientes ou fornecedores da tabela clientes
           let query = supabase
@@ -327,7 +338,7 @@ const ClienteSearchableSelect = ({
                     </>
                   ) : (
                     <>
-                      {client.cnpj_cpf ? formatCnpjCpf(client.cnpj_cpf) : 'CNPJ/CPF não informado'} - {client.municipio_nome}/{client.estado}
+                      {client.cnpj_cpf ? formatCnpjCpf(client.cnpj_cpf) : 'CNPJ/CPF não informado'} - {client.municipio_nome || client.municipio}/{client.estado}
                     </>
                   )}
                 </div>

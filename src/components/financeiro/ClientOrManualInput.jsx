@@ -7,6 +7,7 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
 import { formatCnpjCpf } from '@/lib/utils';
 import { motion } from 'framer-motion';
+import { useLocationData } from '@/hooks/useLocationData';
 
 const ClientOrManualInput = ({
   labelText,
@@ -19,6 +20,7 @@ const ClientOrManualInput = ({
   refetchTrigger = 0,
   disabled = false,
 }) => {
+  const { fetchMunicipiosByCodes } = useLocationData();
   const [inputValue, setInputValue] = useState('');
   const [clients, setClients] = useState([]);
   const [loadingClients, setLoadingClients] = useState(false);
@@ -40,12 +42,29 @@ const ClientOrManualInput = ({
         toast({ title: 'Erro ao buscar clientes/fornecedores', description: error.message, variant: 'destructive' });
         setClients([]);
       } else {
-        setClients(data || []);
+        const rawData = data || [];
+        
+        // Resolve city names if they are codes
+        const codes = [...new Set(rawData.map(c => c.municipio).filter(m => m && !isNaN(m)))];
+        if (codes.length > 0) {
+          const mapping = await fetchMunicipiosByCodes(codes);
+          const processedData = rawData.map(c => ({
+            ...c,
+            municipio_nome: mapping[c.municipio] || c.municipio
+          }));
+          setClients(processedData);
+        } else {
+          const processedData = rawData.map(c => ({
+            ...c,
+            municipio_nome: c.municipio
+          }));
+          setClients(processedData);
+        }
       }
       setLoadingClients(false);
     };
     fetchClients();
-  }, [toast, refetchTrigger]);
+  }, [toast, refetchTrigger, fetchMunicipiosByCodes]);
 
   useEffect(() => {
     // Atualizar inputValue quando selectedClientId mudar
@@ -179,7 +198,7 @@ const ClientOrManualInput = ({
                   {client.nome_fantasia ? `${client.razao_social} - ${client.nome_fantasia}` : client.razao_social}
                 </div>
                 <div className="text-sm text-gray-600">
-                  {client.cnpj_cpf ? formatCnpjCpf(client.cnpj_cpf) : 'CNPJ/CPF não informado'} - {client.municipio}/{client.estado}
+                  {client.cnpj_cpf ? formatCnpjCpf(client.cnpj_cpf) : 'CNPJ/CPF não informado'} - {client.municipio_nome || client.municipio}/{client.estado}
                 </div>
               </div>
             ))

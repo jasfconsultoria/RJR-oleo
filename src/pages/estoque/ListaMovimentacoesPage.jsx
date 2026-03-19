@@ -47,9 +47,17 @@ const ListaMovimentacoesPage = () => {
 
   useEffect(() => {
     const fetchEmpresa = async () => {
-      const { data, error } = await supabase.from('empresa').select('items_per_page').single();
-      if (error) toast({ title: 'Erro ao buscar configurações da empresa', variant: 'destructive' });
-      else setEmpresa(data || { items_per_page: 25 });
+      try {
+        const { data, error } = await supabase.from('empresa').select('items_per_page').single();
+        if (error) {
+          console.warn('⚠️ [Config] Usando padrões de empresa devido a erro:', error.message);
+          setEmpresa({ items_per_page: 25 });
+        } else {
+          setEmpresa(data || { items_per_page: 25 });
+        }
+      } catch (err) {
+        setEmpresa({ items_per_page: 25 });
+      }
     };
     fetchEmpresa();
   }, [toast]);

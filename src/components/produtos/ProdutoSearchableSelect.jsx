@@ -6,6 +6,7 @@ import { Loader2, X, Search } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 
 const ProdutoSearchableSelect = ({
   labelText = "Produto",
@@ -122,22 +123,8 @@ const ProdutoSearchableSelect = ({
   };
 
   const handleInputBlur = () => {
-    // Timeout para permitir clique no dropdown
-    setTimeout(() => {
-      if (containerRef.current && !containerRef.current.contains(document.activeElement)) {
-        setIsDropdownOpen(false);
-        
-        // Resetar searchTerm se não corresponder a nenhum produto
-        if (!value && searchTerm) {
-          const matchesProduct = products.some(p => 
-            formatProductDisplay(p) === searchTerm
-          );
-          if (!matchesProduct) {
-            setSearchTerm('');
-          }
-        }
-      }
-    }, 150);
+    // Manter focado se o clique for dentro do dropdown
+    // Radix Popover cuida da maioria dos casos de clique fora
   };
 
   const handleKeyDown = (e) => {
@@ -154,91 +141,81 @@ const ProdutoSearchableSelect = ({
 
   return (
     <div ref={containerRef} className="relative w-full">
-      {/* Label */}
       {!hideLabel && (
         <Label htmlFor="product-search" className="block text-white mb-2 text-sm font-medium">
           {labelText}
         </Label>
       )}
 
-      {/* Input Container */}
-      <div className="relative">
-        {/* Ícone de busca */}
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-white/60" />
-        
-        {/* Input */}
-        <Input
-          ref={inputRef}
-          id="product-search"
-          type="text"
-          value={searchTerm}
-          onChange={handleInputChange}
-          onFocus={handleInputFocus}
-          onBlur={handleInputBlur}
-          onKeyDown={handleKeyDown}
-          placeholder={isDisabled ? "Carregando..." : `Buscar ${labelText.toLowerCase()}...`}
-          className={`
-            pl-10 pr-10 w-full bg-white/10 border-white/20 
-            text-white placeholder:text-white/50 rounded-lg
-            transition-colors duration-200
-            ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-white/15'}
-            focus:bg-white/15 focus:border-white/40
-          `}
-          autoComplete="off"
-          disabled={isDisabled}
-        />
+      <Popover open={isDropdownOpen && !isDisabled} onOpenChange={setIsDropdownOpen}>
+        <PopoverTrigger asChild>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-white/60" />
+            <Input
+              ref={inputRef}
+              id="product-search"
+              type="text"
+              value={searchTerm}
+              onChange={handleInputChange}
+              onFocus={handleInputFocus}
+              onKeyDown={handleKeyDown}
+              placeholder={isDisabled ? "Carregando..." : `Buscar ${labelText.toLowerCase()}...`}
+              className={`
+                pl-10 pr-10 w-full bg-white/10 border-white/20 
+                text-white placeholder:text-white/50 rounded-lg
+                transition-colors duration-200
+                ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-white/15'}
+                focus:bg-white/15 focus:border-white/40
+              `}
+              autoComplete="off"
+              disabled={isDisabled}
+            />
 
-        {/* Loading Indicator */}
-        {isLoading && (
-          <Loader2 className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-white/60 animate-spin" />
-        )}
+            {isLoading && (
+              <Loader2 className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-white/60 animate-spin" />
+            )}
 
-        {/* Clear Button */}
-        {showClearButton && !isLoading && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 w-6 hover:bg-white/20 rounded-full"
-            onClick={handleClearSelection}
-            disabled={isDisabled}
-          >
-            <X className="h-3 w-3 text-white/70 hover:text-white" />
-          </Button>
-        )}
-      </div>
+            {showClearButton && !isLoading && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 w-6 hover:bg-white/20 rounded-full"
+                onClick={handleClearSelection}
+                disabled={isDisabled}
+              >
+                <X className="h-3 w-3 text-white/70 hover:text-white" />
+              </Button>
+            )}
+          </div>
+        </PopoverTrigger>
 
-      {/* Dropdown */}
-      <AnimatePresence>
-        {isDropdownOpen && !isDisabled && (
-          <motion.div
-            initial={{ opacity: 0, y: -5, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -5, scale: 0.95 }}
-            transition={{ duration: 0.2 }}
-            className="absolute z-50 w-full mt-1 bg-gray-900 border border-white/20 rounded-lg shadow-xl max-h-60 overflow-y-auto"
-          >
+        <PopoverContent 
+          className="p-0 border-white/20 bg-gray-900 shadow-xl overflow-hidden" 
+          style={{ width: containerRef.current?.offsetWidth }}
+          align="start"
+          sideOffset={5}
+          onOpenAutoFocus={(e) => e.preventDefault()} // Não focar automaticamente para não atrapalhar o input
+        >
+          <div className="max-h-60 overflow-y-auto custom-scrollbar">
             {hasProducts ? (
               <div className="py-1">
                 {filteredProducts.map((product, index) => (
-                  <motion.div
+                  <div
                     key={product.id}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.05 }}
                     onClick={() => handleSelectProduct(product)}
                     className={`
                       px-3 py-2 cursor-pointer transition-colors duration-150
                       hover:bg-white/10 border-b border-white/5 last:border-b-0
-                      ${value === product.id ? 'bg-white/10' : ''}
+                      ${value === product.id ? 'bg-white/10 text-emerald-300' : 'text-white'}
                     `}
                   >
                     <div className="flex justify-between items-start">
-                      <span className="text-white font-medium text-sm">
+                      <span className="font-medium text-sm">
                         {product.nome}
                       </span>
                       {product.codigo && (
-                        <span className="text-white/60 text-xs bg-white/10 px-1 rounded">
+                        <span className="text-white/60 text-xs bg-white/10 px-1 rounded ml-2">
                           {product.codigo}
                         </span>
                       )}
@@ -246,7 +223,7 @@ const ProdutoSearchableSelect = ({
                     <div className="text-white/60 text-xs mt-1">
                       {product.unidade} • {product.tipo}
                     </div>
-                  </motion.div>
+                  </div>
                 ))}
               </div>
             ) : (
@@ -254,9 +231,9 @@ const ProdutoSearchableSelect = ({
                 {searchTerm ? 'Nenhum produto encontrado' : 'Digite para buscar produtos'}
               </div>
             )}
-          </motion.div>
-        )}
-      </AnimatePresence>
+          </div>
+        </PopoverContent>
+      </Popover>
     </div>
   );
 };

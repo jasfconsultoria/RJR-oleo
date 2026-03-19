@@ -215,9 +215,9 @@ const PaymentDialog = ({ isOpen, onClose, entry, onSuccess, initialPaidAmount, i
             </Select>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-[1fr_1.4fr] gap-4">
             <div className="space-y-2">
-              <Label htmlFor="paidAmount" className="text-white flex items-center gap-2">
+              <Label htmlFor="paidAmount" className="text-white flex items-center gap-2 text-xs sm:text-sm">
                 <DollarSign className="w-4 h-4" /> Valor a Pagar (R$) *
               </Label>
               <IMaskInput
@@ -242,22 +242,23 @@ const PaymentDialog = ({ isOpen, onClose, entry, onSuccess, initialPaidAmount, i
                 onAccept={(value) => setPaidAmount(value)}
                 placeholder="0,00"
                 inputMode="decimal"
-                className="bg-white/10 border-white/30 text-white placeholder:text-white/60 rounded-xl h-10 text-base px-3 py-2 !text-right"
+                className="bg-white/10 border-white/30 text-white placeholder:text-white/60 rounded-xl h-9 sm:h-10 text-sm sm:text-base px-3 py-2 !text-right focus:bg-white/20 transition-colors"
                 required
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="paymentDate" className="text-white flex items-center gap-2">
+              <Label htmlFor="paymentDate" className="text-white flex items-center gap-2 text-xs sm:text-sm">
                 <CalendarIcon className="w-4 h-4" /> Data do Pagamento *
               </Label>
               <DatePicker
                 date={paymentDate}
                 setDate={setPaymentDate}
-                className="w-full bg-white/10 border-white/30 text-white rounded-xl"
+                className="w-full bg-white/10 border-white/30 text-white rounded-xl h-9 sm:h-10 text-sm sm:text-base"
               />
             </div>
           </div>
+
 
           <div className="space-y-2">
             <Label htmlFor="notes" className="text-white flex items-center gap-2">

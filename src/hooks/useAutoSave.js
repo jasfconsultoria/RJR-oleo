@@ -1,14 +1,33 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { supabase } from '@/lib/customSupabaseClient';
 
+/**
+ * Hook para salvamento automático no localStorage, com segregação por ambiente (Supabase URL).
+ */
 export const useAutoSave = (key, initialData, shouldLoadFromStorage = true) => {
-  // ✅ CORREÇÃO: Remover a negação lógica que causava o problema
+  // ✅ CORREÇÃO: Gerar uma chave única baseada no ambiente atual para evitar cross-contamination
+  // Usamos a URL do Supabase como parte da chave
+  const activeUrl = supabase.supabaseUrl || 'default';
+  
+  // Criar um hash simples ou sufixo da URL para a chave
+  const environmentSuffix = useMemo(() => {
+    try {
+      const url = new URL(activeUrl);
+      return url.hostname.split('.')[0]; // Pega o 'rnuqxwgnlukgdqxerwcu' da URL
+    } catch (e) {
+      return 'main';
+    }
+  }, [activeUrl]);
+
+  const envKey = `${key}_${environmentSuffix}`;
+
   const [data, setData] = useState(() => {
     if (typeof window === 'undefined' || !shouldLoadFromStorage) {
       return initialData;
     }
     
     try {
-      const saved = localStorage.getItem(key);
+      const saved = localStorage.getItem(envKey);
       if (saved) {
         return JSON.parse(saved);
       }
@@ -19,15 +38,13 @@ export const useAutoSave = (key, initialData, shouldLoadFromStorage = true) => {
     return initialData;
   });
 
-  // ... resto do hook mantido igual
   const setDataWithSave = useCallback((newData) => {
     setData(prev => {
       const result = typeof newData === 'function' ? newData(prev) : newData;
       
-      // Salva no localStorage
       if (typeof window !== 'undefined') {
         try {
-          localStorage.setItem(key, JSON.stringify(result));
+          localStorage.setItem(envKey, JSON.stringify(result));
         } catch (error) {
           console.error('Error saving to localStorage:', error);
         }
@@ -35,14 +52,14 @@ export const useAutoSave = (key, initialData, shouldLoadFromStorage = true) => {
       
       return result;
     });
-  }, [key]);
+  }, [envKey]);
 
   const clearSavedData = useCallback(() => {
     if (typeof window !== 'undefined') {
-      localStorage.removeItem(key);
+      localStorage.removeItem(envKey);
     }
     setData(initialData);
-  }, [key, initialData]);
+  }, [envKey, initialData]);
 
   return [data, setDataWithSave, clearSavedData];
-};
+};

@@ -141,8 +141,8 @@ const ItensMovimentacaoTable = ({ items, onItemsChange, type, isEditing }) => {
     <div className="space-y-4">
       <h3 className="text-lg font-semibold text-white">Itens da Movimentação *</h3>
       
-      <div className="rounded-xl border border-white/20 min-h-[200px] max-h-[400px] overflow-visible">
-        <div className="relative w-full overflow-visible">
+      <div className="rounded-xl border border-white/20 min-h-[200px] max-h-[400px] overflow-y-auto custom-scrollbar">
+        <div className="relative w-full">
           <Table className="w-full">
             <TableHeader>
               <TableRow className="hover:bg-transparent border-b border-white/20 text-xs">
@@ -161,12 +161,12 @@ const ItensMovimentacaoTable = ({ items, onItemsChange, type, isEditing }) => {
                 return (
                   <TableRow key={index} className="border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
                     <TableCell className="py-4 overflow-visible" style={{ position: 'relative', zIndex: items.length - index + 10 }}>
-                      <div style={{ position: 'static' }}>
+                      <div style={{ position: 'relative', zIndex: (items.length - index) * 10 + 100 }}>
                         <ProdutoSearchableSelect
                           value={item.produto_id}
                           onChange={(product) => handleProductSelect(index, product)}
                           filterType={type === 'entrada' ? null : null}
-                          disabled={isEditing}
+                          disabled={false}
                           hideLabel={true}
                         />
                       </div>
@@ -211,7 +211,7 @@ const ItensMovimentacaoTable = ({ items, onItemsChange, type, isEditing }) => {
                         size="icon"
                         onClick={() => handleRemoveItem(index)}
                         className="text-red-400 hover:text-red-300"
-                        disabled={isEditing}
+                        disabled={false}
                       >
                         <MinusCircle className="h-4 w-4" />
                       </Button>
@@ -224,7 +224,7 @@ const ItensMovimentacaoTable = ({ items, onItemsChange, type, isEditing }) => {
         </div>
       </div>
       
-      <Button type="button" onClick={handleAddItem} variant="outline" className="w-full" disabled={isEditing}>
+      <Button type="button" onClick={handleAddItem} variant="outline" className="w-full" disabled={false}>
         <PlusCircle className="mr-2 h-4 w-4" /> Adicionar Item
       </Button>
     </div>

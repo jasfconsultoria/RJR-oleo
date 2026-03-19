@@ -1,5 +1,5 @@
 import React from 'react';
-import { format } from 'date-fns';
+import { format, parseISO, isValid, isDate } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Calendar as CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -12,6 +12,17 @@ import {
 } from '@/components/ui/popover';
 
 export function DatePicker({ date, setDate, className }) {
+  // Garantir que date seja um objeto Date (pode vir como string do localStorage/Autosave)
+  const safeDate = React.useMemo(() => {
+    if (!date) return null;
+    if (isDate(date)) return isValid(date) ? date : null;
+    if (typeof date === 'string') {
+      const parsed = parseISO(date);
+      return isValid(parsed) ? parsed : null;
+    }
+    return null;
+  }, [date]);
+
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -19,18 +30,18 @@ export function DatePicker({ date, setDate, className }) {
           variant={"outline"}
           className={cn(
             "w-full justify-start text-left font-normal bg-white/5 border-white/20 text-white hover:bg-white/10 hover:text-white rounded-xl",
-            !date && "text-white/60",
+            !safeDate && "text-white/60",
             className
           )}
         >
           <CalendarIcon className="mr-2 h-4 w-4" />
-          {date ? format(date, "dd/MM/yyyy") : <span>Selecione uma data</span>}
+          {safeDate ? format(safeDate, "dd/MM/yyyy") : <span>Selecione uma data</span>}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0 bg-gray-800 text-white border-gray-700 rounded-xl">
         <Calendar
           mode="single"
-          selected={date}
+          selected={safeDate}
           onSelect={setDate}
           initialFocus
           locale={ptBR}
