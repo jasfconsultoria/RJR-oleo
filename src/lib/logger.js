@@ -1,4 +1,5 @@
 import { supabase } from './customSupabaseClient';
+import { getActiveEnvironment } from './getActiveEnvironment';
 
 export const logAction = async (action, details = {}) => {
   try {
@@ -9,11 +10,16 @@ export const logAction = async (action, details = {}) => {
       return;
     }
 
+    // Busca o ambiente ativo para o usuário
+    const env = await getActiveEnvironment(false, null, user.id);
+    const environment = env?.tipo || 'producao';
+
     const { error } = await supabase.from('logs').insert({
       user_id: user.id,
       user_email: user.email,
       action,
       details,
+      environment,
     });
 
     if (error) {
@@ -22,4 +28,4 @@ export const logAction = async (action, details = {}) => {
   } catch (error) {
     console.error('Unexpected error in logAction:', error);
   }
-};
+};

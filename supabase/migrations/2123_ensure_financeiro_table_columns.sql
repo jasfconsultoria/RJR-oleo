@@ -55,8 +55,9 @@ CREATE INDEX IF NOT EXISTS idx_credito_debito_lancamento_id ON public.credito_de
 -- Log da versão (Seguro sem depender de constraint UNIQUE)
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM public.versoes WHERE versao = '3.7.8') THEN
-        INSERT INTO public.versoes (versao, descricao, data_implantacao)
-        VALUES ('3.7.8', 'Sanitização da tabela credito_debito - Garantindo colunas para compatibilidade com o frontend.', NOW());
+    IF NOT EXISTS (SELECT 1 FROM public.versoes WHERE versao = '4.8.1') THEN
+        INSERT INTO public.versoes (versao, descricao, data_implantacao, hash)
+        VALUES ('4.8.1', 'Sanitização da tabela credito_debito - Garantindo colunas para compatibilidade com o frontend.', NOW(), '9e2a3df9994c012833b71dd1da259ddde93b648a');
     END IF;
 END $$;
+

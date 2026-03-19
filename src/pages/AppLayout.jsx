@@ -116,6 +116,7 @@ const AppLayout = ({ children }) => {
         { to: '/app/relatorios/coletas', label: 'Coletas', icon: Truck },
         { to: '/app/relatorios/financeiro', label: 'Financeiro', icon: DollarSign },
         { to: '/app/relatorios/estoque', label: 'Estoque', icon: Warehouse },
+        { to: '/app/relatorios/recipientes', label: 'Recipientes', icon: Box },
       ]
     },
     { 

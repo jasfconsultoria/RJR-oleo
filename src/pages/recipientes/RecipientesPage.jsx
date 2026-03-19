@@ -8,6 +8,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  TableFooter,
 } from '@/components/ui/table';
 import { Card, CardContent } from '@/components/ui/card';
 import { Package, Box, RefreshCw, FileText, ArrowUp, ArrowDown, ArrowUpDown, MapPin, Building2, Users } from 'lucide-react';
@@ -394,7 +395,8 @@ const RecipientesPage = () => {
                 <RefreshCw className="h-8 w-8 animate-spin text-emerald-400" />
               </div>
             ) : (
-              <Table className="responsive-table">
+              <>
+                <Table className="responsive-table">
                 <TableHeader>
                   <TableRow className="border-white/20 hover:bg-transparent">
                     <TableHeaderSortable
@@ -466,10 +468,36 @@ const RecipientesPage = () => {
                     </TableRow>
                   )}
                 </TableBody>
+                {filteredClientes.length > 0 && (
+                  <TableFooter>
+                    <TableRow className="hover:bg-transparent border-t-2 border-emerald-500 font-bold hidden md:table-row bg-black/20">
+                      <TableCell colSpan={3} className="p-4 text-white uppercase tracking-wider text-xs">TOTAIS (GERAL NO FILTRO)</TableCell>
+                      <TableCell className="p-4 text-center text-white">
+                        <span className="bg-emerald-500 text-white px-3 py-1 rounded-full font-black">
+                          {stats.totalGlobalFiltro.toLocaleString('pt-BR')}
+                        </span>
+                      </TableCell>
+                      <TableCell className="p-4"></TableCell>
+                    </TableRow>
+                  </TableFooter>
+                )}
               </Table>
-            )}
-          </div>
-        </motion.div>
+
+              {/* Total Mobile - Seguindo exatamente o modelo de Coletas */}
+              {filteredClientes.length > 0 && !loading && (
+                <div className="md:hidden bg-black/20 font-bold text-white border-t-2 border-emerald-500 text-sm p-4 mt-0 rounded-b-xl space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span>Total Geral no Filtro:</span>
+                    <span className="bg-emerald-500 text-white px-3 py-1 rounded-full font-black">
+                      {stats.totalGlobalFiltro.toLocaleString('pt-BR')}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </motion.div>
 
         {/* Pagination */}
         {filteredClientes.length > 0 && !loading && (

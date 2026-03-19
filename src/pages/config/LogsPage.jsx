@@ -418,6 +418,7 @@ const LogsPage = () => {
                   <th className="p-3 text-left">Usuário</th>
                   <th className="p-3 text-left">Nome</th>
                   <th className="p-3 text-left">Ação</th>
+                  <th className="p-3 text-left">Ambiente</th>
                   <th className="p-3 text-left">Detalhes</th>
                 </TableRow>
               </TableHeader>
@@ -432,6 +433,15 @@ const LogsPage = () => {
                     <TableCell data-label="Ação" className="p-3">
                       <span className="bg-emerald-500/20 text-emerald-300 px-2 py-1 rounded-md text-[10px] uppercase font-bold whitespace-nowrap">
                         {getFriendlyAction(log.action)}
+                      </span>
+                    </TableCell>
+                    <TableCell data-label="Ambiente" className="p-3">
+                      <span className={`px-2 py-1 rounded-md text-[10px] uppercase font-bold whitespace-nowrap ${
+                        log.environment === 'homologacao' 
+                          ? 'bg-amber-500/20 text-amber-300' 
+                          : 'bg-blue-500/20 text-blue-300'
+                      }`}>
+                        {log.environment || 'producao'}
                       </span>
                     </TableCell>
                     <TableCell data-label="Detalhes" className="p-3 text-[10px] max-w-sm">
