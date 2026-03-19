@@ -99,7 +99,7 @@ const ListaFinanceiro = ({ type }) => {
   const [isAdminConfirmationOpen, setIsAdminConfirmationOpen] = useState(false);
   const [dialogKey, setDialogKey] = useState(Date.now());
 
-  const pageSize = useMemo(() => empresa?.items_per_page || 25, [empresa]);
+  const pageSize = useMemo(() => Number(empresa?.items_per_page || 25), [empresa]);
 
   const title = type === 'credito' ? 'Crédito' : 'Débito';
   const entityLabel = type === 'credito' ? 'Cliente' : 'Fornecedor';
@@ -157,8 +157,11 @@ const ListaFinanceiro = ({ type }) => {
     };
   }, [entries]);
 
-  const fetchEntries = useCallback(async () => {
+  const fetchEntries = useCallback(async (isCurrent = { active: true }) => {
     if (!empresa) return;
+    if (!profile) {
+      return;
+    }
     setLoading(true);
     const from = (currentPage - 1) * pageSize;
 
@@ -180,7 +183,7 @@ const ListaFinanceiro = ({ type }) => {
 
     console.log(`🔍 [ListaFinanceiro] Buscando ${type}s:`, rpcParams);
     const { data: entriesData, error: entriesError } = await supabase.rpc('get_financeiro_detailed_receipt', rpcParams);
-    
+
     if (entriesData) {
       console.log(`✅ [ListaFinanceiro] ${entriesData.length} entradas recebidas.`);
     }
@@ -195,6 +198,8 @@ const ListaFinanceiro = ({ type }) => {
     };
     const { data: countData, error: countError } = await supabase.rpc('get_financeiro_detailed_receipt_count', rpcCountParams);
 
+    if (!isCurrent.active) return; // Ignore if component unmounted or another fetch started
+
     if (entriesError) {
       toast({ title: `Erro ao buscar ${title}s`, description: `Falha na consulta: ${entriesError.message}`, variant: 'destructive' });
       setEntries([]);
@@ -208,7 +213,7 @@ const ListaFinanceiro = ({ type }) => {
       setTotalCount(countData || 0);
     }
     setLoading(false);
-  }, [toast, currentPage, pageSize, type, debouncedSearchTerm, debouncedClientSearchTerm, statusFilter, debouncedStartDate, debouncedEndDate, empresa, title, sortConfig]);
+  }, [toast, currentPage, pageSize, type, debouncedSearchTerm, debouncedClientSearchTerm, statusFilter, debouncedStartDate, debouncedEndDate, empresa, title, sortConfig, profile]);
 
   const fetchSummary = useCallback(async () => {
     if (!empresa) return;
@@ -246,8 +251,10 @@ const ListaFinanceiro = ({ type }) => {
 
   useEffect(() => {
     if (empresa) {
-      fetchEntries();
+      const isCurrent = { active: true };
+      fetchEntries(isCurrent);
       fetchSummary();
+      return () => { isCurrent.active = false; };
     }
   }, [fetchEntries, fetchSummary, empresa]);
 
@@ -259,10 +266,10 @@ const ListaFinanceiro = ({ type }) => {
     try {
       // REGRA 1: Verificar se o usuário é administrador
       const userRole = profile?.role;
-      if (userRole !== 'administrador') {
+      if (!['super_admin', 'administrador', 'gerente'].includes(userRole)) {
         toast({
           title: 'Permissão negada',
-          description: 'Apenas administradores podem excluir lançamentos financeiros.',
+          description: 'Apenas administradores e gerentes podem excluir lançamentos financeiros.',
           variant: 'destructive'
         });
         return;
@@ -580,7 +587,7 @@ const ListaFinanceiro = ({ type }) => {
 
                                 {/* Botão Excluir */}
                                 {(() => {
-                                  const isAdmin = profile?.role === 'administrador';
+                                  const isAdmin = ['super_admin', 'administrador', 'gerente'].includes(profile?.role);
                                   const canDelete = isAdmin && !isLinkedToColeta;
 
                                   if (!canDelete) {

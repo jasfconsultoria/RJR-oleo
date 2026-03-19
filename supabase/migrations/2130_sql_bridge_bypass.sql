@@ -111,3 +111,59 @@ CREATE POLICY "Admins can read all versions" ON public.versoes
 FOR SELECT 
 TO public 
 USING (is_admin());
+
+-- Tabela: rotas
+DROP POLICY IF EXISTS "Admins can insert rotas" ON public.rotas;
+CREATE POLICY "Admins can insert rotas" ON public.rotas FOR INSERT TO public WITH CHECK (is_admin());
+
+DROP POLICY IF EXISTS "Admins can update rotas" ON public.rotas;
+CREATE POLICY "Admins can update rotas" ON public.rotas FOR UPDATE TO public USING (is_admin());
+
+DROP POLICY IF EXISTS "Admins can delete rotas" ON public.rotas;
+CREATE POLICY "Admins can delete rotas" ON public.rotas FOR DELETE TO public USING (is_admin());
+
+DROP POLICY IF EXISTS "Admins can read rotas" ON public.rotas;
+CREATE POLICY "Admins can read rotas" ON public.rotas FOR SELECT TO public USING (is_admin());
+
+-- Tabela: rota_clientes
+DROP POLICY IF EXISTS "Admins can insert rota_clientes" ON public.rota_clientes;
+CREATE POLICY "Admins can insert rota_clientes" ON public.rota_clientes FOR INSERT TO public WITH CHECK (is_admin());
+
+DROP POLICY IF EXISTS "Admins can update rota_clientes" ON public.rota_clientes;
+CREATE POLICY "Admins can update rota_clientes" ON public.rota_clientes FOR UPDATE TO public USING (is_admin());
+
+DROP POLICY IF EXISTS "Admins can delete rota_clientes" ON public.rota_clientes;
+CREATE POLICY "Admins can delete rota_clientes" ON public.rota_clientes FOR DELETE TO public USING (is_admin());
+
+DROP POLICY IF EXISTS "Admins can read rota_clientes" ON public.rota_clientes;
+CREATE POLICY "Admins can read rota_clientes" ON public.rota_clientes FOR SELECT TO public USING (is_admin());
+
+-- Tabela: profiles (Garantir leitura de coletores)
+DROP POLICY IF EXISTS "Admins can read all profiles" ON public.profiles;
+CREATE POLICY "Admins can read all profiles" ON public.profiles FOR SELECT TO public USING (is_admin());
+
+-- Tabela: coletas
+DROP POLICY IF EXISTS "Admins can insert coletas" ON public.coletas;
+CREATE POLICY "Admins can insert coletas" ON public.coletas FOR INSERT TO public WITH CHECK (is_admin());
+
+DROP POLICY IF EXISTS "Admins can update coletas" ON public.coletas;
+CREATE POLICY "Admins can update coletas" ON public.coletas FOR UPDATE TO public USING (is_admin());
+
+DROP POLICY IF EXISTS "Admins can delete coletas" ON public.coletas;
+CREATE POLICY "Admins can delete coletas" ON public.coletas FOR DELETE TO public USING (is_admin());
+
+DROP POLICY IF EXISTS "Admins can read coletas" ON public.coletas;
+CREATE POLICY "Admins can read coletas" ON public.coletas FOR SELECT TO public USING (is_admin());
+
+-- Tabela: recibos
+DROP POLICY IF EXISTS "Admins can insert recibos" ON public.recibos;
+CREATE POLICY "Admins can insert recibos" ON public.recibos FOR INSERT TO public WITH CHECK (is_admin());
+
+DROP POLICY IF EXISTS "Admins can update recibos" ON public.recibos;
+CREATE POLICY "Admins can update recibos" ON public.recibos FOR UPDATE TO public USING (is_admin());
+
+DROP POLICY IF EXISTS "Admins can delete recibos" ON public.recibos;
+CREATE POLICY "Admins can delete recibos" ON public.recibos FOR DELETE TO public USING (is_admin());
+
+DROP POLICY IF EXISTS "Admins can read recibos" ON public.recibos;
+CREATE POLICY "Admins can read recibos" ON public.recibos FOR SELECT TO public USING (is_admin());

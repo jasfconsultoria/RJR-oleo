@@ -98,6 +98,10 @@ const PaymentDialog = ({ isOpen, onClose, entry, onSuccess, initialPaidAmount, i
     }
 
     try {
+      // Obter o ID do usuário do cliente principal (Auth reside lá)
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+
       const { data, error } = await supabase.rpc('register_payment', {
         p_credito_debito_id: entry.id,
         p_paid_amount: parsedPaidAmount,
@@ -107,8 +111,11 @@ const PaymentDialog = ({ isOpen, onClose, entry, onSuccess, initialPaidAmount, i
         p_installment_number: entry.installment_number,
         p_due_date: entry.issue_date,
         p_expected_amount: entry.installment_value || entry.total_value,
-        p_conta_corrente_id: selectedAccount
+        p_conta_corrente_id: selectedAccount,
+        p_user_id: userId // Passamos o ID explicitamente para funcionar em modo bypass (onde auth.uid() é nulo)
       });
+
+
 
       if (error) throw error;
       if (!data.success) throw new Error(data.message);

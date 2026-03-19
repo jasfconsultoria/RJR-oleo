@@ -54,7 +54,7 @@ const ListaColetas = () => {
   const debouncedEndDate = useDebounce(endDate, 500);
   const { toast } = useToast();
 
-  const pageSize = useMemo(() => empresa?.items_per_page || 25, [empresa]);
+  const pageSize = useMemo(() => Number(empresa?.items_per_page || 25), [empresa]);
 
   // ✅ CORREÇÃO: Usar profile do ProfileContext ao invés de buscar separadamente
   const userRole = useMemo(() => profile?.role || null, [profile]);
@@ -115,10 +115,11 @@ const ListaColetas = () => {
     }
   }, [profileLoading, profile, empresa, userRole, userId, clienteId, debouncedColetaSearchTerm, debouncedClientSearchTerm, debouncedStartDate, debouncedEndDate]);
 
-  const fetchColetas = useCallback(async () => {
+  const fetchColetas = useCallback(async (isCurrent = { active: true }) => {
     if (profileLoading || !profile || !empresa?.timezone || !userRole || !debouncedStartDate || !debouncedEndDate) {
       return;
     }
+    if (!isCurrent.active) return;
 
     setLoading(true);
     const from = (currentPage - 1) * pageSize;
@@ -159,24 +160,34 @@ const ListaColetas = () => {
       query = query.order(sortConfig.key, { ascending: sortConfig.direction === 'asc' }).range(from, to);
 
       const { data, error, count } = await query;
-      if (!error) {
+
+      if (!isCurrent.active) return; // Check again before setting state
+
+      if (error) {
+        console.error("❌ Erro ao buscar coletas:", error);
+        toast({ title: 'Erro ao buscar coletas', description: error.message, variant: 'destructive' });
+      } else {
         setColetas(data || []);
         setTotalCount(count || 0);
       }
     } catch (err) {
       console.error("Erro ao buscar coletas:", err);
     } finally {
-      setLoading(false);
+      if (isCurrent.active) { // Only set loading to false if still active
+        setLoading(false);
+      }
     }
-  }, [profileLoading, profile, empresa, userRole, userId, clienteId, debouncedColetaSearchTerm, debouncedClientSearchTerm, debouncedStartDate, debouncedEndDate, currentPage, pageSize, sortConfig]);
+  }, [profileLoading, profile, empresa, userRole, userId, clienteId, debouncedColetaSearchTerm, debouncedClientSearchTerm, debouncedStartDate, debouncedEndDate, currentPage, pageSize, sortConfig, toast]);
 
   // 3. Effect ÚNICO para disparar buscas baseadas em mudanças de filtro/perfil
   // Isso unifica o carregamento e evita as "piscadas" por triggers múltiplos
   useEffect(() => {
+    const isCurrent = { active: true };
     if (userRole && debouncedStartDate && debouncedEndDate) {
-      fetchColetas();
+      fetchColetas(isCurrent);
       fetchPeriodTotals();
     }
+    return () => { isCurrent.active = false; };
   }, [fetchColetas, fetchPeriodTotals, userRole, debouncedStartDate, debouncedEndDate]);
 
   // Resetar página quando filtros mudam

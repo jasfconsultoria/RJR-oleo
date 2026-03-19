@@ -191,15 +191,6 @@ const useClientesList = (personType, profile) => {
   useEffect(() => {
     const fetchEmpresaData = async () => {
       const userRole = profile?.role;
-      const canAccessEmpresa = ['super_admin', 'administrador', 'gerente'].includes(userRole);
-
-      if (!canAccessEmpresa) {
-        setState(prev => ({
-          ...prev,
-          empresa: { items_per_page: CONFIG.PAGE_SIZE_DEFAULT }
-        }));
-        return;
-      }
 
       const { data, error } = await supabase
         .from('empresa')
@@ -207,7 +198,7 @@ const useClientesList = (personType, profile) => {
         .single();
 
       if (error) {
-        console.warn("Aviso: Usuário não tem acesso aos dados da empresa. Usando configuração padrão.");
+        console.warn("Aviso: Falha ao buscar dados da empresa. Usando configuração padrão.");
         if (userRole !== 'coletor') {
           toast({
             title: "Erro ao buscar configurações da empresa.",
@@ -222,7 +213,7 @@ const useClientesList = (personType, profile) => {
       } else {
         setState(prev => ({
           ...prev,
-          empresa: data || { items_per_page: CONFIG.PAGE_SIZE_DEFAULT }
+          empresa: { items_per_page: Number(data?.items_per_page || CONFIG.PAGE_SIZE_DEFAULT) }
         }));
       }
     };
@@ -264,7 +255,7 @@ const useClientesList = (personType, profile) => {
   }, [toast, profile]);
 
   // ✅ SOLUÇÃO 100% FUNCIONAL: Buscar todos e filtrar no frontend
-  const fetchClientes = useCallback(async () => {
+  const fetchClientes = useCallback(async (isCurrent = { active: true }) => {
     if (!profile) return;
 
     console.log('🎯 Buscando clientes para:', {
@@ -358,6 +349,8 @@ const useClientesList = (personType, profile) => {
         setState(prev => ({ ...prev, municipioMap: { ...prev.municipioMap, ...mapping } }));
       }
 
+      if (!isCurrent.active) return;
+
       setState(prev => ({
         ...prev,
         allClientes: rawClients,
@@ -375,10 +368,12 @@ const useClientesList = (personType, profile) => {
       });
       setState(prev => ({ ...prev, clientes: [], allClientes: [], loading: false }));
     }
-  }, [profile, state.currentPage, state.empresa, debouncedSearchTerm, state.sortConfig, state.filterEstado, state.filterMunicipio, toast]);
+  }, [profile, state.currentPage, state.empresa, debouncedSearchTerm, state.sortConfig, state.filterEstado, state.filterMunicipio, toast, fetchMunicipiosByCodes]);
 
   useEffect(() => {
-    fetchClientes();
+    const isCurrent = { active: true };
+    fetchClientes(isCurrent);
+    return () => { isCurrent.active = false; };
   }, [fetchClientes]);
 
   // Resetar página quando search term ou page size mudar
@@ -389,7 +384,7 @@ const useClientesList = (personType, profile) => {
   // Actions
   const handleInitiateDelete = (cliente) => {
     const userRole = profile?.role;
-    const canDelete = ['administrador', 'gerente'].includes(userRole);
+    const canDelete = ['super_admin', 'administrador', 'gerente'].includes(userRole);
 
     if (!canDelete) {
       toast({
@@ -468,7 +463,7 @@ const useClientesList = (personType, profile) => {
 
   const handleDelete = async (cliente) => {
     const userRole = profile?.role;
-    const canDelete = ['administrador', 'gerente'].includes(userRole);
+    const canDelete = ['super_admin', 'administrador', 'gerente'].includes(userRole);
 
     if (!canDelete) {
       toast({
@@ -560,7 +555,7 @@ const useClientesList = (personType, profile) => {
     handleInitiateDelete,
     handleConfirmedDelete,
     setIsConfirmDialogOpen: (open) => setState(prev => ({ ...prev, isConfirmDialogOpen: open })),
-    pageSize: state.empresa?.items_per_page || CONFIG.PAGE_SIZE_DEFAULT,
+    pageSize: Number(state.empresa?.items_per_page || CONFIG.PAGE_SIZE_DEFAULT),
     municipioMap: state.municipioMap
   };
 };

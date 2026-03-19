@@ -103,7 +103,6 @@ const RotasListaPage = () => {
                 .from('rotas')
                 .select(`
                     *,
-                    coletor:profiles(full_name),
                     itens:rota_clientes(
                         id,
                         status,
@@ -157,6 +156,18 @@ const RotasListaPage = () => {
         fetchCollectors();
         fetchRotas();
     }, [fetchCollectors, fetchRotas]);
+
+    // ✅ NOVO: Enriquecer rotas (Homologação) com nomes de coletores (Produção)
+    const enrichedRotas = useMemo(() => {
+        if (!rotas || rotas.length === 0) return [];
+        return rotas.map(rota => {
+            const prodColetor = collectors?.find(c => c.id === rota.coletor_id);
+            return {
+                ...rota,
+                coletor: prodColetor ? { full_name: prodColetor.full_name } : rota.coletor
+            };
+        });
+    }, [rotas, collectors]);
 
     const handleDeleteRota = async (id) => {
         // Agora apenas prepara para a confirmação
@@ -477,7 +488,7 @@ const RotasListaPage = () => {
                                         Nenhuma rota encontrada para os filtros selecionados.
                                     </TableCell>
                                 </TableRow>
-                            ) : rotas.map((rota) => (
+                            ) : enrichedRotas.map((rota) => (
                                 <TableRow key={rota.id} className="border-white/5 hover:bg-white/5 transition-colors group">
                                     <TableCell>
                                         <span className="font-mono text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-1 rounded-lg tracking-wider">
@@ -555,7 +566,7 @@ const RotasListaPage = () => {
                             <p>Nenhuma rota encontrada para os filtros selecionados.</p>
                         </div>
                     ) : (
-                        rotas.map((rota) => (
+                        enrichedRotas.map((rota) => (
                             <motion.div
                                 key={rota.id}
                                 initial={{ opacity: 0, scale: 0.95 }}

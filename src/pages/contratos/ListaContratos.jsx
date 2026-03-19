@@ -40,7 +40,7 @@ const ListaContratos = () => {
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
   const [selectedForDeletion, setSelectedForDeletion] = useState(null);
 
-  const pageSize = useMemo(() => empresa?.items_per_page || 25, [empresa]);
+  const pageSize = useMemo(() => Number(empresa?.items_per_page || 25), [empresa]);
   const empresaTimezone = useMemo(() => empresa?.timezone || 'America/Sao_Paulo', [empresa]);
 
   // Obter role e ID do usuário logado
@@ -134,23 +134,24 @@ const ListaContratos = () => {
     }
   }, [location.search]);
 
-  // Fetch dados da empresa apenas para administrador/gerente
+  // Fetch dados da empresa para todos os perfis (paginação e timezone são globais)
   useEffect(() => {
     const fetchEmpresa = async () => {
-      const canAccessEmpresa = ['administrador', 'gerente'].includes(userRole);
-
-      if (!canAccessEmpresa) {
-        setEmpresa({ items_per_page: 25, timezone: 'America/Sao_Paulo' });
-        return;
-      }
+      if (!userRole) return;
 
       const { data, error } = await supabase.from('empresa').select('items_per_page, timezone').single();
 
       if (error) {
-        console.warn("Aviso: Usuário não tem acesso aos dados da empresa. Usando configuração padrão.");
-        if (userRole !== 'coletor') {
+        console.warn("Aviso: Falha ao buscar configurações da empresa. Usando valores padrão.", error.message);
+        
+        // Só mostra toast se for um perfil administrativo e não for erro de permissão (que é esperado para coletores)
+        const isPermissionError = error.code === '42501' || error.status === 403 || error.status === 401;
+        const isAdmin = ['super_admin', 'administrador', 'gerente'].includes(userRole);
+
+        if (!isPermissionError && isAdmin) {
           toast({
             title: 'Erro ao buscar configurações da empresa',
+            description: 'Usando padrões: 25 itens por página.',
             variant: 'destructive'
           });
         }
@@ -160,12 +161,10 @@ const ListaContratos = () => {
       }
     };
 
-    if (userRole) {
-      fetchEmpresa();
-    }
+    fetchEmpresa();
   }, [toast, userRole]);
 
-  const fetchContratos = useCallback(async (page = currentPage) => {
+  const fetchContratos = useCallback(async (page = currentPage, isCurrent = { active: true }) => {
     if (userRole === null) {
       console.log('⏳ Aguardando definição do role...');
       return;
@@ -189,20 +188,18 @@ const ListaContratos = () => {
           municipio,
           estado
         )
-      `, { count: 'exact' })
-      .order('created_at', { ascending: false })
-      .range(from, to);
+      `, { count: 'exact' });
 
     if (userRole === 'coletor' && userId) {
       query = query.eq('user_id', userId);
       console.log('🎯 Aplicando filtro por user_id para coletor:', userId);
-    } else if (userRole === 'administrador' || userRole === 'gerente') {
+    } else if (['super_admin', 'administrador', 'gerente'].includes(userRole)) {
       console.log('👑 Visualizando TODOS os contratos - Perfil:', userRole);
     } else {
       console.log('⚠️ Perfil não reconhecido:', userRole);
     }
 
-    if (statusFilter) {
+    if (statusFilter && statusFilter !== 'all') {
       query = query.eq('status', statusFilter);
     }
 
@@ -246,7 +243,12 @@ const ListaContratos = () => {
       query = query.ilike('numero_contrato', `%${escapedContratoSearchTerm}%`);
     }
 
+    // Ordenação e Paginação por ÚLTIMO
+    query = query.order('created_at', { ascending: false }).range(from, to);
+
     const { data, error, count } = await query;
+
+    if (!isCurrent.active) return;
 
     if (error) {
       console.error("❌ Erro ao buscar contratos:", error);
@@ -258,14 +260,16 @@ const ListaContratos = () => {
       setTotalCount(count || 0);
     }
     setLoading(false);
-  }, [toast, pageSize, debouncedContratoSearchTerm, debouncedClientSearchTerm, statusFilter, filterById, userRole, userId]);
+  }, [toast, pageSize, debouncedContratoSearchTerm, debouncedClientSearchTerm, statusFilter, filterById, userRole, userId, currentPage]);
 
   // Efeito principal para buscar contratos
   useEffect(() => {
+    const isCurrent = { active: true };
     if (userRole !== null) {
       console.log('🔄 Buscando contratos na página:', currentPage);
-      fetchContratos(currentPage);
+      fetchContratos(currentPage, isCurrent);
     }
+    return () => { isCurrent.active = false; };
   }, [currentPage, userRole, fetchContratos]);
 
   // Efeito para resetar para página 1 quando filtros mudarem
@@ -283,7 +287,7 @@ const ListaContratos = () => {
   };
 
   const handleInitiateDelete = (contrato) => {
-    const canDelete = ['administrador', 'gerente'].includes(userRole);
+    const canDelete = ['super_admin', 'administrador', 'gerente'].includes(userRole);
     if (!canDelete) {
       toast({ title: 'Permissão negada', description: 'Seu perfil não tem permissão para excluir contratos.', variant: 'destructive' });
       return;
@@ -463,7 +467,7 @@ const ListaContratos = () => {
                   Meus Contratos
                 </span>
               )}
-              {(userRole === 'administrador' || userRole === 'gerente') && (
+              {['super_admin', 'administrador', 'gerente'].includes(userRole) && (
                 <span className="text-sm text-blue-300 bg-blue-800/30 px-2 py-1 rounded-lg">
                   Todos os Contratos
                 </span>

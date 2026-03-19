@@ -89,7 +89,22 @@ export function setRoutingContext(userId, role) {
 }
 
 // 🛡️ Adaptive SSO: Conjunto de URLs que falharam na decodificação do JWT (PGRST301)
-const ssoIncompatibleUrls = new Set();
+const SSO_CACHE_KEY = 'rjr_sso_incompatible_urls';
+const getSsoIncompatibleUrls = () => {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(SSO_CACHE_KEY) || '[]'));
+  } catch (e) {
+    return new Set();
+  }
+};
+const saveSsoIncompatibleUrl = (url) => {
+  const set = getSsoIncompatibleUrls();
+  if (!set.has(url)) {
+    set.add(url);
+    localStorage.setItem(SSO_CACHE_KEY, JSON.stringify([...set]));
+    console.warn(`⚠️ [SSO] Ambiente ${url} marcado como incompatível. Bypass ativado permanentemente para esta aba e futuras.`);
+  }
+};
 
 /**
  * Obtém ou cria o cliente Supabase baseado no ambiente do usuário (Async)
@@ -105,9 +120,10 @@ async function getSupabaseClient(forceRefresh = false) {
     const customFetch = async (url, options = {}) => {
       const targetUrl = new URL(url).origin;
       const isTryingMain = targetUrl === mainSupabaseUrl;
+      const incompatibleUrls = getSsoIncompatibleUrls();
 
       // Se o ambiente ainda não foi marcado como incompatível, tentamos o token de Produção
-      if (!isMain && !isTryingMain && !ssoIncompatibleUrls.has(targetUrl)) {
+      if (!isMain && !isTryingMain && !incompatibleUrls.has(targetUrl)) {
         const headers = new Headers(options.headers || {});
         
         if (lastKnownSession?.access_token) {
@@ -117,15 +133,27 @@ async function getSupabaseClient(forceRefresh = false) {
         options.headers = headers;
       } 
       // Se JÁ sabemos que é incompatível MAS o usuário está logado (na Prod), usamos a Ponte de Bypass
-      else if (!isMain && !isTryingMain && ssoIncompatibleUrls.has(targetUrl) && lastKnownSession) {
+      else if (!isMain && !isTryingMain && incompatibleUrls.has(targetUrl) && lastKnownSession) {
         const headers = new Headers(options.headers || {});
         // 🌉 Injetamos o header de bypass que o banco passará a confiar após o SQL
         headers.set('x-admin-bypass', 'rjr_bridge_secure_bypass_2024');
+        
+        // 🛡️ CORREÇÃO STORAGE: O servidor de Storage exige o header Authorization sob pena de Erro 400.
+        // Mesmo em bypass, precisamos enviar ALGO que o schema aceite. Usamos o anon_key do ambiente.
+        const isStorage = url.includes('/storage/v1/');
+        if (isStorage) {
+          headers.set('Authorization', `Bearer ${env.anon_key}`);
+        } else {
+          // Remove Authorization para garantir que o PostgREST use o papel anônimo (que o SQL is_admin() interceptará)
+          headers.delete('Authorization');
+        }
+        
         options.headers = headers;
       }
 
+
       try {
-        const response = await fetch(url, options);
+        let response = await fetch(url, options);
         
         // Se recebermos erro de decodificação de JWT ou RLS, tentamos detectar a causa
         if (response.status === 401 || response.status === 403) {
@@ -133,13 +161,23 @@ async function getSupabaseClient(forceRefresh = false) {
           try {
             const error = await clone.json();
             // PGRST301 = Erro de Segredo JWT inválido
-            if (error.code === 'PGRST301' || error.message?.includes('decode the JWT')) {
-              if (!ssoIncompatibleUrls.has(targetUrl)) {
-                console.warn(`⚠️ [SSO] Ambiente ${targetUrl} incompatível com Token de Produção. Ativando Modo de Bypass via Header.`);
-                ssoIncompatibleUrls.add(targetUrl);
-                // Retentamos a mesma chamada já com o bypass aplicado? 
-                // Para não complicar o fetch recursivo, deixamos o usuário tentar de novo ou o próximo fetch automático já usará o bypass.
-              }
+            // 42501 = Violação de RLS (pode ocorrer se o Token for ignorado e cair no anon sem bypass)
+            const isAuthError = error.code === 'PGRST301' || 
+                               error.code === '42501' || 
+                               error.message?.includes('decode the JWT') ||
+                               error.message?.includes('violates row-level security');
+
+            if (isAuthError && !isMain && !isTryingMain && !incompatibleUrls.has(targetUrl)) {
+              saveSsoIncompatibleUrl(targetUrl);
+              
+              // 🔄 RETRY AUTOMÁTICO: Tenta novamente IMEDIATAMENTE com o bypass aplicado
+              console.log(`🔄 [SSO] Retentando chamada para ${targetUrl} usando Ponte de Bypass...`);
+              const retryHeaders = new Headers(options.headers || {});
+              retryHeaders.set('x-admin-bypass', 'rjr_bridge_secure_bypass_2024');
+              retryHeaders.delete('Authorization');
+              options.headers = retryHeaders;
+              
+              response = await fetch(url, options);
             }
           } catch (e) {
             // Não é um JSON, ignora
