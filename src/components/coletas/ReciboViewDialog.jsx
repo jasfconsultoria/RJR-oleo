@@ -217,27 +217,48 @@ export const ReciboViewDialog = ({
       if (coleta.tipo_coleta === 'Compra') {
         console.log('🚀 ABRINDO PAGAMENTO PARA COLETA COMPRA...');
         
-        const { data: debitEntry, error: debitError } = await supabase
-          .from('credito_debito')
-          .select('*')
-          .eq('coleta_id', coleta.id)
-          .eq('type', 'debito')
-          .maybeSingle();
+        // ⏳ Adicionamos uma pequena espera para garantir que o trigger tenha finalizado
+        // e o registro esteja visível para o cliente.
+        let debitEntry = null;
+        let debitError = null;
+        let retries = 3;
+
+        while (retries > 0 && !debitEntry) {
+          console.log(`🔍 Tentando buscar débito (Tentativas restantes: ${retries})...`);
+          const { data, error } = await supabase
+            .from('credito_debito')
+            .select('*')
+            .eq('coleta_id', coleta.id)
+            .eq('type', 'debito')
+            .maybeSingle();
+            
+          if (error) {
+            debitError = error;
+            break; // Se deu erro de permissão/conexão, não adianta tentar de novo
+          }
+          
+          debitEntry = data;
+          
+          if (!debitEntry) {
+            retries--;
+            if (retries > 0) await new Promise(resolve => setTimeout(resolve, 800)); // Espera 800ms antes de tentar de novo
+          }
+        }
 
         if (debitError) {
           console.error('❌ Erro ao buscar débito:', debitError);
           toast({ 
-            title: 'Erro', 
-            description: 'Não foi possível carregar os detalhes do débito.', 
+            title: 'Erro de Comunicação', 
+            description: `Não foi possível carregar os detalhes do débito: ${debitError.message || 'Erro desconhecido'}`, 
             variant: 'destructive', 
             duration: 5000 
           });
           onClose();
         } else if (!debitEntry) {
-          console.warn('⚠️ Débito não encontrado');
+          console.warn('⚠️ Débito não encontrado após retentativas');
           toast({ 
             title: 'Aviso', 
-            description: 'Lançamento de débito não encontrado para esta coleta.', 
+            description: 'Lançamento de débito não encontrado para esta coleta. Verifique o financeiro manualmente.', 
             variant: 'warning', 
             duration: 5000 
           });

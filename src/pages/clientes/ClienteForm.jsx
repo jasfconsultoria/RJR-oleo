@@ -1168,10 +1168,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
                       ) : (
                         <div className="relative group">
                           <IMaskInput
-                            mask={[
-                              { mask: '00.000.000/0000-00' },
-                              { mask: '000.000.000-00' }
-                            ]}
+                            mask={documentType === 'cnpj' ? '00.000.000/0000-00' : '000.000.000-00'}
                             value={formData.cnpj_cpf || ''}
                             unmask={false}
                             onAccept={(value) => handleMaskedChange(String(value), 'cnpj_cpf')}

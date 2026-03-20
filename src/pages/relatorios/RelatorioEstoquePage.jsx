@@ -101,7 +101,9 @@ const RelatorioEstoquePage = () => {
       // Fetch Summary
       const { data: summaryData, error: summaryError } = await supabase.rpc('get_estoque_summary', commonRpcParams);
       if (summaryError) throw summaryError;
-      setSummary(summaryData || { total_movements: 0, total_quantity_in: 0, total_quantity_out: 0 });
+      
+      const processedSummary = (Array.isArray(summaryData) ? summaryData[0] : summaryData) || { total_movements: 0, total_quantity_in: 0, total_quantity_out: 0 };
+      setSummary(processedSummary);
 
       // Fetch Chart Data
       const { data: chartDataRes, error: chartError } = await supabase.rpc('get_estoque_chart_data', commonRpcParams);
@@ -109,7 +111,7 @@ const RelatorioEstoquePage = () => {
       setChartData(chartDataRes || []);
 
       // Fetch Detailed Report Data
-      const { data: detailedData, error: detailedError, count } = await supabase.rpc('get_estoque_detailed_report', {
+      const { data: detailedData, error: detailedError } = await supabase.rpc('get_estoque_detailed_report', {
         ...commonRpcParams,
         p_offset: from,
         p_limit: pageSize,
@@ -117,7 +119,7 @@ const RelatorioEstoquePage = () => {
 
       if (detailedError) throw detailedError;
       setReportData(detailedData || []);
-      setTotalCount(count || 0);
+      setTotalCount(processedSummary.total_movements || 0);
 
     } catch (error) {
       toast({ title: 'Erro ao gerar relatório de estoque', description: error.message, variant: 'destructive' });
@@ -338,28 +340,6 @@ const RelatorioEstoquePage = () => {
                 </div>
 
                 <Card className="bg-white/10 backdrop-blur-sm border-white/10 text-white rounded-xl">
-                  <CardHeader>
-                    <CardTitle className="text-emerald-300">Evolução Mensal de Movimentações</CardTitle>
-                    <CardDescription className="text-gray-400">
-                      Quantidades de entrada e saída por mês no período selecionado.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="pl-2">
-                    <ResponsiveContainer width="100%" height={350}>
-                      <BarChart data={chartData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.1)" />
-                        <XAxis dataKey="month_year" stroke="#9ca3af" />
-                        <YAxis stroke="#9ca3af" tickFormatter={(value) => formatNumber(value)} />
-                        <Tooltip content={<CustomTooltip />} />
-                        <Legend wrapperStyle={{ color: '#fff' }} />
-                        <Bar dataKey="total_quantity_in" fill="#34d399" name="Entradas" />
-                        <Bar dataKey="total_quantity_out" fill="#ef4444" name="Saídas" />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </CardContent>
-                </Card>
-
-                <Card className="bg-white/10 backdrop-blur-sm border-white/10 text-white rounded-xl">
                   <CardHeader><CardTitle className="text-emerald-300">Detalhes das Movimentações</CardTitle></CardHeader>
                   <CardContent>
                     <div className="overflow-x-auto">
@@ -393,6 +373,30 @@ const RelatorioEstoquePage = () => {
                           ))}
                         </TableBody>
                       </Table>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-white/10 backdrop-blur-sm border-white/10 text-white rounded-xl">
+                  <CardHeader>
+                    <CardTitle className="text-emerald-300">Evolução Mensal de Movimentações</CardTitle>
+                    <CardDescription className="text-gray-400">
+                      Quantidades de entrada e saída por mês no período selecionado.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="pl-2">
+                    <div className="h-[350px] w-full mt-4">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={chartData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.1)" />
+                          <XAxis dataKey="month_year" stroke="#9ca3af" />
+                          <YAxis stroke="#9ca3af" tickFormatter={(value) => formatNumber(value)} />
+                          <Tooltip content={<CustomTooltip />} />
+                          <Legend wrapperStyle={{ color: '#fff' }} />
+                          <Bar dataKey="total_quantity_in" fill="#34d399" name="Entradas" />
+                          <Bar dataKey="total_quantity_out" fill="#ef4444" name="Saídas" />
+                        </BarChart>
+                      </ResponsiveContainer>
                     </div>
                   </CardContent>
                 </Card>

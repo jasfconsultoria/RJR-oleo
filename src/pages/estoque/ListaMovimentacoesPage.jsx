@@ -68,6 +68,10 @@ const ListaMovimentacoesPage = () => {
     const from = (currentPage - 1) * pageSize;
     const to = from + pageSize - 1;
 
+    // Determinar quais joins precisam ser !inner para filtragem
+    const clientJoin = debouncedFilters.clientSearchTerm ? '!inner' : '';
+    const productJoin = debouncedFilters.selectedProdutoId ? '!inner' : '';
+
     let query = supabase
       .from('entrada_saida')
       .select(`
@@ -77,31 +81,49 @@ const ListaMovimentacoesPage = () => {
         origem,
         observacao,
         document_number,
-        cliente:clientes(id, razao_social, nome_fantasia),
+        cliente:clientes${clientJoin}(id, razao_social, nome_fantasia),
         coleta_id,
-        itens_entrada_saida(
+        itens_entrada_saida${productJoin}(
           id,
           quantidade,
+          produto_id,
           produto:produtos(id, nome, unidade)
         )
-      `, { count: 'exact' })
-      .order('data', { ascending: false })
-      .order('created_at', { ascending: false })
-      .range(from, to);
+      `, { count: 'exact' });
 
-    // Filtros do servidor
+    // Filtros do servidor - Busca Geral (Observação/Doc)
     if (debouncedFilters.searchTerm) {
       query = query.or(`observacao.ilike.%${debouncedFilters.searchTerm}%,document_number.ilike.%${debouncedFilters.searchTerm}%`);
     }
+
+    // Filtro por Cliente (Server-side)
+    if (debouncedFilters.clientSearchTerm) {
+      query = query.or(`nome_fantasia.ilike.%${debouncedFilters.clientSearchTerm}%,razao_social.ilike.%${debouncedFilters.clientSearchTerm}%`, { foreignTable: 'clientes' });
+    }
+
+    // Filtro por Produto (Server-side)
+    if (debouncedFilters.selectedProdutoId) {
+      query = query.eq('itens_entrada_saida.produto_id', debouncedFilters.selectedProdutoId);
+    }
+
+    // Filtros de Data
     if (debouncedFilters.startDate) {
       query = query.gte('data', format(debouncedFilters.startDate, 'yyyy-MM-dd'));
     }
     if (debouncedFilters.endDate) {
       query = query.lte('data', format(debouncedFilters.endDate, 'yyyy-MM-dd'));
     }
+
+    // Filtro de Tipo
     if (debouncedFilters.type !== 'all') {
       query = query.eq('tipo', debouncedFilters.type);
     }
+
+    // Ordenação e Paginação
+    query = query
+      .order('data', { ascending: false })
+      .order('created_at', { ascending: false })
+      .range(from, to);
 
     const { data, error, count } = await query;
 
@@ -111,31 +133,8 @@ const ListaMovimentacoesPage = () => {
       setMovimentacoes([]);
       setTotalCount(0);
     } else {
-      let filteredData = data || [];
-
-      // Filtro por cliente no lado do cliente (client-side)
-      if (debouncedFilters.clientSearchTerm) {
-        const searchTermLower = debouncedFilters.clientSearchTerm.toLowerCase();
-        filteredData = filteredData.filter(mov => {
-          const razaoSocial = mov.cliente?.razao_social || '';
-          const nomeFantasia = mov.cliente?.nome_fantasia || '';
-
-          return (
-            razaoSocial.toLowerCase().includes(searchTermLower) ||
-            nomeFantasia.toLowerCase().includes(searchTermLower)
-          );
-        });
-      }
-
-      // Filtro por produto no lado do cliente (client-side)
-      if (debouncedFilters.selectedProdutoId) {
-        filteredData = filteredData.filter(mov =>
-          mov.itens_entrada_saida.some(item => item.produto.id === debouncedFilters.selectedProdutoId)
-        );
-      }
-
-      setMovimentacoes(filteredData);
-      setTotalCount(filteredData.length);
+      setMovimentacoes(data || []);
+      setTotalCount(count || 0);
     }
     setLoading(false);
   }, [toast, currentPage, pageSize, debouncedFilters, empresa]);
