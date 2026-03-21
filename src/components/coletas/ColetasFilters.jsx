@@ -4,15 +4,25 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
 const ColetasFilters = ({
   coletaSearchTerm,
   setColetaSearchTerm,
-  clientSearchTerm, // Novo prop
-  setClientSearchTerm, // Novo prop
+  clientSearchTerm,
+  setClientSearchTerm,
   startDate,
   setStartDate,
   endDate,
-  setEndDate
+  setEndDate,
+  tipoColeta,
+  setTipoColeta
 }) => {
   const isNumeroColetaSearching = coletaSearchTerm !== '';
   const [showFilters, setShowFilters] = useState(false);
@@ -49,67 +59,83 @@ const ColetasFilters = ({
       </div>
 
       <div className={`${isMobile && !showFilters ? 'hidden' : 'block'}`}>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 items-end"> {/* Alterado para lg:grid-cols-6 */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-4 items-end">
 
-          <div className="lg:col-span-2"> {/* Ocupa 2 colunas em telas grandes */}
+          <div className="lg:col-span-2">
             <Label htmlFor="numeroColetaSearch" className="block text-white mb-1 text-sm">Nº Coleta</Label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/70" />
               <Input
                 id="numeroColetaSearch"
                 type="search"
-                placeholder="Buscar por número..."
+                placeholder="Buscar..."
                 value={coletaSearchTerm || ''}
                 onChange={(e) => setColetaSearchTerm(e.target.value)}
-                className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60"
+                className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60 text-sm"
               />
             </div>
           </div>
 
-          <div className="relative z-20 lg:col-span-2"> {/* Ocupa 2 colunas em telas grandes */}
+          <div className="relative z-20 lg:col-span-4">
             <Label htmlFor="clientSearch" className="block text-white mb-1 text-sm">Cliente</Label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/70" />
               <Input
                 id="clientSearch"
                 type="search"
-                placeholder="Buscar por nome do cliente..."
+                placeholder="Nome..."
                 value={clientSearchTerm || ''}
                 onChange={(e) => setClientSearchTerm(e.target.value)}
-                className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60"
+                className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60 text-sm"
                 disabled={isNumeroColetaSearching}
               />
             </div>
           </div>
 
-          {/* Datas agora ocupam 1 coluna cada em telas grandes */}
-          <div>
-            <Label htmlFor="startDate" className="block text-white mb-1 text-sm">Data Início</Label>
-            <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/70" />
-              <Input
-                id="startDate"
-                type="date"
-                value={startDate || ''}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="pl-10 w-full bg-white/20 border-white/30 text-white rounded-xl"
-                disabled={isNumeroColetaSearching}
-              />
-            </div>
+          <div className="lg:col-span-2">
+            <Label htmlFor="tipoFilter" className="block text-white mb-1 text-sm">Tipo</Label>
+            <Select
+              value={tipoColeta || 'Todas'}
+              onValueChange={(value) => setTipoColeta(value === 'Todas' ? '' : value)}
+              disabled={isNumeroColetaSearching}
+            >
+              <SelectTrigger 
+                id="tipoFilter"
+                className="bg-white/20 border-white/30 text-white rounded-xl focus:ring-emerald-400"
+              >
+                <SelectValue placeholder="Tipo" />
+              </SelectTrigger>
+              <SelectContent className="bg-emerald-900 border-white/20 text-white">
+                <SelectItem value="Todas">Todas</SelectItem>
+                <SelectItem value="Compra">Compra</SelectItem>
+                <SelectItem value="Troca">Troca</SelectItem>
+                <SelectItem value="Doação">Doação</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-          <div>
+
+          {/* Datas ocupam 2 colunas cada */}
+          <div className="lg:col-span-2">
+            <Label htmlFor="startDate" className="block text-white mb-1 text-sm">Data Início</Label>
+            <Input
+              id="startDate"
+              type="date"
+              value={startDate || ''}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-full bg-white/20 border border-white/30 text-white rounded-xl px-3 py-2 h-10 focus:outline-none focus:ring-2 focus:ring-emerald-400 text-sm"
+              disabled={isNumeroColetaSearching}
+            />
+          </div>
+          <div className="lg:col-span-2">
             <Label htmlFor="endDate" className="block text-white mb-1 text-sm">Data Fim</Label>
-            <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/70" />
-              <Input
-                id="endDate"
-                type="date"
-                value={endDate || ''}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="pl-10 w-full bg-white/20 border-white/30 text-white rounded-xl"
-                disabled={isNumeroColetaSearching}
-              />
-            </div>
+            <Input
+              id="endDate"
+              type="date"
+              value={endDate || ''}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="w-full bg-white/20 border border-white/30 text-white rounded-xl px-3 py-2 h-10 focus:outline-none focus:ring-2 focus:ring-emerald-400 text-sm"
+              disabled={isNumeroColetaSearching}
+            />
           </div>
         </div>
       </div>

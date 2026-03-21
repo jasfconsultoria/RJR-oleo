@@ -21,6 +21,7 @@ const ListaColetas = () => {
   const [loading, setLoading] = useState(true);
   const [coletaSearchTerm, setColetaSearchTerm] = useState('');
   const [clientSearchTerm, setClientSearchTerm] = useState('');
+  const [tipoColeta, setTipoColeta] = useState(''); // Novo filtro
   const [searchParams] = useSearchParams();
   const clienteId = searchParams.get('clienteId');
 
@@ -52,6 +53,7 @@ const ListaColetas = () => {
   const debouncedClientSearchTerm = useDebounce(clientSearchTerm, 500);
   const debouncedStartDate = useDebounce(startDate, 500);
   const debouncedEndDate = useDebounce(endDate, 500);
+  const debouncedTipoColeta = useDebounce(tipoColeta, 500); // Novo debounce
   const { toast } = useToast();
 
   const pageSize = useMemo(() => Number(empresa?.items_per_page || 25), [empresa]);
@@ -155,6 +157,9 @@ const ListaColetas = () => {
           const endOfDayDate = format(endOfDay(parseISO(debouncedEndDate)), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx");
           query = query.lte('data_coleta', endOfDayDate);
         }
+        if (debouncedTipoColeta) {
+          query = query.eq('tipo_coleta', debouncedTipoColeta);
+        }
       }
 
       query = query.order(sortConfig.key, { ascending: sortConfig.direction === 'asc' }).range(from, to);
@@ -177,7 +182,7 @@ const ListaColetas = () => {
         setLoading(false);
       }
     }
-  }, [profileLoading, profile, empresa, userRole, userId, clienteId, debouncedColetaSearchTerm, debouncedClientSearchTerm, debouncedStartDate, debouncedEndDate, currentPage, pageSize, sortConfig, toast]);
+  }, [profileLoading, profile, empresa, userRole, userId, clienteId, debouncedColetaSearchTerm, debouncedClientSearchTerm, debouncedStartDate, debouncedEndDate, debouncedTipoColeta, currentPage, pageSize, sortConfig, toast]);
 
   // 3. Effect ÚNICO para disparar buscas baseadas em mudanças de filtro/perfil
   // Isso unifica o carregamento e evita as "piscadas" por triggers múltiplos
@@ -188,13 +193,13 @@ const ListaColetas = () => {
       fetchPeriodTotals();
     }
     return () => { isCurrent.active = false; };
-  }, [fetchColetas, fetchPeriodTotals, userRole, debouncedStartDate, debouncedEndDate]);
+  }, [fetchColetas, fetchPeriodTotals, userRole, debouncedStartDate, debouncedEndDate, debouncedTipoColeta]);
 
   // Resetar página quando filtros mudam
   useEffect(() => {
     setCurrentPage(1);
     if (coletaSearchTerm) setClientSearchTerm('');
-  }, [debouncedColetaSearchTerm, debouncedClientSearchTerm, debouncedStartDate, debouncedEndDate, pageSize, coletaSearchTerm]);
+  }, [debouncedColetaSearchTerm, debouncedClientSearchTerm, debouncedStartDate, debouncedEndDate, debouncedTipoColeta, pageSize, coletaSearchTerm]);
 
   const refreshColetasData = useCallback(async () => {
     await Promise.all([fetchColetas(), fetchPeriodTotals()]);
@@ -320,6 +325,8 @@ const ListaColetas = () => {
           setStartDate={setStartDate}
           endDate={endDate}
           setEndDate={setEndDate}
+          tipoColeta={tipoColeta}
+          setTipoColeta={setTipoColeta}
         />
 
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white/10 backdrop-blur-sm rounded-xl">
