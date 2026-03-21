@@ -6,7 +6,7 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Loader2, PlusCircle, Edit, Trash2, Search, ListChecks, ArrowDownSquare, ArrowUpSquare, Eye } from 'lucide-react';
 import { useDebounce } from '@/hooks/useDebounce';
 import { Label } from '@/components/ui/label';
@@ -42,6 +42,7 @@ const ListaMovimentacoesPage = () => {
   const [totalCount, setTotalCount] = useState(0);
   const [empresa, setEmpresa] = useState(null);
   const [viewingMovimentacao, setViewingMovimentacao] = useState(null);
+  const [totalQuantidadePeriodo, setTotalQuantidadePeriodo] = useState(0);
 
   const pageSize = useMemo(() => empresa?.items_per_page || 25, [empresa]);
 
@@ -139,11 +140,65 @@ const ListaMovimentacoesPage = () => {
     setLoading(false);
   }, [toast, currentPage, pageSize, debouncedFilters, empresa]);
 
+  const fetchTotalPeriodo = useCallback(async () => {
+    if (!empresa) return;
+    
+    const clientJoin = debouncedFilters.clientSearchTerm ? '!inner' : '';
+    const productJoin = debouncedFilters.selectedProdutoId ? '!inner' : '';
+
+    let query = supabase
+      .from('entrada_saida')
+      .select(`
+        id,
+        itens_entrada_saida${productJoin}(
+          quantidade
+        )
+      `);
+
+    if (debouncedFilters.searchTerm) {
+      query = query.or(`observacao.ilike.%${debouncedFilters.searchTerm}%,document_number.ilike.%${debouncedFilters.searchTerm}%`);
+    }
+
+    if (debouncedFilters.clientSearchTerm) {
+      query = query.or(`nome_fantasia.ilike.%${debouncedFilters.clientSearchTerm}%,razao_social.ilike.%${debouncedFilters.clientSearchTerm}%`, { foreignTable: 'clientes' });
+    }
+
+    if (debouncedFilters.selectedProdutoId) {
+      query = query.eq('itens_entrada_saida.produto_id', debouncedFilters.selectedProdutoId);
+    }
+
+    if (debouncedFilters.startDate) {
+      query = query.gte('data', format(debouncedFilters.startDate, 'yyyy-MM-dd'));
+    }
+    if (debouncedFilters.endDate) {
+      query = query.lte('data', format(debouncedFilters.endDate, 'yyyy-MM-dd'));
+    }
+
+    if (debouncedFilters.type !== 'all') {
+      query = query.eq('tipo', debouncedFilters.type);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error('Erro ao buscar total por período:', error);
+      return;
+    }
+
+    const total = data.reduce((acc, mov) => {
+      const rowTotal = mov.itens_entrada_saida?.reduce((sum, item) => sum + (Number(item.quantidade) || 0), 0) || 0;
+      return acc + rowTotal;
+    }, 0);
+
+    setTotalQuantidadePeriodo(total);
+  }, [debouncedFilters, empresa]);
+
   useEffect(() => {
     if (empresa) {
       fetchMovimentacoes();
+      fetchTotalPeriodo();
     }
-  }, [fetchMovimentacoes, empresa]);
+  }, [fetchMovimentacoes, fetchTotalPeriodo, empresa]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -187,6 +242,9 @@ const ListaMovimentacoesPage = () => {
   };
 
   const totalPages = Math.ceil(totalCount / pageSize);
+  
+  // O totalQuantidadePeriodo já é buscado via fetchTotalPeriodo
+
 
   const getMovementIcon = (type) => {
     return type === 'entrada' ? <ArrowDownSquare className="h-4 w-4 text-green-400" /> : <ArrowUpSquare className="h-4 w-4 text-red-400" />;
@@ -236,7 +294,8 @@ const ListaMovimentacoesPage = () => {
                     <th className="p-2 text-left text-white">Tipo</th>
                     <th className="p-2 text-left text-white">Origem</th>
                     <th className="p-2 text-left text-white">Cliente</th>
-                    <th className="p-2 text-left text-white">Itens</th>
+                    <th className="p-2 text-left text-white">Produto</th>
+                    <th className="p-2 text-right text-white">Quantidade</th>
                     <th className="p-2 text-right text-white">Ações</th>
                   </TableRow>
                 </TableHeader>
@@ -255,10 +314,17 @@ const ListaMovimentacoesPage = () => {
                           <TableCell data-label="Cliente">
                             {getClientDisplayName(mov.cliente)}
                           </TableCell>
-                          <TableCell data-label="Itens">
+                          <TableCell data-label="Produto">
                             {mov.itens_entrada_saida.map((item, idx) => (
                               <div key={idx} className="text-xs">
-                                {item.produto.nome}: {formatNumber(item.quantidade)} {item.produto.unidade}
+                                {item.produto.nome}
+                              </div>
+                            ))}
+                          </TableCell>
+                          <TableCell data-label="Quantidade" className="text-right">
+                            {mov.itens_entrada_saida.map((item, idx) => (
+                              <div key={idx} className="text-xs">
+                                {formatNumber(item.quantidade)} {item.produto.unidade}
                               </div>
                             ))}
                           </TableCell>
@@ -351,9 +417,20 @@ const ListaMovimentacoesPage = () => {
                       )
                     })
                   ) : (
-                    <TableRow><TableCell colSpan="6" className="text-center text-gray-400 py-10">Nenhuma movimentação encontrada.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan="7" className="text-center text-gray-400 py-10">Nenhuma movimentação encontrada.</TableCell></TableRow>
                   )}
                 </TableBody>
+                {movimentacoes.length > 0 && (
+                  <TableFooter className="bg-white/5 border-t border-white/20">
+                    <TableRow className="hover:bg-transparent text-white font-bold">
+                      <TableCell colSpan={5} className="text-right py-3 pr-4">Total:</TableCell>
+                      <TableCell className="text-right py-3 text-emerald-400">
+                        {formatNumber(totalQuantidadePeriodo)}
+                      </TableCell>
+                      <TableCell />
+                    </TableRow>
+                  </TableFooter>
+                )}
               </Table>
             )}
           </div>

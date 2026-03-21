@@ -16,6 +16,8 @@ const ProdutoSearchableSelect = ({
   disabled = false,
   filterType = null, // 'coletado' ou 'novo' para filtrar produtos
   hideLabel = false,
+  labelClassName = "",
+  inputClassName = "",
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [products, setProducts] = useState([]);
@@ -142,7 +144,7 @@ const ProdutoSearchableSelect = ({
   return (
     <div ref={containerRef} className="relative w-full">
       {!hideLabel && (
-        <Label htmlFor="product-search" className="block text-white mb-2 text-sm font-medium">
+        <Label htmlFor="product-search" className={`block text-white mb-2 text-sm font-medium ${labelClassName}`}>
           {labelText}
         </Label>
       )}
@@ -166,6 +168,7 @@ const ProdutoSearchableSelect = ({
                 transition-colors duration-200
                 ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-white/15'}
                 focus:bg-white/15 focus:border-white/40
+                ${inputClassName}
               `}
               autoComplete="off"
               disabled={isDisabled}

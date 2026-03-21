@@ -227,7 +227,7 @@ function converterNumero(num) {
   if (num < 1000) {
     const c = Math.floor(num / 100);
     const resto = num % 100;
-    const centenas = ['', 'cento', 'duzentos', 'trezentos', 'quatrocentos', 'quinhentos', 'seiscentos', 'setecentos', 'oitocentos', 'novecentos'];
+    const centenas = ['', 'cem', 'duzentos', 'trezentos', 'quatrocentos', 'quinhentos', 'seiscentos', 'setecentos', 'oitocentos', 'novecentos'];
 
     if (c === 1 && resto > 0) return 'cento e ' + converterNumero(resto);
     return centenas[c] + (resto > 0 ? ' e ' + converterNumero(resto) : '');

@@ -245,7 +245,7 @@ const FinanceiroForm = ({ type }) => {
           notes, user_id, issue_date, total_value,
           installment_number, total_installments, installment_value, 
           paid_amount, amount_balance, status,
-          discount, interest, document_value
+          discount, interest
         `)
         .eq('id', id)
         .single();
