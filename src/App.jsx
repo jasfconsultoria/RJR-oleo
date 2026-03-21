@@ -194,9 +194,9 @@ function App() {
                     <Route path="financeiro/debito" element={<ProtectedRoute requiredRole={['super_admin', 'administrador']}><ListaFinanceiro type="debito" /></ProtectedRoute>} />
                     <Route path="financeiro/debito/novo" element={<ProtectedRoute requiredRole={['super_admin', 'administrador']}><FinanceiroForm type="debito" /></ProtectedRoute>} />
                     <Route path="financeiro/debito/editar/:id" element={<ProtectedRoute requiredRole={['super_admin', 'administrador']}><FinanceiroForm type="debito" /></ProtectedRoute>} />
-                    <Route path="financeiro/recibos" element={<ProtectedRoute requiredRole={['super_admin', 'administrador']}><ListaRecibosAvulsos /></ProtectedRoute>} />
-                    <Route path="financeiro/recibos/novo" element={<ProtectedRoute requiredRole={['super_admin', 'administrador']}><ReciboAvulsoForm /></ProtectedRoute>} />
-                    <Route path="financeiro/recibos/editar/:id" element={<ProtectedRoute requiredRole={['super_admin', 'administrador']}><ReciboAvulsoForm /></ProtectedRoute>} />
+                    <Route path="financeiro/recibos" element={<ProtectedRoute requiredRole={['super_admin', 'administrador', 'coletor']}><ListaRecibosAvulsos /></ProtectedRoute>} />
+                    <Route path="financeiro/recibos/novo" element={<ProtectedRoute requiredRole={['super_admin', 'administrador', 'coletor']}><ReciboAvulsoForm /></ProtectedRoute>} />
+                    <Route path="financeiro/recibos/editar/:id" element={<ProtectedRoute requiredRole={['super_admin', 'administrador', 'coletor']}><ReciboAvulsoForm /></ProtectedRoute>} />
 
                     {/* Estoque Routes */}
                     <Route path="estoque/produtos" element={<ProtectedRoute requiredRole={['super_admin', 'administrador', 'gerente']}><ListaProdutosPage /></ProtectedRoute>} />

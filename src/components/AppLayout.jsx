@@ -154,12 +154,12 @@ const AppLayout = ({ children }) => {
     {
       label: 'Financeiro',
       icon: DollarSign,
-      roles: ['super_admin', 'administrador'],
+      roles: ['super_admin', 'administrador', 'coletor'],
       subItems: [
-        { to: '/app/financeiro/credito', label: 'Crédito', icon: TrendingUp },
-        { to: '/app/financeiro/debito', label: 'Débito', icon: TrendingDown },
-        { to: '/app/financeiro/recibos', label: 'Recibos', icon: FileText, roles: ['super_admin', 'administrador'] },
-        { to: '/app/centros-custo', label: 'Centro de Custos', icon: Tag },
+        { to: '/app/financeiro/credito', label: 'Crédito', icon: TrendingUp, roles: ['super_admin', 'administrador'] },
+        { to: '/app/financeiro/debito', label: 'Débito', icon: TrendingDown, roles: ['super_admin', 'administrador'] },
+        { to: '/app/financeiro/recibos', label: 'Recibos', icon: FileText, roles: ['super_admin', 'administrador', 'coletor'] },
+        { to: '/app/centros-custo', label: 'Centro de Custos', icon: Tag, roles: ['super_admin', 'administrador'] },
       ]
     },
     { to: '/app/agenda', label: 'Agenda', icon: Calendar, roles: ['super_admin', 'administrador', 'gerente'] },

@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components
 import { Loader2, BookText, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { format } from 'date-fns';
+import { format, startOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useDebounce } from '@/hooks/useDebounce';
 import { Pagination } from '@/components/ui/pagination';
@@ -167,7 +167,7 @@ const LogsPage = () => {
           .select('created_at')
           .order('created_at', { ascending: true })
           .limit(1)
-          .single();
+          .maybeSingle();
 
         if (data && !error) {
           const firstDate = format(new Date(data.created_at), 'yyyy-MM-dd');
@@ -177,7 +177,8 @@ const LogsPage = () => {
         } else {
           // Fallback caso não existam logs ou dê erro
           const today = format(new Date(), 'yyyy-MM-dd');
-          setStartDate(today);
+          const firstOfMonth = format(startOfMonth(new Date()), 'yyyy-MM-dd');
+          setStartDate(firstOfMonth);
           setEndDate(today);
         }
       } catch (err) {

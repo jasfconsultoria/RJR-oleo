@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import { LogIn, User, Key, ArrowLeft, Loader2, Eye, EyeOff, Mail } from 'lucide-
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { logAction } from '@/lib/logger';
 
 const LoginScreen = () => {
   const [email, setEmail] = useState('');
@@ -29,6 +30,8 @@ const LoginScreen = () => {
         title: 'Login bem-sucedido!',
         description: `Bem-vindo de volta!`,
       });
+      // Registrar log de login
+      await logAction('login_success', { email });
     }
     setLoading(false);
   };
