@@ -15,7 +15,6 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { Input } from '@/components/ui/input';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Pagination } from '@/components/ui/pagination';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { DatePicker } from '@/components/ui/date-picker';
 import ProdutoSearchableSelect from '@/components/produtos/ProdutoSearchableSelect';
 
@@ -30,7 +29,6 @@ const RelatorioEstoquePage = () => {
     selectedProductId: null, // For ProdutoSearchableSelect
   });
   const [summary, setSummary] = useState({ total_movements: 0, total_quantity_in: 0, total_quantity_out: 0 });
-  const [chartData, setChartData] = useState([]);
   const { toast } = useToast();
   const debouncedFilters = useDebounce(filters, 500);
   const [currentPage, setCurrentPage] = useState(1);
@@ -105,11 +103,6 @@ const RelatorioEstoquePage = () => {
       const processedSummary = (Array.isArray(summaryData) ? summaryData[0] : summaryData) || { total_movements: 0, total_quantity_in: 0, total_quantity_out: 0 };
       setSummary(processedSummary);
 
-      // Fetch Chart Data
-      const { data: chartDataRes, error: chartError } = await supabase.rpc('get_estoque_chart_data', commonRpcParams);
-      if (chartError) throw chartError;
-      setChartData(chartDataRes || []);
-
       // Fetch Detailed Report Data
       const { data: detailedData, error: detailedError } = await supabase.rpc('get_estoque_detailed_report', {
         ...commonRpcParams,
@@ -125,7 +118,6 @@ const RelatorioEstoquePage = () => {
       toast({ title: 'Erro ao gerar relatório de estoque', description: error.message, variant: 'destructive' });
       setReportData([]);
       setSummary({ total_movements: 0, total_quantity_in: 0, total_quantity_out: 0 });
-      setChartData([]);
       setTotalCount(0);
     } finally {
       setLoading(false);
@@ -217,19 +209,6 @@ const RelatorioEstoquePage = () => {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'RelatorioEstoque');
     XLSX.writeFile(workbook, 'Relatorio_Estoque.xlsx');
-  };
-
-  const CustomTooltip = ({ active, payload, label }) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="p-2 bg-gray-800/80 border border-gray-600 rounded-xl text-white">
-          <p className="label font-bold">{`Mês: ${label}`}</p>
-          <p className="text-green-400">{`Entradas : ${formatNumber(payload[0].value)}`}</p>
-          <p className="text-red-400">{`Saídas : ${formatNumber(payload[1].value)}`}</p>
-        </div>
-      );
-    }
-    return null;
   };
 
   const totalPages = Math.ceil(totalCount / pageSize);
@@ -377,29 +356,6 @@ const RelatorioEstoquePage = () => {
                   </CardContent>
                 </Card>
 
-                <Card className="bg-white/10 backdrop-blur-sm border-white/10 text-white rounded-xl">
-                  <CardHeader>
-                    <CardTitle className="text-emerald-300">Evolução Mensal de Movimentações</CardTitle>
-                    <CardDescription className="text-gray-400">
-                      Quantidades de entrada e saída por mês no período selecionado.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="pl-2">
-                    <div className="h-[350px] w-full mt-4">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={chartData}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.1)" />
-                          <XAxis dataKey="month_year" stroke="#9ca3af" />
-                          <YAxis stroke="#9ca3af" tickFormatter={(value) => formatNumber(value)} />
-                          <Tooltip content={<CustomTooltip />} />
-                          <Legend wrapperStyle={{ color: '#fff' }} />
-                          <Bar dataKey="total_quantity_in" fill="#34d399" name="Entradas" />
-                          <Bar dataKey="total_quantity_out" fill="#ef4444" name="Saídas" />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </CardContent>
-                </Card>
               </>
             )}
             {reportData.length === 0 && !loading && (

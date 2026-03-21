@@ -30,10 +30,11 @@ import {
   TrendingUp, // New icon for Crédito
   TrendingDown, // New icon for Débito
   ClipboardList, // Icon for Cadastro
-  PenLine, // Alterado de Signature para PenLine
-  Box, // New icon for Recipientes
+  PenLine, 
+  Box, 
   ChevronsLeft,
   ChevronsRight,
+  ClipboardCheck,
   MapPin,
   Route,
   Settings,
@@ -195,6 +196,7 @@ const AppLayout = ({ children }) => {
         { to: '/app/estoque/saidas', label: 'Saídas', icon: ArrowUpSquare },
         { to: '/app/estoque/movimentacoes', label: 'Movimentações', icon: ListChecks },
         { to: '/app/estoque/saldo', label: 'Saldo Atual', icon: Scale },
+        { to: '/app/relatorios/auditoria', label: 'Auditoria', icon: ClipboardCheck },
       ]
     },
     {

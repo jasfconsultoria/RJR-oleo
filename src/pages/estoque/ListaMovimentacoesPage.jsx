@@ -23,6 +23,8 @@ import MovimentacaoViewDialog from '@/components/estoque/MovimentacaoViewDialog'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { DatePicker } from '@/components/ui/date-picker';
 import MovimentacoesFilters from '@/components/estoque/MovimentacoesFilters';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
 
 const ListaMovimentacoesPage = () => {
   const navigate = useNavigate();
@@ -43,6 +45,7 @@ const ListaMovimentacoesPage = () => {
   const [empresa, setEmpresa] = useState(null);
   const [viewingMovimentacao, setViewingMovimentacao] = useState(null);
   const [totalQuantidadePeriodo, setTotalQuantidadePeriodo] = useState(0);
+  const [chartData, setChartData] = useState([]);
 
   const pageSize = useMemo(() => empresa?.items_per_page || 25, [empresa]);
 
@@ -193,12 +196,39 @@ const ListaMovimentacoesPage = () => {
     setTotalQuantidadePeriodo(total);
   }, [debouncedFilters, empresa]);
 
+  const fetchChartData = useCallback(async () => {
+    if (!empresa) return;
+
+    const startDateISO = debouncedFilters.startDate ? format(debouncedFilters.startDate, 'yyyy-MM-dd') : null;
+    const endDateISO = debouncedFilters.endDate ? format(debouncedFilters.endDate, 'yyyy-MM-dd') : null;
+
+    let effectiveProductSearchTerm = null;
+    if (debouncedFilters.selectedProdutoId) {
+      const { data: productData } = await supabase.from('produtos').select('nome').eq('id', debouncedFilters.selectedProdutoId).single();
+      effectiveProductSearchTerm = productData?.nome;
+    }
+
+    const { data, error } = await supabase.rpc('get_estoque_chart_data', {
+      p_start_date: startDateISO,
+      p_end_date: endDateISO,
+      p_type: debouncedFilters.type === 'all' ? null : debouncedFilters.type,
+      p_product_search_term: effectiveProductSearchTerm || null,
+    });
+
+    if (error) {
+      console.error('Erro ao buscar dados do gráfico:', error);
+      return;
+    }
+    setChartData(data || []);
+  }, [debouncedFilters, empresa]);
+
   useEffect(() => {
     if (empresa) {
       fetchMovimentacoes();
       fetchTotalPeriodo();
+      fetchChartData();
     }
-  }, [fetchMovimentacoes, fetchTotalPeriodo, empresa]);
+  }, [fetchMovimentacoes, fetchTotalPeriodo, fetchChartData, empresa]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -254,6 +284,19 @@ const ListaMovimentacoesPage = () => {
     return mov.tipo === 'entrada' ? `/app/estoque/entradas/editar/${mov.id}` : `/app/estoque/saidas/editar/${mov.id}`;
   };
 
+  const CustomTooltip = ({ active, payload, label }) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="p-2 bg-gray-800/80 border border-gray-600 rounded-xl text-white">
+          <p className="label font-bold">{`Mês: ${label}`}</p>
+          <p className="text-green-400">{`Entradas : ${formatNumber(payload[0].value)}`}</p>
+          <p className="text-red-400">{`Saídas : ${formatNumber(payload[1].value)}`}</p>
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
     <>
       <Helmet><title>Movimentações de Estoque - RJR Óleo</title></Helmet>
@@ -292,6 +335,7 @@ const ListaMovimentacoesPage = () => {
                   <TableRow className="hover:bg-transparent border-b border-white/20 text-xs">
                     <th className="p-2 text-left text-white">Data</th>
                     <th className="p-2 text-left text-white">Tipo</th>
+                    <th className="p-2 text-left text-white">Nº Documento</th>
                     <th className="p-2 text-left text-white">Origem</th>
                     <th className="p-2 text-left text-white">Cliente</th>
                     <th className="p-2 text-left text-white">Produto</th>
@@ -310,6 +354,7 @@ const ListaMovimentacoesPage = () => {
                           <TableCell data-label="Tipo" className="capitalize flex items-center gap-2">
                             {getMovementIcon(mov.tipo)} {mov.tipo}
                           </TableCell>
+                          <TableCell data-label="Nº Documento">{mov.document_number || '-'}</TableCell>
                           <TableCell data-label="Origem" className="capitalize">{mov.origem}</TableCell>
                           <TableCell data-label="Cliente">
                             {getClientDisplayName(mov.cliente)}
@@ -417,13 +462,13 @@ const ListaMovimentacoesPage = () => {
                       )
                     })
                   ) : (
-                    <TableRow><TableCell colSpan="7" className="text-center text-gray-400 py-10">Nenhuma movimentação encontrada.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan="8" className="text-center text-gray-400 py-10">Nenhuma movimentação encontrada.</TableCell></TableRow>
                   )}
                 </TableBody>
                 {movimentacoes.length > 0 && (
                   <TableFooter className="bg-white/5 border-t border-white/20">
                     <TableRow className="hover:bg-transparent text-white font-bold">
-                      <TableCell colSpan={5} className="text-right py-3 pr-4">Total:</TableCell>
+                      <TableCell colSpan={6} className="text-right py-3 pr-4">Total:</TableCell>
                       <TableCell className="text-right py-3 text-emerald-400">
                         {formatNumber(totalQuantidadePeriodo)}
                       </TableCell>
@@ -443,6 +488,34 @@ const ListaMovimentacoesPage = () => {
           pageSize={pageSize}
           totalCount={totalCount}
         />
+
+        {chartData.length > 0 && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+            <Card className="bg-white/10 backdrop-blur-sm border-white/10 text-white rounded-xl">
+              <CardHeader>
+                <CardTitle className="text-emerald-300">Evolução Mensal de Movimentações</CardTitle>
+                <CardDescription className="text-gray-400">
+                  Quantidades de entrada e saída por mês no período selecionado.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pl-2">
+                <div className="h-[350px] w-full mt-4">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.1)" />
+                      <XAxis dataKey="month_year" stroke="#9ca3af" />
+                      <YAxis stroke="#9ca3af" tickFormatter={(value) => formatNumber(value)} />
+                      <RechartsTooltip content={<CustomTooltip />} />
+                      <Legend wrapperStyle={{ color: '#fff' }} />
+                      <Bar dataKey="total_quantity_in" fill="#34d399" name="Entradas" />
+                      <Bar dataKey="total_quantity_out" fill="#ef4444" name="Saídas" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
       </div>
       {viewingMovimentacao && (
         <MovimentacaoViewDialog

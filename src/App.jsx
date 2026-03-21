@@ -59,6 +59,7 @@ import CentroCustoForm from '@/pages/centros-custo/CentroCustoForm'; // New form
 import CertificadoDisplayPage from '@/pages/certificados/CertificadoDisplayPage';
 import CertificadoPublicoPage from '@/pages/certificados/CertificadoPublicoPage';
 import RecipientesPage from '@/pages/recipientes/RecipientesPage';
+import RelatorioAuditoriaPage from '@/pages/relatorios/RelatorioAuditoriaPage';
 import PlaceholderPage from '@/pages/PlaceholderPage';
 const AmbientesBancoPage = lazy(() => import('@/pages/config/AmbientesBancoPage'));
 
@@ -185,6 +186,7 @@ function App() {
                     <Route path="relatorios/coletas" element={<ProtectedRoute requiredRole={['super_admin', 'administrador', 'gerente']}><RelatorioColetasPage /></ProtectedRoute>} />
                     <Route path="relatorios/financeiro" element={<ProtectedRoute requiredRole={['super_admin', 'administrador']}><RelatorioFinanceiroPage /></ProtectedRoute>} />
                     <Route path="relatorios/estoque" element={<ProtectedRoute requiredRole={['super_admin', 'administrador', 'gerente']}><RelatorioEstoquePage /></ProtectedRoute>} />
+                    <Route path="relatorios/auditoria" element={<ProtectedRoute requiredRole={['super_admin', 'administrador', 'gerente']}><RelatorioAuditoriaPage /></ProtectedRoute>} />
                     <Route path="relatorios/recipientes" element={<ProtectedRoute requiredRole={['super_admin', 'administrador', 'gerente']}><RelatorioRecipientesPage /></ProtectedRoute>} />
 
                     {/* Financeiro Routes */}
