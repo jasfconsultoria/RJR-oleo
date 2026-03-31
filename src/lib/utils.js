@@ -207,67 +207,129 @@ export function getZonedEndOfMonth(timezone = 'America/Sao_Paulo') {
   return endOfMonth(now);
 }
 
-// Função auxiliar para converter números para extenso
-function converterNumero(num) {
-  if (num === 0) return 'zero';
+const classesSingular = ['', 'mil', 'milhão', 'bilhão', 'trilhão'];
+const classesPlural = ['', 'mil', 'milhões', 'bilhões', 'trilhões'];
+const centenasExtenso = ['', 'cento', 'duzentos', 'trezentos', 'quatrocentos', 'quinhentos', 'seiscentos', 'setecentos', 'oitocentos', 'novecentos'];
+const dezenasExtrasExtenso = ['dez', 'onze', 'doze', 'treze', 'quatorze', 'quinze', 'dezesseis', 'dezessete', 'dezoito', 'dezenove'];
+const dezenasExtenso = ['', '', 'vinte', 'trinta', 'quarenta', 'cinquenta', 'sessenta', 'setenta', 'oitenta', 'noventa'];
+const unidadesExtenso = ['', 'um', 'dois', 'três', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove'];
 
-  const unidades = ['', 'um', 'dois', 'três', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove'];
-  const dezenas = ['', 'dez', 'vinte', 'trinta', 'quarenta', 'cinquenta', 'sessenta', 'setenta', 'oitenta', 'noventa'];
-  const especiais = ['dez', 'onze', 'doze', 'treze', 'quatorze', 'quinze', 'dezesseis', 'dezessete', 'dezoito', 'dezenove'];
+function converterBloco(numero) {
+  if (numero === 0) return '';
+  if (numero === 100) return 'cem';
 
-  if (num < 10) return unidades[num];
-  if (num < 20) return especiais[num - 10];
-  if (num < 100) {
-    const d = Math.floor(num / 10);
-    const u = num % 10;
-    return dezenas[d] + (u > 0 ? ' e ' + unidades[u] : '');
+  const c = Math.floor(numero / 100);
+  const d = Math.floor((numero % 100) / 10);
+  const u = numero % 10;
+
+  const partes = [];
+
+  if (c > 0) partes.push(centenasExtenso[c]);
+
+  if (d === 1) {
+    partes.push(dezenasExtrasExtenso[u]);
+  } else {
+    if (d > 1) partes.push(dezenasExtenso[d]);
+    if (u > 0) partes.push(unidadesExtenso[u]);
   }
 
-  // Para números maiores (simplificado)
-  if (num < 1000) {
-    const c = Math.floor(num / 100);
-    const resto = num % 100;
-    const centenas = ['', 'cem', 'duzentos', 'trezentos', 'quatrocentos', 'quinhentos', 'seiscentos', 'setecentos', 'oitocentos', 'novecentos'];
-
-    if (c === 1 && resto > 0) return 'cento e ' + converterNumero(resto);
-    return centenas[c] + (resto > 0 ? ' e ' + converterNumero(resto) : '');
-  }
-
-  return num.toString();
+  return partes.join(' e ');
 }
 
-// FUNÇÃO CORRIGIDA - valorPorExtenso
+// FUNÇÃO CORRIGIDA E AMPLIADA - valorPorExtenso
 export function valorPorExtenso(valor) {
   if (valor === null || valor === undefined || isNaN(valor) || valor === 0) {
-    return "zero real";
+    return 'zero real';
   }
 
-  // Garantir que é número
-  const valorNumerico = typeof valor === 'string' ?
+  let valorNumerico = typeof valor === 'string' ?
     parseFloat(valor.replace(/\./g, '').replace(',', '.')) :
-    valor;
+    Number(valor);
+    
+  valorNumerico = Math.round(Number(valorNumerico) * 100) / 100;
+
+  if (isNaN(valorNumerico) || valorNumerico === 0) return 'zero real';
 
   const inteiro = Math.floor(valorNumerico);
   const centavos = Math.round((valorNumerico - inteiro) * 100);
 
   let extenso = '';
 
-  // Parte inteira (reais)
   if (inteiro > 0) {
-    if (inteiro === 1) {
-      extenso = 'um real';
-    } else {
-      extenso = converterNumero(inteiro) + ' reais';
+    const blocos = [];
+    let temp = inteiro;
+    while (temp > 0) {
+      blocos.push(temp % 1000);
+      temp = Math.floor(temp / 1000);
     }
+
+    const partesPluralizadas = [];
+    for (let i = 0; i < blocos.length; i++) {
+        const bloco = blocos[i];
+        if (bloco === 0) continue;
+
+        let strBloco = converterBloco(bloco);
+
+        if (i === 1 && bloco === 1) {
+            strBloco = 'um'; // O comum é "um mil", não apenas "mil" em valores financeiros
+        }
+
+        const sufixo = (bloco === 1) ? classesSingular[i] : classesPlural[i];
+        
+        let blocoCompleto = strBloco;
+        if (sufixo) {
+            blocoCompleto += ' ' + sufixo;
+        }
+        
+        partesPluralizadas.unshift({texto: blocoCompleto, valor: bloco});
+    }
+
+    // Unindo partes
+    if (partesPluralizadas.length === 1) {
+        extenso = partesPluralizadas[0].texto;
+    } else {
+        let juncao = partesPluralizadas[0].texto;
+        
+        for (let i = 1; i < partesPluralizadas.length; i++) {
+            const parteAtual = partesPluralizadas[i];
+            
+            // "e" usado quando é < 100 ou quando é múltiplo de cem
+            if (parteAtual.valor < 100 || parteAtual.valor % 100 === 0) {
+               juncao += ' e ' + parteAtual.texto;
+            } else {
+               juncao += ', ' + parteAtual.texto;
+            }
+        }
+        extenso = juncao;
+    }
+
+    // Regra do "de reais" ou "reais"
+    let sufixoMoeda = 'reais';
+    if (inteiro === 1) {
+        sufixoMoeda = 'real';
+    } else if (blocos.length > 2) { // Milhões ou mais
+        let ehRedondo = true;
+        for (let i = 0; i < blocos.length - 1; i++) { 
+            if (blocos[i] > 0) {
+                ehRedondo = false;
+                break;
+            }
+        }
+        if (ehRedondo) sufixoMoeda = 'de reais';
+    }
+
+    extenso += ' ' + sufixoMoeda;
   }
 
-  // Centavos
   if (centavos > 0) {
     if (extenso) extenso += ' e ';
+    
+    let strCentavos = converterBloco(centavos);
+    
     if (centavos === 1) {
-      extenso += 'um centavo';
+      extenso += strCentavos + ' centavo';
     } else {
-      extenso += converterNumero(centavos) + ' centavos';
+      extenso += strCentavos + ' centavos';
     }
   }
 
