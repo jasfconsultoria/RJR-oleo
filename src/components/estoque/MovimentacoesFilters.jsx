@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { DatePicker } from '@/components/ui/date-picker';
+import { format, parseISO, isValid } from 'date-fns';
 import ProdutoSearchableSelect from '@/components/produtos/ProdutoSearchableSelect';
 
 const MovimentacoesFilters = ({
@@ -109,20 +109,40 @@ const MovimentacoesFilters = ({
                     {/* Data Início */}
                     <div className="lg:col-span-1">
                         <Label htmlFor="startDate" className="block text-white mb-1 text-xs">Data Início</Label>
-                        <DatePicker
-                            date={filters.startDate}
-                            setDate={(date) => handleFilterChange('startDate', date)}
-                            className="w-full bg-white/20 border-white/30 text-white rounded-xl h-9 text-xs"
+                        <input
+                            type="date"
+                            id="startDate"
+                            className="flex ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-white/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 w-full bg-white/20 border border-white/30 text-white rounded-xl px-3 py-2 h-9 focus:outline-none focus:ring-2 focus:ring-emerald-400 text-xs"
+                            value={filters.startDate ? (filters.startDate instanceof Date ? format(filters.startDate, 'yyyy-MM-dd') : filters.startDate) : ''}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                if (val) {
+                                    const date = parseISO(val);
+                                    if (isValid(date)) handleFilterChange('startDate', date);
+                                } else {
+                                    handleFilterChange('startDate', null);
+                                }
+                            }}
                         />
                     </div>
 
                     {/* Data Fim */}
                     <div className="lg:col-span-1">
                         <Label htmlFor="endDate" className="block text-white mb-1 text-xs">Data Fim</Label>
-                        <DatePicker
-                            date={filters.endDate}
-                            setDate={(date) => handleFilterChange('endDate', date)}
-                            className="w-full bg-white/20 border-white/30 text-white rounded-xl h-9 text-xs"
+                        <input
+                            type="date"
+                            id="endDate"
+                            className="flex ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-white/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 w-full bg-white/20 border border-white/30 text-white rounded-xl px-3 py-2 h-9 focus:outline-none focus:ring-2 focus:ring-emerald-400 text-xs"
+                            value={filters.endDate ? (filters.endDate instanceof Date ? format(filters.endDate, 'yyyy-MM-dd') : filters.endDate) : ''}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                if (val) {
+                                    const date = parseISO(val);
+                                    if (isValid(date)) handleFilterChange('endDate', date);
+                                } else {
+                                    handleFilterChange('endDate', null);
+                                }
+                            }}
                         />
                     </div>
                 </div>

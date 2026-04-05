@@ -4,7 +4,7 @@ import { Search, Filter } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { DatePicker } from '@/components/ui/date-picker';
+import { format, parseISO, isValid } from 'date-fns';
 
 const SaidasFilters = ({
     searchTerm,
@@ -83,18 +83,38 @@ const SaidasFilters = ({
                     <div className="grid grid-cols-2 gap-4 col-span-2">
                         <div>
                             <Label htmlFor="startDate" className="block text-white mb-1 text-sm">Data Início</Label>
-                            <DatePicker
-                                date={startDate}
-                                setDate={setStartDate}
-                                className="w-full bg-white/20 border-white/30 text-white rounded-xl"
+                            <input
+                                type="date"
+                                id="startDate"
+                                className="flex ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-white/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 w-full bg-white/20 border border-white/30 text-white rounded-xl px-3 py-2 h-10 focus:outline-none focus:ring-2 focus:ring-emerald-400 text-sm"
+                                value={startDate ? (startDate instanceof Date ? format(startDate, 'yyyy-MM-dd') : startDate) : ''}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    if (val) {
+                                        const date = parseISO(val);
+                                        if (isValid(date)) setStartDate(date);
+                                    } else {
+                                        setStartDate(null);
+                                    }
+                                }}
                             />
                         </div>
                         <div>
                             <Label htmlFor="endDate" className="block text-white mb-1 text-sm">Data Fim</Label>
-                            <DatePicker
-                                date={endDate}
-                                setDate={setEndDate}
-                                className="w-full bg-white/20 border-white/30 text-white rounded-xl"
+                            <input
+                                type="date"
+                                id="endDate"
+                                className="flex ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-white/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 w-full bg-white/20 border border-white/30 text-white rounded-xl px-3 py-2 h-10 focus:outline-none focus:ring-2 focus:ring-emerald-400 text-sm"
+                                value={endDate ? (endDate instanceof Date ? format(endDate, 'yyyy-MM-dd') : endDate) : ''}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    if (val) {
+                                        const date = parseISO(val);
+                                        if (isValid(date)) setEndDate(date);
+                                    } else {
+                                        setEndDate(null);
+                                    }
+                                }}
                             />
                         </div>
                     </div>

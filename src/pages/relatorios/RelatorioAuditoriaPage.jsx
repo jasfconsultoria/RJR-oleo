@@ -7,12 +7,11 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Loader2, FileDown, ClipboardCheck, Search, Warehouse, ArrowUpSquare, AlertCircle, CheckCircle2, Info } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
-import { format, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
+import { format, endOfDay, startOfMonth, endOfMonth, parseISO, isValid } from 'date-fns';
 import * as XLSX from 'xlsx';
 import { formatNumber, formatDateWithTimezone, getZonedStartOfMonth, getZonedEndOfMonth } from '@/lib/utils';
 import { useDebounce } from '@/hooks/useDebounce';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
-import { DatePicker } from '@/components/ui/date-picker';
 import ProdutoSearchableSelect from '@/components/produtos/ProdutoSearchableSelect';
 import { Badge } from '@/components/ui/badge';
 
@@ -217,18 +216,36 @@ const RelatorioAuditoriaPage = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label className="block text-white mb-1 text-sm">Início</Label>
-                  <DatePicker
-                    date={filters.startDate}
-                    setDate={(date) => handleFilterChange('startDate', date)}
-                    className="w-full bg-white/20 border-white/30 text-white rounded-xl"
+                  <input
+                    type="date"
+                    className="flex ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-white/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 w-full bg-white/20 border border-white/30 text-white rounded-xl px-3 py-2 h-10 focus:outline-none focus:ring-2 focus:ring-emerald-400 text-sm"
+                    value={filters.startDate ? (filters.startDate instanceof Date ? format(filters.startDate, 'yyyy-MM-dd') : filters.startDate) : ''}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val) {
+                        const date = parseISO(val);
+                        if (isValid(date)) handleFilterChange('startDate', date);
+                      } else {
+                        handleFilterChange('startDate', null);
+                      }
+                    }}
                   />
                 </div>
                 <div>
                   <Label className="block text-white mb-1 text-sm">Fim</Label>
-                  <DatePicker
-                    date={filters.endDate}
-                    setDate={(date) => handleFilterChange('endDate', date)}
-                    className="w-full bg-white/20 border-white/30 text-white rounded-xl"
+                  <input
+                    type="date"
+                    className="flex ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-white/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 w-full bg-white/20 border border-white/30 text-white rounded-xl px-3 py-2 h-10 focus:outline-none focus:ring-2 focus:ring-emerald-400 text-sm"
+                    value={filters.endDate ? (filters.endDate instanceof Date ? format(filters.endDate, 'yyyy-MM-dd') : filters.endDate) : ''}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val) {
+                        const date = parseISO(val);
+                        if (isValid(date)) handleFilterChange('endDate', date);
+                      } else {
+                        handleFilterChange('endDate', null);
+                      }
+                    }}
                   />
                 </div>
               </div>

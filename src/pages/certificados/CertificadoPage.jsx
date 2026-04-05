@@ -359,6 +359,9 @@ const CertificadoPage = () => {
         return;
       }
 
+      // data_emissao pode vir como string após JSON.parse do auto-save (localStorage)
+      const dataEmissaoDate = processDateValue(data_emissao, () => new Date());
+
       // Preparar dados do certificado
       const certificateData = {
         cliente_id: cliente_id,
@@ -366,7 +369,7 @@ const CertificadoPage = () => {
         periodo_inicio: formatToISODate(periodoInicio),
         periodo_fim: formatToISODate(periodoFim),
         total_kg: totalKg,
-        data_emissao: data_emissao.toISOString(),
+        data_emissao: dataEmissaoDate.toISOString(),
       };
 
       // Salvar no banco
