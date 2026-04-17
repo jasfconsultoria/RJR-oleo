@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2, X, Search } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
-import { formatCnpjCpf } from '@/lib/utils';
+import { formatCnpjCpf, cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 import { useLocationData } from '@/hooks/useLocationData';
 
@@ -22,6 +22,8 @@ const ClienteSearchableSelect = ({
   returnFullClientData = false, // Se true, passa objeto completo; se false, passa apenas ID
   // ✅ NOVA PROP: Para buscar coletores ao invés de clientes
   personType = 'cliente', // 'cliente', 'fornecedor', ou 'coletor'
+  // ✅ NOVA PROP: Para permitir customização visual do input
+  className = "",
   // ✅ NOVA PROP: Para permitir foco programático do pai
   inputRef: externalInputRef,
 }) => {
@@ -290,7 +292,10 @@ const ClienteSearchableSelect = ({
           onFocus={handleFocus}
           onBlur={handleBlur}
           placeholder={isLoading ? "Carregando..." : `Buscar ${labelText.toLowerCase()}...`}
-          className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60 rounded-xl pr-10 h-9 text-xs"
+          className={cn(
+            "pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60 rounded-xl pr-10 h-9 text-xs transition-all focus:border-emerald-400 focus:bg-white/30",
+            className
+          )}
           autoComplete="off"
           disabled={disabled || isLoading}
         />

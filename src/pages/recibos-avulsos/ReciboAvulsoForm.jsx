@@ -15,7 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { DateInput } from '@/components/ui/date-input';
 import ClienteSearchableSelect from '@/components/clientes/ClienteSearchableSelect';
 import { ReciboAvulsoViewDialog } from '@/components/recibos-avulsos/ReciboAvulsoViewDialog';
-import { formatCurrency, parseCurrency, unmask, formatNumber } from '@/lib/utils';
+import { formatCurrency, parseCurrency, unmask, formatNumber, cn } from '@/lib/utils';
 import { logAction } from '@/lib/logger';
 import { useProfile } from '@/contexts/ProfileContext';
 import { useAutoSave } from '@/hooks/useAutoSave';
@@ -44,6 +44,9 @@ const ReciboAvulsoForm = () => {
   const { profile } = useProfile();
   const isEditing = Boolean(id);
   const pessoaInputRef = useRef(null); // ✅ Ref para o campo de pessoa
+
+  // Classes para destacar campos digitáveis
+  const editableFieldClass = "bg-white/10 border-emerald-500/50 focus:border-emerald-400 focus:bg-white/20 transition-all shadow-sm shadow-emerald-500/5";
 
   const [rawFormData, setRawFormData, clearSavedData] = useAutoSave(
     isEditing ? `recibo_edit_${id}` : 'recibo_novo',
@@ -164,6 +167,22 @@ const ReciboAvulsoForm = () => {
           observacoes: data.observacoes || ''
         });
 
+        // Resolver nome do município se for código
+        if (data.municipio && !isNaN(data.municipio)) {
+          try {
+            const { data: mData } = await supabase
+              .from('municipios')
+              .select('municipio')
+              .eq('codigo', data.municipio)
+              .single();
+            if (mData) {
+              setRawFormData(prev => ({ ...prev, pessoa_municipio: mData.municipio }));
+            }
+          } catch (err) {
+            console.error('Erro ao resolver município:', err);
+          }
+        }
+
         // Definir o termo de busca com o nome da pessoa
         if (data.tipo === 'coletor') {
           // Para coletores, sempre usar pessoa_nome (pois pessoa_id pode ser NULL)
@@ -244,7 +263,7 @@ const ReciboAvulsoForm = () => {
         pessoa_nome: pessoaNome,
         pessoa_cnpj_cpf: pessoa.cnpj_cpf || '',
         pessoa_endereco: pessoa.endereco || '',
-        pessoa_municipio: pessoa.municipio || '',
+        pessoa_municipio: (pessoa.municipio_nome || pessoa.municipio || ''),
         pessoa_estado: pessoa.estado || '',
         pessoa_telefone: pessoa.telefone || '',
         pessoa_email: pessoa.email || ''
@@ -318,11 +337,25 @@ const ReciboAvulsoForm = () => {
             pessoa_nome: pessoaNome,
             pessoa_cnpj_cpf: pessoaData.cnpj_cpf || '',
             pessoa_endereco: pessoaData.endereco || '',
-            pessoa_municipio: pessoaData.municipio || '',
+            pessoa_municipio: (pessoaData.municipio_nome || pessoaData.municipio || ''),
             pessoa_estado: pessoaData.estado || '',
             pessoa_telefone: pessoaData.telefone || '',
             pessoa_email: pessoaData.email || ''
           }));
+
+          // Se tiver código mas não nome, tentar resolver agora
+          if (pessoaData.municipio && !pessoaData.municipio_nome && !isNaN(pessoaData.municipio)) {
+             try {
+                const { data: mData } = await supabase
+                  .from('municipios')
+                  .select('municipio')
+                  .eq('codigo', pessoaData.municipio)
+                  .single();
+                if (mData) {
+                  setRawFormData(prev => ({ ...prev, pessoa_municipio: mData.municipio }));
+                }
+             } catch (err) { /* ignore */ }
+          }
         }
       } catch (error) {
         console.error('Erro ao buscar dados da pessoa:', error);
@@ -590,6 +623,7 @@ const ReciboAvulsoForm = () => {
                     personType={formData.tipo}
                     searchTerm={pessoaSearchTerm}
                     onSearchTermChange={setPessoaSearchTerm}
+                    className="border-emerald-500/50 bg-white/20"
                   />
                 </div>
 
@@ -692,7 +726,10 @@ const ReciboAvulsoForm = () => {
                     value={formData.descricao}
                     onChange={(e) => handleInputChange('descricao', e.target.value)}
                     placeholder="Descrição do serviço / prestação..."
-                    className="bg-white/5 border-white/20 rounded-xl min-h-[2.25rem] text-xs"
+                    className={cn(
+                      "rounded-xl min-h-[2.25rem] text-xs transition-all",
+                      editableFieldClass
+                    )}
                     required
                   />
                 </div>
@@ -718,7 +755,10 @@ const ReciboAvulsoForm = () => {
                     lazy={false}
                     onAccept={(value) => handleInputChange('valor', value)}
                     placeholder="0,00"
-                    className="w-full flex h-9 rounded-xl border border-white/20 bg-white/5 px-3 py-1 text-xs !text-right ring-offset-background file:border-0 file:bg-transparent file:text-xs file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    className={cn(
+                      "w-full flex h-9 rounded-xl border px-3 py-1 text-xs !text-right ring-offset-background file:border-0 file:bg-transparent file:text-xs file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all",
+                      editableFieldClass
+                    )}
                     required
                     inputMode="decimal"
                   />
@@ -732,7 +772,10 @@ const ReciboAvulsoForm = () => {
                     value={formData.observacoes}
                     onChange={(e) => handleInputChange('observacoes', e.target.value)}
                     placeholder="Informações adicionais..."
-                    className="bg-white/5 border-white/20 rounded-xl min-h-[2.25rem] text-xs"
+                    className={cn(
+                      "rounded-xl min-h-[2.25rem] text-xs transition-all",
+                      editableFieldClass
+                    )}
                   />
                 </div>
               </div>
