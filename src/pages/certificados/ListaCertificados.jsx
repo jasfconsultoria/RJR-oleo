@@ -108,7 +108,7 @@ const ListaCertificados = () => {
       .from('certificados')
       .select(`
         *,
-        cliente:clientes(id, nome_fantasia, razao_social)
+        cliente:clientes(id, nome_fantasia, razao_social, cnpj_cpf)
       `, { count: 'exact' })
       .gte('data_emissao', new Date(debouncedFilters.startDate).toISOString())
       .lte('data_emissao', endDateISO);

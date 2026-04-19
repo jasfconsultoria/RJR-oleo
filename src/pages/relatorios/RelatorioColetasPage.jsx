@@ -12,7 +12,7 @@ import { useProfile } from '@/contexts/ProfileContext';
 import { format, subDays, endOfDay, parseISO, isValid, startOfMonth, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import * as XLSX from 'xlsx';
-import { formatCurrency, formatNumber, getZonedStartOfMonth, getZonedEndOfMonth } from '@/lib/utils';
+import { formatCurrency, formatNumber, getZonedStartOfMonth, getZonedEndOfMonth, formatCnpjCpf } from '@/lib/utils';
 import { useDebounce } from '@/hooks/useDebounce';
 import { Input } from '@/components/ui/input';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
@@ -616,11 +616,16 @@ const RelatoriosPage = () => {
                             const dateObj = parseISO(item.data_coleta);
                             const formattedDate = isValid(dateObj) ? format(dateObj, 'dd/MM/yyyy', { locale: ptBR }) : 'N/A';
                             const clientDisplayName = getClientName(item);
+                            const clienteParams = Array.isArray(item.clientes) ? item.clientes[0] : item.clientes;
+                            const currentCnpjCpf = item.cnpj_cpf || clienteParams?.cnpj_cpf || clienteParams?.documento;
 
                             return (
                               <TableRow key={item.id} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
                                 <TableCell data-label="Data">{formattedDate}</TableCell>
-                                <TableCell data-label="Cliente">{clientDisplayName}</TableCell>
+                                <TableCell data-label="Cliente">
+                                  <div className="font-semibold drop-shadow-sm">{clientDisplayName}</div>
+                                  {currentCnpjCpf && <div className="text-xs text-white/50">{formatCnpjCpf(currentCnpjCpf)}</div>}
+                                </TableCell>
                                 <TableCell data-label="Usuário">{getUserName(item)}</TableCell>
                                 <TableCell data-label="Local">{getMunicipioLabel(item)}, {item.estado}</TableCell>
                                 <TableCell data-label="Tipo">{item.tipo_coleta}</TableCell>

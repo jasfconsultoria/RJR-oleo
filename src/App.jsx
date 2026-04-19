@@ -23,6 +23,7 @@ import RelatorioColetasPage from '@/pages/relatorios/RelatorioColetasPage';
 import RelatorioFinanceiroPage from '@/pages/relatorios/RelatorioFinanceiroPage';
 import RelatorioEstoquePage from '@/pages/relatorios/RelatorioEstoquePage';
 import RelatorioRecipientesPage from '@/pages/relatorios/RelatorioRecipientesPage';
+import RelatorioContratosPage from '@/pages/relatorios/RelatorioContratosPage';
 import UserManagementPage from '@/pages/usuarios/UserManagementPage';
 import UserFormPage from '@/pages/usuarios/UserFormPage';
 import EmpresaPage from '@/pages/config/EmpresaPage';
@@ -188,6 +189,7 @@ function App() {
                     <Route path="relatorios/estoque" element={<ProtectedRoute requiredRole={['super_admin', 'administrador', 'gerente']}><RelatorioEstoquePage /></ProtectedRoute>} />
                     <Route path="relatorios/auditoria" element={<ProtectedRoute requiredRole={['super_admin', 'administrador', 'gerente']}><RelatorioAuditoriaPage /></ProtectedRoute>} />
                     <Route path="relatorios/recipientes" element={<ProtectedRoute requiredRole={['super_admin', 'administrador', 'gerente']}><RelatorioRecipientesPage /></ProtectedRoute>} />
+                    <Route path="relatorios/contratos" element={<ProtectedRoute requiredRole={['super_admin', 'administrador', 'gerente']}><RelatorioContratosPage /></ProtectedRoute>} />
 
                     {/* Financeiro Routes */}
                     <Route path="financeiro/credito" element={<ProtectedRoute requiredRole={['super_admin', 'administrador']}><ListaFinanceiro type="credito" /></ProtectedRoute>} />

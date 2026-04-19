@@ -23,7 +23,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2, Edit, Trash2, FileText, Share2, ChevronUp, ChevronDown, Eye } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { formatNumber, cn, formatDateWithTimezone } from '@/lib/utils';
+import { formatNumber, cn, formatDateWithTimezone, formatCnpjCpf } from '@/lib/utils';
 
 // Helper component for sortable table headers
 const TableHeaderSortable = ({ columnKey, label, sortConfig, onSort, className }) => {
@@ -95,10 +95,13 @@ const CertificadosTable = ({
                     </Button>
                   </TableCell>
                   <TableCell data-label="Cliente">
-                    {cert.cliente_display || 
-                     (cert.cliente?.nome_fantasia && cert.cliente?.razao_social 
-                      ? `${cert.cliente.nome_fantasia} - ${cert.cliente.razao_social}`
-                      : cert.cliente?.nome_fantasia || cert.cliente?.razao_social || 'N/A')}
+                    <div className="font-semibold">
+                      {cert.cliente_display || 
+                       (cert.cliente?.nome_fantasia && cert.cliente?.razao_social 
+                        ? `${cert.cliente.nome_fantasia} - ${cert.cliente.razao_social}`
+                        : cert.cliente?.nome_fantasia || cert.cliente?.razao_social || 'N/A')}
+                    </div>
+                    {cert.cliente?.cnpj_cpf && <div className="text-xs text-white/50">{formatCnpjCpf(cert.cliente.cnpj_cpf)}</div>}
                   </TableCell>
                   <TableCell data-label="Período Início">{formatDateWithTimezone(cert.periodo_inicio, timezone)}</TableCell>
                   <TableCell data-label="Período Fim">{formatDateWithTimezone(cert.periodo_fim, timezone)}</TableCell>

@@ -184,6 +184,7 @@ const AppLayout = ({ children }) => {
         { to: '/app/relatorios/financeiro', label: 'Financeiro', icon: DollarSign, roles: ['super_admin', 'administrador'] },
         { to: '/app/relatorios/estoque', label: 'Estoque', icon: Warehouse },
         { to: '/app/relatorios/recipientes', label: 'Recipientes', icon: Box },
+        { to: '/app/relatorios/contratos', label: 'Contratos', icon: FileSignature },
       ]
     },
     {

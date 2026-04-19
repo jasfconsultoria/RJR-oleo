@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHeader, TableRow, TableFooter } from 
 import { format, subDays, endOfDay, parseISO, isValid, startOfMonth, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import * as XLSX from 'xlsx';
-import { formatNumber, formatDateWithTimezone, getZonedStartOfMonth, getZonedEndOfMonth } from '@/lib/utils';
+import { formatNumber, formatDateWithTimezone, getZonedStartOfMonth, getZonedEndOfMonth, formatCnpjCpf } from '@/lib/utils';
 import { useDebounce } from '@/hooks/useDebounce';
 import { Input } from '@/components/ui/input';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
@@ -362,7 +362,10 @@ const RelatorioEstoquePage = () => {
                               <TableCell data-label="Tipo" className="capitalize">{item.tipo === 'entrada' ? 'Entrada' : 'Saída'}</TableCell>
                               <TableCell data-label="Origem" className="capitalize">{item.origem}</TableCell>
                               <TableCell data-label="Nº Doc">{item.document_number || 'N/A'}</TableCell>
-                              <TableCell data-label="Cliente/Fornecedor">{item.cliente_nome_fantasia ? `${item.cliente_nome} - ${item.cliente_nome_fantasia}` : item.cliente_nome || 'N/A'}</TableCell>
+                              <TableCell data-label="Cliente/Fornecedor">
+                                <div className="font-semibold drop-shadow-sm">{item.cliente_nome_fantasia ? `${item.cliente_nome} - ${item.cliente_nome_fantasia}` : item.cliente_nome || 'N/A'}</div>
+                                {(item.cnpj_cpf || item.cliente_documento || item.document_number) && <div className="text-xs text-white/50">{formatCnpjCpf(item.cnpj_cpf || item.cliente_documento || item.document_number)}</div>}
+                              </TableCell>
                               <TableCell data-label="Produto">{item.produto_nome}</TableCell>
                               <TableCell data-label="Quantidade" className="text-right">{formatNumber(item.quantidade)}</TableCell>
                               <TableCell data-label="Unidade" className="capitalize">{item.produto_unidade}</TableCell>

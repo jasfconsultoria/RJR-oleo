@@ -42,6 +42,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { format, isBefore, isToday, addDays, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { formatCnpjCpf } from '@/lib/utils';
 
 const AgendaColetasPage = () => {
     const navigate = useNavigate();
@@ -270,9 +271,12 @@ const AgendaColetasPage = () => {
             popupContent.className = 'p-3 min-w-[200px] bg-slate-900 text-white rounded-lg';
             popupContent.innerHTML = `
                 <div class="font-bold border-b border-slate-700 pb-2 mb-2">
-                    ${cliente.nome_fantasia && cliente.razao_social && cliente.nome_fantasia !== cliente.razao_social
-                    ? `${cliente.nome_fantasia} - ${cliente.razao_social}`
-                    : (cliente.nome_fantasia || cliente.razao_social)}
+                    <div class="truncate">
+                        ${cliente.nome_fantasia && cliente.razao_social && cliente.nome_fantasia !== cliente.razao_social
+                        ? `${cliente.nome_fantasia} - ${cliente.razao_social}`
+                        : (cliente.nome_fantasia || cliente.razao_social)}
+                    </div>
+                    ${cliente.cnpj_cpf ? `<div class="text-xs text-white/50 mt-1">${formatCnpjCpf(cliente.cnpj_cpf)}</div>` : ''}
                 </div>
                 <div class="text-xs text-slate-300 mb-1">📅 Previsão: ${cliente.proxima_coleta_prevista ? format(parseISO(cliente.proxima_coleta_prevista), "dd/MM/yyyy") : 'Não definida'}</div>
                 <div class="text-xs text-slate-300 mb-3">📍 ${cliente.endereco || 'Sem endereço'}</div>
@@ -684,9 +688,12 @@ const AgendaColetasPage = () => {
                                                                     </div>
                                                                 </TableCell>
                                                                 <TableCell data-label="Cliente" className="py-3 font-medium text-white max-w-[250px] truncate">
-                                                                    {cliente.nome_fantasia && cliente.razao_social && cliente.nome_fantasia !== cliente.razao_social
-                                                                        ? `${cliente.nome_fantasia} - ${cliente.razao_social}`
-                                                                        : (cliente.nome_fantasia || cliente.razao_social)}
+                                                                    <div className="font-semibold drop-shadow-sm truncate">
+                                                                        {cliente.nome_fantasia && cliente.razao_social && cliente.nome_fantasia !== cliente.razao_social
+                                                                            ? `${cliente.nome_fantasia} - ${cliente.razao_social}`
+                                                                            : (cliente.nome_fantasia || cliente.razao_social)}
+                                                                    </div>
+                                                                    {cliente.cnpj_cpf && <div className="text-xs text-white/50">{formatCnpjCpf(cliente.cnpj_cpf)}</div>}
                                                                 </TableCell>
                                                                 <TableCell data-label="Localização" className="py-3 text-slate-400 text-xs truncate max-w-[200px]">
                                                                     <div className="truncate">{cliente.endereco || 'Sem endereço'}</div>

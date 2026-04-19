@@ -8,7 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, Save, UserPlus, Loader2, MapPin } from 'lucide-react';
+import { ArrowLeft, Save, UserPlus, Loader2, MapPin, Package, History } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { IMaskInput } from 'react-imask';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useLocationData } from '@/hooks/useLocationData';
@@ -99,6 +101,84 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
 
   const [manualEdits, setManualEdits] = useState({}); // Rastrear campos alterados manualmente
   const [cnpjRegistryStatus, setCnpjRegistryStatus] = useState(null); // Armazenar status cadastral da API
+
+  const [recipienteStats, setRecipienteStats] = useState({
+    total: 0,
+    coletados: 0,
+    entregues: 0,
+    saldo_anterior: 0
+  });
+
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [historyData, setHistoryData] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
+  // ✅ NOVO: Buscar estatísticas de recipientes (Total em contratos, Coletados, Entregues da ÚLTIMA coleta e Saldo Anterior)
+  useEffect(() => {
+    if (!id || !isEditing) return;
+
+    const fetchRecipienteStats = async () => {
+      try {
+        // 1. Soma de qtd_recipiente dos contratos ativos
+        const { data: contratosData } = await supabase
+          .from('contratos')
+          .select('qtd_recipiente')
+          .eq('cliente_id', id)
+          .eq('status', 'Ativo')
+          .eq('usa_recipiente', true);
+        
+        const totalContratos = contratosData?.reduce((acc, curr) => acc + (curr.qtd_recipiente || 0), 0) || 0;
+
+        // 2. Dados da ÚLTIMA movimentação para pegar o saldo anterior
+        const { data: ultimaMovData } = await supabase
+          .from('movimentacoes_recipientes')
+          .select('quantidade_coletada, quantidade_entregue, saldo_anterior')
+          .eq('cliente_id', id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        
+        setRecipienteStats({
+          total: totalContratos,
+          coletados: ultimaMovData?.quantidade_coletada || 0,
+          entregues: ultimaMovData?.quantidade_entregue || 0,
+          saldo_anterior: ultimaMovData?.saldo_anterior || 0
+        });
+      } catch (error) {
+        console.error('Erro ao buscar estatísticas de recipientes:', error);
+      }
+    };
+
+    fetchRecipienteStats();
+  }, [id, isEditing, formData.recipientes_saldo]);
+
+  const handleOpenHistory = async () => {
+    setIsHistoryModalOpen(true);
+    setLoadingHistory(true);
+    try {
+      const { data, error } = await supabase
+        .from('movimentacoes_recipientes')
+        .select(`
+          *,
+          coletas (numero_coleta)
+        `)
+        .eq('cliente_id', id)
+        .order('created_at', { ascending: false })
+        .limit(30);
+
+      if (error) throw error;
+      setHistoryData(data || []);
+    } catch (error) {
+      console.error('Erro ao buscar histórico de recipientes:', error);
+      toast({
+        title: "Erro ao buscar histórico",
+        description: "Não foi possível carregar as movimentações.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
 
   // Buscar estados e municípios do banco de dados
   const { estados, getMunicipios, fetchMunicipios, loading: locationLoading } = useLocationData();
@@ -1403,7 +1483,132 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
                     </TooltipProvider>
                   </div>
                 </div>
+
+                {/* ✅ Card Informativo de Recipientes (Linear) */}
+                {isEditing && (
+                  <div className="md:col-span-2 flex flex-row items-center gap-4 md:gap-7 p-2 bg-white/5 rounded-xl border border-white/10 mt-1 overflow-x-auto no-scrollbar">
+                    <div className="flex items-center gap-2 shrink-0 border-r border-white/10 pr-3">
+                      <Package className="w-4 h-4 text-emerald-400" />
+                      <span className="text-[11px] md:text-sm font-bold text-white whitespace-nowrap">Recipientes:</span>
+                    </div>
+                    
+                    <div className="flex flex-row items-center gap-4 md:gap-7">
+                      <div className="flex flex-row items-baseline gap-1.5">
+                        <span className="text-[9px] md:text-[10px] text-gray-400 font-medium whitespace-nowrap">Total Contrato</span>
+                        <span className="text-xs md:text-sm font-bold text-white">{recipienteStats.total}</span>
+                      </div>
+                      
+                      <div className="flex flex-row items-baseline gap-1.5">
+                        <span className="text-[9px] md:text-[10px] text-orange-400/80 font-medium whitespace-nowrap">Saldo anterior</span>
+                        <span className="text-xs md:text-sm font-bold text-orange-200">{recipienteStats.saldo_anterior}</span>
+                      </div>
+
+                      <div className="flex flex-row items-baseline gap-1.5">
+                        <span className="text-[9px] md:text-[10px] text-gray-400 font-medium whitespace-nowrap">Coletados</span>
+                        <span className="text-xs md:text-sm font-bold text-white">{recipienteStats.coletados}</span>
+                      </div>
+                      
+                      <div className="flex flex-row items-baseline gap-1.5">
+                        <span className="text-[9px] md:text-[10px] text-gray-400 font-medium whitespace-nowrap">Entregues</span>
+                        <span className="text-xs md:text-sm font-bold text-white">{recipienteStats.entregues}</span>
+                      </div>
+                      
+                      <div className="flex flex-row items-baseline gap-1.5">
+                        <span className="text-[9px] md:text-[10px] text-emerald-400/80 font-medium whitespace-nowrap">Saldo Atual</span>
+                        <span className="text-xs md:text-sm font-bold text-emerald-400">{(formData.recipientes_saldo || 0)}*</span>
+                      </div>
+                    </div>
+
+                    <div className="ml-auto pl-3 border-l border-white/10">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleOpenHistory}
+                        className="h-7 text-[10px] text-blue-400 hover:text-blue-300 hover:bg-blue-400/10 gap-1.5 font-bold"
+                      >
+                        <History className="w-3 h-3" />
+                        Histórico
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
+
+              {/* ✅ Modal de Histórico de Recipientes */}
+              <Dialog open={isHistoryModalOpen} onOpenChange={setIsHistoryModalOpen}>
+                <DialogContent className="bg-gray-900 text-white border-gray-800 max-w-2xl max-h-[80vh] flex flex-col p-4 md:p-6 overflow-hidden rounded-2xl">
+                  <DialogHeader className="pb-4 border-b border-white/5">
+                    <DialogTitle className="flex items-center gap-2 text-xl">
+                      <History className="w-5 h-5 text-blue-400" />
+                      Histórico - Movimentação de Recipientes
+                    </DialogTitle>
+                  </DialogHeader>
+
+                  <div className="flex-1 overflow-y-auto mt-4 pr-2 custom-scrollbar">
+                    {loadingHistory ? (
+                      <div className="flex flex-col items-center justify-center py-12 gap-3">
+                        <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
+                        <span className="text-sm text-gray-400">Carregando movimentações...</span>
+                      </div>
+                    ) : historyData.length === 0 ? (
+                      <div className="text-center py-12 text-gray-500 italic">
+                        Nenhuma movimentação de recipientes encontrada.
+                      </div>
+                    ) : (
+                      <Table className="relative">
+                        <TableHeader className="bg-gray-900 sticky top-0 z-10">
+                          <TableRow className="hover:bg-transparent border-white/10">
+                            <TableHead className="text-gray-400 text-xs py-3">Data</TableHead>
+                            <TableHead className="text-gray-400 text-xs py-3">Nº Coleta</TableHead>
+                            <TableHead className="text-gray-400 text-xs py-3">Operação</TableHead>
+                            <TableHead className="text-gray-400 text-xs py-3 text-right text-orange-400/80">Anterior</TableHead>
+                            <TableHead className="text-gray-400 text-xs py-3 text-center">Col.</TableHead>
+                            <TableHead className="text-gray-400 text-xs py-3 text-center">Ent.</TableHead>
+                            <TableHead className="text-gray-400 text-xs py-3 text-right text-emerald-400/80">Novo Saldo</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {historyData.map((mov) => (
+                            <TableRow key={mov.id} className="border-white/5 hover:bg-white/5 transition-colors group">
+                              <TableCell className="text-[11px] py-4 whitespace-nowrap font-medium text-gray-300">
+                                {new Date(mov.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                              </TableCell>
+                              <TableCell className="text-[11px] py-4 whitespace-nowrap text-blue-300 font-mono">
+                                {mov.coletas?.numero_coleta || '--'}
+                              </TableCell>
+                              <TableCell className="text-[11px] py-4">
+                                <span className={cn(
+                                  "px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase",
+                                  mov.tipo_operacao === 'Coleta' ? "bg-emerald-500/10 text-emerald-400" :
+                                  mov.tipo_operacao === 'Ajuste' ? "bg-yellow-500/10 text-yellow-400" :
+                                  "bg-blue-500/10 text-blue-400"
+                                )}>
+                                  {mov.tipo_operacao}
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-[11px] py-4 text-right text-orange-400/60">{mov.saldo_anterior}</TableCell>
+                              <TableCell className="text-xs py-4 text-center font-bold">{mov.quantidade_coletada || 0}</TableCell>
+                              <TableCell className="text-xs py-4 text-center font-bold">{mov.quantidade_entregue || 0}</TableCell>
+                              <TableCell className="text-xs py-4 text-right font-black text-emerald-400">{mov.saldo_novo}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    )}
+                  </div>
+
+                  <div className="mt-4 pt-4 border-t border-white/5 flex justify-end">
+                    <Button
+                      type="button"
+                      onClick={() => setIsHistoryModalOpen(false)}
+                      className="bg-gray-800 hover:bg-gray-700 text-white rounded-xl h-8 text-xs font-bold"
+                    >
+                      Fechar
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
 
               <div className="flex flex-row justify-between items-center pt-4 gap-2 sm:gap-3">
                 <Button

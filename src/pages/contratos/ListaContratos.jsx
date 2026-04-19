@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Pagination } from '@/components/ui/pagination';
 import { logAction } from '@/lib/logger';
-import { formatDateWithTimezone, escapePostgrestLikePattern } from '@/lib/utils';
+import { formatDateWithTimezone, escapePostgrestLikePattern, formatCnpjCpf } from '@/lib/utils';
 import ContratoViewModal from '@/components/contratos/ContratoViewModal';
 import { motion } from 'framer-motion';
 import AdminConfirmationDialog from '@/components/financeiro/AdminConfirmationDialog';
@@ -186,7 +186,8 @@ const ListaContratos = () => {
           razao_social,
           endereco,
           municipio,
-          estado
+          estado,
+          cnpj_cpf
         )
       `, { count: 'exact' });
 
@@ -563,7 +564,8 @@ const ListaContratos = () => {
                           </Button>
                         </TableCell>
                         <TableCell data-label="Cliente">
-                          {getNomeClienteDisplay(contrato.cliente)}
+                          <div className="font-semibold drop-shadow-sm">{getNomeClienteDisplay(contrato.cliente)}</div>
+                          {contrato.cliente?.cnpj_cpf && <div className="text-xs text-white/50">{formatCnpjCpf(contrato.cliente.cnpj_cpf)}</div>}
                         </TableCell>
                         <TableCell data-label="Início">{formatDateWithTimezone(contrato.data_inicio, empresaTimezone)}</TableCell>
                         <TableCell data-label="Fim">{formatDateWithTimezone(contrato.data_fim, empresaTimezone)}</TableCell>

@@ -60,7 +60,8 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
                 valor_coleta, 
                 fator_troca, 
                 data_fim,
-                usa_recipiente
+                usa_recipiente,
+                qtd_recipiente
               )
             `)
             .order('razao_social', { ascending: true });
@@ -176,9 +177,12 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
   useEffect(() => {
     if (data.cliente && data.cliente.trim() !== '') {
       const searchTerm = data.cliente.toLowerCase();
+      const cleanSearchTerm = unmask(searchTerm);
       const filtered = allClients.filter(client =>
         (client.nome_fantasia && client.nome_fantasia.toLowerCase().includes(searchTerm)) ||
-        (client.razao_social && client.razao_social.toLowerCase().includes(searchTerm))
+        (client.razao_social && client.razao_social.toLowerCase().includes(searchTerm)) ||
+        (client.cnpj_cpf && client.cnpj_cpf.toLowerCase().includes(searchTerm)) ||
+        (client.cnpj_cpf && unmask(client.cnpj_cpf).includes(cleanSearchTerm))
       );
       console.log(`🔍 Filtrados ${filtered.length} clientes para: "${data.cliente}"`);
       setFilteredClients(filtered);
@@ -258,6 +262,7 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
       valor_compra: newValorCompra,
       usa_recipiente: newUsaRecipiente,
       saldo_recipientes_atual: saldoAtual || 0,
+      total_recipientes_contrato: activeContract?.qtd_recipiente || 0,
     });
 
     if (client.estado) {
@@ -433,7 +438,7 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
               placeholder="Digite o CNPJ ou CPF"
               className="bg-white/10 border border-white/50 text-white placeholder:text-white/60 disabled:opacity-70 disabled:cursor-not-allowed rounded-xl h-10 text-base px-3 py-2"
               required
-              disabled={isClienteSelected}
+              disabled={true}
             />
           </div>
           <div className="space-y-2">
@@ -449,8 +454,9 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
               value={data.telefone}
               onAccept={(value) => handleInputChange('telefone', value)}
               placeholder="(99) 99999-9999"
-              className="bg-white/10 border border-white/50 text-white placeholder:text-white/60 rounded-xl h-10 text-base px-3 py-2"
+              className="bg-white/10 border border-white/50 text-white placeholder:text-white/60 disabled:opacity-70 disabled:cursor-not-allowed rounded-xl h-10 text-base px-3 py-2"
               required
+              disabled={true}
             />
           </div>
         </div>
@@ -466,7 +472,8 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
             value={data.email || ''}
             onChange={(e) => handleInputChange('email', e.target.value)}
             placeholder="email@cliente.com"
-            className="bg-white/10 border-white/30 text-white placeholder:text-white/60 rounded-xl h-10 text-base"
+            className="bg-white/10 border-white/30 text-white placeholder:text-white/60 disabled:opacity-70 disabled:cursor-not-allowed rounded-xl h-10 text-base"
+            disabled={true}
           />
         </div>
 
@@ -480,7 +487,8 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
             value={data.endereco || ''}
             onChange={(e) => handleInputChange('endereco', e.target.value)}
             placeholder="Digite o endereço completo"
-            className="bg-white/10 border-white/30 text-white placeholder:text-white/60 rounded-xl h-10 text-base"
+            className="bg-white/10 border-white/30 text-white placeholder:text-white/60 disabled:opacity-70 disabled:cursor-not-allowed rounded-xl h-10 text-base"
+            disabled={true}
           />
         </div>
 
@@ -516,8 +524,8 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-          <div className="space-y-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-8 gap-4 md:gap-6 items-end">
+          <div className="space-y-2 lg:col-span-3">
             <Label htmlFor="tipo_coleta" className="text-white flex items-center gap-2">
               <Calculator className="w-4 h-4 opacity-0" />
               Tipo de Coleta *
@@ -536,64 +544,79 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
             </Select>
           </div>
 
-          {data.tipo_coleta === 'Troca' ? (
-            <div className="space-y-2">
-              <Label htmlFor="fator" className="text-white flex items-center gap-2">
-                <Calculator className="w-4 h-4" />
-                Fator de Troca *
-              </Label>
-              <Input
-                id="fator" type="number" step="1" min="1"
-                value={data.fator} onChange={(e) => handleInputChange('fator', e.target.value)}
-                placeholder="Ex: 6 (para 1 unidade de óleo novo a cada 6kg usado)"
-                className="bg-white/10 border-white/30 text-white placeholder:text-white/60 rounded-xl h-10 text-base" required
-              />
-            </div>
-          ) : data.tipo_coleta === 'Compra' ? (
-            <div className="space-y-2">
-              <Label htmlFor="valor_compra" className="text-white flex items-center gap-2">
-                <Calculator className="w-4 h-4" />
-                Valor da Compra (R$ por Kg) *
-              </Label>
-              <IMaskInput
-                mask="num"
-                blocks={{
-                  num: {
-                    mask: Number,
-                    thousandsSeparator: '.',
-                    radix: ',',
-                    mapToRadix: ['.'],
-                    scale: 2,
-                    padFractionalZeros: true,
-                    normalizeZeros: true,
-                    signed: false,
-                  },
-                }}
-                as={Input}
-                id="valor_compra"
-                type="text"
-                value={data.valor_compra}
-                lazy={false}
-                onAccept={(value) => handleInputChange('valor_compra', value)}
-                placeholder="Ex: 1,20"
-                className="bg-white/10 border border-white/50 text-white placeholder:text-white/60 rounded-xl h-10 text-base px-3 py-2 !text-right" required
-              />
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <Label htmlFor="doacao_info" className="text-white flex items-center gap-2">
-                <Info className="w-4 h-4" />
-                Informações da Doação
-              </Label>
-              <Input
-                id="doacao_info" type="text"
-                value={data.doacao_info || ''}
-                onChange={(e) => handleInputChange('doacao_info', e.target.value)}
-                placeholder="Detalhes da doação (opcional)"
-                className="bg-white/10 border-white/30 text-white placeholder:text-white/60 rounded-xl h-10 text-base"
-              />
-            </div>
-          )}
+          <div className="space-y-2 lg:col-span-3">
+            {data.tipo_coleta === 'Troca' ? (
+              <>
+                <Label htmlFor="fator" className="text-white flex items-center gap-2">
+                  <Calculator className="w-4 h-4" />
+                  Fator de Troca *
+                </Label>
+                <Input
+                  id="fator" type="number" step="1" min="1"
+                  value={data.fator} onChange={(e) => handleInputChange('fator', e.target.value)}
+                  placeholder="Ex: 6 (para 1 unidade de óleo novo a cada 6kg usado)"
+                  className="bg-white/10 border-white/30 text-white placeholder:text-white/60 rounded-xl h-10 text-base" required
+                />
+              </>
+            ) : data.tipo_coleta === 'Compra' ? (
+              <>
+                <Label htmlFor="valor_compra" className="text-white flex items-center gap-2">
+                  <Calculator className="w-4 h-4" />
+                  Valor da Compra (R$ por Kg) *
+                </Label>
+                <IMaskInput
+                  mask="num"
+                  blocks={{
+                    num: {
+                      mask: Number,
+                      thousandsSeparator: '.',
+                      radix: ',',
+                      mapToRadix: ['.'],
+                      scale: 2,
+                      padFractionalZeros: true,
+                      normalizeZeros: true,
+                      signed: false,
+                    },
+                  }}
+                  as={Input}
+                  id="valor_compra"
+                  type="text"
+                  value={data.valor_compra}
+                  lazy={false}
+                  onAccept={(value) => handleInputChange('valor_compra', value)}
+                  placeholder="Ex: 1,20"
+                  className="bg-white/10 border border-white/50 text-white placeholder:text-white/60 rounded-xl h-10 text-base px-3 py-2 !text-right" required
+                />
+              </>
+            ) : (
+              <>
+                <Label htmlFor="doacao_info" className="text-white flex items-center gap-2">
+                  <Info className="w-4 h-4" />
+                  Informações da Doação
+                </Label>
+                <Input
+                  id="doacao_info" type="text"
+                  value={data.doacao_info || ''}
+                  onChange={(e) => handleInputChange('doacao_info', e.target.value)}
+                  placeholder="Detalhes da doação (opcional)"
+                  className="bg-white/10 border-white/30 text-white placeholder:text-white/60 rounded-xl h-10 text-base"
+                />
+              </>
+            )}
+          </div>
+ 
+          <div className="space-y-2 lg:col-span-2">
+            <Label htmlFor="saldo_recipientes_atual" className="text-emerald-300 flex items-center gap-2 whitespace-nowrap">
+              <Package className="w-4 h-4" />
+              Recipientes Saldo
+            </Label>
+            <Input
+              id="saldo_recipientes_atual"
+              value={data.saldo_recipientes_atual || 0}
+              readOnly
+              className="bg-white/5 border-white/20 text-emerald-400 font-bold h-10 text-xl cursor-not-allowed !text-center"
+            />
+          </div>
         </div>
 
         <div className="flex justify-between items-center pt-6">

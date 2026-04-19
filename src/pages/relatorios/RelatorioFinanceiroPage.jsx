@@ -11,7 +11,7 @@ import { useProfile } from '@/contexts/ProfileContext';
 import { format, subDays, endOfDay, parseISO, isValid, startOfMonth, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import * as XLSX from 'xlsx';
-import { formatCurrency, formatNumber, formatDateWithTimezone, getZonedStartOfMonth, getZonedEndOfMonth } from '@/lib/utils';
+import { formatCurrency, formatNumber, formatDateWithTimezone, getZonedStartOfMonth, getZonedEndOfMonth, formatCnpjCpf } from '@/lib/utils';
 import { useDebounce } from '@/hooks/useDebounce';
 import { Input } from '@/components/ui/input';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
@@ -719,7 +719,10 @@ const RelatorioFinanceiroPage = () => {
                                 {item.type === 'credito' ? 'Crédito' : 'Débito'}
                               </TableCell>
                               <TableCell data-label="Nº Doc">{item.document_number || 'N/A'}</TableCell>
-                              <TableCell data-label="Cliente/Fornecedor">{getClientDisplayName(item)}</TableCell>
+                              <TableCell data-label="Cliente/Fornecedor">
+                                <div className="font-semibold drop-shadow-sm">{getClientDisplayName(item)}</div>
+                                {(item.cnpj_cpf || item.document_number) && <div className="text-xs text-white/50">{formatCnpjCpf(item.cnpj_cpf || item.document_number)}</div>}
+                              </TableCell>
                               <TableCell data-label="Emissão">
                                 {formatDateWithTimezone(item.issue_date, empresaTimezone)}
                               </TableCell>

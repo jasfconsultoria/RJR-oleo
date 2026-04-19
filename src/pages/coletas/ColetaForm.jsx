@@ -286,6 +286,7 @@ const ColetaForm = () => {
       usa_recipiente: false,
       recipientes_coletados: 0,
       recipientes_entregues: 0,
+      total_recipientes_contrato: 0,
     };
   }, [user]);
 
@@ -329,7 +330,8 @@ const ColetaForm = () => {
               usa_recipiente: activeContract?.usa_recipiente || false,
               tipo_coleta: activeContract?.tipo_coleta || prev.tipo_coleta,
               fator: activeContract?.fator_troca ? String(activeContract.fator_troca) : prev.fator,
-              valor_compra: activeContract?.valor_coleta ? String(activeContract.valor_coleta).replace('.', ',') : prev.valor_compra
+              valor_compra: activeContract?.valor_coleta ? String(activeContract.valor_coleta).replace('.', ',') : prev.valor_compra,
+              total_recipientes_contrato: activeContract?.qtd_recipiente || 0
             }));
 
             // Marca como carregado para não repetir
@@ -441,6 +443,7 @@ const ColetaForm = () => {
         quantidade_coletada: String(data.quantidade_coletada || '').replace('.', ','),
         recipientes_coletados: data.recipientes_coletados || 0,
         recipientes_entregues: data.recipientes_entregues || 0,
+        total_recipientes_contrato: data.pessoa?.contratos?.find(c => c.status === 'Ativo')?.qtd_recipiente || 0,
         usa_recipiente: data.pessoa?.contratos?.some(c => c.status === 'Ativo' && c.usa_recipiente) || false,
       };
 
@@ -590,6 +593,8 @@ const ColetaForm = () => {
         municipio: finalColetaData.municipio,
         recipientes_coletados: parseInt(finalColetaData.recipientes_coletados, 10) || 0,
         recipientes_entregues: parseInt(finalColetaData.recipientes_entregues, 10) || 0,
+        total_recipientes_contrato: parseInt(finalColetaData.total_recipientes_contrato, 10) || 0,
+        saldo_recipientes_momento: parseInt(finalColetaData.saldo_recipientes_atual, 10) || 0,
       };
 
       console.log('DEBUG - Coleta a ser salva com recipientes:', {

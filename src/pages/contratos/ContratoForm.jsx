@@ -16,6 +16,16 @@ import { format } from 'date-fns';
 import ContratoPDF from '@/components/contratos/ContratoPDF';
 import { Progress } from '@/components/ui/progress';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { AlertTriangle } from 'lucide-react';
 
 const ContratoForm = () => {
     const { id } = useParams();
@@ -29,6 +39,8 @@ const ContratoForm = () => {
     const [empresa, setEmpresa] = useState(null);
     const [progress, setProgress] = useState(0);
     const [pdfData, setPdfData] = useState(null);
+    const [cadastroBloqueado, setCadastroBloqueado] = useState(false);
+    const [isBlockedModalOpen, setIsBlockedModalOpen] = useState(false);
     const pdfContainerRef = useRef(null);
     
     const [formData, setFormData] = useState({
@@ -95,6 +107,44 @@ const ContratoForm = () => {
         fetchInitialData();
     }, [isEditing, id, fetchContrato, toast]);
 
+    useEffect(() => {
+        const verificarContratoAtivo = async () => {
+            if (!formData.cliente_id) {
+                setCadastroBloqueado(false);
+                return;
+            }
+
+            // Não checa até os dados do form terminarem o loading na edição
+            if (isEditing && loading) return; 
+
+            const { data, error } = await supabase
+                .from('contratos')
+                .select('*')
+                .eq('cliente_id', formData.cliente_id);
+
+            if (!error && data) {
+                const contratosVigentes = data.filter(c => {
+                    if (isEditing && c.id === id) return false;
+                    
+                    const isStatusVigente = ['Ativo', 'Aguardando Assinatura'].includes(c.status);
+                    // Consideramos vencido quando o timestamp chega a 00:00 da data limite em diante.
+                    const isVencido = new Date(c.data_fim) < new Date(new Date().setHours(0,0,0,0)); 
+                    
+                    return isStatusVigente && !isVencido;
+                });
+
+                if (contratosVigentes.length > 0) {
+                    setCadastroBloqueado(true);
+                    setIsBlockedModalOpen(true);
+                } else {
+                    setCadastroBloqueado(false);
+                }
+            }
+        };
+
+        verificarContratoAtivo();
+    }, [formData.cliente_id, isEditing, id, loading]);
+
     const validateForm = () => {
         const newErrors = {};
         if (!formData.cliente_id) newErrors.cliente_id = 'Cliente é obrigatório.';
@@ -123,6 +173,12 @@ const ContratoForm = () => {
             toast({ title: "Verifique os campos", description: "Alguns campos obrigatórios não foram preenchidos.", variant: "destructive" });
             return;
         }
+        
+        if (cadastroBloqueado) {
+            setIsBlockedModalOpen(true);
+            return;
+        }
+
         setIsSaving(true);
         setProgress(10);
         
@@ -236,6 +292,33 @@ const ContratoForm = () => {
             <Helmet>
                 <title>{isEditing ? 'Editar Contrato' : 'Novo Contrato'} - RJR Óleo</title>
             </Helmet>
+
+            <AlertDialog open={isBlockedModalOpen} onOpenChange={setIsBlockedModalOpen}>
+                <AlertDialogContent className="bg-gray-900 border-white/10 text-white">
+                    <AlertDialogHeader>
+                    <AlertDialogTitle className="text-yellow-400 flex items-center gap-2">
+                        <AlertTriangle className="h-5 w-5" /> Cadastro Interrompido
+                    </AlertDialogTitle>
+                    <AlertDialogDescription className="text-emerald-100/70 text-base">
+                        Este cliente já possui um contrato <strong>Ativo</strong> ou <strong>Aguardando Assinatura</strong>.
+                        <br /><br />
+                        Você só pode cadastrar um novo contrato se não houver um contrato vigente ou se o atual já estiver vencido.
+                    </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                    <AlertDialogAction 
+                        onClick={() => { 
+                            setIsBlockedModalOpen(false); 
+                            // Limpa o cliente para evitar que fique travado e force a mensagem novamente
+                            if (!isEditing) setFormData(prev => ({ ...prev, cliente_id: null, pessoa: null })); 
+                        }} 
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                    >
+                        Entendido
+                    </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
 
             <div className="relative max-w-4xl mx-auto">
                 {isSaving && (

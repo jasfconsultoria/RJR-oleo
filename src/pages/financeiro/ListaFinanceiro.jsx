@@ -488,7 +488,10 @@ const ListaFinanceiro = ({ type }) => {
                       return (
                         <TableRow key={entry.id} className="border-b-0 md:border-b border-white/10 text-white/90 hover:bg-white/5 text-sm">
                           <TableCell data-label="Documento">{entry.document_number || 'N/A'}</TableCell>
-                          <TableCell data-label={entityLabel}>{getClientDisplayName(entry)}</TableCell>
+                          <TableCell data-label={entityLabel}>
+                            <div className="font-semibold">{getClientDisplayName(entry)}</div>
+                            {(entry.cnpj_cpf || entry.document_number) && <div className="text-xs text-white/50">{formatCnpjCpf(entry.cnpj_cpf || entry.document_number)}</div>}
+                          </TableCell>
                           <TableCell data-label="Descrição">{entry.description}</TableCell>
                           <TableCell data-label="Parcela" className="text-center">
                             {entry.installment_number === 0 ? 'Entrada' : `${entry.installment_number}/${installmentDenominator}`}

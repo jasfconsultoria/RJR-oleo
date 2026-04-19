@@ -16,29 +16,33 @@ export function ColetaStep2({ data, onBack, onNext, onUpdate, empresaTimezone })
   const isCompra = data.tipo_coleta === 'Compra';
   const isDoacao = data.tipo_coleta === 'Doação';
 
+  const lastPesoRef = React.useRef(data.quantidade_coletada);
+
   // ✅ Auto-cálculo de recipientes coletados (1kg = 1.2L aprox, recipientes de 50L)
+  // Só dispara se o peso mudar, permitindo que o usuário altere manualmente depois sem ser sobrescrito pelo useEffect a cada render
   React.useEffect(() => {
-    // Agora sempre exibimos e usamos o cálculo de recipientes
-    const peso = parseCurrency(data.quantidade_coletada);
-      if (peso > 0) {
-        // Usando fator 1.195 (média de 1.19 e 1.20)
-        const volumeLitros = peso * 1.195;
-        const qtdRecipientes = Math.ceil(volumeLitros / 50);
-        
-        // Só atualiza se o valor for diferente para evitar loop infinito
-        if (data.recipientes_coletados !== qtdRecipientes) {
-          onUpdate({ 
-            recipientes_coletados: qtdRecipientes,
-            recipientes_entregues: qtdRecipientes
-          });
-        }
-      } else if (data.recipientes_coletados !== 0) {
-        onUpdate({ 
-          recipientes_coletados: 0,
-          recipientes_entregues: 0
-        });
-      }
-  }, [data.quantidade_coletada, data.recipientes_coletados, data.recipientes_entregues, onUpdate]);
+    const pesoRaw = data.quantidade_coletada;
+    if (pesoRaw === lastPesoRef.current) return;
+    
+    lastPesoRef.current = pesoRaw;
+    const peso = parseCurrency(pesoRaw);
+
+    if (peso > 0) {
+      // Usando fator 1.195 (média de 1.19 e 1.20)
+      const volumeLitros = peso * 1.195;
+      const qtdRecipientes = Math.ceil(volumeLitros / 50);
+      
+      onUpdate({ 
+        recipientes_coletados: qtdRecipientes,
+        recipientes_entregues: qtdRecipientes
+      });
+    } else {
+      onUpdate({ 
+        recipientes_coletados: 0,
+        recipientes_entregues: 0
+      });
+    }
+  }, [data.quantidade_coletada, onUpdate]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -51,6 +55,14 @@ export function ColetaStep2({ data, onBack, onNext, onUpdate, empresaTimezone })
       return;
     }
     // onUpdate({ quantidade_coletada: quantidadeColetada }); // Data is already updated by IMaskInput
+    if (data.recipientes_coletados > (data.total_recipientes_contrato || 0)) {
+      toast({
+        title: 'Atenção: Limite de Recipientes',
+        description: 'O total de recipientes coletados é superior a quantidade de recipientes informado no contrato',
+        variant: 'warning',
+      });
+    }
+
     onNext();
   };
 
@@ -96,6 +108,7 @@ export function ColetaStep2({ data, onBack, onNext, onUpdate, empresaTimezone })
           <div><span className="text-emerald-300">Tipo:</span><span className="text-white ml-2 font-bold">{data.tipo_coleta || 'N/A'}</span></div>
           {!isCompra && <div><span className="text-emerald-300">Fator:</span><span className="text-white ml-2">{data.fator || 'N/A'}</span></div>}
           {isCompra && <div><span className="text-emerald-300">Valor/kg:</span><span className="text-white ml-2">{formatCurrency(parseCurrency(data.valor_compra))}</span></div>}
+          <div><span className="text-emerald-300">Recipientes Contrato:</span><span className="text-white ml-2 font-bold">{data.total_recipientes_contrato || 0}</span></div>
         </div>
       </div>
 
@@ -164,9 +177,9 @@ export function ColetaStep2({ data, onBack, onNext, onUpdate, empresaTimezone })
                   min="0"
                   step="1"
                   value={data.recipientes_coletados || ''}
-                  readOnly
-                  placeholder="Calculado automaticamente"
-                  className="bg-emerald-950/30 border border-emerald-500/50 text-emerald-400 placeholder:text-white/40 h-12 text-lg rounded-xl cursor-not-allowed"
+                  onChange={(e) => onUpdate({ recipientes_coletados: e.target.value === '' ? 0 : parseInt(e.target.value) })}
+                  placeholder="Ex: 4"
+                  className="bg-emerald-950/50 border border-emerald-500/50 text-white placeholder:text-white/40 h-12 text-lg rounded-xl focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400"
                 />
               </div>
               <div className="space-y-2">

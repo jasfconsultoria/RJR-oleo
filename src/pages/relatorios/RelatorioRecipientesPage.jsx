@@ -11,7 +11,7 @@ import { useProfile } from '@/contexts/ProfileContext';
 import { format, parseISO, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import * as XLSX from 'xlsx';
-import { formatNumber } from '@/lib/utils';
+import { formatNumber, formatCnpjCpf } from '@/lib/utils';
 import { useDebounce } from '@/hooks/useDebounce';
 import { Input } from '@/components/ui/input';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
@@ -316,10 +316,13 @@ const RelatorioRecipientesPage = () => {
                     reportData.map((item) => (
                       <TableRow key={item.res_cliente_id} className="border-white/5 hover:bg-white/5 transition-colors">
                         <TableCell data-label="Cliente" className="font-medium">
-                          {item.res_nome_fantasia && item.res_razao_social
-                            ? `${item.res_nome_fantasia} - ${item.res_razao_social}`
-                            : item.res_nome_fantasia || item.res_razao_social || 'Nome não informado'
-                          }
+                          <div className="font-semibold drop-shadow-sm">
+                            {item.res_nome_fantasia && item.res_razao_social
+                              ? `${item.res_nome_fantasia} - ${item.res_razao_social}`
+                              : item.res_nome_fantasia || item.res_razao_social || 'Nome não informado'
+                            }
+                          </div>
+                          {(item.res_cnpj_cpf || item.res_documento || item.cnpj_cpf) && <div className="text-xs text-white/50">{formatCnpjCpf(item.res_cnpj_cpf || item.res_documento || item.cnpj_cpf)}</div>}
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1 text-sm">

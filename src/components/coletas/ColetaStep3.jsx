@@ -174,6 +174,7 @@ export function ColetaStep3({ data, onBack, onSave, onUpdate, clearSavedData, em
             <div><span className="text-emerald-300">Qtd. Coletada:</span><span className="text-white ml-2 font-bold">{parseCurrency(data.quantidade_coletada).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg</span></div>
             {!isCompra && <div><span className="text-emerald-300">Fator:</span><span className="text-white ml-2">{data.fator}</span></div>}
             {isCompra && <div><span className="text-emerald-300">Valor/kg:</span><span className="text-white ml-2 font-bold">{formatCurrency(parseCurrency(data.valor_compra))}</span></div>}
+            <div><span className="text-emerald-300">Recipientes Entregues:</span><span className="text-white ml-2 font-bold">{data.recipientes_entregues || 0}</span></div>
           </div>
         </div>
 

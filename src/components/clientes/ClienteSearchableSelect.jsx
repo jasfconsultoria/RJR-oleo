@@ -200,11 +200,22 @@ const ClienteSearchableSelect = ({
 
   const filteredClients = useMemo(() => {
     if (!internalSearchTerm) return clients;
-    return clients.filter(client =>
-      (client.nome_fantasia && client.nome_fantasia.toLowerCase().includes(internalSearchTerm.toLowerCase())) ||
-      (client.razao_social && client.razao_social.toLowerCase().includes(internalSearchTerm.toLowerCase())) ||
-      (client.cnpj_cpf && formatCnpjCpf(client.cnpj_cpf).toLowerCase().includes(internalSearchTerm.toLowerCase()))
-    );
+    
+    const searchLower = internalSearchTerm.toLowerCase();
+    const searchNumeric = internalSearchTerm.replace(/\D/g, '');
+
+    return clients.filter(client => {
+      const matchNome = client.nome_fantasia && client.nome_fantasia.toLowerCase().includes(searchLower);
+      const matchRazao = client.razao_social && client.razao_social.toLowerCase().includes(searchLower);
+      
+      const docRaw = client.cnpj_cpf || '';
+      const docNumeric = docRaw.replace(/\D/g, '');
+      const matchDocRaw = docRaw.toLowerCase().includes(searchLower);
+      const matchDocNumeric = searchNumeric && docNumeric.includes(searchNumeric);
+      const matchDocFormatado = formatCnpjCpf(docRaw).toLowerCase().includes(searchLower);
+
+      return matchNome || matchRazao || matchDocRaw || matchDocNumeric || matchDocFormatado;
+    });
   }, [clients, internalSearchTerm]);
 
   const handleInputChange = (e) => {

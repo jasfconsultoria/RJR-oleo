@@ -24,7 +24,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2, Edit, Trash2, FileText, ChevronUp, ChevronDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { formatCurrency, formatNumber, cn } from '@/lib/utils';
+import { formatCurrency, formatNumber, cn, formatCnpjCpf } from '@/lib/utils';
 
 // Helper component for sortable table headers
 const TableHeaderSortable = ({ columnKey, label, sortConfig, onSort, className }) => {
@@ -141,7 +141,8 @@ const ColetasTable = ({
                     <TableCell data-label="Nº Coleta" className="font-mono">{String(coleta.numero_coleta).padStart(6, '0')}</TableCell>
                     <TableCell data-label="Data">{formatColetaDate(coleta.data_coleta)}</TableCell>
                     <TableCell data-label="Cliente">
-                      {coleta.cliente_display || formatClienteDisplay(coleta)}
+                      <div className="font-semibold drop-shadow-sm">{coleta.cliente_display || formatClienteDisplay(coleta)}</div>
+                      {coleta.cliente_cnpj_cpf && <div className="text-xs text-white/50">{formatCnpjCpf(coleta.cliente_cnpj_cpf)}</div>}
                     </TableCell>
                     <TableCell data-label="Tipo">
                       <span className={`px-2 py-1 rounded-xl text-xs font-semibold ${getTypeBadge(coleta.tipo_coleta)}`}>

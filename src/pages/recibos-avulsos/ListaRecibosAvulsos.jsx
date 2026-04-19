@@ -329,7 +329,8 @@ const ListaRecibosAvulsos = () => {
                             {getTipoLabel(recibo.tipo)}
                           </TableCell>
                           <TableCell className="text-white">
-                            {recibo.pessoa_nome}
+                            <div className="font-semibold drop-shadow-sm">{recibo.pessoa_nome}</div>
+                            {recibo.pessoa_cnpj_cpf && <div className="text-xs text-white/50">{formatCnpjCpf(recibo.pessoa_cnpj_cpf)}</div>}
                           </TableCell>
                           <TableCell className="text-white max-w-xs truncate" title={recibo.descricao}>
                             {recibo.descricao}
