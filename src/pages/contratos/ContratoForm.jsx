@@ -71,6 +71,13 @@ const ContratoForm = () => {
             toast({ title: 'Erro ao carregar contrato', variant: 'destructive' });
             navigate('/app/cadastro/contratos');
         } else {
+            const userRole = localStorage.getItem('userRole') || 'coletor';
+            if (userRole === 'coletor' && data.status === 'Ativo') {
+                toast({ title: 'Acesso negado', description: 'Perfil coletar não pode editar contratos que estejam ativos.', variant: 'destructive' });
+                navigate('/app/cadastro/contratos');
+                return;
+            }
+
             const parseDateWithTimezone = (dateString) => {
                 if (!dateString) return null;
                 return new Date(`${dateString}T00:00:00`);

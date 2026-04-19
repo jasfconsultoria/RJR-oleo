@@ -297,6 +297,14 @@ const ListaContratos = () => {
     setIsConfirmDialogOpen(true);
   };
 
+  const handleInitiateEdit = (contrato) => {
+    if (userRole === 'coletor' && contrato.status === 'Ativo') {
+      toast({ title: 'Permissão negada', description: 'Perfil coletar não pode editar contratos que estejam ativos.', variant: 'destructive' });
+      return;
+    }
+    navigate(`/app/cadastro/contratos/editar/${contrato.id}`);
+  };
+
   const handleConfirmedDelete = async (secondAdmin) => {
     const contrato = selectedForDeletion;
     if (!contrato) return;
@@ -582,7 +590,7 @@ const ListaContratos = () => {
                             <Button variant="ghost" size="icon" onClick={() => handleShare(contrato)} title="Compartilhar">
                               <Share2 className="h-4 w-4 text-green-400" />
                             </Button>
-                            <Button variant="ghost" size="icon" className="text-yellow-400 hover:text-yellow-300 rounded-xl" onClick={() => navigate(`/app/cadastro/contratos/editar/${contrato.id}`)} title="Editar">
+                            <Button variant="ghost" size="icon" className="text-yellow-400 hover:text-yellow-300 rounded-xl" onClick={() => handleInitiateEdit(contrato)} title="Editar">
                               <Edit className="h-4 w-4" />
                             </Button>
                             <Button

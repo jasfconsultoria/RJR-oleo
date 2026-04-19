@@ -73,7 +73,7 @@ const RelatorioEstoquePage = () => {
     const to = from + pageSize - 1;
 
     const startDateISO = filters.startDate ? format(filters.startDate, 'yyyy-MM-dd') : null;
-    const endDateISO = filters.endDate ? format(endOfDay(filters.endDate), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx") : null;
+    const endDateISO = filters.endDate ? format(filters.endDate, 'yyyy-MM-dd') : null;
 
     // Use selectedProductId for product search term if available, otherwise use productSearchTerm
     let effectiveProductSearchTerm = filters.productSearchTerm;
@@ -156,7 +156,7 @@ const RelatorioEstoquePage = () => {
     const totalPagesToFetch = Math.ceil(totalCount / 500); // Fetch in chunks
 
     const startDateISO = filters.startDate ? format(filters.startDate, 'yyyy-MM-dd') : null;
-    const endDateISO = filters.endDate ? format(endOfDay(filters.endDate), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx") : null;
+    const endDateISO = filters.endDate ? format(filters.endDate, 'yyyy-MM-dd') : null;
 
     let effectiveProductSearchTerm = filters.productSearchTerm;
     if (filters.selectedProductId) {
