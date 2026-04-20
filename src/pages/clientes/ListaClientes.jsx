@@ -327,14 +327,22 @@ const useClientesList = (personType, profile) => {
 
       // Aplicar ordenação
       clientesFiltrados.sort((a, b) => {
-        const aValue = a[state.sortConfig.key] || '';
-        const bValue = b[state.sortConfig.key] || '';
+        let aValue = a[state.sortConfig.key];
+        let bValue = b[state.sortConfig.key];
 
-        if (state.sortConfig.direction === 'asc') {
-          return aValue.localeCompare(bValue);
-        } else {
-          return bValue.localeCompare(aValue);
+        // Tratar nulos/indefinidos para evitar erros
+        if (aValue === null || aValue === undefined) aValue = '';
+        if (bValue === null || bValue === undefined) bValue = '';
+
+        const direction = state.sortConfig.direction === 'asc' ? 1 : -1;
+
+        // Se ambos forem números, ordenar numericamente
+        if (typeof aValue === 'number' && typeof bValue === 'number') {
+          return (aValue - bValue) * direction;
         }
+
+        // Caso contrário, ordenar como string (incluindo tratamento de nulos/vazios)
+        return String(aValue).localeCompare(String(bValue), 'pt-BR', { sensitivity: 'base', numeric: true }) * direction;
       });
 
       // Aplicar paginação

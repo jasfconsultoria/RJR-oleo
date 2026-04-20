@@ -32,17 +32,20 @@ import {
   ClipboardList, // Icon for Cadastro
   PenLine, 
   Box, 
+  Database,
+  Bell,
+  ShieldCheck,
   ChevronsLeft,
   ChevronsRight,
   ClipboardCheck,
   MapPin,
   Route,
   Settings,
-  Database,
-  Bell,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useProfile } from '@/contexts/ProfileContext';
+import { useMenuPermissions } from '@/contexts/MenuPermissionsContext';
+import { MENU_STRUCTURE } from '@/config/menuConfig';
 import { supabase } from '@/lib/customSupabaseClient';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -69,9 +72,10 @@ const AppLayout = ({ children }) => {
   const [isDesktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
   const [latestVersion, setLatestVersion] = useState(null);
   const location = useLocation();
-  const navigate = useNavigate();
+   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const { profile } = useProfile();
+  const { canView, loading: permsLoading } = useMenuPermissions();
   const [activeEnv, setActiveEnv] = useState(null);
 
   useEffect(() => {
@@ -154,80 +158,6 @@ const AppLayout = ({ children }) => {
     }
   };
 
-  const navItems = [
-    { to: '/app/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    {
-      label: 'Cadastro',
-      icon: ClipboardList, // Using ClipboardList for Cadastro
-      subItems: [
-        { to: '/app/cadastro/clientes', label: 'Clientes', icon: Users },
-        { to: '/app/cadastro/fornecedores', label: 'Fornecedores', icon: Users },
-        { to: '/app/cadastro/contratos', label: 'Contratos', icon: FileSignature },
-      ]
-    },
-    {
-      label: 'Financeiro',
-      icon: DollarSign,
-      roles: ['super_admin', 'administrador', 'coletor'],
-      subItems: [
-        { to: '/app/financeiro/credito', label: 'Crédito', icon: TrendingUp, roles: ['super_admin', 'administrador'] },
-        { to: '/app/financeiro/debito', label: 'Débito', icon: TrendingDown, roles: ['super_admin', 'administrador'] },
-        { to: '/app/financeiro/recibos', label: 'Recibos', icon: FileText, roles: ['super_admin', 'administrador', 'coletor'] },
-        { to: '/app/centros-custo', label: 'Centro de Custos', icon: Tag, roles: ['super_admin', 'administrador'] },
-      ]
-    },
-    { to: '/app/agenda', label: 'Agenda', icon: Calendar, roles: ['super_admin', 'administrador', 'gerente'] },
-    {
-      label: 'Coletas',
-      icon: Truck,
-      subItems: [
-        { to: '/app/coletas', label: 'Lista de Coletas', icon: Truck },
-        { to: '/app/coletas/rotas', label: 'Rotas de Coletas', icon: Route },
-        { to: '/app/coletas/mapa', label: 'Mapa de Coletas', icon: MapPin },
-      ]
-    },
-    { to: '/app/recipientes', label: 'Recipientes', icon: Box },
-    { to: '/app/certificados', icon: FileText, label: 'Certificados', roles: ['super_admin', 'administrador', 'gerente'] },
-    {
-      label: 'Relatórios',
-      icon: BarChart2,
-      roles: ['super_admin', 'administrador', 'gerente'],
-      subItems: [
-        { to: '/app/relatorios/coletas', label: 'Coletas', icon: Truck },
-        { to: '/app/relatorios/financeiro', label: 'Financeiro', icon: DollarSign, roles: ['super_admin', 'administrador'] },
-        { to: '/app/relatorios/estoque', label: 'Estoque', icon: Warehouse },
-        { to: '/app/relatorios/recipientes', label: 'Recipientes', icon: Box },
-        { to: '/app/relatorios/contratos', label: 'Contratos', icon: FileSignature },
-      ]
-    },
-    {
-      label: 'Estoque',
-      icon: Warehouse,
-      roles: ['super_admin', 'administrador', 'gerente'],
-      subItems: [
-        { to: '/app/estoque/produtos', label: 'Produtos', icon: Package },
-        { to: '/app/estoque/entradas', label: 'Entradas', icon: ArrowDownSquare },
-        { to: '/app/estoque/saidas', label: 'Saídas', icon: ArrowUpSquare },
-        { to: '/app/estoque/movimentacoes', label: 'Movimentações', icon: ListChecks },
-        { to: '/app/estoque/saldo', label: 'Saldo Atual', icon: Scale },
-        { to: '/app/relatorios/auditoria', label: 'Auditoria', icon: ClipboardCheck },
-      ]
-    },
-    {
-      label: 'Configurações',
-      icon: Settings,
-      roles: ['super_admin', 'administrador'],
-      subItems: [
-        { to: '/app/empresa', label: 'Empresa', icon: Building, roles: ['super_admin', 'administrador'] },
-        { to: '/app/usuarios', label: 'Usuários', icon: UserCog, roles: ['super_admin', 'administrador'] },
-        { to: '/app/config/notificacoes', label: 'Notificações', icon: Bell, roles: ['super_admin'] },
-        { to: '/app/config/ambientes', label: 'Banco Dados', icon: Database, roles: ['super_admin'] },
-        { to: '/app/logs', label: 'Logs', icon: BookText, roles: ['super_admin', 'administrador'] },
-      ]
-    },
-    { to: '/app/sobre', icon: Info, label: 'Sobre' },
-    { to: '/app/versoes', icon: GitBranch, label: 'Versões' },
-  ];
 
   const sidebarVariants = {
     open: { x: 0, transition: { type: 'spring', stiffness: 300, damping: 30 } },
@@ -236,13 +166,19 @@ const AppLayout = ({ children }) => {
 
   const NavLinks = () => (
     <nav className="flex flex-col gap-2 px-4">
-      {navItems.map((item) => {
-        if (item.roles && !item.roles.includes(profile?.role)) {
+      {MENU_STRUCTURE.map((item) => {
+        if (!canView(item.key)) {
           return null;
         }
 
         if (item.subItems) {
-          const isActiveParent = item.subItems.some(sub => location.pathname.startsWith(sub.to));
+          // Filtrar os subItems visíveis
+          const visibleSubItems = item.subItems.filter(sub => canView(sub.key));
+          
+          if (visibleSubItems.length === 0) return null;
+
+          const isActiveParent = visibleSubItems.some(sub => location.pathname.startsWith(sub.to));
+
           return (
             <DropdownMenu key={item.label}>
               <DropdownMenuTrigger asChild>
@@ -258,12 +194,7 @@ const AppLayout = ({ children }) => {
               <DropdownMenuContent className="w-56 bg-gray-800 text-white border-gray-700">
                 <DropdownMenuLabel>{item.label}</DropdownMenuLabel>
                 <DropdownMenuSeparator className="bg-gray-700" />
-                {item.subItems.map(subItem => {
-                  // Verificar se o subItem requer permissão específica
-                  if (subItem.roles && !subItem.roles.includes(profile?.role)) {
-                    return null;
-                  }
-
+                {visibleSubItems.map(subItem => {
                   const SubIcon = subItem.icon;
                   return (
                     <DropdownMenuItem key={subItem.to} asChild>
