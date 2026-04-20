@@ -107,6 +107,8 @@ const RelatorioEstoquePage = () => {
         ...commonRpcParams,
         p_offset: from,
         p_limit: pageSize,
+        p_sort_column: 'data',
+        p_sort_direction: 'desc'
       });
 
       if (detailedError) throw detailedError;
@@ -181,6 +183,8 @@ const RelatorioEstoquePage = () => {
         ...commonRpcParams,
         p_offset: i * 500,
         p_limit: 500,
+        p_sort_column: 'data',
+        p_sort_direction: 'desc'
       });
       if (error) {
         toast({ title: 'Erro ao exportar dados', description: error.message, variant: 'destructive' });

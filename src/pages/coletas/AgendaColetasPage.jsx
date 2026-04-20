@@ -55,7 +55,10 @@ const AgendaColetasPage = () => {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState(location.state?.searchTerm || '');
     const [viewMode, setViewMode] = useState('list'); // 'map' ou 'list'
-    const [filterType, setFilterType] = useState('todos'); // 'todos', 'hoje', 'atrasados', 'proximos'
+    const [filterType, setFilterType] = useState(() => {
+        const params = new URLSearchParams(location.search);
+        return params.get('filter') || 'todos';
+    });
     const [filterEstado, setFilterEstado] = useState('todos');
     const [filterMunicipio, setFilterMunicipio] = useState('todos');
     const [currentPage, setCurrentPage] = useState(1);
@@ -109,6 +112,13 @@ const AgendaColetasPage = () => {
     useEffect(() => {
         fetchClientes();
     }, [fetchClientes]);
+
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        if (params.has('filter')) {
+            setFilterType(params.get('filter'));
+        }
+    }, [location.search]);
 
     // Detectar Mobile
     useEffect(() => {

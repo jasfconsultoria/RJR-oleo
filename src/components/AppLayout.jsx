@@ -39,6 +39,7 @@ import {
   Route,
   Settings,
   Database,
+  Bell,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useProfile } from '@/contexts/ProfileContext';
@@ -61,6 +62,7 @@ import {
 } from '@/components/ui/tooltip';
 import { getActiveEnvironment, defaultClient } from '@/lib/getActiveEnvironment';
 import { setAndRefreshRoutingContext } from '@/lib/customSupabaseClient';
+import NotificationsPopover from '@/components/notificacoes/NotificationsPopover';
 
 const AppLayout = ({ children }) => {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
@@ -81,6 +83,17 @@ const AppLayout = ({ children }) => {
         // Busca o ambiente atual para atualizar o ícone/bugate no layout localmente
         const env = await getActiveEnvironment(false, profile?.role, user.id);
         setActiveEnv(env);
+
+        if (profile?.role) {
+           const today = new Date().toISOString().split('T')[0];
+           const notifKey = `notif_gen_${user.id}_${today}`;
+           if (!sessionStorage.getItem(notifKey)) {
+              supabase.rpc('gerar_notificacoes_diarias', { p_user_id: user.id, p_role: profile.role }).then(() => {
+                 sessionStorage.setItem(notifKey, 'true');
+                 window.dispatchEvent(new Event('notificacoes_atualizadas'));
+              }).catch(err => console.log('Notice - Falha silenciosa sync:', err));
+           }
+        }
       }
     };
     fetchEnv();
@@ -207,6 +220,7 @@ const AppLayout = ({ children }) => {
       subItems: [
         { to: '/app/empresa', label: 'Empresa', icon: Building, roles: ['super_admin', 'administrador'] },
         { to: '/app/usuarios', label: 'Usuários', icon: UserCog, roles: ['super_admin', 'administrador'] },
+        { to: '/app/config/notificacoes', label: 'Notificações', icon: Bell, roles: ['super_admin'] },
         { to: '/app/config/ambientes', label: 'Banco Dados', icon: Database, roles: ['super_admin'] },
         { to: '/app/logs', label: 'Logs', icon: BookText, roles: ['super_admin', 'administrador'] },
       ]
@@ -444,11 +458,14 @@ const AppLayout = ({ children }) => {
             </Button>
 
             <div className="w-full flex-1" />
-            <div className="text-right text-white">
-              <p className="font-semibold flex items-center gap-2 text-sm truncate">
-                <UserCircle className="w-5 h-5" /> {profile?.full_name || user?.email}
-              </p>
-              <p className="text-xs text-emerald-300 capitalize">{getRoleLabel(profile?.role)}</p>
+            <div className="text-right text-white flex items-center justify-end gap-3">
+              <NotificationsPopover />
+              <div className="flex flex-col items-end">
+                <p className="font-semibold flex items-center gap-2 text-sm truncate">
+                  <UserCircle className="w-5 h-5" /> {profile?.full_name || user?.email}
+                </p>
+                <p className="text-xs text-emerald-300 capitalize">{getRoleLabel(profile?.role)}</p>
+              </div>
             </div>
           </header>
           <main className="flex-1 p-4 lg:p-6 overflow-auto">

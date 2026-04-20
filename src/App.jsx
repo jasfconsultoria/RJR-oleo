@@ -63,6 +63,7 @@ import RecipientesPage from '@/pages/recipientes/RecipientesPage';
 import RelatorioAuditoriaPage from '@/pages/relatorios/RelatorioAuditoriaPage';
 import PlaceholderPage from '@/pages/PlaceholderPage';
 const AmbientesBancoPage = lazy(() => import('@/pages/config/AmbientesBancoPage'));
+const ConfigNotificacoesPage = lazy(() => import('@/pages/config/ConfigNotificacoesPage'));
 
 const ProtectedRoute = ({ children, requiredRole }) => {
   const { session, loading: authLoading } = useAuth();
@@ -248,6 +249,11 @@ function App() {
                     <Route path="config/ambientes" element={
                       <ProtectedRoute requiredRole={['super_admin']}>
                         <AmbientesBancoPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="config/notificacoes" element={
+                      <ProtectedRoute requiredRole={['super_admin']}>
+                        <ConfigNotificacoesPage />
                       </ProtectedRoute>
                     } />
                     <Route path="*" element={<Navigate to="/app/dashboard" />} />
