@@ -176,18 +176,32 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
 
   useEffect(() => {
     if (data.cliente && data.cliente.trim() !== '') {
-      const searchTerm = data.cliente.toLowerCase();
+      const rawTerm = data.cliente.toLowerCase();
+      const searchTerm = rawTerm.trim();
       const cleanSearchTerm = unmask(searchTerm);
-      const filtered = allClients.filter(client =>
-        (client.nome_fantasia && client.nome_fantasia.toLowerCase().includes(searchTerm)) ||
-        (client.razao_social && client.razao_social.toLowerCase().includes(searchTerm)) ||
-        (client.cnpj_cpf && client.cnpj_cpf.toLowerCase().includes(searchTerm)) ||
-        (client.cnpj_cpf && unmask(client.cnpj_cpf).includes(cleanSearchTerm))
-      );
-      console.log(`🔍 Filtrados ${filtered.length} clientes para: "${data.cliente}"`);
+      
+      // Função para remover acentos e normalizar texto
+      const normalize = (str) => 
+        str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() : "";
+      
+      const searchNormalized = normalize(searchTerm);
+
+      const filtered = allClients.filter((client) => {
+        const nome = normalize(client.nome_fantasia);
+        const razao = normalize(client.razao_social);
+        const cnpj = (client.cnpj_cpf || "").toLowerCase();
+        
+        const matchNome = nome.includes(searchNormalized);
+        const matchRazao = razao.includes(searchNormalized);
+        const matchCnpj = cnpj.includes(searchTerm);
+        const matchCleanCnpj = cleanSearchTerm !== '' && unmask(cnpj).includes(cleanSearchTerm);
+        
+        return matchNome || matchRazao || matchCnpj || matchCleanCnpj;
+      });
+      
+      console.log(`🔍 Filtrados ${filtered.length} de ${allClients.length} clientes para: "${data.cliente}"`);
       setFilteredClients(filtered);
     } else {
-      console.log(`📋 Mostrando todos os ${allClients.length} clientes ativos`);
       setFilteredClients(allClients);
     }
   }, [data.cliente, allClients]);
