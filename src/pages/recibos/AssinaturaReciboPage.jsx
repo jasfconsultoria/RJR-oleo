@@ -213,11 +213,11 @@ const AssinaturaReciboPage = () => {
             
             <div className="mt-6">
               <Label htmlFor="signature-canvas" className="text-lg font-semibold mb-2 block text-emerald-200">Sua Assinatura:</Label>
-              <div className="bg-white rounded-md p-1 border-2 border-dashed border-emerald-400">
+              <div className="bg-white rounded-md p-1 border-2 border-dashed border-emerald-400 mx-auto w-full max-w-[520px]">
                 <SignatureCanvas
                   ref={sigCanvas}
                   penColor='black'
-                  canvasProps={{ id: 'signature-canvas', className: 'w-full h-48 rounded-md' }}
+                  canvasProps={{ id: 'signature-canvas', width: 520, height: 180, className: 'w-full h-[180px] rounded-md bg-white touch-none' }}
                 />
               </div>
             </div>

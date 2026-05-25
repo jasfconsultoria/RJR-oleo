@@ -5,7 +5,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Loader2, FileDown, BarChart2, Search, Warehouse, ArrowDownSquare, ArrowUpSquare } from 'lucide-react';
+import { Loader2, FileDown, FileText, BarChart2, Search, Warehouse, ArrowDownSquare, ArrowUpSquare } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { format, subDays, endOfDay, parseISO, isValid, startOfMonth, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Pagination } from '@/components/ui/pagination';
 import ProdutoSearchableSelect from '@/components/produtos/ProdutoSearchableSelect';
+import { generateReportPdf, printPdfBlobUrl } from '@/lib/reportPdf';
 
 const RelatorioEstoquePage = () => {
   const [reportData, setReportData] = useState([]);
@@ -42,7 +43,7 @@ const RelatorioEstoquePage = () => {
       setLoading(true);
       try {
         const [empresaRes] = await Promise.all([
-          supabase.from('empresa').select('items_per_page, timezone').single(),
+          supabase.from('empresa').select('*').single(),
         ]);
 
         if (empresaRes.error) toast({ title: 'Erro ao buscar configurações da empresa', variant: 'destructive' });
@@ -147,16 +148,7 @@ const RelatorioEstoquePage = () => {
     }));
   };
 
-  const handleExportExcel = async () => {
-    if (totalCount === 0) {
-      toast({ title: 'Nenhum dado para exportar', description: 'Filtre os dados que deseja exportar.', variant: 'destructive' });
-      return;
-    }
-
-    setLoading(true);
-    let allData = [];
-    const totalPagesToFetch = Math.ceil(totalCount / 500); // Fetch in chunks
-
+  const getEstoqueRpcParams = async () => {
     const startDateISO = filters.startDate ? format(filters.startDate, 'yyyy-MM-dd') : null;
     const endDateISO = filters.endDate ? format(filters.endDate, 'yyyy-MM-dd') : null;
 
@@ -171,12 +163,18 @@ const RelatorioEstoquePage = () => {
       }
     }
 
-    const commonRpcParams = {
+    return {
       p_start_date: startDateISO,
       p_end_date: endDateISO,
       p_type: filters.type === 'all' ? null : filters.type,
       p_product_search_term: effectiveProductSearchTerm || null,
     };
+  };
+
+  const fetchAllFilteredEstoque = async () => {
+    let allData = [];
+    const totalPagesToFetch = Math.ceil(totalCount / 500);
+    const commonRpcParams = await getEstoqueRpcParams();
 
     for (let i = 0; i < totalPagesToFetch; i++) {
       const { data, error } = await supabase.rpc('get_estoque_detailed_report', {
@@ -186,16 +184,14 @@ const RelatorioEstoquePage = () => {
         p_sort_column: 'data',
         p_sort_direction: 'desc'
       });
-      if (error) {
-        toast({ title: 'Erro ao exportar dados', description: error.message, variant: 'destructive' });
-        setLoading(false);
-        return;
-      }
-      allData = [...allData, ...data];
+      if (error) throw error;
+      allData = [...allData, ...(data || [])];
     }
-    setLoading(false);
 
-    const dataToExport = allData.map(item => ({
+    return allData;
+  };
+
+  const buildEstoqueExportRows = (allData) => allData.map(item => ({
       'Data': formatDateWithTimezone(item.data, empresaTimezone),
       'Tipo': item.tipo === 'entrada' ? 'Entrada' : 'Saída',
       'Origem': item.origem,
@@ -208,10 +204,123 @@ const RelatorioEstoquePage = () => {
       'Observação': item.observacao || 'N/A',
     }));
 
-    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'RelatorioEstoque');
-    XLSX.writeFile(workbook, 'Relatorio_Estoque.xlsx');
+  const calculateEstoqueTotals = (allData) => {
+    return allData.reduce((acc, item) => {
+      acc.total_movements += 1;
+      if (item.tipo === 'entrada') acc.total_quantity_in += Number(item.quantidade) || 0;
+      if (item.tipo === 'saida') acc.total_quantity_out += Number(item.quantidade) || 0;
+      return acc;
+    }, { total_movements: 0, total_quantity_in: 0, total_quantity_out: 0 });
+  };
+
+  const buildEstoqueSubtotalsByType = (allData) => {
+    const subtotals = allData.reduce((acc, item) => {
+      const tipo = item.tipo === 'entrada' ? 'Entrada' : item.tipo === 'saida' ? 'Saída' : 'Não informado';
+      if (!acc[tipo]) acc[tipo] = { tipo, movimentos: 0, quantidade: 0 };
+      acc[tipo].movimentos += 1;
+      acc[tipo].quantidade += Number(item.quantidade) || 0;
+      return acc;
+    }, {});
+    return Object.values(subtotals).sort((a, b) => a.tipo.localeCompare(b.tipo));
+  };
+
+  const formatDateFilter = (value) => value ? format(value, 'dd/MM/yyyy', { locale: ptBR }) : 'Todos';
+
+  const handleExportExcel = async () => {
+    if (totalCount === 0) {
+      toast({ title: 'Nenhum dado para exportar', description: 'Filtre os dados que deseja exportar.', variant: 'destructive' });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const allData = await fetchAllFilteredEstoque();
+      const dataToExport = buildEstoqueExportRows(allData);
+
+      const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'RelatorioEstoque');
+      XLSX.writeFile(workbook, 'Relatorio_Estoque.xlsx');
+    } catch (error) {
+      toast({ title: 'Erro ao exportar dados', description: error.message, variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleExportPdf = async () => {
+    if (totalCount === 0) {
+      toast({ title: 'Nenhum dado para exportar', description: 'Filtre os dados que deseja exportar.', variant: 'destructive' });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const allData = await fetchAllFilteredEstoque();
+      const totals = calculateEstoqueTotals(allData);
+      const pdfUrl = await generateReportPdf({
+        title: 'Relatório de Estoque',
+        subtitle: 'Movimentações de estoque com totais e subtotais por tipo.',
+        fileName: `Relatorio_Estoque_${format(new Date(), 'yyyyMMdd_HHmm')}.pdf`,
+        company: empresa,
+        filters: [
+          { label: 'Data início', value: formatDateFilter(filters.startDate) },
+          { label: 'Data fim', value: formatDateFilter(filters.endDate) },
+          { label: 'Tipo', value: filters.type === 'all' ? 'Todos' : filters.type === 'entrada' ? 'Entrada' : 'Saída' },
+          { label: 'Produto', value: filters.productSearchTerm || 'Todos' },
+        ],
+        summaryItems: [
+          { label: 'Total de Movimentações', value: totals.total_movements },
+          { label: 'Quantidade de Entrada', value: formatNumber(totals.total_quantity_in) },
+          { label: 'Quantidade de Saída', value: formatNumber(totals.total_quantity_out) },
+        ],
+        subtotalTables: [
+          {
+            title: 'Subtotais por Tipo de Movimentação',
+            columns: [
+              { header: 'Tipo', accessor: 'tipo', width: 55 },
+              { header: 'Movimentações', accessor: 'movimentos', width: 38, align: 'right' },
+              { header: 'Quantidade', accessor: row => formatNumber(row.quantidade), width: 38, align: 'right' },
+            ],
+            rows: buildEstoqueSubtotalsByType(allData),
+          },
+        ],
+        columns: [
+          { header: 'Data', accessor: 'data', width: 22 },
+          { header: 'Tipo', accessor: 'tipo', width: 18 },
+          { header: 'Origem', accessor: 'origem', width: 24 },
+          { header: 'Nº Doc', accessor: 'documento', width: 24 },
+          { header: 'Cliente/Fornecedor', accessor: 'cliente', width: 50 },
+          { header: 'Produto', accessor: 'produto', width: 45 },
+          { header: 'Qtd.', accessor: 'quantidade', width: 20, align: 'right' },
+          { header: 'Un.', accessor: 'unidade', width: 14 },
+          { header: 'Observação', accessor: 'observacao', width: 42 },
+        ],
+        rows: allData.map(item => ({
+          data: formatDateWithTimezone(item.data, empresaTimezone),
+          tipo: item.tipo === 'entrada' ? 'Entrada' : 'Saída',
+          origem: item.origem || 'N/A',
+          documento: item.document_number || 'N/A',
+          cliente: item.cliente_nome_fantasia ? `${item.cliente_nome} - ${item.cliente_nome_fantasia}` : item.cliente_nome || 'N/A',
+          produto: item.produto_nome || 'N/A',
+          quantidade: formatNumber(item.quantidade),
+          unidade: item.produto_unidade || 'N/A',
+          observacao: item.observacao || 'N/A',
+        })),
+        output: 'bloburl',
+      });
+
+      printPdfBlobUrl(pdfUrl);
+      toast({
+        title: 'PDF enviado para impressão',
+        description: `Relatório gerado com ${allData.length} registros.`,
+        variant: 'default'
+      });
+    } catch (error) {
+      toast({ title: 'Erro ao gerar PDF', description: error.message, variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const totalPages = Math.ceil(totalCount / pageSize);
@@ -230,6 +339,9 @@ const RelatorioEstoquePage = () => {
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <Button onClick={handleExportExcel} disabled={totalCount === 0 || loading} variant="outline" className="flex-grow sm:flex-grow-0 rounded-xl">
               {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />} Exportar
+            </Button>
+            <Button onClick={handleExportPdf} disabled={totalCount === 0 || loading} variant="outline" className="flex-grow sm:flex-grow-0 rounded-xl">
+              {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />} PDF
             </Button>
           </div>
         </div>

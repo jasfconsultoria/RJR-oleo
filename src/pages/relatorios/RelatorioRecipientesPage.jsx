@@ -5,7 +5,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Loader2, FileDown, Box, Calendar, MapPin, Search, AlertTriangle, CheckCircle2, ChevronDown } from 'lucide-react';
+import { Loader2, FileDown, FileText, Box, Calendar, MapPin, Search, AlertTriangle, CheckCircle2, ChevronDown } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { useProfile } from '@/contexts/ProfileContext';
 import { format, parseISO, isValid } from 'date-fns';
@@ -18,6 +18,7 @@ import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Pagination } from '@/components/ui/pagination';
 import { Checkbox } from '@/components/ui/checkbox';
+import { generateReportPdf, printPdfBlobUrl } from '@/lib/reportPdf';
 
 const RelatorioRecipientesPage = () => {
   const [reportData, setReportData] = useState([]);
@@ -40,6 +41,7 @@ const RelatorioRecipientesPage = () => {
   const [totalCount, setTotalCount] = useState(0);
   const [totalGlobal, setTotalGlobal] = useState(0);
   const [itemsPerPage, setItemsPerPage] = useState(25);
+  const [empresa, setEmpresa] = useState(null);
 
   const fetchFiltersData = useCallback(async () => {
     try {
@@ -81,9 +83,10 @@ const RelatorioRecipientesPage = () => {
 
   const fetchCompanySettings = useCallback(async () => {
     try {
-      const { data, error } = await supabase.from('empresa').select('items_per_page').single();
+      const { data, error } = await supabase.from('empresa').select('*').single();
       if (error) throw error;
       if (data?.items_per_page) setItemsPerPage(data.items_per_page);
+      setEmpresa(data);
     } catch (error) {
       console.error("Erro ao buscar configurações da empresa:", error);
     }
@@ -162,25 +165,134 @@ const RelatorioRecipientesPage = () => {
     return { totalRecipientesFiltrados, inativosCount };
   }, [reportData, filters.diasInatividade]);
 
-  const handleExportExcel = () => {
-    if (reportData.length === 0) {
+  const fetchAllFilteredRecipientes = async () => {
+    const { data, error } = await supabase.rpc('get_recipientes_detailed_report', {
+      p_estado: filters.estado === 'todos' ? 'all' : filters.estado,
+      p_municipio: filters.municipio === 'todos' ? 'all' : filters.municipio,
+      p_search_term: filters.searchTerm,
+      p_apenas_inativos: filters.apenasInativos,
+      p_apenas_ativos: filters.apenasAtivos,
+      p_dias_inatividade: parseInt(filters.diasInatividade) || 0
+    });
+
+    if (error) throw error;
+    return data || [];
+  };
+
+  const buildRecipientesExportRows = (allData) => allData.map(item => ({
+    'Cliente': item.res_nome_fantasia || item.res_razao_social,
+    'Cidade': item.res_municipio,
+    'UF': item.res_estado,
+    'Saldo Atual': item.res_recipientes_saldo,
+    'Última Coleta': item.res_data_ultima_coleta ? format(parseISO(item.res_data_ultima_coleta), 'dd/MM/yyyy') : 'Nunca',
+    'Dias Inativo': item.res_dias_sem_coleta === 9999 ? 'Nunca Coletado' : item.res_dias_sem_coleta
+  }));
+
+  const getActivityStatus = (item) => {
+    if (item.res_dias_sem_coleta >= filters.diasInatividade) {
+      return item.res_dias_sem_coleta === 9999 ? 'Sem Coletas' : `${item.res_dias_sem_coleta} dias parado`;
+    }
+    return `Ativo (${item.res_dias_sem_coleta}d)`;
+  };
+
+  const handleExportExcel = async () => {
+    if (totalCount === 0) {
       toast({ title: 'Nenhum dado para exportar', variant: 'destructive' });
       return;
     }
 
-    const dataToExport = reportData.map(item => ({
-      'Cliente': item.res_nome_fantasia || item.res_razao_social,
-      'Cidade': item.res_municipio,
-      'UF': item.res_estado,
-      'Saldo Atual': item.res_recipientes_saldo,
-      'Última Coleta': item.res_data_ultima_coleta ? format(parseISO(item.res_data_ultima_coleta), 'dd/MM/yyyy') : 'Nunca',
-      'Dias Inativo': item.res_dias_sem_coleta === 9999 ? 'Nunca Coletado' : item.res_dias_sem_coleta
-    }));
+    setLoading(true);
+    try {
+      const allData = await fetchAllFilteredRecipientes();
+      const dataToExport = buildRecipientesExportRows(allData);
 
-    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'RelatorioRecipientes');
-    XLSX.writeFile(workbook, `Relatorio_Recipientes_${format(new Date(), 'yyyyMMdd')}.xlsx`);
+      const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'RelatorioRecipientes');
+      XLSX.writeFile(workbook, `Relatorio_Recipientes_${format(new Date(), 'yyyyMMdd')}.xlsx`);
+    } catch (error) {
+      toast({ title: 'Erro ao exportar dados', description: error.message, variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleExportPdf = async () => {
+    if (totalCount === 0) {
+      toast({ title: 'Nenhum dado para exportar', variant: 'destructive' });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const allData = await fetchAllFilteredRecipientes();
+      const totalFiltradoPdf = allData.reduce((acc, item) => acc + (item.res_recipientes_saldo || 0), 0);
+      const totalInativosPdf = allData.filter(item => item.res_dias_sem_coleta >= filters.diasInatividade).length;
+      const subtotalByStatus = [
+        { status: 'Ativos', clientes: allData.length - totalInativosPdf, saldo: allData.filter(item => item.res_dias_sem_coleta < filters.diasInatividade).reduce((acc, item) => acc + (item.res_recipientes_saldo || 0), 0) },
+        { status: 'Inativos', clientes: totalInativosPdf, saldo: allData.filter(item => item.res_dias_sem_coleta >= filters.diasInatividade).reduce((acc, item) => acc + (item.res_recipientes_saldo || 0), 0) },
+      ];
+
+      const pdfUrl = await generateReportPdf({
+        title: 'Relatório de Recipientes',
+        subtitle: 'Controle de recipientes em campo e status de atividade dos clientes.',
+        fileName: `Relatorio_Recipientes_${format(new Date(), 'yyyyMMdd_HHmm')}.pdf`,
+        company: empresa,
+        filters: [
+          { label: 'Estado', value: filters.estado === 'todos' ? 'Todos' : filters.estado },
+          { label: 'Município', value: filters.municipio === 'todos' ? 'Todos' : filters.municipio },
+          { label: 'Busca', value: filters.searchTerm || 'Todos' },
+          { label: 'Dias de Inatividade', value: `${filters.diasInatividade} dias` },
+          { label: 'Apenas Ativos', value: filters.apenasAtivos ? 'Sim' : 'Não' },
+          { label: 'Apenas Inativos', value: filters.apenasInativos ? 'Sim' : 'Não' },
+        ],
+        summaryItems: [
+          { label: 'Total de Recipientes', value: totalGlobal.toLocaleString('pt-BR') },
+          { label: 'Recipientes em Campo', value: totalFiltradoPdf.toLocaleString('pt-BR') },
+          { label: 'Clientes Atendidos', value: allData.length },
+          { label: `Inativos (${filters.diasInatividade}d+)`, value: totalInativosPdf },
+        ],
+        subtotalTables: [
+          {
+            title: 'Subtotais por Status de Atividade',
+            columns: [
+              { header: 'Status', accessor: 'status', width: 45 },
+              { header: 'Clientes', accessor: 'clientes', width: 28, align: 'right' },
+              { header: 'Saldo de Recipientes', accessor: 'saldo', width: 45, align: 'right' },
+            ],
+            rows: subtotalByStatus,
+          },
+        ],
+        columns: [
+          { header: 'Cliente', accessor: 'cliente', width: 72 },
+          { header: 'Localidade', accessor: 'localidade', width: 38 },
+          { header: 'Saldo', accessor: 'saldo', width: 18, align: 'right' },
+          { header: 'Última Coleta', accessor: 'ultimaColeta', width: 28 },
+          { header: 'Status', accessor: 'status', width: 42 },
+        ],
+        rows: allData.map(item => ({
+          cliente: item.res_nome_fantasia && item.res_razao_social
+            ? `${item.res_nome_fantasia} - ${item.res_razao_social}`
+            : item.res_nome_fantasia || item.res_razao_social || 'Nome não informado',
+          localidade: `${item.res_municipio || 'N/A'}, ${item.res_estado || 'N/A'}`,
+          saldo: item.res_recipientes_saldo || 0,
+          ultimaColeta: item.res_data_ultima_coleta ? format(parseISO(item.res_data_ultima_coleta), 'dd/MM/yyyy') : 'Nunca',
+          status: getActivityStatus(item),
+        })),
+        output: 'bloburl',
+      });
+
+      printPdfBlobUrl(pdfUrl);
+      toast({
+        title: 'PDF enviado para impressão',
+        description: `Relatório gerado com ${allData.length} registros.`,
+        variant: 'default'
+      });
+    } catch (error) {
+      toast({ title: 'Erro ao gerar PDF', description: error.message, variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const totalPages = Math.ceil(totalCount / itemsPerPage);
@@ -196,9 +308,14 @@ const RelatorioRecipientesPage = () => {
             </h1>
             <p className="text-emerald-200/80 mt-1">Controle de ativos e inatividade de clientes.</p>
           </div>
-          <Button onClick={handleExportExcel} disabled={loading || reportData.length === 0} variant="outline" className="rounded-xl">
-            <FileDown className="mr-2 h-4 w-4" /> Exportar Excel
-          </Button>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <Button onClick={handleExportExcel} disabled={loading || totalCount === 0} variant="outline" className="flex-grow sm:flex-grow-0 rounded-xl">
+              {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />} Exportar Excel
+            </Button>
+            <Button onClick={handleExportPdf} disabled={loading || totalCount === 0} variant="outline" className="flex-grow sm:flex-grow-0 rounded-xl">
+              {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />} PDF
+            </Button>
+          </div>
         </div>
 
         <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 md:p-6 space-y-4 shadow-xl border border-white/5 relative z-20">

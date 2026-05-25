@@ -591,10 +591,11 @@ const FinanceiroForm = ({ type }) => {
       !unmask(formData.cnpj_cpf || '')?.trim() ||
       !formData.issue_date ||
       !formData.description?.trim() ||
+      !formData.cost_center?.trim() ||
       parsedTotalValue <= 0) {
       toast({
         title: 'Campos obrigatórios',
-        description: 'Preencha todos os campos obrigatórios (Nº Doc, Cliente/Fornecedor, CNPJ/CPF, Descrição, Valor Total).',
+        description: 'Preencha todos os campos obrigatórios (Nº Doc, Cliente/Fornecedor, CNPJ/CPF, Descrição, Centro de Custo, Valor Total).',
         variant: 'destructive'
       });
       return;
@@ -639,7 +640,7 @@ const FinanceiroForm = ({ type }) => {
       cnpj_cpf: unmask(formData.cnpj_cpf || '') || null,
       description: formData.description || '',
       payment_method: formData.payment_method || 'pix',
-      cost_center: formData.cost_center || null,
+      cost_center: formData.cost_center?.trim() || null,
       notes: formData.notes || '',
       user_id: user?.id || null,
       issue_date: format(formData.issue_date, 'yyyy-MM-dd'),

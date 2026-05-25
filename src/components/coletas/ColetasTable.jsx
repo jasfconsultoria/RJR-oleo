@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Table,
@@ -21,7 +21,8 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { Loader2, Edit, Trash2, FileText, ChevronUp, ChevronDown } from 'lucide-react';
+import { Loader2, Edit, Trash2, FileText, ChevronUp, ChevronDown, Clock } from 'lucide-react';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { formatCurrency, formatNumber, cn, formatCnpjCpf } from '@/lib/utils';
@@ -90,11 +91,17 @@ const ColetasTable = ({
   requestSort,
   handleOpenRecibo,
   handleDelete,
+  handleCollectorDeleteAttempt,
+  handleReviewDeleteRequest,
   totals,
-  timezone,
   loading,
+  userRole,
+  reviewSubmittingId,
 }) => {
   const navigate = useNavigate();
+  const [selectedReviewDecision, setSelectedReviewDecision] = useState('approved');
+  const isCollector = userRole === 'coletor';
+  const canReviewDelete = ['administrador', 'gerente', 'super_admin'].includes(userRole);
 
   const formatColetaDate = (dateString) => {
     if (!dateString) return 'N/A';
@@ -132,6 +139,8 @@ const ColetasTable = ({
               coletas.map((coleta) => {
                 const statusInfo = getStatusBadge(coleta);
                 const isCompra = coleta.tipo_coleta === 'Compra';
+                const isDeletePending = coleta.delete_request_status === 'pending';
+                const isReviewSubmitting = reviewSubmittingId?.startsWith(`${coleta.delete_request_id}-`);
                 const valueOrDelivered = isCompra
                   ? formatCurrency(coleta.total_pago || 0)
                   : `${formatNumber(coleta.quantidade_entregue || 0)} Unidades`;
@@ -152,9 +161,17 @@ const ColetasTable = ({
                     <TableCell data-label="Qtd. Coletada (kg)">{formatNumber(coleta.quantidade_coletada)}</TableCell>
                     <TableCell data-label="Valor/Entregue">{valueOrDelivered}</TableCell>
                     <TableCell data-label="Status">
-                      <span className={`px-2 py-1 rounded-xl text-xs font-semibold ${statusInfo.className}`}>
-                        {statusInfo.text}
-                      </span>
+                      <div className="flex flex-col items-start gap-1">
+                        <span className={`px-2 py-1 rounded-xl text-xs font-semibold ${statusInfo.className}`}>
+                          {statusInfo.text}
+                        </span>
+                        {isDeletePending && (
+                          <span className="px-2 py-1 rounded-xl text-xs font-semibold bg-yellow-500/20 text-yellow-300 flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            Exclusão pendente
+                          </span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="text-right actions-cell">
                       <div className="flex justify-end items-center gap-1">
@@ -176,32 +193,104 @@ const ColetasTable = ({
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="text-red-400 hover:text-red-300 rounded-xl"
-                              title="Excluir Coleta"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent className="bg-emerald-900 border-emerald-700 text-white rounded-xl">
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
-                              <AlertDialogDescription className="text-emerald-300">
-                                Esta ação não pode ser desfeita. Isso deletará permanentemente a coleta Nº {String(coleta.numero_coleta).padStart(6, '0')}, bem como todos os lançamentos financeiros e movimentações de estoque associados.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel className="border-gray-500 text-gray-300 rounded-xl">Cancelar</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => handleDelete(coleta.id)} className="bg-red-500 hover:bg-red-600 rounded-xl">
-                                Deletar
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                        {isDeletePending && canReviewDelete && (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-yellow-400 hover:text-yellow-300 rounded-xl"
+                                title="Revisar solicitação de exclusão"
+                                disabled={isReviewSubmitting}
+                                onClick={() => setSelectedReviewDecision('approved')}
+                              >
+                                {isReviewSubmitting ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent className="bg-emerald-900 border-emerald-700 text-white rounded-xl">
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Revisar solicitação de exclusão</AlertDialogTitle>
+                                <AlertDialogDescription className="text-emerald-300">
+                                  Coleta Nº {String(coleta.numero_coleta).padStart(6, '0')}. Motivo informado: {coleta.delete_request_motivo || 'Não informado'}.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <RadioGroup
+                                value={selectedReviewDecision}
+                                onValueChange={setSelectedReviewDecision}
+                                className="space-y-3"
+                              >
+                                <label className="flex items-center gap-3 rounded-xl border border-emerald-700/70 bg-emerald-950/40 p-3 text-sm text-emerald-50 cursor-pointer">
+                                  <RadioGroupItem value="approved" className="border-emerald-300 text-emerald-300" />
+                                  <span>Aprovar exclusão</span>
+                                </label>
+                                <label className="flex items-center gap-3 rounded-xl border border-emerald-700/70 bg-emerald-950/40 p-3 text-sm text-emerald-50 cursor-pointer">
+                                  <RadioGroupItem value="rejected" className="border-red-300 text-red-300" />
+                                  <span>Rejeitar solicitação</span>
+                                </label>
+                              </RadioGroup>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel className="border-gray-500 text-gray-300 rounded-xl">Cancelar</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleReviewDeleteRequest(coleta, selectedReviewDecision)}
+                                  className="bg-emerald-600 hover:bg-emerald-700 rounded-xl"
+                                >
+                                  Confirmar
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        )}
+                        {isDeletePending && isCollector && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-yellow-300 rounded-xl cursor-not-allowed opacity-70"
+                            title="Exclusão pendente de aprovação"
+                            disabled
+                          >
+                            <Clock className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {!isDeletePending && (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-red-400 hover:text-red-300 rounded-xl"
+                                title="Excluir Coleta"
+                                onClick={() => {
+                                  if (isCollector) {
+                                    handleCollectorDeleteAttempt?.(coleta);
+                                  }
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent className="bg-emerald-900 border-emerald-700 text-white rounded-xl">
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>{isCollector ? 'Deseja realmente excluir essa coleta ?' : 'Você tem certeza?'}</AlertDialogTitle>
+                                <AlertDialogDescription className="text-emerald-300">
+                                  {isCollector
+                                    ? `Ao confirmar, você deverá informar o motivo. A coleta Nº ${String(coleta.numero_coleta).padStart(6, '0')} ficará pendente para aprovação do Administrador.`
+                                    : `Esta ação não pode ser desfeita. Isso deletará permanentemente a coleta Nº ${String(coleta.numero_coleta).padStart(6, '0')}, bem como todos os lançamentos financeiros e movimentações de estoque associados.`
+                                  }
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel className="border-gray-500 text-gray-300 rounded-xl">Cancelar</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleDelete(coleta.id)} className="bg-red-500 hover:bg-red-600 rounded-xl">
+                                  {isCollector ? 'Sim, informar motivo' : 'Deletar'}
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>

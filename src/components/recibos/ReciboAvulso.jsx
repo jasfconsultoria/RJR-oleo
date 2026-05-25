@@ -37,6 +37,22 @@ const formatDisplayDate = (dateInput) => {
     }
 };
 
+const RECIBO_AVULSO_LEGAL_NOTICE = 'Qualquer inclusão no recibo de má fé por parte do emissor ou do prestador de serviço sendo o mesmo conivente com a ação a empresa tomará as medidas legais cabíveis bem como o ressarcimento integral de eventuais prejuízos causados à empresa.';
+
+const formatPhoneNumber = (phone) => {
+    if (!phone) return '';
+
+    const digits = String(phone).replace(/\D/g, '');
+    if (digits.length === 11) {
+        return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+    }
+    if (digits.length === 10) {
+        return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+    }
+
+    return phone;
+};
+
 export const ReciboAvulso = React.forwardRef(({ data, signature, empresa, timezone, hideHeader = false }, ref) => {
     const { fetchMunicipiosByCodes } = useLocationData();
     const [resolvedMunicipios, setResolvedMunicipios] = useState({});
@@ -202,6 +218,7 @@ export const ReciboAvulso = React.forwardRef(({ data, signature, empresa, timezo
 
                         return displayEndereco || '____________________________________________________________';
                     })()}</strong>,
+                    telefone <strong>{data.pessoa_telefone ? formatPhoneNumber(data.pessoa_telefone) : '_________________'}</strong>,
                 </p>
 
                 <p>
@@ -242,6 +259,11 @@ export const ReciboAvulso = React.forwardRef(({ data, signature, empresa, timezo
                         <p className="text-sm">Nome: <strong>{data.pessoa_nome || '__________________________________'}</strong></p>
                         <p className="text-sm">CPF/CNPJ: <strong>{data.pessoa_cnpj_cpf ? formatCnpjCpf(data.pessoa_cnpj_cpf) : '_______________________________'}</strong></p>
                     </div>
+                </div>
+
+                <div className="mt-8 w-full rounded-md border border-gray-200 bg-gray-50 p-3 text-left text-xs leading-relaxed">
+                    <p className="font-bold">Observação:</p>
+                    <p>{RECIBO_AVULSO_LEGAL_NOTICE}</p>
                 </div>
             </footer>
         </div >

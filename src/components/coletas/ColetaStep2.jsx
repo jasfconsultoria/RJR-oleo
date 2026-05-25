@@ -18,7 +18,7 @@ export function ColetaStep2({ data, onBack, onNext, onUpdate, empresaTimezone })
 
   const lastPesoRef = React.useRef(data.quantidade_coletada);
 
-  // ✅ Auto-cálculo de recipientes coletados (1kg = 1.2L aprox, recipientes de 50L)
+  // Auto-cálculo de recipientes coletados (1kg = 1L aprox, recipientes de 50L)
   // Só dispara se o peso mudar, permitindo que o usuário altere manualmente depois sem ser sobrescrito pelo useEffect a cada render
   React.useEffect(() => {
     const pesoRaw = data.quantidade_coletada;
@@ -28,8 +28,7 @@ export function ColetaStep2({ data, onBack, onNext, onUpdate, empresaTimezone })
     const peso = parseCurrency(pesoRaw);
 
     if (peso > 0) {
-      // Usando fator 1.195 (média de 1.19 e 1.20)
-      const volumeLitros = peso * 1.195;
+      const volumeLitros = peso;
       const qtdRecipientes = Math.ceil(volumeLitros / 50);
       
       onUpdate({ 
@@ -160,7 +159,7 @@ export function ColetaStep2({ data, onBack, onNext, onUpdate, empresaTimezone })
                   </button>
                 </TooltipTrigger>
                 <TooltipContent className="bg-emerald-950 border border-emerald-500/50 text-emerald-50 max-w-xs text-sm font-normal z-50 p-3">
-                  <p>1 kg de óleo equivale a aproximadamente 1.2 litros.</p>
+                  <p>1 kg de óleo equivale a aproximadamente 1 litro.</p>
                   <p className="mt-1">O sistema converte o volume total e divide por 50L (capacidade do recipiente padrão), arredondando para cima para sugerir os recipientes coletados.</p>
                 </TooltipContent>
               </Tooltip>

@@ -137,6 +137,9 @@ async function getSupabaseClient(forceRefresh = false) {
         const headers = new Headers(options.headers || {});
         // 🌉 Injetamos o header de bypass que o banco passará a confiar após o SQL
         headers.set('x-admin-bypass', 'rjr_bridge_secure_bypass_2024');
+        if (currentUserId) {
+          headers.set('x-user-id', currentUserId);
+        }
         
         // 🛡️ CORREÇÃO STORAGE: O servidor de Storage exige o header Authorization sob pena de Erro 400.
         // Mesmo em bypass, precisamos enviar ALGO que o schema aceite. Usamos o anon_key do ambiente.
@@ -174,6 +177,9 @@ async function getSupabaseClient(forceRefresh = false) {
               console.log(`🔄 [SSO] Retentando chamada para ${targetUrl} usando Ponte de Bypass...`);
               const retryHeaders = new Headers(options.headers || {});
               retryHeaders.set('x-admin-bypass', 'rjr_bridge_secure_bypass_2024');
+              if (currentUserId) {
+                retryHeaders.set('x-user-id', currentUserId);
+              }
               retryHeaders.delete('Authorization');
               options.headers = retryHeaders;
               

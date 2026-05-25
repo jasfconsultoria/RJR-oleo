@@ -160,6 +160,7 @@ const CentroCustoSearchableSelect = ({
           className="pl-10 w-full bg-white/5 border-white/20 text-white placeholder:text-white/60 rounded-xl pr-10 h-9 text-xs"
           autoComplete="off"
           disabled={disabled || isLoading}
+          required={required}
         />
         {isLoading && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 animate-spin" />}
         {!isLoading && internalSearchTerm && (

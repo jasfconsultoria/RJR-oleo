@@ -5,7 +5,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Loader2, FileDown, Droplets, Truck, DollarSign, Repeat, BarChart2, Search } from 'lucide-react';
+import { Loader2, FileDown, FileText, Droplets, Truck, DollarSign, Repeat, BarChart2, Search } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { useLocationData } from '@/hooks/useLocationData';
 import { useProfile } from '@/contexts/ProfileContext';
@@ -19,6 +19,7 @@ import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Pagination } from '@/components/ui/pagination';
 import { UserSearchableSelect } from '@/components/ui/UserSearchableSelect';
+import { generateReportPdf, printPdfBlobUrl } from '@/lib/reportPdf';
 
 const RelatoriosPage = () => {
   const [reportData, setReportData] = useState([]);
@@ -97,7 +98,7 @@ const RelatoriosPage = () => {
       try {
         const [usuariosRes, empresaRes] = await Promise.all([
           supabase.rpc('get_all_users'),
-          supabase.from('empresa').select('items_per_page, timezone').single()
+          supabase.from('empresa').select('*').single()
         ]);
 
         if (usuariosRes.error) {
@@ -398,59 +399,57 @@ const RelatoriosPage = () => {
     loadMunicipios();
   }, [filters.estado, fetchMunicipios]);
 
-  const handleExportExcel = async () => {
-    if (totalCount === 0) {
-      toast({ title: 'Nenhum dado para exportar', variant: 'destructive' });
-      return;
+  const applyColetaFilters = (baseQuery) => {
+    let query = baseQuery;
+    if (filters.estado && filters.estado !== 'all') query = query.eq('estado', filters.estado);
+    if (filters.municipio && filters.municipio !== 'all') query = query.eq('municipio', filters.municipio);
+    if (filters.userId && filters.userId !== 'all') query = query.eq('user_id', filters.userId);
+    if (filters.tipoColeta && filters.tipoColeta !== 'all') query = query.eq('tipo_coleta', filters.tipoColeta);
+    if (filters.startDate) query = query.gte('data_coleta', filters.startDate);
+    if (filters.endDate) {
+      const endOfDayDate = format(endOfDay(parseISO(filters.endDate)), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx");
+      query = query.lte('data_coleta', endOfDayDate);
     }
+    return query;
+  };
 
-    setLoading(true);
+  const fetchAllFilteredColetas = async () => {
+    const batchSize = 1000;
+    let countQuery = supabase
+      .from('coletas')
+      .select('id', { count: 'exact', head: true });
+
+    countQuery = applyColetaFilters(countQuery);
+    const { count, error: countError } = await countQuery;
+    if (countError) throw countError;
+
     let allData = [];
-    const totalPagesToFetch = Math.ceil(totalCount / 500);
+    const serverCount = count || 0;
 
-    for (let i = 0; i < totalPagesToFetch; i++) {
-      const from = i * 500;
-      const to = from + 500 - 1;
-
+    for (let from = 0; from < serverCount; from += batchSize) {
       let query = supabase
         .from('coletas')
         .select('*, clientes:cliente_id(*)');
 
-      // Aplicar os mesmos filtros da consulta principal
-      if (filters.estado && filters.estado !== 'all') query = query.eq('estado', filters.estado);
-      if (filters.municipio && filters.municipio !== 'all') query = query.eq('municipio', filters.municipio);
-      if (filters.userId && filters.userId !== 'all') query = query.eq('user_id', filters.userId);
-      if (filters.tipoColeta && filters.tipoColeta !== 'all') query = query.eq('tipo_coleta', filters.tipoColeta);
-      if (filters.startDate) query = query.gte('data_coleta', filters.startDate);
-      if (filters.endDate) {
-        const endOfDayDate = format(endOfDay(parseISO(filters.endDate)), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx");
-        query = query.lte('data_coleta', endOfDayDate);
-      }
-
-      query = query.order('data_coleta', { ascending: false }).range(from, to);
+      query = applyColetaFilters(query)
+        .order('data_coleta', { ascending: false })
+        .range(from, from + batchSize - 1);
 
       const { data, error } = await query;
-      if (error) {
-        toast({ title: 'Erro ao exportar dados', description: error.message, variant: 'destructive' });
-        setLoading(false);
-        return;
-      }
-
-      // Aplicar filtro de cliente no client-side também para a exportação
-      let filteredData = data || [];
-      if (filters.clientSearchTerm) {
-        const searchTermLower = filters.clientSearchTerm.toLowerCase();
-        filteredData = filteredData.filter(item => {
-          const fullClientName = getFullClientName(item).toLowerCase();
-          return fullClientName.includes(searchTermLower);
-        });
-      }
-
-      allData = [...allData, ...filteredData];
+      if (error) throw error;
+      allData = [...allData, ...(data || [])];
     }
-    setLoading(false);
 
-    const dataToExport = allData.map(item => {
+    if (filters.clientSearchTerm) {
+      const searchTermLower = filters.clientSearchTerm.toLowerCase();
+      allData = allData.filter(item => getFullClientName(item).toLowerCase().includes(searchTermLower));
+    }
+
+    return allData;
+  };
+
+  const buildColetasExportRows = (allData) => {
+    return allData.map(item => {
       const dateObj = parseISO(item.data_coleta);
       const formattedDate = isValid(dateObj) ? format(dateObj, 'dd/MM/yyyy', { locale: ptBR }) : 'N/A';
       const clientDisplayName = getClientName(item);
@@ -468,11 +467,157 @@ const RelatoriosPage = () => {
         'Total Pago (R$)': item.tipo_coleta === 'Compra' ? formatCurrency(item.total_pago) : 'N/A',
       };
     });
+  };
 
-    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'RelatorioColetas');
-    XLSX.writeFile(workbook, 'Relatorio_Coletas.xlsx');
+  const calculateColetasTotals = (allData) => {
+    return allData.reduce((acc, item) => {
+      acc.totalColetas += 1;
+      acc.totalMassa += Number(item.quantidade_coletada) || 0;
+      if (item.tipo_coleta === 'Compra') {
+        acc.totalPago += Number(item.total_pago) || 0;
+      }
+      if (item.tipo_coleta === 'Troca' || item.tipo_coleta === 'Doação') {
+        acc.totalEntregue += Number(item.quantidade_entregue) || 0;
+      }
+      return acc;
+    }, { totalColetas: 0, totalMassa: 0, totalPago: 0, totalEntregue: 0 });
+  };
+
+  const buildColetasSubtotalsByType = (allData) => {
+    const subtotals = allData.reduce((acc, item) => {
+      const type = item.tipo_coleta || 'Não informado';
+      if (!acc[type]) {
+        acc[type] = { tipo: type, coletas: 0, massa: 0, pago: 0, entregue: 0 };
+      }
+      acc[type].coletas += 1;
+      acc[type].massa += Number(item.quantidade_coletada) || 0;
+      if (item.tipo_coleta === 'Compra') acc[type].pago += Number(item.total_pago) || 0;
+      if (item.tipo_coleta === 'Troca' || item.tipo_coleta === 'Doação') acc[type].entregue += Number(item.quantidade_entregue) || 0;
+      return acc;
+    }, {});
+
+    return Object.values(subtotals).sort((a, b) => a.tipo.localeCompare(b.tipo));
+  };
+
+  const formatDateFilter = (value) => {
+    if (!value) return 'Todos';
+    const dateObj = parseISO(value);
+    return isValid(dateObj) ? format(dateObj, 'dd/MM/yyyy', { locale: ptBR }) : value;
+  };
+
+  const handleExportExcel = async () => {
+    if (totalCount === 0) {
+      toast({ title: 'Nenhum dado para exportar', variant: 'destructive' });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const allData = await fetchAllFilteredColetas();
+      const dataToExport = buildColetasExportRows(allData);
+
+      const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'RelatorioColetas');
+      XLSX.writeFile(workbook, 'Relatorio_Coletas.xlsx');
+
+      toast({
+        title: 'Exportação concluída',
+        description: `Relatório exportado com ${dataToExport.length} registros.`,
+        variant: 'default'
+      });
+    } catch (error) {
+      toast({ title: 'Erro ao exportar dados', description: error.message, variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleExportPdf = async () => {
+    if (totalCount === 0) {
+      toast({ title: 'Nenhum dado para exportar', variant: 'destructive' });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const allData = await fetchAllFilteredColetas();
+      const totals = calculateColetasTotals(allData);
+      const typeSubtotals = buildColetasSubtotalsByType(allData);
+      const selectedMunicipio = municipioOptions.find(option => option.value === filters.municipio)?.label || 'Todos os Municípios';
+      const selectedUser = usuarios.find(user => user.id === filters.userId)?.full_name || 'Todos os Usuários';
+
+      const pdfUrl = await generateReportPdf({
+        title: 'Relatório de Coletas',
+        subtitle: 'Coletas realizadas com subtotais por tipo e totais do período.',
+        fileName: `Relatorio_Coletas_${format(new Date(), 'yyyyMMdd_HHmm')}.pdf`,
+        company: empresa,
+        filters: [
+          { label: 'Data início', value: formatDateFilter(filters.startDate) },
+          { label: 'Data fim', value: formatDateFilter(filters.endDate) },
+          { label: 'Estado', value: filters.estado && filters.estado !== 'all' ? filters.estado : 'Todos os Estados' },
+          { label: 'Município', value: selectedMunicipio },
+          { label: 'Cliente', value: filters.clientSearchTerm || 'Todos os Clientes' },
+          { label: 'Usuário', value: selectedUser },
+          { label: 'Tipo de Coleta', value: filters.tipoColeta && filters.tipoColeta !== 'all' ? filters.tipoColeta : 'Todos os Tipos' },
+        ],
+        summaryItems: [
+          { label: 'Total de Coletas', value: totals.totalColetas },
+          { label: 'Massa Total Coletada', value: `${formatNumber(totals.totalMassa)} kg` },
+          { label: 'Total Pago (Compras)', value: formatCurrency(totals.totalPago) },
+          { label: 'Total Entregue', value: `${formatNumber(totals.totalEntregue, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} Unidades` },
+        ],
+        subtotalTables: [
+          {
+            title: 'Subtotais por Tipo de Coleta',
+            columns: [
+              { header: 'Tipo', accessor: 'tipo', width: 45 },
+              { header: 'Coletas', accessor: 'coletas', width: 28, align: 'right' },
+              { header: 'Massa (kg)', accessor: row => formatNumber(row.massa), width: 35, align: 'right' },
+              { header: 'Total Pago', accessor: row => formatCurrency(row.pago), width: 38, align: 'right' },
+              { header: 'Entregue', accessor: row => `${formatNumber(row.entregue, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} Unid.`, width: 38, align: 'right' },
+            ],
+            rows: typeSubtotals,
+          },
+        ],
+        columns: [
+          { header: 'Data', accessor: 'data', width: 20 },
+          { header: 'Cliente', accessor: 'cliente', width: 58 },
+          { header: 'Usuário', accessor: 'usuario', width: 38 },
+          { header: 'Local', accessor: 'local', width: 32 },
+          { header: 'Tipo', accessor: 'tipo', width: 22 },
+          { header: 'Qtd. (kg)', accessor: 'quantidade', width: 24, align: 'right' },
+          { header: 'Valor/Entregue', accessor: 'valorEntregue', width: 34, align: 'right' },
+        ],
+        rows: allData.map(item => {
+          const dateObj = parseISO(item.data_coleta);
+          const formattedDate = isValid(dateObj) ? format(dateObj, 'dd/MM/yyyy', { locale: ptBR }) : 'N/A';
+          return {
+            data: formattedDate,
+            cliente: getClientName(item),
+            usuario: getUserName(item),
+            local: `${getMunicipioLabel(item)}, ${item.estado || 'N/A'}`,
+            tipo: item.tipo_coleta || 'N/A',
+            quantidade: formatNumber(item.quantidade_coletada),
+            valorEntregue: (item.tipo_coleta === 'Troca' || item.tipo_coleta === 'Doação')
+              ? `${formatNumber(item.quantidade_entregue, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} Unidades`
+              : formatCurrency(item.total_pago),
+          };
+        }),
+        output: 'bloburl',
+      });
+      printPdfBlobUrl(pdfUrl);
+
+      toast({
+        title: 'PDF enviado para impressão',
+        description: `Relatório gerado com ${allData.length} registros.`,
+        variant: 'default'
+      });
+    } catch (error) {
+      toast({ title: 'Erro ao gerar PDF', description: error.message, variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   // ✅ CORREÇÃO: Remover cálculo dos totais da página (não é mais necessário)
@@ -494,6 +639,9 @@ const RelatoriosPage = () => {
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <Button onClick={handleExportExcel} disabled={totalCount === 0 || loading} variant="outline" className="flex-grow sm:flex-grow-0 rounded-xl">
               {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />} Exportar
+            </Button>
+            <Button onClick={handleExportPdf} disabled={totalCount === 0 || loading} variant="outline" className="flex-grow sm:flex-grow-0 rounded-xl">
+              {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />} PDF
             </Button>
           </div>
         </div>

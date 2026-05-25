@@ -5,7 +5,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Loader2, FileDown, FileSignature, Calendar, MapPin, Search, AlertTriangle, CheckCircle2, ChevronDown, Clock } from 'lucide-react';
+import { Loader2, FileDown, FileText, FileSignature, Calendar, MapPin, Search, AlertTriangle, CheckCircle2, ChevronDown, Clock } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import * as XLSX from 'xlsx';
@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { Pagination } from '@/components/ui/pagination';
 import { formatCnpjCpf } from '@/lib/utils';
+import { generateReportPdf, printPdfBlobUrl } from '@/lib/reportPdf';
 
 const RelatorioContratosPage = () => {
   const [reportData, setReportData] = useState([]);
@@ -35,6 +36,7 @@ const RelatorioContratosPage = () => {
   const [totalCount, setTotalCount] = useState(0);
   const [itemsPerPage, setItemsPerPage] = useState(25);
   const [municipioMap, setMunicipioMap] = useState({});
+  const [empresa, setEmpresa] = useState(null);
 
   const fetchFiltersData = useCallback(async () => {
     try {
@@ -99,9 +101,10 @@ const RelatorioContratosPage = () => {
 
   const fetchCompanySettings = useCallback(async () => {
     try {
-      const { data, error } = await supabase.from('empresa').select('items_per_page').single();
+      const { data, error } = await supabase.from('empresa').select('*').single();
       if (error) throw error;
       if (data?.items_per_page) setItemsPerPage(data.items_per_page);
+      setEmpresa(data);
     } catch (error) {
       console.error("Erro ao buscar configurações da empresa:", error);
     }
@@ -119,6 +122,45 @@ const RelatorioContratosPage = () => {
   const availableStatus = useMemo(() => {
     return [...new Set(allData.map(c => c.status))].filter(Boolean).sort();
   }, [allData]);
+
+  const getFilteredContratos = useCallback((sourceData = allData) => {
+    let filtered = sourceData;
+
+    if (debouncedFilters.searchTerm) {
+      const termo = debouncedFilters.searchTerm.toLowerCase();
+      filtered = filtered.filter(item =>
+        item.numero_contrato?.toLowerCase().includes(termo) ||
+        item.pessoa?.razao_social?.toLowerCase().includes(termo) ||
+        item.pessoa?.nome_fantasia?.toLowerCase().includes(termo) ||
+        item.pessoa?.cnpj_cpf?.toLowerCase().includes(termo)
+      );
+    }
+
+    if (debouncedFilters.estado !== 'todos') {
+      filtered = filtered.filter(item => item.pessoa?.estado === debouncedFilters.estado);
+    }
+
+    if (debouncedFilters.municipio !== 'todos') {
+      filtered = filtered.filter(item => item.pessoa?.municipio === debouncedFilters.municipio);
+    }
+
+    if (debouncedFilters.statusVencimento === 'vencidos') {
+      filtered = filtered.filter(item => item.dias_vencimento !== null && item.dias_vencimento < 0);
+    } else if (debouncedFilters.statusVencimento === 'vencendo_hoje') {
+      filtered = filtered.filter(item => item.dias_vencimento === 0);
+    } else if (debouncedFilters.statusVencimento.startsWith('a_vencer_')) {
+      const diasLimites = parseInt(debouncedFilters.statusVencimento.split('_')[2], 10);
+      filtered = filtered.filter(item => item.dias_vencimento !== null && item.dias_vencimento > 0 && item.dias_vencimento <= diasLimites);
+    } else if (debouncedFilters.statusVencimento === 'indeterminado') {
+      filtered = filtered.filter(item => item.dias_vencimento === null);
+    }
+
+    if (debouncedFilters.statusContrato !== 'todos') {
+      filtered = filtered.filter(item => item.status === debouncedFilters.statusContrato);
+    }
+
+    return filtered;
+  }, [allData, debouncedFilters]);
 
   const fetchReportData = useCallback(async () => {
     setLoading(true);
@@ -171,45 +213,7 @@ const RelatorioContratosPage = () => {
 
   // Aplicar Filtros no front-end
   useEffect(() => {
-    let filtered = allData;
-
-    // Filtro de Busca
-    if (debouncedFilters.searchTerm) {
-      const termo = debouncedFilters.searchTerm.toLowerCase();
-      filtered = filtered.filter(item => 
-        item.numero_contrato?.toLowerCase().includes(termo) ||
-        item.pessoa?.razao_social?.toLowerCase().includes(termo) ||
-        item.pessoa?.nome_fantasia?.toLowerCase().includes(termo) ||
-        item.pessoa?.cnpj_cpf?.toLowerCase().includes(termo)
-      );
-    }
-
-    // Filtro Estado
-    if (debouncedFilters.estado !== 'todos') {
-      filtered = filtered.filter(item => item.pessoa?.estado === debouncedFilters.estado);
-    }
-
-    // Filtro Município
-    if (debouncedFilters.municipio !== 'todos') {
-      filtered = filtered.filter(item => item.pessoa?.municipio === debouncedFilters.municipio);
-    }
-
-    // Filtro Prazo de Vencimento
-    if (debouncedFilters.statusVencimento === 'vencidos') {
-      filtered = filtered.filter(item => item.dias_vencimento !== null && item.dias_vencimento < 0);
-    } else if (debouncedFilters.statusVencimento === 'vencendo_hoje') {
-      filtered = filtered.filter(item => item.dias_vencimento === 0);
-    } else if (debouncedFilters.statusVencimento.startsWith('a_vencer_')) {
-      const diasLimites = parseInt(debouncedFilters.statusVencimento.split('_')[2], 10);
-      filtered = filtered.filter(item => item.dias_vencimento !== null && item.dias_vencimento > 0 && item.dias_vencimento <= diasLimites);
-    } else if (debouncedFilters.statusVencimento === 'indeterminado') {
-      filtered = filtered.filter(item => item.dias_vencimento === null);
-    }
-
-    // Filtro Status Contrato
-    if (debouncedFilters.statusContrato !== 'todos') {
-      filtered = filtered.filter(item => item.status === debouncedFilters.statusContrato);
-    }
+    const filtered = getFilteredContratos();
 
     setTotalCount(filtered.length);
     
@@ -218,7 +222,7 @@ const RelatorioContratosPage = () => {
     const to = from + itemsPerPage;
     setReportData(filtered.slice(from, to));
 
-  }, [allData, debouncedFilters, currentPage, itemsPerPage]);
+  }, [getFilteredContratos, currentPage, itemsPerPage]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -235,29 +239,153 @@ const RelatorioContratosPage = () => {
     return { total, vigentes, vencidos, aguardando };
   }, [allData]);
 
+  const formatContractDate = (value) => {
+    if (!value) return 'N/A';
+    const date = parseISO(value);
+    return isNaN(date) ? 'N/A' : format(date, 'dd/MM/yyyy');
+  };
+
+  const getVencimentoText = (item) => {
+    if (item.dias_vencimento === null) return 'Indeterminado';
+    if (item.dias_vencimento < 0) return `Vencido há ${Math.abs(item.dias_vencimento)} dias`;
+    if (item.dias_vencimento === 0) return 'Vence hoje';
+    return `Vence em ${item.dias_vencimento} dias`;
+  };
+
+  const getStatusVencimentoLabel = (value) => {
+    const labels = {
+      todos: 'Todos',
+      vencidos: 'Vencidos',
+      vencendo_hoje: 'Vence Hoje',
+      a_vencer_15: 'Vence em até 15 Dias',
+      a_vencer_30: 'Vence em até 30 Dias',
+      a_vencer_60: 'Vence em até 60 Dias',
+      a_vencer_90: 'Vence em até 90 Dias',
+      indeterminado: 'Prazo Indeterminado',
+    };
+    return labels[value] || value;
+  };
+
+  const buildContratoExportRows = (data) => data.map(item => ({
+    'Nº Contrato': item.numero_contrato,
+    'Cliente': item.pessoa?.nome_fantasia || item.pessoa?.razao_social || 'N/A',
+    'Cidade': municipioMap[item.pessoa?.municipio] || item.pessoa?.municipio || 'N/A',
+    'UF': item.pessoa?.estado || 'N/A',
+    'Data Início': formatContractDate(item.data_inicio),
+    'Data Fim': formatContractDate(item.data_fim),
+    'Status': item.status,
+    'Situação (Vencimento)': getVencimentoText(item)
+  }));
+
+  const buildContratoSubtotals = (data, key, labelGetter) => {
+    const subtotals = data.reduce((acc, item) => {
+      const rawValue = typeof key === 'function' ? key(item) : item[key];
+      const label = labelGetter ? labelGetter(rawValue) : rawValue;
+      const safeLabel = label || 'Não informado';
+      acc[safeLabel] = (acc[safeLabel] || 0) + 1;
+      return acc;
+    }, {});
+
+    return Object.entries(subtotals)
+      .map(([label, quantidade]) => ({ label, quantidade }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  };
+
   const handleExportExcel = () => {
-    if (reportData.length === 0) {
+    const filteredData = getFilteredContratos();
+    if (filteredData.length === 0) {
       toast({ title: 'Nenhum dado para exportar', variant: 'destructive' });
       return;
     }
 
-    const dataToExport = reportData.map(item => ({
-      'Nº Contrato': item.numero_contrato,
-      'Cliente': item.pessoa?.nome_fantasia || item.pessoa?.razao_social || 'N/A',
-      'Cidade': municipioMap[item.pessoa?.municipio] || item.pessoa?.municipio || 'N/A',
-      'UF': item.pessoa?.estado || 'N/A',
-      'Data Início': format(parseISO(item.data_inicio), 'dd/MM/yyyy'),
-      'Data Fim': format(parseISO(item.data_fim), 'dd/MM/yyyy'),
-      'Status': item.status,
-      'Situação (Vencimento)': item.dias_vencimento < 0 
-        ? `Vencido há ${Math.abs(item.dias_vencimento)} dias`
-        : `Vence em ${item.dias_vencimento} dias`
-    }));
+    const dataToExport = buildContratoExportRows(filteredData);
 
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Contratos');
     XLSX.writeFile(workbook, `Relatorio_Contratos_${format(new Date(), 'yyyyMMdd')}.xlsx`);
+  };
+
+  const handleExportPdf = async () => {
+    const filteredData = getFilteredContratos();
+    if (filteredData.length === 0) {
+      toast({ title: 'Nenhum dado para exportar', variant: 'destructive' });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const totalVigentes = filteredData.filter(item => (item.dias_vencimento === null || item.dias_vencimento >= 0) && item.status === 'Ativo').length;
+      const totalVencidos = filteredData.filter(item => item.dias_vencimento !== null && item.dias_vencimento < 0).length;
+      const totalAguardando = filteredData.filter(item => item.status === 'Aguardando Assinatura').length;
+      const pdfUrl = await generateReportPdf({
+        title: 'Relatório de Contratos',
+        subtitle: 'Análise de contratos vencidos, vigentes e a vencer.',
+        fileName: `Relatorio_Contratos_${format(new Date(), 'yyyyMMdd_HHmm')}.pdf`,
+        company: empresa,
+        filters: [
+          { label: 'Estado', value: filters.estado === 'todos' ? 'Todos' : filters.estado },
+          { label: 'Município', value: filters.municipio === 'todos' ? 'Todos' : municipioMap[filters.municipio] || filters.municipio },
+          { label: 'Busca', value: filters.searchTerm || 'Todos' },
+          { label: 'Status', value: filters.statusContrato === 'todos' ? 'Todos' : filters.statusContrato },
+          { label: 'Prazo', value: getStatusVencimentoLabel(filters.statusVencimento) },
+        ],
+        summaryItems: [
+          { label: 'Total de Contratos', value: filteredData.length },
+          { label: 'Contratos Vigentes', value: totalVigentes },
+          { label: 'Contratos Vencidos', value: totalVencidos },
+          { label: 'Ag. Assinatura', value: totalAguardando },
+        ],
+        subtotalTables: [
+          {
+            title: 'Subtotais por Status do Contrato',
+            columns: [
+              { header: 'Status', accessor: 'label', width: 65 },
+              { header: 'Contratos', accessor: 'quantidade', width: 32, align: 'right' },
+            ],
+            rows: buildContratoSubtotals(filteredData, 'status'),
+          },
+          {
+            title: 'Subtotais por Situação de Vencimento',
+            columns: [
+              { header: 'Situação', accessor: 'label', width: 75 },
+              { header: 'Contratos', accessor: 'quantidade', width: 32, align: 'right' },
+            ],
+            rows: buildContratoSubtotals(filteredData, getVencimentoText),
+          },
+        ],
+        columns: [
+          { header: 'Nº Contrato', accessor: 'numero', width: 28 },
+          { header: 'Cliente', accessor: 'cliente', width: 68 },
+          { header: 'Localidade', accessor: 'localidade', width: 38 },
+          { header: 'Início', accessor: 'inicio', width: 22 },
+          { header: 'Fim', accessor: 'fim', width: 22 },
+          { header: 'Status', accessor: 'status', width: 34 },
+          { header: 'Vencimento', accessor: 'vencimento', width: 42 },
+        ],
+        rows: filteredData.map(item => ({
+          numero: item.numero_contrato || 'N/A',
+          cliente: item.pessoa?.nome_fantasia || item.pessoa?.razao_social || 'Cliente não encontrado',
+          localidade: item.pessoa ? `${municipioMap[item.pessoa.municipio] || item.pessoa.municipio || 'N/A'}, ${item.pessoa.estado || 'N/A'}` : 'N/A',
+          inicio: formatContractDate(item.data_inicio),
+          fim: formatContractDate(item.data_fim),
+          status: item.status || 'N/A',
+          vencimento: getVencimentoText(item),
+        })),
+        output: 'bloburl',
+      });
+
+      printPdfBlobUrl(pdfUrl);
+      toast({
+        title: 'PDF enviado para impressão',
+        description: `Relatório gerado com ${filteredData.length} registros.`,
+        variant: 'default'
+      });
+    } catch (error) {
+      toast({ title: 'Erro ao gerar PDF', description: error.message, variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const totalPages = Math.ceil(totalCount / itemsPerPage);
@@ -273,9 +401,14 @@ const RelatorioContratosPage = () => {
             </h1>
             <p className="text-emerald-200/80 mt-1">Análise de contratos vencidos e a vencer.</p>
           </div>
-          <Button onClick={handleExportExcel} disabled={loading || reportData.length === 0} variant="outline" className="rounded-xl">
-            <FileDown className="mr-2 h-4 w-4" /> Exportar Excel
-          </Button>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <Button onClick={handleExportExcel} disabled={loading || totalCount === 0} variant="outline" className="flex-grow sm:flex-grow-0 rounded-xl">
+              {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />} Exportar Excel
+            </Button>
+            <Button onClick={handleExportPdf} disabled={loading || totalCount === 0} variant="outline" className="flex-grow sm:flex-grow-0 rounded-xl">
+              {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />} PDF
+            </Button>
+          </div>
         </div>
 
         <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 md:p-6 space-y-4 shadow-xl border border-white/5 relative z-20">

@@ -9,12 +9,15 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { useProfile } from '@/contexts/ProfileContext';
 import ColetasFilters from '@/components/coletas/ColetasFilters';
 import ColetasTable from '@/components/coletas/ColetasTable';
-import { startOfMonth, format, endOfDay, parseISO, endOfMonth } from 'date-fns';
+import { format, endOfDay, parseISO } from 'date-fns';
 import { logAction } from '@/lib/logger';
 import { Pagination } from '@/components/ui/pagination';
 import { useDebounce } from '@/hooks/useDebounce';
 import { ReciboViewDialog } from '@/components/coletas/ReciboViewDialog';
 import { escapePostgrestLikePattern, getZonedStartOfMonth, getZonedEndOfMonth } from '@/lib/utils';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 
 const ListaColetas = () => {
   const [coletas, setColetas] = useState([]);
@@ -30,6 +33,11 @@ const ListaColetas = () => {
 
   const [reciboModalOpen, setReciboModalOpen] = useState(false);
   const [selectedColeta, setSelectedColeta] = useState(null);
+  const [deleteRequestDialogOpen, setDeleteRequestDialogOpen] = useState(false);
+  const [deleteRequestColeta, setDeleteRequestColeta] = useState(null);
+  const [deleteRequestMotivo, setDeleteRequestMotivo] = useState('');
+  const [deleteRequestSubmitting, setDeleteRequestSubmitting] = useState(false);
+  const [reviewSubmittingId, setReviewSubmittingId] = useState(null);
   const [empresa, setEmpresa] = useState({
     items_per_page: 25,
     timezone: 'America/Sao_Paulo',
@@ -222,9 +230,39 @@ const ListaColetas = () => {
     }
   }, [clienteId]);
 
+  const handleCollectorDeleteAttempt = (coleta) => {
+    if (coleta?.delete_request_status === 'pending') {
+      toast({
+        title: 'Solicitação já enviada',
+        description: 'Esta coleta já está aguardando aprovação do Administrador.',
+      });
+      return;
+    }
+
+    toast({
+      title: 'Exclusão restrita',
+      description: 'Solicite ao Administrador que efetue a exclusão.',
+    });
+  };
+
   const handleDelete = async (coletaId) => {
     const coletaToDelete = coletas.find(c => c.id === coletaId);
     if (!coletaToDelete) return;
+
+    if (userRole === 'coletor') {
+      if (coletaToDelete.delete_request_status === 'pending') {
+        toast({
+          title: 'Solicitação já enviada',
+          description: 'Esta coleta já está aguardando aprovação do Administrador.',
+        });
+        return;
+      }
+
+      setDeleteRequestColeta(coletaToDelete);
+      setDeleteRequestMotivo('');
+      setDeleteRequestDialogOpen(true);
+      return;
+    }
 
     const { error } = await supabase.from('coletas').delete().eq('id', coletaId);
 
@@ -235,6 +273,93 @@ const ListaColetas = () => {
       toast({ title: 'Coleta excluída!', description: 'A coleta foi removida com sucesso.' });
       await logAction('delete_coleta_success', { coleta_id: coletaId, numero_coleta: coletaToDelete.numero_coleta });
       refreshColetasData();
+    }
+  };
+
+  const handleSubmitDeleteRequest = async () => {
+    if (!deleteRequestColeta) return;
+
+    if (deleteRequestMotivo.trim().length < 5) {
+      toast({
+        title: 'Motivo obrigatório',
+        description: 'Informe um motivo com pelo menos 5 caracteres.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setDeleteRequestSubmitting(true);
+
+    try {
+      const { error } = await supabase.rpc('request_coleta_delete', {
+        p_coleta_id: deleteRequestColeta.id,
+        p_motivo: deleteRequestMotivo.trim(),
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: 'Solicitação enviada',
+        description: 'A coleta ficou marcada como pendente para aprovação do Administrador.',
+      });
+      await logAction('request_delete_coleta_success', {
+        coleta_id: deleteRequestColeta.id,
+        numero_coleta: deleteRequestColeta.numero_coleta,
+      });
+      setDeleteRequestDialogOpen(false);
+      setDeleteRequestColeta(null);
+      setDeleteRequestMotivo('');
+      refreshColetasData();
+    } catch (error) {
+      toast({
+        title: 'Erro ao solicitar exclusão',
+        description: error.message,
+        variant: 'destructive',
+      });
+      await logAction('request_delete_coleta_failed', {
+        error: error.message,
+        coleta_id: deleteRequestColeta.id,
+        numero_coleta: deleteRequestColeta.numero_coleta,
+      });
+    } finally {
+      setDeleteRequestSubmitting(false);
+    }
+  };
+
+  const handleReviewDeleteRequest = async (coleta, decision) => {
+    if (!coleta?.delete_request_id) return;
+
+    const submittingKey = `${coleta.delete_request_id}-${decision}`;
+    setReviewSubmittingId(submittingKey);
+
+    try {
+      const { error } = await supabase.rpc('review_coleta_delete_request', {
+        p_request_id: coleta.delete_request_id,
+        p_decision: decision,
+        p_observacao: null,
+      });
+
+      if (error) throw error;
+
+      const approved = decision === 'approved';
+      toast({
+        title: approved ? 'Exclusão aprovada' : 'Exclusão rejeitada',
+        description: approved ? 'A coleta foi excluída com sucesso.' : 'A coleta foi mantida na lista.',
+      });
+      await logAction(approved ? 'approve_delete_coleta_request' : 'reject_delete_coleta_request', {
+        coleta_id: coleta.id,
+        numero_coleta: coleta.numero_coleta,
+        request_id: coleta.delete_request_id,
+      });
+      refreshColetasData();
+    } catch (error) {
+      toast({
+        title: 'Erro ao revisar solicitação',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setReviewSubmittingId(null);
     }
   };
 
@@ -339,9 +464,11 @@ const ListaColetas = () => {
             requestSort={requestSort}
             handleOpenRecibo={handleReciboAction}
             handleDelete={handleDelete}
+            handleCollectorDeleteAttempt={handleCollectorDeleteAttempt}
+            handleReviewDeleteRequest={handleReviewDeleteRequest}
             totals={periodTotals}
-            timezone={empresa?.timezone}
             loading={loading}
+            reviewSubmittingId={reviewSubmittingId}
             // ✅ NOVO: Passar informações do perfil para a tabela
             userRole={userRole}
           />
@@ -368,6 +495,48 @@ const ListaColetas = () => {
             }}
           />
         )}
+        <Dialog open={deleteRequestDialogOpen} onOpenChange={setDeleteRequestDialogOpen}>
+          <DialogContent className="bg-emerald-900 border-emerald-700 text-white rounded-xl">
+            <DialogHeader>
+              <DialogTitle>Solicitar exclusão da coleta</DialogTitle>
+              <DialogDescription className="text-emerald-200">
+                Informe o motivo para solicitar a exclusão da coleta Nº {deleteRequestColeta ? String(deleteRequestColeta.numero_coleta).padStart(6, '0') : ''}. O Administrador precisará aprovar antes da exclusão.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2">
+              <Label htmlFor="delete-request-motivo" className="text-emerald-100">
+                Motivo da solicitação *
+              </Label>
+              <Textarea
+                id="delete-request-motivo"
+                value={deleteRequestMotivo}
+                onChange={(event) => setDeleteRequestMotivo(event.target.value)}
+                placeholder="Descreva o motivo da solicitação..."
+                className="min-h-[120px] bg-emerald-950/50 border-emerald-500/50 text-white placeholder:text-emerald-200/50"
+              />
+            </div>
+            <DialogFooter className="gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setDeleteRequestDialogOpen(false)}
+                className="border-gray-500 text-gray-300 rounded-xl"
+                disabled={deleteRequestSubmitting}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                onClick={handleSubmitDeleteRequest}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl"
+                disabled={deleteRequestSubmitting}
+              >
+                {deleteRequestSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Confirmar Solicitação
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </>
   );
