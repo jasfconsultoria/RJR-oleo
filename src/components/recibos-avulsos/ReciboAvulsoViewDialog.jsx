@@ -216,14 +216,15 @@ export const ReciboAvulsoViewDialog = ({
               <Label htmlFor="signature-canvas-modal" className="text-sm font-semibold mb-2 block text-gray-800">
                 Assinatura:
               </Label>
-              <div className="bg-gray-100 rounded-md p-1 border-2 border-dashed border-emerald-400">
+              <div className="bg-gray-100 rounded-md p-1 border-2 border-dashed border-emerald-400 mx-auto w-full max-w-[520px]">
                 <SignatureCanvas
                   ref={sigCanvas}
                   penColor='black'
                   canvasProps={{
                     id: 'signature-canvas-modal',
-                    className: 'w-full h-32 rounded-md',
-                    willReadFrequently: true
+                    width: 520,
+                    height: 180,
+                    className: 'w-full h-[180px] rounded-md bg-white touch-none',
                   }}
                 />
               </div>
