@@ -4,7 +4,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
-import { PlusCircle, Loader2, FileText, Edit, Trash2, Share2 } from 'lucide-react';
+import { PlusCircle, Loader2, FileText, Edit, Trash2, Share2, Receipt, Clock } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useProfile } from '@/contexts/ProfileContext';
 import { format, startOfMonth, endOfMonth, parseISO } from 'date-fns';
@@ -24,6 +24,9 @@ import {
 } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,6 +36,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 
 const ListaRecibosAvulsos = () => {
@@ -68,6 +72,17 @@ const ListaRecibosAvulsos = () => {
   const [totalCount, setTotalCount] = useState(0);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [reciboToDelete, setReciboToDelete] = useState(null);
+
+  // Estados para fluxo de exclusão
+  const [deleteRequestDialogOpen, setDeleteRequestDialogOpen] = useState(false);
+  const [deleteRequestRecibo, setDeleteRequestRecibo] = useState(null);
+  const [deleteRequestMotivo, setDeleteRequestMotivo] = useState('');
+  const [deleteRequestSubmitting, setDeleteRequestSubmitting] = useState(false);
+  const [reviewSubmittingId, setReviewSubmittingId] = useState(null);
+  const [selectedReviewDecision, setSelectedReviewDecision] = useState('approved');
+
+  const isCollector = profile?.role === 'coletor';
+  const canReviewDelete = ['administrador', 'gerente', 'super_admin'].includes(profile?.role);
 
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
   const debouncedStartDate = useDebounce(startDate, 500);
@@ -117,8 +132,13 @@ const ListaRecibosAvulsos = () => {
     setLoading(true);
     try {
       let query = supabase
-        .from('recibos_avulso')
+        .from('v_recibos_avulso_com_status')
         .select('*', { count: 'exact' });
+
+      // Filtro por perfil: coletores só veem seus próprios recibos
+      if (profile?.role === 'coletor' && profile?.id) {
+        query = query.eq('user_id', profile.id);
+      }
 
       // Filtros
       if (debouncedSearchTerm) {
@@ -161,7 +181,7 @@ const ListaRecibosAvulsos = () => {
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearchTerm, tipoFilter, debouncedStartDate, debouncedEndDate, sortConfig, currentPage, pageSize, toast]);
+  }, [debouncedSearchTerm, tipoFilter, debouncedStartDate, debouncedEndDate, sortConfig, currentPage, pageSize, toast, profile]);
 
   useEffect(() => {
     refreshRecibosData();
@@ -190,13 +210,44 @@ const ListaRecibosAvulsos = () => {
 
   const totalPages = Math.ceil(totalCount / pageSize);
 
-  const handleDelete = async () => {
-    if (!reciboToDelete) return;
+  const handleCollectorDeleteAttempt = (recibo) => {
+    if (recibo?.delete_request_status === 'pending') {
+      toast({
+        title: 'Solicitação já enviada',
+        description: 'Este recibo já está aguardando aprovação do Administrador.',
+      });
+      return;
+    }
+
+    toast({
+      title: 'Exclusão restrita',
+      description: 'Solicite ao Administrador que efetue a exclusão.',
+    });
+  };
+
+  const handleDelete = async (reciboId) => {
+    const recibo = recibos.find(r => r.id === reciboId);
+    if (!recibo) return;
+
+    if (isCollector) {
+      if (recibo.delete_request_status === 'pending') {
+        toast({
+          title: 'Solicitação já enviada',
+          description: 'Este recibo já está aguardando aprovação do Administrador.',
+        });
+        return;
+      }
+
+      setDeleteRequestRecibo(recibo);
+      setDeleteRequestMotivo('');
+      setDeleteRequestDialogOpen(true);
+      return;
+    }
 
     const { error } = await supabase
       .from('recibos_avulso')
       .delete()
-      .eq('id', reciboToDelete.id);
+      .eq('id', recibo.id);
 
     if (error) {
       toast({
@@ -204,18 +255,102 @@ const ListaRecibosAvulsos = () => {
         description: error.message,
         variant: 'destructive'
       });
-      await logAction('delete_recibo_avulso_failed', { error: error.message, recibo_id: reciboToDelete.id });
+      await logAction('delete_recibo_avulso_failed', { error: error.message, recibo_id: recibo.id });
     } else {
       toast({
         title: 'Recibo excluído!',
         description: 'O recibo foi removido com sucesso.'
       });
-      await logAction('delete_recibo_avulso_success', { recibo_id: reciboToDelete.id, numero_recibo: reciboToDelete.numero_recibo });
+      await logAction('delete_recibo_avulso_success', { recibo_id: recibo.id, numero_recibo: recibo.numero_recibo });
       refreshRecibosData();
     }
+  };
 
-    setDeleteDialogOpen(false);
-    setReciboToDelete(null);
+  const handleSubmitDeleteRequest = async () => {
+    if (!deleteRequestRecibo) return;
+
+    if (deleteRequestMotivo.trim().length < 5) {
+      toast({
+        title: 'Motivo obrigatório',
+        description: 'Informe um motivo com pelo menos 5 caracteres.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setDeleteRequestSubmitting(true);
+
+    try {
+      const { error } = await supabase.rpc('request_recibo_avulso_delete', {
+        p_recibo_avulso_id: deleteRequestRecibo.id,
+        p_motivo: deleteRequestMotivo.trim(),
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: 'Solicitação enviada',
+        description: 'O recibo ficou marcado como pendente para aprovação do Administrador.',
+      });
+      await logAction('request_delete_recibo_avulso_success', {
+        recibo_id: deleteRequestRecibo.id,
+        numero_recibo: deleteRequestRecibo.numero_recibo,
+      });
+      setDeleteRequestDialogOpen(false);
+      setDeleteRequestRecibo(null);
+      setDeleteRequestMotivo('');
+      refreshRecibosData();
+    } catch (error) {
+      toast({
+        title: 'Erro ao solicitar exclusão',
+        description: error.message,
+        variant: 'destructive',
+      });
+      await logAction('request_delete_recibo_avulso_failed', {
+        error: error.message,
+        recibo_id: deleteRequestRecibo.id,
+        numero_recibo: deleteRequestRecibo.numero_recibo,
+      });
+    } finally {
+      setDeleteRequestSubmitting(false);
+    }
+  };
+
+  const handleReviewDeleteRequest = async (recibo, decision) => {
+    if (!recibo?.delete_request_id) return;
+
+    const submittingKey = `${recibo.delete_request_id}-${decision}`;
+    setReviewSubmittingId(submittingKey);
+
+    try {
+      const { error } = await supabase.rpc('review_recibo_avulso_delete_request', {
+        p_request_id: recibo.delete_request_id,
+        p_decision: decision,
+        p_observacao: null,
+      });
+
+      if (error) throw error;
+
+      const approved = decision === 'approved';
+      toast({
+        title: approved ? 'Exclusão aprovada' : 'Exclusão rejeitada',
+        description: approved ? 'O recibo foi excluído com sucesso.' : 'O recibo foi mantido na lista.',
+      });
+      await logAction(approved ? 'approve_delete_recibo_request' : 'reject_delete_recibo_request', {
+        recibo_id: recibo.id,
+        numero_recibo: recibo.numero_recibo,
+        request_id: recibo.delete_request_id,
+      });
+      refreshRecibosData();
+    } catch (error) {
+      toast({
+        title: 'Erro ao revisar solicitação',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setReviewSubmittingId(null);
+    }
   };
 
   const handleReciboAction = async (reciboId) => {
@@ -258,8 +393,20 @@ const ListaRecibosAvulsos = () => {
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-white mb-2">Recibos Avulsos</h1>
-            <p className="text-emerald-200">Gerencie recibos para clientes, fornecedores e coletores</p>
+            <h1 className="text-2xl md:text-3xl font-bold text-white flex items-center gap-2">
+              <Receipt className="w-8 h-8 text-emerald-400" /> Recibos Avulsos
+              {profile?.role === 'coletor' && (
+                <span className="text-sm text-emerald-300 bg-emerald-800/30 px-2 py-1 rounded-lg">
+                  Meus Recibos
+                </span>
+              )}
+              {['super_admin', 'administrador', 'gerente'].includes(profile?.role) && (
+                <span className="text-sm text-blue-300 bg-blue-800/30 px-2 py-1 rounded-lg">
+                  Todos os Recibos
+                </span>
+              )}
+            </h1>
+            <p className="text-emerald-200/80 mt-1">Gerencie recibos para clientes, fornecedores e coletores</p>
           </div>
           <Link to="/app/financeiro/recibos/novo">
             <Button className="bg-emerald-600 hover:bg-emerald-700 text-white">
@@ -317,6 +464,9 @@ const ListaRecibosAvulsos = () => {
                   {recibos.length > 0 ? (
                     recibos.map((recibo) => {
                       const statusInfo = getStatusBadge(recibo);
+                      const isDeletePending = recibo.delete_request_status === 'pending';
+                      const isReviewSubmitting = reviewSubmittingId?.startsWith(`${recibo.delete_request_id}-`);
+                      
                       return (
                         <TableRow key={recibo.id} className="border-b border-white/10 hover:bg-white/5">
                           <TableCell className="font-semibold text-white">
@@ -339,9 +489,17 @@ const ListaRecibosAvulsos = () => {
                             {formatCurrency(recibo.valor || 0)}
                           </TableCell>
                           <TableCell>
-                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${statusInfo.className}`}>
-                              {statusInfo.text}
-                            </span>
+                            <div className="flex flex-col items-start gap-1">
+                              <span className={`px-2 py-1 rounded-full text-xs font-semibold ${statusInfo.className}`}>
+                                {statusInfo.text}
+                              </span>
+                              {isDeletePending && (
+                                <span className="px-2 py-1 rounded-xl text-xs font-semibold bg-yellow-500/20 text-yellow-300 flex items-center gap-1">
+                                  <Clock className="h-3 w-3" />
+                                  Exclusão pendente
+                                </span>
+                              )}
+                            </div>
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end items-center gap-1">
@@ -364,32 +522,107 @@ const ListaRecibosAvulsos = () => {
                               >
                                 <Edit className="h-4 w-4" />
                               </Button>
-                              <AlertDialog open={deleteDialogOpen && reciboToDelete?.id === recibo.id} onOpenChange={setDeleteDialogOpen}>
+
+                              {isDeletePending && canReviewDelete && (
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="text-yellow-400 hover:text-yellow-300 rounded-xl"
+                                      title="Revisar solicitação de exclusão"
+                                      disabled={isReviewSubmitting}
+                                      onClick={() => setSelectedReviewDecision('approved')}
+                                    >
+                                      {isReviewSubmitting ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                      ) : (
+                                        <Trash2 className="h-4 w-4" />
+                                      )}
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent className="bg-emerald-900 border-emerald-700 text-white rounded-xl">
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Revisar solicitação de exclusão</AlertDialogTitle>
+                                      <AlertDialogDescription className="text-emerald-300">
+                                        Recibo Nº {recibo.numero_recibo?.toString().padStart(6, '0')}. Motivo informado: {recibo.delete_request_motivo || 'Não informado'}.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <RadioGroup
+                                      value={selectedReviewDecision}
+                                      onValueChange={setSelectedReviewDecision}
+                                      className="space-y-3"
+                                    >
+                                      <label className="flex items-center gap-3 rounded-xl border border-emerald-700/70 bg-emerald-950/40 p-3 text-sm text-emerald-50 cursor-pointer">
+                                        <RadioGroupItem value="approved" className="border-emerald-300 text-emerald-300" />
+                                        <span>Aprovar exclusão</span>
+                                      </label>
+                                      <label className="flex items-center gap-3 rounded-xl border border-emerald-700/70 bg-emerald-950/40 p-3 text-sm text-emerald-50 cursor-pointer">
+                                        <RadioGroupItem value="rejected" className="border-red-300 text-red-300" />
+                                        <span>Rejeitar solicitação</span>
+                                      </label>
+                                    </RadioGroup>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel className="border-gray-500 text-gray-300 rounded-xl">Cancelar</AlertDialogCancel>
+                                      <AlertDialogAction
+                                        onClick={() => handleReviewDeleteRequest(recibo, selectedReviewDecision)}
+                                        className="bg-emerald-600 hover:bg-emerald-700 rounded-xl"
+                                      >
+                                        Confirmar
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              )}
+
+                              {isDeletePending && isCollector && (
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  onClick={() => {
-                                    setReciboToDelete(recibo);
-                                    setDeleteDialogOpen(true);
-                                  }}
-                                  title="Excluir Recibo"
-                                  className="text-red-400 hover:text-red-300 rounded-xl"
+                                  className="text-yellow-300 rounded-xl cursor-not-allowed opacity-70"
+                                  title="Exclusão pendente de aprovação"
+                                  disabled
                                 >
-                                  <Trash2 className="h-4 w-4" />
+                                  <Clock className="h-4 w-4" />
                                 </Button>
-                                <AlertDialogContent className="bg-gray-800 border-gray-700 text-white">
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      Tem certeza que deseja excluir o recibo Nº {recibo.numero_recibo?.toString().padStart(6, '0')}? Esta ação não pode ser desfeita.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel className="bg-gray-700 text-white hover:bg-gray-600">Cancelar</AlertDialogCancel>
-                                    <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">Excluir</AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
+                              )}
+
+                              {!isDeletePending && (
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="text-red-400 hover:text-red-300 rounded-xl"
+                                      title="Excluir Recibo"
+                                      onClick={() => {
+                                        if (isCollector) {
+                                          handleCollectorDeleteAttempt?.(recibo);
+                                        }
+                                      }}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent className="bg-emerald-900 border-emerald-700 text-white rounded-xl">
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>{isCollector ? 'Deseja realmente excluir esse recibo?' : 'Você tem certeza?'}</AlertDialogTitle>
+                                      <AlertDialogDescription className="text-emerald-300">
+                                        {isCollector
+                                          ? `Ao confirmar, você deverá informar o motivo. O recibo Nº ${recibo.numero_recibo?.toString().padStart(6, '0')} ficará pendente para aprovação do Administrador.`
+                                          : `Esta ação não pode ser desfeita. Isso deletará permanentemente o recibo Nº ${recibo.numero_recibo?.toString().padStart(6, '0')}.`
+                                        }
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel className="border-gray-500 text-gray-300 rounded-xl">Cancelar</AlertDialogCancel>
+                                      <AlertDialogAction onClick={() => handleDelete(recibo.id)} className="bg-red-500 hover:bg-red-600 rounded-xl">
+                                        {isCollector ? 'Sim, informar motivo' : 'Deletar'}
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              )}
                             </div>
                           </TableCell>
                         </TableRow>
@@ -434,6 +667,49 @@ const ListaRecibosAvulsos = () => {
             }}
           />
         )}
+
+        <Dialog open={deleteRequestDialogOpen} onOpenChange={setDeleteRequestDialogOpen}>
+          <DialogContent className="bg-emerald-900 border-emerald-700 text-white rounded-xl">
+            <DialogHeader>
+              <DialogTitle>Solicitar exclusão de recibo</DialogTitle>
+              <DialogDescription className="text-emerald-200">
+                Informe o motivo para solicitar a exclusão do recibo Nº {deleteRequestRecibo ? String(deleteRequestRecibo.numero_recibo).padStart(6, '0') : ''}. O Administrador precisará aprovar antes da exclusão.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2">
+              <Label htmlFor="delete-request-motivo" className="text-emerald-100">
+                Motivo da solicitação *
+              </Label>
+              <Textarea
+                id="delete-request-motivo"
+                value={deleteRequestMotivo}
+                onChange={(event) => setDeleteRequestMotivo(event.target.value)}
+                placeholder="Descreva o motivo da solicitação..."
+                className="min-h-[120px] bg-emerald-950/50 border-emerald-500/50 text-white placeholder:text-emerald-200/50"
+              />
+            </div>
+            <DialogFooter className="gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setDeleteRequestDialogOpen(false)}
+                className="border-gray-500 text-gray-300 rounded-xl"
+                disabled={deleteRequestSubmitting}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                onClick={handleSubmitDeleteRequest}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl"
+                disabled={deleteRequestSubmitting}
+              >
+                {deleteRequestSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Confirmar Solicitação
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </>
   );

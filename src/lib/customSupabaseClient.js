@@ -218,7 +218,8 @@ const CONTROL_TABLES = [
   'empresa',
   'logs',
   'conta_corrente',
-  'conta_usuario'
+  'conta_usuario',
+  'role_menu_permissions'
 ];
 
 // RPCs que sempre devem rodar no banco "Main" (Produção)
