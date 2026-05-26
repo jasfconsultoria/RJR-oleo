@@ -9,6 +9,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
     import ContratoPDF from '@/components/contratos/ContratoPDF';
     import { Loader2, Eraser, CheckCircle, AlertTriangle, ArrowLeft } from 'lucide-react';
     import { Label } from '@/components/ui/label';
+    import { SIGNATURE_CANVAS_CLASS, SIGNATURE_CANVAS_WRAPPER_CLASS, resizeSignatureCanvasToDisplaySize } from '@/lib/signatureCanvas';
 
     const AssinaturaPage = () => {
       const { id } = useParams();
@@ -61,6 +62,22 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
       useEffect(() => {
         fetchContratoData();
       }, [fetchContratoData]);
+
+      useEffect(() => {
+        if (!contrato) return;
+
+        const resizeCanvas = () => resizeSignatureCanvasToDisplaySize(sigCanvas);
+        const timeoutId = window.setTimeout(resizeCanvas, 50);
+
+        window.addEventListener('resize', resizeCanvas);
+        window.addEventListener('orientationchange', resizeCanvas);
+
+        return () => {
+          window.clearTimeout(timeoutId);
+          window.removeEventListener('resize', resizeCanvas);
+          window.removeEventListener('orientationchange', resizeCanvas);
+        };
+      }, [contrato]);
 
       const clearSignature = () => {
         sigCanvas.current.clear();
@@ -133,11 +150,11 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
                 
                 <div className="mt-6">
                   <Label htmlFor="signature-canvas" className="text-lg font-semibold mb-2 block text-emerald-200">Sua Assinatura:</Label>
-                  <div className="bg-white rounded-md p-1 border-2 border-dashed border-emerald-400 mx-auto w-full max-w-[520px]">
+                  <div className={`bg-white rounded-md p-1 border-2 border-dashed border-emerald-400 ${SIGNATURE_CANVAS_WRAPPER_CLASS}`}>
                     <SignatureCanvas
                       ref={sigCanvas}
                       penColor='black'
-                      canvasProps={{ id: 'signature-canvas', width: 520, height: 180, className: 'w-full h-[180px] rounded-md bg-white touch-none' }}
+                      canvasProps={{ id: 'signature-canvas', className: SIGNATURE_CANVAS_CLASS }}
                     />
                   </div>
                 </div>

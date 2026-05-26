@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
@@ -9,6 +9,7 @@ import jsPDF from 'jspdf';
 import SignatureCanvas from 'react-signature-canvas';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Label } from '@/components/ui/label';
+import { SIGNATURE_CANVAS_CLASS, SIGNATURE_CANVAS_WRAPPER_CLASS, resizeSignatureCanvasToDisplaySize } from '@/lib/signatureCanvas';
 
 export const ReciboAvulsoViewDialog = ({
   recibo,
@@ -23,6 +24,22 @@ export const ReciboAvulsoViewDialog = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isSigned = !!recibo.assinatura_url;
+
+  useEffect(() => {
+    if (!isOpen || isSigned) return;
+
+    const resizeCanvas = () => resizeSignatureCanvasToDisplaySize(sigCanvas);
+    const timeoutId = window.setTimeout(resizeCanvas, 50);
+
+    window.addEventListener('resize', resizeCanvas);
+    window.addEventListener('orientationchange', resizeCanvas);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      window.removeEventListener('resize', resizeCanvas);
+      window.removeEventListener('orientationchange', resizeCanvas);
+    };
+  }, [isOpen, isSigned]);
 
   const handleShare = async () => {
     if (!recibo) return;
@@ -216,15 +233,13 @@ export const ReciboAvulsoViewDialog = ({
               <Label htmlFor="signature-canvas-modal" className="text-sm font-semibold mb-2 block text-gray-800">
                 Assinatura:
               </Label>
-              <div className="bg-gray-100 rounded-md p-1 border-2 border-dashed border-emerald-400 mx-auto w-full max-w-[520px]">
+              <div className={`bg-gray-100 rounded-md p-1 border-2 border-dashed border-emerald-400 ${SIGNATURE_CANVAS_WRAPPER_CLASS}`}>
                 <SignatureCanvas
                   ref={sigCanvas}
                   penColor='black'
                   canvasProps={{
                     id: 'signature-canvas-modal',
-                    width: 520,
-                    height: 180,
-                    className: 'w-full h-[180px] rounded-md bg-white touch-none',
+                    className: SIGNATURE_CANVAS_CLASS,
                   }}
                 />
               </div>
