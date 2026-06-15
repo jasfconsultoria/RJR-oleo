@@ -697,6 +697,10 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
           console.log('  - Valor formatado:', finalData.cnpj_cpf);
         }
 
+        if (finalData.municipio && !isNaN(finalData.municipio)) {
+          finalData.municipio = String(finalData.municipio);
+        }
+
         // Atualizar formData com os dados formatados
         setFormData(finalData);
 
@@ -865,7 +869,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
   };
 
   const handleMunicipioChange = (municipio) => {
-    setFormData((prev) => ({ ...prev, municipio: municipio || '' }));
+    setFormData((prev) => ({ ...prev, municipio: municipio ? String(municipio) : '' }));
   };
 
   const handleCepBlur = async (e) => {
@@ -879,7 +883,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
           setFormData(prev => ({
             ...prev,
             endereco: data.logradouro ? `${data.logradouro}${data.bairro ? `, ${data.bairro}` : ''}` : prev.endereco,
-            municipio: data.ibge || prev.municipio, // ✅ CORREÇÃO: Usar data.ibge em vez de data.localidade
+            municipio: data.ibge ? String(data.ibge) : prev.municipio,
             estado: data.uf || prev.estado
           }));
 
@@ -956,6 +960,16 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
       toast({
         title: 'Campos obrigatórios',
         description: 'Razão Social, Estado e Município são obrigatórios.',
+        variant: 'destructive'
+      });
+      setSaving(false);
+      return;
+    }
+
+    if (isNaN(formData.municipio)) {
+      toast({
+        title: 'Município inválido',
+        description: 'Selecione o município na lista oficial (código IBGE).',
         variant: 'destructive'
       });
       setSaving(false);
@@ -1061,6 +1075,7 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
       ...formData,
       cnpj_cpf: unmaskedCnpjCpf,
       telefone: unmask(formData.telefone),
+      municipio: formData.municipio ? String(formData.municipio) : null,
       latitude: formData.latitude ? String(formData.latitude) : null,
       longitude: formData.longitude ? String(formData.longitude) : null,
       media_dias_coleta: formData.media_dias_coleta === '' ? null : parseInt(formData.media_dias_coleta, 10),
@@ -1105,6 +1120,13 @@ const ClienteForm = ({ onSaveSuccess, isModal = false, personType = 'pessoa', on
         razao_social: data.razao_social,
         cnpj_cpf: data.cnpj_cpf
       });
+
+      if (isEditing && data.municipio && !isNaN(data.municipio)) {
+        await supabase
+          .from('coletas')
+          .update({ municipio: String(data.municipio), estado: data.estado })
+          .eq('cliente_id', data.id);
+      }
 
       if (onSaveSuccess) {
         onSaveSuccess(data);

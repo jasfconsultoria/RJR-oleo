@@ -46,6 +46,7 @@ import { logAction } from '@/lib/logger';
 import { Pagination } from '@/components/ui/pagination';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useLocationData } from '@/hooks/useLocationData';
+import { buildMunicipioFilterOptions, matchesMunicipioFilter } from '@/utils/municipioUtils';
 import AdminConfirmationDialog from '@/components/financeiro/AdminConfirmationDialog';
 import ClientesFilters from '@/components/clientes/ClientesFilters';
 
@@ -179,10 +180,12 @@ const useClientesList = (personType, profile) => {
     empresa: { items_per_page: CONFIG.PAGE_SIZE_DEFAULT },
     isConfirmDialogOpen: false,
     selectedForDeletion: null,
-    municipioMap: {} // Novo campo para mapeamento de códigos
+    municipioMap: {},
+    municipioDetailsMap: {},
+    namesByTextMap: {}
   });
 
-  const { estados, fetchMunicipiosByCodes } = useLocationData();
+  const { estados, fetchMunicipiosByCodes, fetchMunicipioDetailsByCodes, fetchMunicipiosByNames } = useLocationData();
   const { toast } = useToast();
   const labels = usePersonTypeLabels(personType);
   const debouncedSearchTerm = useDebounce(state.searchTerm, 500);
@@ -321,7 +324,9 @@ const useClientesList = (personType, profile) => {
         clientesFiltrados = clientesFiltrados.filter(c => c.estado === state.filterEstado);
       }
       if (state.filterMunicipio !== 'todos') {
-        clientesFiltrados = clientesFiltrados.filter(c => c.municipio === state.filterMunicipio);
+        clientesFiltrados = clientesFiltrados.filter(c =>
+          matchesMunicipioFilter(c.municipio, state.filterMunicipio, state.namesByTextMap)
+        );
       }
       totalFiltrado = clientesFiltrados.length;
 
@@ -352,9 +357,19 @@ const useClientesList = (personType, profile) => {
 
       // Resolver nomes de municípios para novos códigos
       const codesToResolve = [...new Set(rawClients.map(c => c.municipio).filter(c => c && !isNaN(c)))];
-      if (codesToResolve.length > 0) {
-        const mapping = await fetchMunicipiosByCodes(codesToResolve);
-        setState(prev => ({ ...prev, municipioMap: { ...prev.municipioMap, ...mapping } }));
+      const legacyNames = [...new Set(rawClients.map(c => c.municipio).filter(c => c && isNaN(c)))];
+      if (codesToResolve.length > 0 || legacyNames.length > 0) {
+        const [mapping, details, names] = await Promise.all([
+          fetchMunicipiosByCodes(codesToResolve),
+          fetchMunicipioDetailsByCodes(codesToResolve),
+          fetchMunicipiosByNames(legacyNames),
+        ]);
+        setState(prev => ({
+          ...prev,
+          municipioMap: { ...prev.municipioMap, ...mapping },
+          municipioDetailsMap: { ...prev.municipioDetailsMap, ...details },
+          namesByTextMap: { ...prev.namesByTextMap, ...names },
+        }));
       }
 
       if (!isCurrent.active) return;
@@ -376,7 +391,7 @@ const useClientesList = (personType, profile) => {
       });
       setState(prev => ({ ...prev, clientes: [], allClientes: [], loading: false }));
     }
-  }, [profile, state.currentPage, state.empresa, debouncedSearchTerm, state.sortConfig, state.filterEstado, state.filterMunicipio, toast, fetchMunicipiosByCodes]);
+  }, [profile, state.currentPage, state.empresa, debouncedSearchTerm, state.sortConfig, state.filterEstado, state.filterMunicipio, state.namesByTextMap, toast, fetchMunicipiosByCodes, fetchMunicipioDetailsByCodes, fetchMunicipiosByNames]);
 
   useEffect(() => {
     const isCurrent = { active: true };
@@ -569,7 +584,7 @@ const useClientesList = (personType, profile) => {
 };
 
 // Hook para extrair estados e municípios únicos
-const useGeoFilters = (allClientes, filterEstado, municipioMap) => {
+const useGeoFilters = (allClientes, filterEstado, municipioDetailsMap, namesByTextMap) => {
   const estados = useMemo(() => {
     return [...new Set(allClientes.map(c => c.estado).filter(Boolean))].sort();
   }, [allClientes]);
@@ -579,18 +594,8 @@ const useGeoFilters = (allClientes, filterEstado, municipioMap) => {
     if (filterEstado !== 'todos') {
       filtered = filtered.filter(c => c.estado === filterEstado);
     }
-
-    // Extrair municípios únicos. 
-    // Se for um código, tenta resolver o nome.
-    const uniqueVals = [...new Set(filtered.map(c => c.municipio).filter(Boolean))];
-
-    return uniqueVals.map(val => {
-      if (!isNaN(val) && municipioMap[val]) {
-        return { value: val, label: municipioMap[val] };
-      }
-      return { value: val, label: val };
-    }).sort((a, b) => a.label.localeCompare(b.label));
-  }, [allClientes, filterEstado, municipioMap]);
+    return buildMunicipioFilterOptions(filtered, municipioDetailsMap, namesByTextMap);
+  }, [allClientes, filterEstado, municipioDetailsMap, namesByTextMap]);
 
   return { estados, municipios };
 };
@@ -809,10 +814,12 @@ const ListaClientes = ({ personType = 'pessoa' }) => {
     filterMunicipio,
     setFilterEstado,
     setFilterMunicipio,
-    municipioMap
+    municipioMap,
+    municipioDetailsMap,
+    namesByTextMap,
   } = useClientesList(personType, profile);
 
-  const { estados, municipios } = useGeoFilters(allClientes, filterEstado, municipioMap);
+  const { estados, municipios } = useGeoFilters(allClientes, filterEstado, municipioDetailsMap, namesByTextMap);
 
   const totalPages = Math.ceil(totalCount / pageSize);
 

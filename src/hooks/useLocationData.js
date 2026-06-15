@@ -82,7 +82,7 @@ export const useLocationData = () => {
 
       const municipios = (data || [])
         .map(item => ({
-          value: item.codigo,
+          value: String(item.codigo),
           label: item.municipio
         }))
         .filter(item => item.label);
@@ -105,7 +105,6 @@ export const useLocationData = () => {
   const fetchMunicipiosByCodes = useCallback(async (codes) => {
     if (!codes || codes.length === 0) return {};
 
-    // Filtrar apenas códigos numéricos
     const numericCodes = codes.filter(c => c && !isNaN(c));
     if (numericCodes.length === 0) return {};
 
@@ -119,11 +118,64 @@ export const useLocationData = () => {
 
       const mapping = {};
       (data || []).forEach(item => {
-        mapping[item.codigo] = item.municipio;
+        mapping[String(item.codigo)] = item.municipio;
       });
       return mapping;
     } catch (err) {
       console.error('Erro ao resolver nomes de municípios:', err);
+      return {};
+    }
+  }, []);
+
+  // Buscar detalhes (nome + UF) por códigos IBGE
+  const fetchMunicipioDetailsByCodes = useCallback(async (codes) => {
+    if (!codes || codes.length === 0) return {};
+
+    const numericCodes = codes.filter(c => c && !isNaN(c));
+    if (numericCodes.length === 0) return {};
+
+    try {
+      const { data, error: municipiosError } = await supabase
+        .from('municipios')
+        .select('codigo, municipio, uf')
+        .in('codigo', numericCodes);
+
+      if (municipiosError) throw municipiosError;
+
+      const mapping = {};
+      (data || []).forEach(item => {
+        mapping[String(item.codigo)] = { nome: item.municipio, uf: item.uf };
+      });
+      return mapping;
+    } catch (err) {
+      console.error('Erro ao resolver detalhes de municípios:', err);
+      return {};
+    }
+  }, []);
+
+  // Resolver nomes legados (texto) para códigos IBGE
+  const fetchMunicipiosByNames = useCallback(async (names) => {
+    const uniqueNames = [...new Set(
+      (names || []).filter(n => n && isNaN(n)).map(n => String(n).trim())
+    )];
+    if (uniqueNames.length === 0) return {};
+
+    try {
+      const { data, error: municipiosError } = await supabase
+        .from('municipios')
+        .select('codigo, municipio, uf')
+        .in('municipio', uniqueNames);
+
+      if (municipiosError) throw municipiosError;
+
+      const mapping = {};
+      (data || []).forEach(item => {
+        mapping[item.municipio.toLowerCase()] = item;
+        mapping[item.municipio] = item;
+      });
+      return mapping;
+    } catch (err) {
+      console.error('Erro ao resolver municípios por nome:', err);
       return {};
     }
   }, []);
@@ -149,6 +201,8 @@ export const useLocationData = () => {
     getMunicipios,
     fetchMunicipios,
     fetchMunicipiosByCodes,
+    fetchMunicipioDetailsByCodes,
+    fetchMunicipiosByNames,
     loading,
     error
   };

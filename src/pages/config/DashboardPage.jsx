@@ -16,6 +16,11 @@ import { useLocationData } from '@/hooks/useLocationData';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { UserSearchableSelect } from '@/components/ui/UserSearchableSelect';
 import { format, endOfDay, parseISO } from 'date-fns';
+import {
+  buildMunicipioFilterOptions,
+  applyMunicipioFilter,
+  aggregateColetasByMunicipio,
+} from '@/utils/municipioUtils';
 
 // Função para formatar data como YYYY-MM-DD
 const formatDate = (date) => {
@@ -66,7 +71,7 @@ const DashboardPage = () => {
   const [empresaTimezone, setEmpresaTimezone] = useState('America/Sao_Paulo');
 
   // Buscar estados e municípios
-  const { estados, fetchMunicipios, fetchMunicipiosByCodes } = useLocationData();
+  const { estados, fetchMunicipios, fetchMunicipiosByCodes, fetchMunicipioDetailsByCodes, fetchMunicipiosByNames } = useLocationData();
 
   // Detectar se é mobile
   useEffect(() => {
@@ -97,27 +102,24 @@ const DashboardPage = () => {
         const { data: coletasLocais, error } = await query;
         if (error) throw error;
 
-        // Extrair estados únicos
         const uniqueEstados = [...new Set(coletasLocais.map(c => c.estado).filter(Boolean))].sort();
         setEstadosFiltro(uniqueEstados);
 
-        // Extrair municípios únicos e resolver nomes se forem códigos
         const uniqueMunicipioCodes = [...new Set(coletasLocais.map(c => c.municipio).filter(Boolean))];
-        const solvedMunicipios = await fetchMunicipiosByCodes(uniqueMunicipioCodes);
+        const legacyNames = uniqueMunicipioCodes.filter(c => isNaN(c));
+        const [detailsByCode, namesByText, solvedMunicipios] = await Promise.all([
+          fetchMunicipioDetailsByCodes(uniqueMunicipioCodes),
+          fetchMunicipiosByNames(legacyNames),
+          fetchMunicipiosByCodes(uniqueMunicipioCodes),
+        ]);
         setMunicipioMapResolved(solvedMunicipios);
 
-        // Atualizar lista de municípios baseada no estado selecionado
         let filteredMunicipios = coletasLocais;
         if (filtroEstado !== 'todos') {
           filteredMunicipios = filteredMunicipios.filter(c => c.estado === filtroEstado);
         }
 
-        const uniqueVals = [...new Set(filteredMunicipios.map(c => c.municipio).filter(Boolean))];
-        const muniList = uniqueVals.map(val => {
-          const label = !isNaN(val) && solvedMunicipios[val] ? solvedMunicipios[val] : val;
-          return { value: val, label: label };
-        }).sort((a, b) => a.label.localeCompare(b.label));
-
+        const muniList = buildMunicipioFilterOptions(filteredMunicipios, detailsByCode, namesByText);
         setMunicipiosFiltro(muniList);
       } catch (err) {
         console.error('Erro ao carregar filtros geográficos:', err);
@@ -127,7 +129,7 @@ const DashboardPage = () => {
     if (profile) {
       loadGeoFilters();
     }
-  }, [profile, filtroEstado, fetchMunicipiosByCodes, user.id]);
+  }, [profile, filtroEstado, fetchMunicipiosByCodes, fetchMunicipioDetailsByCodes, fetchMunicipiosByNames, user.id]);
 
   // Buscar lista de coletores
   useEffect(() => {
@@ -443,7 +445,7 @@ const DashboardPage = () => {
         }
 
         if (filtroMunicipio && filtroMunicipio !== 'todos') {
-          coletasQuery = coletasQuery.eq('municipio', filtroMunicipio);
+          coletasQuery = applyMunicipioFilter(coletasQuery, filtroMunicipio, municipiosFiltro);
         }
 
         if (filtroColetor && filtroColetor !== 'all') {
@@ -463,13 +465,14 @@ const DashboardPage = () => {
           console.log('📋 Total de coletas encontradas:', todasColetas?.length);
 
           if (todasColetas && todasColetas.length > 0) {
-            // Resolver nomes dos municípios para os gráficos (Admin)
             const uniqueCodes = [...new Set(todasColetas.map(c => c.municipio).filter(Boolean))];
-            const resolvedNames = await fetchMunicipiosByCodes(uniqueCodes);
+            const legacyNames = uniqueCodes.filter(c => isNaN(c));
+            const [detailsByCode, namesByText] = await Promise.all([
+              fetchMunicipioDetailsByCodes(uniqueCodes),
+              fetchMunicipiosByNames(legacyNames),
+            ]);
 
-            // Processar dados por estado
             const estadoMap = {};
-            const municipioMap = {};
 
             todasColetas.forEach(coleta => {
               const municipio = coleta.municipio || 'Não informado';
@@ -480,12 +483,6 @@ const DashboardPage = () => {
               }
               estadoMap[estado].coletas += 1;
               estadoMap[estado].massa += parseFloat(coleta.quantidade_coletada) || 0;
-
-              if (!municipioMap[municipio]) {
-                municipioMap[municipio] = { coletas: 0, massa: 0, estado: estado };
-              }
-              municipioMap[municipio].coletas += 1;
-              municipioMap[municipio].massa += parseFloat(coleta.quantidade_coletada) || 0;
             });
 
             estadoData = Object.entries(estadoMap)
@@ -496,19 +493,7 @@ const DashboardPage = () => {
               }))
               .sort((a, b) => b.coletas - a.coletas);
 
-            municipioData = Object.entries(municipioMap)
-              .map(([municipio, dados]) => {
-                const nomeMunicipio = !isNaN(municipio) && resolvedNames[municipio]
-                  ? resolvedNames[municipio]
-                  : municipio;
-                return {
-                  local: `${nomeMunicipio} - ${dados.estado}`,
-                  coletas: dados.coletas,
-                  massa: parseFloat(dados.massa.toFixed(2))
-                };
-              })
-              .sort((a, b) => b.coletas - a.coletas)
-              .slice(0, 10);
+            municipioData = aggregateColetasByMunicipio(todasColetas, detailsByCode, namesByText, municipioEstadoMap);
 
             console.log('📈 Dados por estado processados:', estadoData);
             console.log('🏙️ Dados por município processados:', municipioData);
@@ -582,12 +567,14 @@ const DashboardPage = () => {
           console.log('📋 Coletas do usuário encontradas:', coletasUsuario?.length);
 
           if (coletasUsuario && coletasUsuario.length > 0) {
-            // Resolver nomes dos municípios para os gráficos (Coletor)
             const uniqueCodes = [...new Set(coletasUsuario.map(c => c.municipio).filter(Boolean))];
-            const resolvedNames = await fetchMunicipiosByCodes(uniqueCodes);
+            const legacyNames = uniqueCodes.filter(c => isNaN(c));
+            const [detailsByCode, namesByText] = await Promise.all([
+              fetchMunicipioDetailsByCodes(uniqueCodes),
+              fetchMunicipiosByNames(legacyNames),
+            ]);
 
             const estadoMap = {};
-            const municipioMap = {};
 
             coletasUsuario.forEach(coleta => {
               const municipio = coleta.municipio || 'Não informado';
@@ -598,12 +585,6 @@ const DashboardPage = () => {
               }
               estadoMap[estado].coletas += 1;
               estadoMap[estado].massa += parseFloat(coleta.quantidade_coletada) || 0;
-
-              if (!municipioMap[municipio]) {
-                municipioMap[municipio] = { coletas: 0, massa: 0, estado: estado };
-              }
-              municipioMap[municipio].coletas += 1;
-              municipioMap[municipio].massa += parseFloat(coleta.quantidade_coletada) || 0;
             });
 
             estadoData = Object.entries(estadoMap)
@@ -614,19 +595,7 @@ const DashboardPage = () => {
               }))
               .sort((a, b) => b.coletas - a.coletas);
 
-            municipioData = Object.entries(municipioMap)
-              .map(([municipio, dados]) => {
-                const nomeMunicipio = !isNaN(municipio) && resolvedNames[municipio]
-                  ? resolvedNames[municipio]
-                  : municipio;
-                return {
-                  local: `${nomeMunicipio} - ${dados.estado}`,
-                  coletas: dados.coletas,
-                  massa: parseFloat(dados.massa.toFixed(2))
-                };
-              })
-              .sort((a, b) => b.coletas - a.coletas)
-              .slice(0, 10);
+            municipioData = aggregateColetasByMunicipio(coletasUsuario, detailsByCode, namesByText, municipioEstadoMap);
           }
         }
 
@@ -648,7 +617,7 @@ const DashboardPage = () => {
         }
 
         if (filtroMunicipio && filtroMunicipio !== 'todos') {
-          clienteQuery = clienteQuery.eq('municipio', filtroMunicipio);
+          clienteQuery = applyMunicipioFilter(clienteQuery, filtroMunicipio, municipiosFiltro);
         }
 
         if (filtroColetor && filtroColetor !== 'all') {
@@ -765,7 +734,7 @@ const DashboardPage = () => {
     return () => {
       isMounted = false;
     };
-  }, [toast, profile, profileLoading, user, periodoFiltro, dataInicio, dataFim, filtroEstado, filtroMunicipio, filtroColetor]);
+  }, [toast, profile, profileLoading, user, periodoFiltro, dataInicio, dataFim, filtroEstado, filtroMunicipio, filtroColetor, municipiosFiltro, fetchMunicipioDetailsByCodes, fetchMunicipiosByNames]);
 
   const handlePeriodoChange = (periodo) => {
     setPeriodoFiltro(periodo);
