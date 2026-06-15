@@ -414,31 +414,16 @@ const RelatoriosPage = () => {
   };
 
   const fetchAllFilteredColetas = async () => {
-    const batchSize = 1000;
-    let countQuery = supabase
+    let query = supabase
       .from('coletas')
-      .select('id', { count: 'exact', head: true });
+      .select('*, clientes:cliente_id(*)');
 
-    countQuery = applyColetaFilters(countQuery);
-    const { count, error: countError } = await countQuery;
-    if (countError) throw countError;
+    query = applyColetaFilters(query).order('data_coleta', { ascending: false });
 
-    let allData = [];
-    const serverCount = count || 0;
+    const { data, error } = await query;
+    if (error) throw error;
 
-    for (let from = 0; from < serverCount; from += batchSize) {
-      let query = supabase
-        .from('coletas')
-        .select('*, clientes:cliente_id(*)');
-
-      query = applyColetaFilters(query)
-        .order('data_coleta', { ascending: false })
-        .range(from, from + batchSize - 1);
-
-      const { data, error } = await query;
-      if (error) throw error;
-      allData = [...allData, ...(data || [])];
-    }
+    let allData = data || [];
 
     if (filters.clientSearchTerm) {
       const searchTermLower = filters.clientSearchTerm.toLowerCase();

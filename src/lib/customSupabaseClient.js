@@ -1,6 +1,7 @@
 import { getOrCreateSupabaseClient } from './supabaseClientRegistry';
 import { getActiveEnvironment } from './getActiveEnvironment';
 import { SHARED_STORAGE_KEY, mainSupabaseUrl, mainSupabaseAnonKey } from './constants';
+import { wrapQueryForFullFetch } from './supabaseFetchAll';
 
 /**
  * Cliente customizado que gerencia o roteamento entre bancos (Produção/Homologação)
@@ -246,7 +247,7 @@ export const supabase = new Proxy({}, {
         const source = isControl ? 'Controle (Main)' : (resolvedClient === mainClient ? 'Fallback (Main)' : 'Ambiente Ativo');
         // console.log(`📡 [Proxy:from] Tabela: ${tableName} -> ${source}`);
         
-        return resolvedClient.from(tableName);
+        return wrapQueryForFullFetch(resolvedClient.from(tableName));
       };
     }
 

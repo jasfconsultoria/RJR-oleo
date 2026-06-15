@@ -339,3 +339,5 @@ export function valorPorExtenso(valor) {
 export function escapePostgrestLikePattern(pattern) {
   return pattern.replace(/[%_\\$]/g, '\\$&');
 }
+
+export { fetchAllRows, SUPABASE_MAX_PAGE_SIZE } from './supabaseFetchAll';

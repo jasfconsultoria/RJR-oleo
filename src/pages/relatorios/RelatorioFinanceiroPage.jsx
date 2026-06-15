@@ -489,34 +489,17 @@ const RelatorioFinanceiroPage = () => {
   };
 
   const fetchAllFinancialReportData = async () => {
-    const batchSize = 1000;
     const searchFilter = await getFinancialSearchFilter();
-    let countQuery = supabase
+    let query = supabase
       .from('credito_debito')
-      .select('id', { count: 'exact', head: true });
+      .select('*');
 
-    countQuery = applyFinancialFilters(countQuery, searchFilter);
-    const { count, error: countError } = await countQuery;
-    if (countError) throw countError;
+    query = applyFinancialFilters(query, searchFilter).order('issue_date', { ascending: false });
 
-    let financialData = [];
-    const serverCount = count || 0;
+    const { data, error } = await query;
+    if (error) throw error;
 
-    for (let from = 0; from < serverCount; from += batchSize) {
-      let query = supabase
-        .from('credito_debito')
-        .select('*');
-
-      query = applyFinancialFilters(query, searchFilter)
-        .order('issue_date', { ascending: false })
-        .range(from, from + batchSize - 1);
-
-      const { data, error } = await query;
-      if (error) throw error;
-      financialData = [...financialData, ...(data || [])];
-    }
-
-    return enrichFinancialRows(financialData);
+    return enrichFinancialRows(data || []);
   };
 
   const buildFinancialExportRows = (allData) => {

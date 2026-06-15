@@ -138,10 +138,9 @@ export const FinanceiroFormFields = ({
             searchTerm={safeFormData.cliente_fornecedor_name}
             onSearchTermChange={handleSearchTermChange}
             disabled={false}
-            // ✅ CORREÇÃO: Passar o personType (cliente ou fornecedor)
             personType={entityLabel.toLowerCase() === 'fornecedor' ? 'fornecedor' : 'cliente'}
-            // ✅ CORREÇÃO: Pedir os dados completos do cliente
             returnFullClientData={true}
+            clientListVersion={clientListVersion}
           />
         </div>
         <Dialog open={isNewClientModalOpen} onOpenChange={setIsNewClientModalOpen}>
