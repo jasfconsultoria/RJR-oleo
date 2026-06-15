@@ -300,12 +300,30 @@ const useClientesList = (personType, profile) => {
       // Armazenar os clientes brutos para os filtros geográficos (allClientes)
       const rawClients = [...clientesFiltrados];
 
+      // Resolver municípios antes de filtrar (evita loop e garante filtro legado na 1ª carga)
+      const codesToResolve = [...new Set(rawClients.map(c => c.municipio).filter(c => c && !isNaN(c)))];
+      const legacyNames = [...new Set(rawClients.map(c => c.municipio).filter(c => c && isNaN(c)))];
+      let mapping = {};
+      let details = {};
+      let names = {};
+      if (codesToResolve.length > 0 || legacyNames.length > 0) {
+        [mapping, details, names] = await Promise.all([
+          fetchMunicipiosByCodes(codesToResolve),
+          fetchMunicipioDetailsByCodes(codesToResolve),
+          fetchMunicipiosByNames(legacyNames),
+        ]);
+      }
+
+      const mergedMunicipioMap = { ...state.municipioMap, ...mapping };
+      const mergedDetailsMap = { ...state.municipioDetailsMap, ...details };
+      const mergedNamesMap = { ...state.namesByTextMap, ...names };
+
       // Aplicar busca se houver termo
       if (debouncedSearchTerm) {
         const term = debouncedSearchTerm.toLowerCase();
         clientesFiltrados = clientesFiltrados.filter(cliente => {
-          const municipioNome = (!isNaN(cliente.municipio) && state.municipioMap[cliente.municipio]) 
-            ? state.municipioMap[cliente.municipio] 
+          const municipioNome = (!isNaN(cliente.municipio) && mergedMunicipioMap[cliente.municipio])
+            ? mergedMunicipioMap[cliente.municipio]
             : cliente.municipio;
 
           return (
@@ -325,7 +343,7 @@ const useClientesList = (personType, profile) => {
       }
       if (state.filterMunicipio !== 'todos') {
         clientesFiltrados = clientesFiltrados.filter(c =>
-          matchesMunicipioFilter(c.municipio, state.filterMunicipio, state.namesByTextMap)
+          matchesMunicipioFilter(c.municipio, state.filterMunicipio, mergedNamesMap)
         );
       }
       totalFiltrado = clientesFiltrados.length;
@@ -355,23 +373,6 @@ const useClientesList = (personType, profile) => {
       const endIndex = startIndex + state.empresa.items_per_page;
       const clientesPaginados = clientesFiltrados.slice(startIndex, endIndex);
 
-      // Resolver nomes de municípios para novos códigos
-      const codesToResolve = [...new Set(rawClients.map(c => c.municipio).filter(c => c && !isNaN(c)))];
-      const legacyNames = [...new Set(rawClients.map(c => c.municipio).filter(c => c && isNaN(c)))];
-      if (codesToResolve.length > 0 || legacyNames.length > 0) {
-        const [mapping, details, names] = await Promise.all([
-          fetchMunicipiosByCodes(codesToResolve),
-          fetchMunicipioDetailsByCodes(codesToResolve),
-          fetchMunicipiosByNames(legacyNames),
-        ]);
-        setState(prev => ({
-          ...prev,
-          municipioMap: { ...prev.municipioMap, ...mapping },
-          municipioDetailsMap: { ...prev.municipioDetailsMap, ...details },
-          namesByTextMap: { ...prev.namesByTextMap, ...names },
-        }));
-      }
-
       if (!isCurrent.active) return;
 
       setState(prev => ({
@@ -379,6 +380,9 @@ const useClientesList = (personType, profile) => {
         allClientes: rawClients,
         clientes: clientesPaginados,
         totalCount: totalFiltrado,
+        municipioMap: mergedMunicipioMap,
+        municipioDetailsMap: mergedDetailsMap,
+        namesByTextMap: mergedNamesMap,
         loading: false
       }));
 
@@ -391,7 +395,7 @@ const useClientesList = (personType, profile) => {
       });
       setState(prev => ({ ...prev, clientes: [], allClientes: [], loading: false }));
     }
-  }, [profile, state.currentPage, state.empresa, debouncedSearchTerm, state.sortConfig, state.filterEstado, state.filterMunicipio, state.namesByTextMap, toast, fetchMunicipiosByCodes, fetchMunicipioDetailsByCodes, fetchMunicipiosByNames]);
+  }, [profile, state.currentPage, state.empresa, debouncedSearchTerm, state.sortConfig, state.filterEstado, state.filterMunicipio, toast, fetchMunicipiosByCodes, fetchMunicipioDetailsByCodes, fetchMunicipiosByNames]);
 
   useEffect(() => {
     const isCurrent = { active: true };
