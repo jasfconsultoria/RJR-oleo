@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2, X, Search } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
-import { formatCnpjCpf } from '@/lib/utils';
+import { formatCnpjCpf, matchesClienteSearch } from '@/lib/utils';
 import { motion } from 'framer-motion';
 import { useLocationData } from '@/hooks/useLocationData';
 
@@ -83,12 +83,8 @@ const ClientOrManualInput = ({
 
   // CORREÇÃO: Mostrar TODOS os clientes quando não há filtro (igual ao Crédito/Débito)
   const filteredClients = useMemo(() => {
-    if (!inputValue) return clients; // Mostra todos quando não há filtro
-    return clients.filter(client =>
-      client.razao_social.toLowerCase().includes(inputValue.toLowerCase()) ||
-      (client.nome_fantasia && client.nome_fantasia.toLowerCase().includes(inputValue.toLowerCase())) ||
-      (client.cnpj_cpf && formatCnpjCpf(client.cnpj_cpf).toLowerCase().includes(inputValue.toLowerCase()))
-    );
+    if (!inputValue) return clients;
+    return clients.filter(client => matchesClienteSearch(client, inputValue));
   }, [clients, inputValue]);
 
   // CORREÇÃO: Simplificar a lógica de mudança do input

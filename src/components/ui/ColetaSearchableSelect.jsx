@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2, X, Search } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
-import { formatCnpjCpf } from '@/lib/utils';
+import { formatCnpjCpf, matchesCnpjCpfSearch } from '@/lib/utils';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -61,7 +61,7 @@ const ColetaSearchableSelect = ({
     return coletas.filter(coleta =>
       coleta.numero_coleta?.toString().includes(searchTerm) ||
       coleta.cliente_nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (coleta.cnpj_cpf && formatCnpjCpf(coleta.cnpj_cpf).toLowerCase().includes(searchTerm.toLowerCase()))
+      matchesCnpjCpfSearch(coleta.cnpj_cpf, searchTerm)
     );
   }, [coletas, searchTerm]);
 

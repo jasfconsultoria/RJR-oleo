@@ -340,4 +340,67 @@ export function escapePostgrestLikePattern(pattern) {
   return pattern.replace(/[%_\\$]/g, '\\$&');
 }
 
+export function matchesCnpjCpfSearch(cnpjCpf, searchTerm) {
+  if (!cnpjCpf || !searchTerm) return false;
+
+  const term = searchTerm.toLowerCase();
+  const termNumeric = searchTerm.replace(/\D/g, '');
+  const docRaw = String(cnpjCpf);
+  const docNumeric = docRaw.replace(/\D/g, '');
+  const docFormatted = formatCnpjCpf(docRaw).toLowerCase();
+
+  return (
+    docRaw.toLowerCase().includes(term) ||
+    docFormatted.includes(term) ||
+    (termNumeric.length > 0 && docNumeric.includes(termNumeric))
+  );
+}
+
+export function matchesClienteSearch(cliente, searchTerm) {
+  if (!searchTerm?.trim()) return true;
+  if (!cliente) return false;
+
+  const term = searchTerm.toLowerCase().trim();
+  const nome = (cliente.nome_fantasia || '').toLowerCase();
+  const razao = (cliente.razao_social || '').toLowerCase();
+
+  return (
+    nome.includes(term) ||
+    razao.includes(term) ||
+    matchesCnpjCpfSearch(cliente.cnpj_cpf, searchTerm)
+  );
+}
+
+export function matchesColetaClienteSearch(item, searchTerm) {
+  if (!searchTerm?.trim()) return true;
+
+  const cliente = Array.isArray(item?.clientes)
+    ? (item.clientes[0] || null)
+    : (item?.clientes || null);
+
+  if (cliente && matchesClienteSearch(cliente, searchTerm)) return true;
+  if (item?.cliente_nome?.toLowerCase().includes(searchTerm.toLowerCase())) return true;
+  return matchesCnpjCpfSearch(item?.cliente_cnpj_cpf, searchTerm);
+}
+
+export function buildClienteSearchFilter(searchTerm, cnpjCpfColumn = 'cnpj_cpf') {
+  const trimmed = searchTerm.trim();
+  if (!trimmed) return null;
+
+  const escaped = escapePostgrestLikePattern(trimmed);
+  const digitsOnly = trimmed.replace(/\D/g, '');
+  const filters = [
+    `razao_social.ilike.%${escaped}%`,
+    `nome_fantasia.ilike.%${escaped}%`,
+  ];
+
+  if (digitsOnly) {
+    filters.push(`${cnpjCpfColumn}.ilike.%${escapePostgrestLikePattern(digitsOnly)}%`);
+  } else {
+    filters.push(`${cnpjCpfColumn}.ilike.%${escaped}%`);
+  }
+
+  return filters.join(',');
+}
+
 export { fetchAllRows, SUPABASE_MAX_PAGE_SIZE } from './supabaseFetchAll';

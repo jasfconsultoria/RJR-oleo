@@ -18,7 +18,7 @@ import { ptBR } from 'date-fns/locale';
 import ClienteSearchableSelect from '@/components/clientes/ClienteSearchableSelect';
 import ProdutoSearchableSelect from '@/components/produtos/ProdutoSearchableSelect';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { formatNumber } from '@/lib/utils';
+import { formatNumber, buildClienteSearchFilter } from '@/lib/utils';
 import MovimentacaoViewDialog from '@/components/estoque/MovimentacaoViewDialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { DatePicker } from '@/components/ui/date-picker';
@@ -102,7 +102,8 @@ const ListaMovimentacoesPage = () => {
 
     // Filtro por Cliente (Server-side)
     if (debouncedFilters.clientSearchTerm) {
-      query = query.or(`nome_fantasia.ilike.%${debouncedFilters.clientSearchTerm}%,razao_social.ilike.%${debouncedFilters.clientSearchTerm}%`, { foreignTable: 'clientes' });
+      const clientFilter = buildClienteSearchFilter(debouncedFilters.clientSearchTerm);
+      query = query.or(clientFilter, { foreignTable: 'clientes' });
     }
 
     // Filtro por Produto (Server-side)
@@ -163,7 +164,8 @@ const ListaMovimentacoesPage = () => {
     }
 
     if (debouncedFilters.clientSearchTerm) {
-      query = query.or(`nome_fantasia.ilike.%${debouncedFilters.clientSearchTerm}%,razao_social.ilike.%${debouncedFilters.clientSearchTerm}%`, { foreignTable: 'clientes' });
+      const clientFilter = buildClienteSearchFilter(debouncedFilters.clientSearchTerm);
+      query = query.or(clientFilter, { foreignTable: 'clientes' });
     }
 
     if (debouncedFilters.selectedProdutoId) {

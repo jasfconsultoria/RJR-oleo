@@ -40,7 +40,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useProfile } from '@/contexts/ProfileContext';
-import { formatCnpjCpf, cn } from '@/lib/utils';
+import { formatCnpjCpf, cn, matchesClienteSearch } from '@/lib/utils';
 import { format } from 'date-fns';
 import { logAction } from '@/lib/logger';
 import { Pagination } from '@/components/ui/pagination';
@@ -327,9 +327,7 @@ const useClientesList = (personType, profile) => {
             : cliente.municipio;
 
           return (
-            cliente.nome_fantasia?.toLowerCase()?.includes(term) ||
-            cliente.razao_social?.toLowerCase()?.includes(term) ||
-            cliente.cnpj_cpf?.includes(term) ||
+            matchesClienteSearch(cliente, debouncedSearchTerm) ||
             municipioNome?.toLowerCase()?.includes(term) ||
             cliente.estado?.toLowerCase()?.includes(term)
           );

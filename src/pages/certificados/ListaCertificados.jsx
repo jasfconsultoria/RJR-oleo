@@ -10,7 +10,7 @@ import CertificadosTable from '@/components/certificados/CertificadosTable';
 import { logAction } from '@/lib/logger';
 import { Pagination } from '@/components/ui/pagination';
 import { useDebounce } from '@/hooks/useDebounce';
-import { formatToISODate } from '@/lib/utils';
+import { formatToISODate, buildClienteSearchFilter } from '@/lib/utils';
 import { motion } from 'framer-motion';
 import { startOfMonth, endOfMonth, endOfDay } from 'date-fns';
 import CertificadoViewModal from '@/components/certificados/CertificadoViewModal';
@@ -82,10 +82,11 @@ const ListaCertificados = () => {
 
     let clientIds = [];
     if (debouncedFilters.clientSearchTerm) {
+      const clientFilter = buildClienteSearchFilter(debouncedFilters.clientSearchTerm);
       const { data: matchingClients, error: clientError } = await supabase
         .from('clientes')
         .select('id')
-        .or(`razao_social.ilike.%${debouncedFilters.clientSearchTerm}%,nome_fantasia.ilike.%${debouncedFilters.clientSearchTerm}%`);
+        .or(clientFilter);
       if (clientError) {
         console.error("Error fetching matching clients for certificates:", clientError);
         toast({ title: 'Erro ao buscar clientes para filtro', description: clientError.message, variant: 'destructive' });

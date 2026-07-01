@@ -83,7 +83,7 @@ const ColetasFilters = ({
               <Input
                 id="clientSearch"
                 type="search"
-                placeholder="Nome..."
+                placeholder="Nome ou CNPJ/CPF..."
                 value={clientSearchTerm || ''}
                 onChange={(e) => setClientSearchTerm(e.target.value)}
                 className="pl-10 w-full bg-white/20 border-white/30 text-white placeholder:text-white/60 text-sm"

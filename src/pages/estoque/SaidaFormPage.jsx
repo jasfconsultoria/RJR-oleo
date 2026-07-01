@@ -10,7 +10,7 @@ import { ArrowLeft, Save, ArrowUpSquare, Loader2, Info, User, Search, X } from '
 import { logAction } from '@/lib/logger';
 import MovimentacaoFormFields from '@/components/estoque/MovimentacaoFormFields';
 import ItensMovimentacaoTable from '@/components/estoque/ItensMovimentacaoTable';
-import { parseCurrency, formatCnpjCpf } from '@/lib/utils';
+import { parseCurrency, formatCnpjCpf, matchesClienteSearch } from '@/lib/utils';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useLocationData } from '@/hooks/useLocationData';
 import { useAutoSave } from '@/hooks/useAutoSave';
@@ -101,12 +101,7 @@ const SaidaFormPage = () => {
   // FILTRO: razao_social | nome_fantasia | cnpj (formatado)
   useEffect(() => {
     if (formData.cliente && formData.cliente.trim()) {
-      const searchTerm = formData.cliente.toLowerCase();
-      const filtered = allClients.filter(client =>
-        client.razao_social.toLowerCase().includes(searchTerm) ||
-        (client.nome_fantasia && client.nome_fantasia.toLowerCase().includes(searchTerm)) ||
-        (client.cnpj_cpf && formatCnpjCpf(client.cnpj_cpf).toLowerCase().includes(searchTerm))
-      );
+      const filtered = allClients.filter(client => matchesClienteSearch(client, formData.cliente));
       setFilteredClients(filtered);
     } else {
       setFilteredClients(allClients);

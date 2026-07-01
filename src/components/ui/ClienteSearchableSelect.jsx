@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2, X, Search } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
-import { formatCnpjCpf } from '@/lib/utils';
+import { formatCnpjCpf, matchesClienteSearch } from '@/lib/utils';
 import { motion } from 'framer-motion';
 import { useLocationData } from '@/hooks/useLocationData';
 
@@ -74,11 +74,7 @@ const ClienteSearchableSelect = ({
 
   const filteredClients = useMemo(() => {
     if (!searchTerm) return clients;
-    return clients.filter(client =>
-      client.razao_social.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (client.nome_fantasia && client.nome_fantasia.toLowerCase().includes(searchTerm.toLowerCase())) || // Search by nome_fantasia
-      (client.cnpj_cpf && formatCnpjCpf(client.cnpj_cpf).toLowerCase().includes(searchTerm.toLowerCase()))
-    );
+    return clients.filter(client => matchesClienteSearch(client, searchTerm));
   }, [clients, searchTerm]);
 
   const handleInputChange = (e) => {

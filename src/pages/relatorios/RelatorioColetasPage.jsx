@@ -12,7 +12,7 @@ import { useProfile } from '@/contexts/ProfileContext';
 import { format, subDays, endOfDay, parseISO, isValid, startOfMonth, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import * as XLSX from 'xlsx';
-import { formatCurrency, formatNumber, getZonedStartOfMonth, getZonedEndOfMonth, formatCnpjCpf } from '@/lib/utils';
+import { formatCurrency, formatNumber, getZonedStartOfMonth, getZonedEndOfMonth, formatCnpjCpf, matchesColetaClienteSearch } from '@/lib/utils';
 import { useDebounce } from '@/hooks/useDebounce';
 import { Input } from '@/components/ui/input';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
@@ -265,11 +265,9 @@ const RelatoriosPage = () => {
 
       // ✅ CORREÇÃO: Filtro por cliente no lado do cliente (client-side)
       if (currentFilters.clientSearchTerm) {
-        const searchTermLower = currentFilters.clientSearchTerm.toLowerCase();
-        filteredData = filteredData.filter(item => {
-          const fullClientName = getFullClientName(item).toLowerCase();
-          return fullClientName.includes(searchTermLower);
-        });
+        filteredData = filteredData.filter(item =>
+          matchesColetaClienteSearch(item, currentFilters.clientSearchTerm)
+        );
       }
 
       // Calcular totais do período completo
@@ -331,11 +329,9 @@ const RelatoriosPage = () => {
 
       // ✅ CORREÇÃO: Aplicar filtro por cliente ANTES da paginação
       if (currentFilters.clientSearchTerm) {
-        const searchTermLower = currentFilters.clientSearchTerm.toLowerCase();
-        filteredData = filteredData.filter(item => {
-          const fullClientName = getFullClientName(item).toLowerCase();
-          return fullClientName.includes(searchTermLower);
-        });
+        filteredData = filteredData.filter(item =>
+          matchesColetaClienteSearch(item, currentFilters.clientSearchTerm)
+        );
       }
 
       // ✅ CORREÇÃO: Contar o número real de registros após aplicar todos os filtros
@@ -426,8 +422,7 @@ const RelatoriosPage = () => {
     let allData = data || [];
 
     if (filters.clientSearchTerm) {
-      const searchTermLower = filters.clientSearchTerm.toLowerCase();
-      allData = allData.filter(item => getFullClientName(item).toLowerCase().includes(searchTermLower));
+      allData = allData.filter(item => matchesColetaClienteSearch(item, filters.clientSearchTerm));
     }
 
     return allData;

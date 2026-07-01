@@ -12,7 +12,7 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { useLocationData } from '@/hooks/useLocationData';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { IMaskInput } from 'react-imask';
-import { formatCnpjCpf, unmask, formatToISODate, parseCurrency, cn } from '@/lib/utils';
+import { formatCnpjCpf, unmask, formatToISODate, parseCurrency, cn, matchesClienteSearch } from '@/lib/utils';
 import { DatePicker } from '@/components/ui/date-picker';
 import { format, isValid, parseISO } from 'date-fns';
 import { formatInTimeZone, utcToZonedTime, toDate } from 'date-fns-tz';
@@ -176,28 +176,7 @@ export function ColetaStep1({ data, onNext, onUpdate, profile, empresaTimezone }
 
   useEffect(() => {
     if (data.cliente && data.cliente.trim() !== '') {
-      const rawTerm = data.cliente.toLowerCase();
-      const searchTerm = rawTerm.trim();
-      const cleanSearchTerm = unmask(searchTerm);
-      
-      // Função para remover acentos e normalizar texto
-      const normalize = (str) => 
-        str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() : "";
-      
-      const searchNormalized = normalize(searchTerm);
-
-      const filtered = allClients.filter((client) => {
-        const nome = normalize(client.nome_fantasia);
-        const razao = normalize(client.razao_social);
-        const cnpj = (client.cnpj_cpf || "").toLowerCase();
-        
-        const matchNome = nome.includes(searchNormalized);
-        const matchRazao = razao.includes(searchNormalized);
-        const matchCnpj = cnpj.includes(searchTerm);
-        const matchCleanCnpj = cleanSearchTerm !== '' && unmask(cnpj).includes(cleanSearchTerm);
-        
-        return matchNome || matchRazao || matchCnpj || matchCleanCnpj;
-      });
+      const filtered = allClients.filter((client) => matchesClienteSearch(client, data.cliente));
       
       console.log(`🔍 Filtrados ${filtered.length} de ${allClients.length} clientes para: "${data.cliente}"`);
       setFilteredClients(filtered);

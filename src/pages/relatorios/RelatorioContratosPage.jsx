@@ -13,7 +13,7 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { Input } from '@/components/ui/input';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { Pagination } from '@/components/ui/pagination';
-import { formatCnpjCpf } from '@/lib/utils';
+import { formatCnpjCpf, matchesClienteSearch } from '@/lib/utils';
 import { generateReportPdf, printPdfBlobUrl } from '@/lib/reportPdf';
 
 const RelatorioContratosPage = () => {
@@ -130,9 +130,7 @@ const RelatorioContratosPage = () => {
       const termo = debouncedFilters.searchTerm.toLowerCase();
       filtered = filtered.filter(item =>
         item.numero_contrato?.toLowerCase().includes(termo) ||
-        item.pessoa?.razao_social?.toLowerCase().includes(termo) ||
-        item.pessoa?.nome_fantasia?.toLowerCase().includes(termo) ||
-        item.pessoa?.cnpj_cpf?.toLowerCase().includes(termo)
+        matchesClienteSearch(item.pessoa, debouncedFilters.searchTerm)
       );
     }
 

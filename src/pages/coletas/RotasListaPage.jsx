@@ -21,6 +21,7 @@ import {
     ClipboardList
 } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
+import { matchesClienteSearch } from '@/lib/utils';
 import { useProfile } from '@/contexts/ProfileContext';
 import { useToast } from '@/components/ui/use-toast';
 import { useLocationData } from '@/hooks/useLocationData';
@@ -134,12 +135,8 @@ const RotasListaPage = () => {
 
             let filteredData = data || [];
             if (searchTerm) {
-                const term = searchTerm.toLowerCase();
                 filteredData = filteredData.filter(rota =>
-                    rota.itens.some(item =>
-                        item.cliente?.nome_fantasia?.toLowerCase().includes(term) ||
-                        item.cliente?.razao_social?.toLowerCase().includes(term)
-                    )
+                    rota.itens.some(item => matchesClienteSearch(item.cliente, searchTerm))
                 );
             }
 

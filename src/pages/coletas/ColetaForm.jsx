@@ -8,7 +8,7 @@ import { ColetaStep3 } from '@/components/coletas/ColetaStep3';
 import { toast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
-import { parseCurrency } from '@/lib/utils';
+import { parseCurrency, buildClienteSearchFilter, escapePostgrestLikePattern } from '@/lib/utils';
 import { format, isValid, parseISO } from 'date-fns';
 import { logAction } from '@/lib/logger';
 import { useAutoSave } from '@/hooks/useAutoSave';
@@ -35,12 +35,13 @@ const ClienteSearchableSelect = ({ value, onSelect, className }) => {
       setLoading(true);
       try {
         const escapedSearchTerm = escapePostgrestLikePattern(debouncedSearchTerm);
+        const clientFilter = buildClienteSearchFilter(debouncedSearchTerm);
 
         // ✅ BUSCA TODOS OS CLIENTES - SEM FILTRO DE USER_ID
         let query = supabase
           .from('clientes')
           .select('*')
-          .or(`nome_fantasia.ilike.%${escapedSearchTerm}%,razao_social.ilike.%${escapedSearchTerm}%,cnpj_cpf.ilike.%${escapedSearchTerm}%`)
+          .or(clientFilter || `nome_fantasia.ilike.%${escapedSearchTerm}%,razao_social.ilike.%${escapedSearchTerm}%`)
           .order('nome_fantasia')
           .limit(20);
 

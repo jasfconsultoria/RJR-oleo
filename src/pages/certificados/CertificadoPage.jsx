@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { ArrowLeft, Loader2, FileText, CheckCircle, User } from 'lucide-react';
 import { logAction } from '@/lib/logger';
-import { formatToISODate, formatCnpjCpf } from '@/lib/utils';
+import { formatToISODate, formatCnpjCpf, matchesClienteSearch, fetchAllRows } from '@/lib/utils';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { format, isValid, parseISO, endOfDay } from 'date-fns';
@@ -72,6 +72,7 @@ const CertificadoPage = () => {
   const [filteredClients, setFilteredClients] = useState([]);
   const [showClienteDropdown, setShowClienteDropdown] = useState(false);
   const [isClienteSelected, setIsClienteSelected] = useState(false);
+  const [loadingClients, setLoadingClients] = useState(false);
 
   const { 
     cliente_id, 
@@ -115,24 +116,44 @@ const CertificadoPage = () => {
     // No modo novo, o useAutoSave já carrega automaticamente
   }, [isEditMode, clearSavedData]);
 
-  // Buscar todos os clientes com contratos ativos - CORRIGIDO
+  // Buscar clientes que possuem coletas no período selecionado
   useEffect(() => {
-    const fetchAllClients = async () => {
+    const fetchClientsWithColetasInPeriod = async () => {
+      const inicio = processDateValue(periodoInicio, getFirstDayOfMonth);
+      const fim = processDateValue(periodoFim, getTodayDate);
+
+      if (!inicio || !fim || inicio > fim) {
+        setAllClients([]);
+        setFilteredClients([]);
+        return;
+      }
+
+      setLoadingClients(true);
+
       try {
-        const { data, error } = await supabase
-          .from('clientes')
-          .select('*, contratos(status)')
-          .order('razao_social', { ascending: true }); // CORRIGIDO: ordenar por razao_social
+        const startDateISO = formatToISODate(inicio);
+        const endDateWithTime = format(endOfDay(fim), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx");
 
-        if (error) throw error;
-
-        const activeClients = (data || []).filter(client => 
-          client.contratos && client.contratos.some(contract => contract.status === 'Ativo')
+        const coletasData = await fetchAllRows(() =>
+          supabase
+            .from('coletas')
+            .select('cliente_id, clientes(*)')
+            .gte('data_coleta', startDateISO)
+            .lte('data_coleta', endDateWithTime)
+            .not('cliente_id', 'is', null)
         );
 
-        let processedData = activeClients;
+        const clientsMap = new Map();
+        (coletasData || []).forEach((row) => {
+          if (row.cliente_id && row.clientes) {
+            clientsMap.set(row.cliente_id, row.clientes);
+          }
+        });
 
-        // Resolve city names if they are codes
+        let processedData = Array.from(clientsMap.values()).sort((a, b) =>
+          (a.razao_social || '').localeCompare(b.razao_social || '', 'pt-BR')
+        );
+
         const codes = [...new Set(processedData.map(c => c.municipio).filter(m => m && !isNaN(m)))];
         if (codes.length > 0) {
           const mapping = await fetchMunicipiosByCodes(codes);
@@ -146,32 +167,29 @@ const CertificadoPage = () => {
             municipio_nome: c.municipio
           }));
         }
-        
+
         setAllClients(processedData);
         setFilteredClients(processedData);
       } catch (error) {
-        toast({ 
-          title: 'Erro ao buscar clientes', 
-          description: error.message, 
-          variant: 'destructive' 
+        toast({
+          title: 'Erro ao buscar clientes',
+          description: error.message,
+          variant: 'destructive'
         });
         setAllClients([]);
         setFilteredClients([]);
+      } finally {
+        setLoadingClients(false);
       }
     };
-    
-    fetchAllClients();
-  }, [toast, fetchMunicipiosByCodes]);
+
+    fetchClientsWithColetasInPeriod();
+  }, [periodoInicio, periodoFim, toast, fetchMunicipiosByCodes, processDateValue]);
 
   // Filtrar clientes baseado no termo de busca - CORRIGIDO
   useEffect(() => {
     if (cliente && cliente.trim()) {
-      const searchTerm = cliente.toLowerCase();
-      const filtered = allClients.filter(client =>
-        (client.nome_fantasia && client.nome_fantasia.toLowerCase().includes(searchTerm)) ||
-        (client.razao_social && client.razao_social.toLowerCase().includes(searchTerm)) || // CORRIGIDO
-        (client.cnpj_cpf && formatCnpjCpf(client.cnpj_cpf).toLowerCase().includes(searchTerm))
-      );
+      const filtered = allClients.filter(client => matchesClienteSearch(client, cliente));
       setFilteredClients(filtered);
     } else {
       setFilteredClients(allClients);
@@ -576,104 +594,6 @@ const CertificadoPage = () => {
             </CardHeader>
 
             <CardContent className="p-4 md:p-6 space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Data de Emissão */}
-                <div className="md:col-span-2">
-                  <Label htmlFor="data_emissao" className="block mb-2">Data de Emissão *</Label>
-                  <Input
-                    type="date"
-                    id="data_emissao"
-                    value={data_emissao ? formatToISODate(data_emissao) : ''}
-                    onChange={(e) => {
-                      const dateString = e.target.value;
-                      const newDate = dateString ? parseISO(dateString) : new Date();
-                      setFormData(prev => ({ 
-                        ...prev, 
-                        data_emissao: isValid(newDate) ? newDate : new Date() 
-                      }));
-                    }}
-                    disabled={profile?.role !== 'administrador'}
-                    className="bg-white/5 border-white/20 text-white placeholder:text-white/60 rounded-xl"
-                  />
-                </div>
-                
-                {/* Seletor de Cliente - CORRIGIDO */}
-                <div className="md:col-span-2 space-y-2 relative">
-                  <Label htmlFor="cliente" className="text-white flex items-center gap-2">
-                    <User className="w-4 h-4 text-emerald-400" />
-                    Cliente (com contrato ativo) *
-                  </Label>
-                  <Input
-                    id="cliente"
-                    value={cliente}
-                    onChange={(e) => handleInputChange('cliente', e.target.value)}
-                    onFocus={() => setShowClienteDropdown(true)}
-                    onBlur={() => setTimeout(() => setShowClienteDropdown(false), 200)}
-                    placeholder="Digite para buscar..."
-                    className="bg-white/5 border-white/20 text-white placeholder:text-white/60 rounded-xl"
-                    autoComplete="off"
-                    required
-                  />
-                  
-                  {/* Dropdown de clientes - CORRIGIDO */}
-                  {showClienteDropdown && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="absolute z-10 w-full bg-white rounded-lg shadow-lg max-h-48 overflow-y-auto mt-1"
-                    >
-                      {filteredClients.length > 0 ? (
-                        filteredClients.map((client) => (
-                          <div
-                            key={client.id}
-                            onClick={() => handleClientSelect(client)}
-                            className="p-3 hover:bg-emerald-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-                          >
-                            <div className="font-medium text-gray-900">
-                              {/* CORRIGIDO: exibir Nome Fantasia - Razão Social */}
-                              {client.nome_fantasia && client.razao_social 
-                                ? `${client.nome_fantasia} - ${client.razao_social}`
-                                : client.nome_fantasia || client.razao_social}
-                            </div>
-                            <div className="text-sm text-gray-600">
-                              {formatCnpjCpf(client.cnpj_cpf)} - {client.municipio}/{client.estado}
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="p-3 text-center text-gray-500">
-                          {cliente ? 'Nenhum cliente encontrado.' : 'Nenhum cliente com contrato ativo encontrado.'}
-                        </div>
-                      )}
-                    </motion.div>
-                  )}
-                </div>
-                
-                {/* Dados do cliente selecionado */}
-                {cliente_id && (
-                  <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-white/5 rounded-lg">
-                    <div>
-                      <Label htmlFor="cnpj_cpf" className="text-emerald-300">CNPJ/CPF</Label>
-                      <Input
-                        id="cnpj_cpf"
-                        value={formatCnpjCpf(cnpj_cpf)}
-                        disabled
-                        className="bg-white/10 border-white/20 mt-1"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="telefone" className="text-emerald-300">Telefone</Label>
-                      <Input
-                        id="telefone"
-                        value={telefone}
-                        disabled
-                        className="bg-white/10 border-white/20 mt-1"
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-              
               {/* Período da Coleta */}
               <div className="border border-white/20 rounded-xl p-4">
                 <h3 className="text-lg font-semibold text-emerald-300 mb-4">Período da Coleta</h3>
@@ -713,6 +633,107 @@ const CertificadoPage = () => {
                     />
                   </div>
                 </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Data de Emissão */}
+                <div className="md:col-span-2">
+                  <Label htmlFor="data_emissao" className="block mb-2">Data de Emissão *</Label>
+                  <Input
+                    type="date"
+                    id="data_emissao"
+                    value={data_emissao ? formatToISODate(data_emissao) : ''}
+                    onChange={(e) => {
+                      const dateString = e.target.value;
+                      const newDate = dateString ? parseISO(dateString) : new Date();
+                      setFormData(prev => ({ 
+                        ...prev, 
+                        data_emissao: isValid(newDate) ? newDate : new Date() 
+                      }));
+                    }}
+                    disabled={profile?.role !== 'administrador'}
+                    className="bg-white/5 border-white/20 text-white placeholder:text-white/60 rounded-xl"
+                  />
+                </div>
+                
+                {/* Seletor de Cliente - CORRIGIDO */}
+                <div className="md:col-span-2 space-y-2 relative">
+                  <Label htmlFor="cliente" className="text-white flex items-center gap-2">
+                    <User className="w-4 h-4 text-emerald-400" />
+                    Cliente (com coletas no período) *
+                  </Label>
+                  <Input
+                    id="cliente"
+                    value={cliente}
+                    onChange={(e) => handleInputChange('cliente', e.target.value)}
+                    onFocus={() => setShowClienteDropdown(true)}
+                    onBlur={() => setTimeout(() => setShowClienteDropdown(false), 200)}
+                    placeholder={loadingClients ? 'Carregando clientes...' : 'Digite para buscar...'}
+                    className="bg-white/5 border-white/20 text-white placeholder:text-white/60 rounded-xl"
+                    autoComplete="off"
+                    disabled={loadingClients}
+                    required
+                  />
+                  
+                  {/* Dropdown de clientes - CORRIGIDO */}
+                  {showClienteDropdown && !loadingClients && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="absolute z-10 w-full bg-white rounded-lg shadow-lg max-h-48 overflow-y-auto mt-1"
+                    >
+                      {filteredClients.length > 0 ? (
+                        filteredClients.map((client) => (
+                          <div
+                            key={client.id}
+                            onClick={() => handleClientSelect(client)}
+                            className="p-3 hover:bg-emerald-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                          >
+                            <div className="font-medium text-gray-900">
+                              {/* CORRIGIDO: exibir Nome Fantasia - Razão Social */}
+                              {client.nome_fantasia && client.razao_social 
+                                ? `${client.nome_fantasia} - ${client.razao_social}`
+                                : client.nome_fantasia || client.razao_social}
+                            </div>
+                            <div className="text-sm text-gray-600">
+                              {formatCnpjCpf(client.cnpj_cpf)} - {client.municipio_nome || client.municipio}/{client.estado}
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="p-3 text-center text-gray-500">
+                          {cliente
+                            ? 'Nenhum cliente encontrado.'
+                            : 'Nenhum cliente com coletas no período selecionado.'}
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
+                </div>
+                
+                {/* Dados do cliente selecionado */}
+                {cliente_id && (
+                  <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-white/5 rounded-lg">
+                    <div>
+                      <Label htmlFor="cnpj_cpf" className="text-emerald-300">CNPJ/CPF</Label>
+                      <Input
+                        id="cnpj_cpf"
+                        value={formatCnpjCpf(cnpj_cpf)}
+                        disabled
+                        className="bg-white/10 border-white/20 mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="telefone" className="text-emerald-300">Telefone</Label>
+                      <Input
+                        id="telefone"
+                        value={telefone}
+                        disabled
+                        className="bg-white/10 border-white/20 mt-1"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             </CardContent>
 

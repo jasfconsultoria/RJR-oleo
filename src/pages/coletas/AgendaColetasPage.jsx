@@ -42,7 +42,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { format, isBefore, isToday, addDays, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { formatCnpjCpf } from '@/lib/utils';
+import { formatCnpjCpf, matchesClienteSearch } from '@/lib/utils';
 
 const AgendaColetasPage = () => {
     const navigate = useNavigate();
@@ -156,8 +156,7 @@ const AgendaColetasPage = () => {
         const now = new Date();
         return clientes.filter(c => {
             const matchesSearch =
-                c.razao_social?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                c.nome_fantasia?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                matchesClienteSearch(c, searchTerm) ||
                 c.endereco?.toLowerCase().includes(searchTerm.toLowerCase());
 
             if (!matchesSearch) return false;

@@ -14,7 +14,8 @@ import { logAction } from '@/lib/logger';
 import { Pagination } from '@/components/ui/pagination';
 import { useDebounce } from '@/hooks/useDebounce';
 import { ReciboViewDialog } from '@/components/coletas/ReciboViewDialog';
-import { escapePostgrestLikePattern, getZonedStartOfMonth, getZonedEndOfMonth } from '@/lib/utils';
+import { escapePostgrestLikePattern, getZonedStartOfMonth, getZonedEndOfMonth, buildClienteSearchFilter } from '@/lib/utils';
+
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -152,13 +153,11 @@ const ListaColetas = () => {
         if (isNumericSearch) {
           query = query.eq('numero_coleta', parseInt(searchTerm, 10));
         } else {
-          const escaped = escapePostgrestLikePattern(searchTerm);
-          query = query.or(`razao_social.ilike.%${escaped}%,nome_fantasia.ilike.%${escaped}%`);
+          query = query.or(buildClienteColetaSearchFilter(searchTerm));
         }
       } else {
         if (debouncedClientSearchTerm) {
-          const escaped = escapePostgrestLikePattern(debouncedClientSearchTerm);
-          query = query.or(`razao_social.ilike.%${escaped}%,nome_fantasia.ilike.%${escaped}%`);
+          query = query.or(buildClienteSearchFilter(debouncedClientSearchTerm, 'cliente_cnpj_cpf'));
         }
         if (debouncedStartDate) query = query.gte('data_coleta', debouncedStartDate);
         if (debouncedEndDate) {

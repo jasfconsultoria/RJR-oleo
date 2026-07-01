@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Pagination } from '@/components/ui/pagination';
 import { logAction } from '@/lib/logger';
-import { formatDateWithTimezone, escapePostgrestLikePattern, formatCnpjCpf } from '@/lib/utils';
+import { formatDateWithTimezone, escapePostgrestLikePattern, buildClienteSearchFilter, formatCnpjCpf } from '@/lib/utils';
 import ContratoViewModal from '@/components/contratos/ContratoViewModal';
 import { motion } from 'framer-motion';
 import AdminConfirmationDialog from '@/components/financeiro/AdminConfirmationDialog';
@@ -207,12 +207,10 @@ const ListaContratos = () => {
     if (filterById) {
       query = query.eq('cliente_id', filterById);
     } else if (debouncedClientSearchTerm) {
-      const escapedClientSearchTerm = escapePostgrestLikePattern(debouncedClientSearchTerm);
-
       let clientQuery = supabase
         .from('clientes')
         .select('id')
-        .or(`nome_fantasia.ilike.%${escapedClientSearchTerm}%,razao_social.ilike.%${escapedClientSearchTerm}%`);
+        .or(buildClienteSearchFilter(debouncedClientSearchTerm));
 
       if (userRole === 'coletor' && userId) {
         clientQuery = clientQuery.eq('user_id', userId);

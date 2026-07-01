@@ -26,8 +26,7 @@ import {
 } from "@/components/ui/dialog";
 import { useDebounce } from '@/hooks/useDebounce';
 import ClientesFilters from '@/components/clientes/ClientesFilters';
-import { formatCnpjCpf } from '@/lib/utils';
-import { cn } from '@/lib/utils';
+import { formatCnpjCpf, cn, matchesCnpjCpfSearch } from '@/lib/utils';
 import { useLocationData } from '@/hooks/useLocationData';
 
 // Componente Header com Ordenação
@@ -186,12 +185,11 @@ const RecipientesPage = () => {
       result = result.filter(c => {
         const razaoSocial = c.razao_social || '';
         const nomeFantasia = c.nome_fantasia || '';
-        const cnpjCpf = c.cnpj_cpf || '';
         const municipio = c.municipio_nome || '';
         const estado = c.estado || '';
         return razaoSocial.toLowerCase().includes(searchLower) || 
                nomeFantasia.toLowerCase().includes(searchLower) ||
-               cnpjCpf.toLowerCase().includes(searchLower) ||
+               matchesCnpjCpfSearch(c.cnpj_cpf, debouncedSearchTerm) ||
                municipio.toLowerCase().includes(searchLower) ||
                estado.toLowerCase().includes(searchLower);
       });

@@ -11,7 +11,7 @@ import { useProfile } from '@/contexts/ProfileContext';
 import { format, subDays, endOfDay, parseISO, isValid, startOfMonth, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import * as XLSX from 'xlsx';
-import { formatCurrency, formatNumber, formatDateWithTimezone, getZonedStartOfMonth, getZonedEndOfMonth, formatCnpjCpf } from '@/lib/utils';
+import { formatCurrency, formatNumber, formatDateWithTimezone, getZonedStartOfMonth, getZonedEndOfMonth, formatCnpjCpf, buildClienteSearchFilter, escapePostgrestLikePattern } from '@/lib/utils';
 import { useDebounce } from '@/hooks/useDebounce';
 import { Input } from '@/components/ui/input';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
@@ -141,18 +141,19 @@ const RelatorioFinanceiroPage = () => {
 
       // Aplicar filtro de busca por cliente
       if (debouncedFilters.clientSearchTerm) {
-        const searchTermLower = debouncedFilters.clientSearchTerm.toLowerCase();
-
+        const clientFilter = buildClienteSearchFilter(debouncedFilters.clientSearchTerm);
         const { data: matchingClients, error: clientsError } = await supabase
           .from('clientes')
           .select('id')
-          .or(`nome_fantasia.ilike.%${searchTermLower}%,razao_social.ilike.%${searchTermLower}%`);
+          .or(clientFilter);
 
         if (!clientsError && matchingClients && matchingClients.length > 0) {
           const matchingClientIds = matchingClients.map(client => client.id);
           query = query.in('pessoa_id', matchingClientIds);
         } else {
-          query = query.or(`descricao.ilike.%${searchTermLower}%,cnpj_cpf.ilike.%${searchTermLower}%`);
+          const digitsOnly = debouncedFilters.clientSearchTerm.replace(/\D/g, '');
+          const searchTerm = escapePostgrestLikePattern(digitsOnly || debouncedFilters.clientSearchTerm.toLowerCase());
+          query = query.or(`descricao.ilike.%${searchTerm}%,cnpj_cpf.ilike.%${searchTerm}%`);
         }
       }
 
@@ -260,18 +261,19 @@ const RelatorioFinanceiroPage = () => {
 
       // Aplicar filtro de busca por cliente
       if (debouncedFilters.clientSearchTerm) {
-        const searchTermLower = debouncedFilters.clientSearchTerm.toLowerCase();
-
+        const clientFilter = buildClienteSearchFilter(debouncedFilters.clientSearchTerm);
         const { data: matchingClients, error: clientsError } = await supabase
           .from('clientes')
           .select('id')
-          .or(`nome_fantasia.ilike.%${searchTermLower}%,razao_social.ilike.%${searchTermLower}%`);
+          .or(clientFilter);
 
         if (!clientsError && matchingClients && matchingClients.length > 0) {
           const matchingClientIds = matchingClients.map(client => client.id);
           query = query.in('pessoa_id', matchingClientIds);
         } else {
-          query = query.or(`descricao.ilike.%${searchTermLower}%,cnpj_cpf.ilike.%${searchTermLower}%`);
+          const digitsOnly = debouncedFilters.clientSearchTerm.replace(/\D/g, '');
+          const searchTerm = escapePostgrestLikePattern(digitsOnly || debouncedFilters.clientSearchTerm.toLowerCase());
+          query = query.or(`descricao.ilike.%${searchTerm}%,cnpj_cpf.ilike.%${searchTerm}%`);
         }
       }
 
@@ -411,17 +413,18 @@ const RelatorioFinanceiroPage = () => {
   const getFinancialSearchFilter = async () => {
     if (!debouncedFilters.clientSearchTerm) return null;
 
-    const searchTermLower = debouncedFilters.clientSearchTerm.toLowerCase();
+    const clientFilter = buildClienteSearchFilter(debouncedFilters.clientSearchTerm);
     const { data: matchingClients, error: clientsError } = await supabase
       .from('clientes')
       .select('id')
-      .or(`nome_fantasia.ilike.%${searchTermLower}%,razao_social.ilike.%${searchTermLower}%`);
+      .or(clientFilter);
 
     if (!clientsError && matchingClients && matchingClients.length > 0) {
       return { type: 'clients', ids: matchingClients.map(client => client.id) };
     }
 
-    return { type: 'text', term: searchTermLower };
+    const digitsOnly = debouncedFilters.clientSearchTerm.replace(/\D/g, '');
+    return { type: 'text', term: escapePostgrestLikePattern(digitsOnly || debouncedFilters.clientSearchTerm.toLowerCase()) };
   };
 
   const applyFinancialFilters = (baseQuery, searchFilter) => {

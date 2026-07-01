@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2, X, Search } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
-import { formatCnpjCpf, cn } from '@/lib/utils';
+import { formatCnpjCpf, cn, matchesCnpjCpfSearch } from '@/lib/utils';
 import { fetchAllRows } from '@/lib/supabaseFetchAll';
 import { motion } from 'framer-motion';
 import { useLocationData } from '@/hooks/useLocationData';
@@ -192,21 +192,14 @@ const ClienteSearchableSelect = ({
       const combined = `${nome} ${razao}`.trim();
 
       const docRaw = client.cnpj_cpf || '';
-      const docNumeric = docRaw.replace(/\D/g, '');
-      const docFormatted = formatCnpjCpf(docRaw).toLowerCase();
 
-      return words.every(word => {
-        const wordNumeric = word.replace(/\D/g, '');
-        return (
+      return words.every(word => (
           nome.includes(word) ||
           razao.includes(word) ||
           combined.includes(word) ||
-          docRaw.toLowerCase().includes(word) ||
-          docFormatted.includes(word) ||
-          (wordNumeric && docNumeric.includes(wordNumeric)) ||
-          (searchNumeric && docNumeric.includes(searchNumeric))
-        );
-      });
+          matchesCnpjCpfSearch(docRaw, word) ||
+          (searchNumeric && matchesCnpjCpfSearch(docRaw, internalSearchTerm))
+        ));
     });
   }, [clients, internalSearchTerm]);
 
